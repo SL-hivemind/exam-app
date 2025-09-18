@@ -30,7 +30,7 @@ export default function App() {
         <Box minHeight="100vh" display="flex" flexDirection="column">
           <Header />
           <Navbar /> {/* Ensure it uses useAuth for login/logout */}
-          <Container maxWidth="lg" sx={{ flex: 1, py: 3 }}>
+          <Container maxWidth={false} disableGutters sx={{ flex: 1 }}>
             <AppRoutes />
           </Container>
           <Footer />

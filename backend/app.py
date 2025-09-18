@@ -899,8 +899,7 @@ def admin_export_student_attempts(current_user):
         output = export_student_attempts_to_excel(exam_id)
         filename = f'exam_{exam_id}_attempts.xlsx' if exam_id else 'all_student_attempts.xlsx'
         logger.info(f"Export completed successfully, filename: {filename}")
-        return None
-        ##return send_file(output, as_attachment=True, download_name=filename, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        return send_file(output, as_attachment=True, download_name=filename, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     except Exception as e:
         import traceback
         logger.error(f"Export failed for exam_id {exam_id}: {str(e)}", exc_info=True)

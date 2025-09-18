@@ -8,7 +8,7 @@ export default function Navbar() {
   const navigate = useNavigate();
 
   return (
-    <AppBar position="static">
+    <AppBar position="sticky">
       <Toolbar>
         <Typography variant="h6" sx={{ flexGrow: 1 }}>
           SAARADAA LEARKNOWATIONS

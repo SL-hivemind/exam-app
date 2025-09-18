@@ -1,122 +1,140 @@
-import React, { useState, useEffect } from "react";
-import { useForm, Controller } from "react-hook-form";
-import {
-  Box,
-  Paper,
-  Typography,
-  TextField,
-  Button,
-  IconButton,
-  InputAdornment,
-  Alert,
-} from "@mui/material";
-import Visibility from "@mui/icons-material/Visibility";
-import VisibilityOff from "@mui/icons-material/VisibilityOff";
-import api from "../utils/api";
-import useAuth from "../hooks/useAuth";
-import { useLocation, useNavigate } from "react-router-dom";
+// src/components/Login.jsx
+import React, { useState } from 'react';
+import { 
+  Box, 
+  Paper, 
+  Typography, 
+  TextField, 
+  Button, 
+  Alert, 
+  IconButton, 
+  InputAdornment, 
+  Stack 
+} from '@mui/material';
+import Visibility from '@mui/icons-material/Visibility';
+import VisibilityOff from '@mui/icons-material/VisibilityOff';
+import { useNavigate, Link as RouterLink } from 'react-router-dom';
+import api from '../utils/api';
+import useAuth from '../hooks/useAuth';
 
 export default function Login() {
-  const { control, handleSubmit } = useForm({
-    defaultValues: { username: "", password: "" },
-  });
-  const [showPw, setShowPw] = useState(false);
-  const [error, setError] = useState("");
-  const { login, isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
+  const auth = useAuth();
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    if (isAuthenticated && user) {
-      let redirectTo = location.state?.from?.pathname || "/";
-      if (user.role === "student") {
-        redirectTo = "/dashboard/student";
-      } else if (user.role === "admin") {
-        redirectTo = "/dashboard/admin";
-      }
-      navigate(redirectTo, { replace: true });
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    if (!identifier || !password) {
+      setError('Username/Student ID and Password are required.');
+      return;
     }
-  }, [isAuthenticated, user, navigate, location]);
-
-  const onSubmit = async (form) => {
-    setError("");
+    setIsSubmitting(true);
     try {
-      const { data } = await api.post("/login", form);
-      if (!data.user || !data.auth_token) {
-        throw new Error("Invalid response from server");
+      const response = await api.post('/login', {
+        username: identifier, // 'username' is the key expected by the backend
+        password: password,
+      });
+      // The login function from AuthContext handles saving the token and user data
+      auth.login(response.data.user, response.data.auth_token);
+
+      // Redirect based on user role
+      if (response.data.user.role === 'admin') {
+        navigate('/dashboard/admin');
+      } else {
+        navigate('/dashboard/student');
       }
-      login(data.user, data.auth_token);
-    } catch (e) {
-      setError(e?.response?.data?.message || "Login failed. Check your credentials.");
+    } catch (err) {
+      setError(err.response?.data?.message || 'Login failed. Please check your credentials.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
-    <Box display="flex" alignItems="center" justifyContent="center" minHeight="70vh">
-      <Paper sx={{ p: 4, width: "100%", maxWidth: 420 }}>
-        <Typography variant="h5" fontWeight={700} gutterBottom>
-          Sign in
+    <Box
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: 'calc(100vh - 200px)', // Adjust height to fit within layout
+        width: '100%',
+        backgroundImage: 'url(/background.jpg)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }}
+    >
+      <Paper
+        component="form"
+        onSubmit={handleSubmit}
+        sx={{
+          p: 4,
+          width: '100%',
+          maxWidth: '450px',
+          backgroundColor: 'rgba(255, 255, 255, 1)',
+          backdropFilter: 'blur(10px)',
+          borderRadius: 3,
+          border: '1px solid rgba(255, 255, 255, 0.2)',
+        }}
+      >
+        <Typography variant="h4" fontWeight={700} gutterBottom textAlign="center">
+          Student Login
         </Typography>
+        
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-        <Box component="form" onSubmit={handleSubmit(onSubmit)} noValidate>
-          <Controller
-            name="username"
-            control={control}
-            rules={{ required: "Username is required" }}
-            render={({ field, fieldState }) => (
-              <TextField
-                {...field}
-                label="Username / Student ID"
-                fullWidth
-                margin="normal"
-                autoComplete="username"
-                error={!!fieldState.error}
-                helperText={fieldState.error?.message}
-              />
-            )}
-          />
-          <Controller
-            name="password"
-            control={control}
-            rules={{ required: "Password is required" }}
-            render={({ field, fieldState }) => (
-              <TextField
-                {...field}
-                label="Password"
-                type={showPw ? "text" : "password"}
-                fullWidth
-                margin="normal"
-                autoComplete="current-password"
-                error={!!fieldState.error}
-                helperText={fieldState.error?.message}
-                InputProps={{
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton onClick={() => setShowPw((s) => !s)} edge="end">
-                        {showPw ? <VisibilityOff /> : <Visibility />}
-                      </IconButton>
-                    </InputAdornment>
-                  ),
-                }}
-              />
-            )}
-          />
-          <Button type="submit" variant="contained" fullWidth sx={{ mt: 2 }}>
-            Login
-          </Button>
-          <Box sx={{ mt: 2, textAlign: "center" }}>
-            <Typography variant="body2" color="text.secondary">
-              Don't have an account?{" "}
-              <Button
-                variant="text"
-                onClick={() => navigate("/register")}
-                sx={{ p: 0, minWidth: "auto", textTransform: "none" }}
-              >
-                Register as Student
-              </Button>
-            </Typography>
-          </Box>
-        </Box>
+        
+        <TextField
+          label="Username or Student ID"
+          fullWidth
+          margin="normal"
+          value={identifier}
+          onChange={(e) => setIdentifier(e.target.value)}
+          required
+        />
+        <TextField
+          label="Password"
+          type={showPassword ? 'text' : 'password'}
+          fullWidth
+          margin="normal"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+          InputProps={{
+            endAdornment: (
+              <InputAdornment position="end">
+                <IconButton
+                  onClick={() => setShowPassword(!showPassword)}
+                  edge="end"
+                >
+                  {showPassword ? <VisibilityOff /> : <Visibility />}
+                </IconButton>
+              </InputAdornment>
+            ),
+          }}
+        />
+        <Button
+          type="submit"
+          variant="contained"
+          size="large"
+          fullWidth
+          disabled={isSubmitting}
+          sx={{ mt: 2, mb: 2 }}
+        >
+          {isSubmitting ? 'Logging In...' : 'Login'}
+        </Button>
+
+        <Stack direction="row" justifyContent="center" alignItems="center">
+          <Typography variant="body2">
+            Don't have an account?{' '}
+            <RouterLink to="/register">
+              Register here
+            </RouterLink>
+          </Typography>
+        </Stack>
       </Paper>
     </Box>
   );
