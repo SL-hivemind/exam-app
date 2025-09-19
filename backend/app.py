@@ -32,6 +32,7 @@ app = Flask(__name__)
 DB_USER = os.getenv("DB_USER")
 DB_PASSWORD = os.getenv("DB_PASSWORD")
 DB_HOST = os.getenv("DB_HOST")
+DB_PORT = os.getenv("DB_PORT", "3306")
 DB_NAME = os.getenv("DB_NAME")
 
 if not all([DB_USER, DB_PASSWORD, DB_HOST, DB_NAME]):
@@ -48,7 +49,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 logger.info(f"DB_USER: {DB_USER}")
-logger.info(f"DB_PASSWORD: {DB_PASSWORD}")
+logger.info(f"DB_PASSWORD: {'*' * 8} (hidden)")
 logger.info(f"DB_HOST: {DB_HOST}")
 logger.info(f"DB_NAME: {DB_NAME}")
 

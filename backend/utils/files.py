@@ -1,6 +1,7 @@
 import os
 import csv
 import secrets
+import boto3
 from flask import Blueprint, request, jsonify
 from werkzeug.utils import secure_filename
 from sqlalchemy.exc import IntegrityError
@@ -9,6 +10,13 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment
 
 files_bp = Blueprint("files", __name__)
+
+S3_BUCKET = os.getenv('S3_BUCKET_NAME')
+AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
+AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
+AWS_REGION = os.getenv('AWS_REGION')
+
+s3 = boto3.client('s3', region_name=AWS_REGION)
 
 
 # Directories for uploads
@@ -31,10 +39,20 @@ def save_image_file(file_storage, prefix="img"):
     """Save uploaded image to uploads/images and return the saved filename."""
     filename = secure_filename(file_storage.filename)
     ext = filename.rsplit(".", 1)[1].lower()
-    name = f"{prefix}_{secrets.token_hex(8)}.{ext}"
-    path = os.path.join(IMAGES_DIR, name)
-    file_storage.save(path)
-    return name
+    unique_filename = f"{prefix}_{secrets.token_hex(8)}.{ext}"
+
+    try:
+        s3.upload_fileobj(
+            file_storage,
+            S3_BUCKET,
+            unique_filename,
+            ExtraArgs={"ACL": "public-read", "ContentType": file_storage.content_type}
+        )
+        url = f"https://{S3_BUCKET}.s3.{AWS_REGION}.amazonaws.com/{unique_filename}"
+        return url
+    except Exception as e:
+        print(f"S3 Upload Error: {e}")
+        return None
 
 
 def save_csv_file(file_storage):
