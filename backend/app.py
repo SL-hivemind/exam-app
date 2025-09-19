@@ -22,18 +22,11 @@ from utils.files import (
 )
 
 # ----- Load environment -----
-# Always load .env explicitly so it works with gunicorn
 BASE_DIR = os.path.dirname(__file__)
 load_dotenv(dotenv_path=os.path.join(BASE_DIR, ".env"))
 
 # ----- App init -----
 app = Flask(__name__)
-# In app.py, after loading environment variables
-logging.Logger.info(f"DB_USER: {DB_USER}")
-logging.Logger.info(f"DB_PASSWORD: {DB_PASSWORD}")
-logging.Logger.info(f"DB_HOST: {DB_HOST}")
-logging.Logger.info(f"DB_NAME: {DB_NAME}")
-
 
 # Database config built directly from env (no hardcoding)
 DB_USER = os.getenv("DB_USER")
@@ -49,6 +42,15 @@ app.config["SQLALCHEMY_DATABASE_URI"] = (
 )
 app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "super-secret")
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", secrets.token_hex(16))
+
+# ----- Logging -----
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+logger.info(f"DB_USER: {DB_USER}")
+logger.info(f"DB_PASSWORD: {DB_PASSWORD}")
+logger.info(f"DB_HOST: {DB_HOST}")
+logger.info(f"DB_NAME: {DB_NAME}")
 
 # Init extensions
 db.init_app(app)
