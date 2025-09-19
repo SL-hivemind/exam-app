@@ -118,7 +118,7 @@ def admin_required(f):
 
 # ----- DB init -----
 
-@app.before_first_request
+@app.before_serving
 def initialize_database():
     with app.app_context():
         try:
