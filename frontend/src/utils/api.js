@@ -2,7 +2,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'http://127.0.0.1:5000', // Your backend URL
+  baseURL: 'https://sl-exams.onrender.com', // Your backend URL
   headers: {
     'Content-Type': 'application/json',
   },

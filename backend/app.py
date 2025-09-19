@@ -55,10 +55,14 @@ logger.info(f"DB_NAME: {DB_NAME}")
 # Init extensions
 db.init_app(app)
 bcrypt.init_app(app)
+# In app.py
 CORS(
-    app,
-    resources={r"/*": {"origins": ["http://localhost:3000", "http://127.0.0.1:3000"]}},
-    supports_credentials=True,
+  app,
+  resources={r"/*": {"origins": [
+      "http://localhost:3000", 
+      "https://sl-exam.onrender.com"  # 👈 Add this line
+  ]}},
+  supports_credentials=True,
 )
 
 # File paths
