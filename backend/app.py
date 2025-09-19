@@ -116,19 +116,19 @@ def admin_required(f):
         return f(current_user, *args, **kwargs)
     return wrapper
 
-# ----- DB init -----
+# ----- DB Initialization -----
+with app.app_context():
+    try:
+        db.create_all()
+        logger.info("Database tables ensured.")
+    except Exception as e:
+        logger.error(f"Database init failed: {e}")
 
-@app.before_serving
-def initialize_database():
-    with app.app_context():
-        try:
-            db.create_all()
-            logger.info("Database tables ensured.")
-        except Exception as e:
-            logger.error(f"Database init failed: {e}")
+# ----- Health check route -----
 @app.route("/health")
 def health():
     return jsonify({"status": "ok"})
+
 
 
 # ----- Auth routes -----
