@@ -438,11 +438,9 @@ export default function AdminExams() {
             label="Access Start (Your Local Time)"
             value={currentExam.access_start ? new Date(currentExam.access_start) : null}
             onChange={(newValue) => {
-              // The component gives a local time Date object.
-              // .toISOString() converts it to a UTC string for the backend.
               setCurrentExam({ ...currentExam, access_start: newValue ? newValue.toISOString() : '' });
             }}
-            minDateTime={new Date()} // Disables selecting past dates/times
+            minDateTime={new Date()}
             sx={{ width: '100%', mt: 2 }}
           />
           <DateTimePicker
@@ -451,7 +449,7 @@ export default function AdminExams() {
             onChange={(newValue) => {
               setCurrentExam({ ...currentExam, access_end: newValue ? newValue.toISOString() : '' });
             }}
-            minDateTime={new Date()} // Disables selecting past dates/times
+            minDateTime={new Date()}
             sx={{ width: '100%', mt: 2 }}
           />
           <TextField
