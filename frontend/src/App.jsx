@@ -7,6 +7,8 @@ import {
   Container,
   Box,
 } from '@mui/material';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import Header from './components/Header';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -24,6 +26,7 @@ const theme = createTheme({
 
 export default function App() {
   return (
+    <LocalizationProvider dateAdapter={AdapterDateFns}>
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <AuthProvider>
@@ -37,5 +40,6 @@ export default function App() {
         </Box>
       </AuthProvider>
     </ThemeProvider>
+    </LocalizationProvider>
   );
 }

@@ -26,6 +26,7 @@ import {
   Chip,
   FormControlLabel,
 } from '@mui/material';
+import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
@@ -433,23 +434,25 @@ export default function AdminExams() {
             value={currentExam.description}
             onChange={handleChange}
           />
-          <TextField
-            label="Access Start (ISO format)"
-            name="access_start"
-            fullWidth
-            margin="normal"
-            value={currentExam.access_start}
-            onChange={handleChange}
-            placeholder="e.g., 2025-08-26T14:30:00"
+          <DateTimePicker
+            label="Access Start (Your Local Time)"
+            value={currentExam.access_start ? new Date(currentExam.access_start) : null}
+            onChange={(newValue) => {
+              // The component gives a local time Date object.
+              // .toISOString() converts it to a UTC string for the backend.
+              setCurrentExam({ ...currentExam, access_start: newValue ? newValue.toISOString() : '' });
+            }}
+            minDateTime={new Date()} // Disables selecting past dates/times
+            sx={{ width: '100%', mt: 2 }}
           />
-          <TextField
-            label="Access End (ISO format)"
-            name="access_end"
-            fullWidth
-            margin="normal"
-            value={currentExam.access_end}
-            onChange={handleChange}
-            placeholder="e.g., 2025-08-26T16:30:00"
+          <DateTimePicker
+            label="Access End (Your Local Time)"
+            value={currentExam.access_end ? new Date(currentExam.access_end) : null}
+            onChange={(newValue) => {
+              setCurrentExam({ ...currentExam, access_end: newValue ? newValue.toISOString() : '' });
+            }}
+            minDateTime={new Date()} // Disables selecting past dates/times
+            sx={{ width: '100%', mt: 2 }}
           />
           <TextField
             label="Duration (minutes)"
