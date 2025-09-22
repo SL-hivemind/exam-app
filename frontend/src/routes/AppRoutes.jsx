@@ -12,6 +12,7 @@ import AdminDashboard from '../components/admin/AdminDashboard';
 import AdminSchools from '../components/admin/AdminSchools';
 import AdminExams from '../components/admin/AdminExams';
 import ProtectedRoute from './ProtectedRoute';
+import PublicOnlyRoute from './PublicOnlyRoute';
 
 function StudentExamPageWrapper() {
   const { examId } = useParams();
@@ -22,8 +23,8 @@ export default function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<Home />} />
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<RegisterStudent />} />
+      <Route path="/login" element={<PublicOnlyRoute><Login /></PublicOnlyRoute>} />
+      <Route path="/register" element={<PublicOnlyRoute><RegisterStudent /></PublicOnlyRoute>} />
       <Route
         path="/dashboard/student"
         element={
