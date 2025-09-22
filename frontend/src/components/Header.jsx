@@ -6,7 +6,7 @@ export default function Header() {
     <AppBar position="sticky" elevation={0}>
       <Toolbar>
         <img
-          src="/LOGO.png"
+          src="/sllogo.png"
           alt="Logo"
           style={{ width: '60px', height: '60px', marginRight: '16px', backgroundColor: 'white', padding: '5px' }}
         />
