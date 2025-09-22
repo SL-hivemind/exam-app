@@ -69,10 +69,8 @@ CORS(
 
 # File paths
 UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
-IMAGES_FOLDER = IMAGES_DIR
 CSV_FOLDER = CSV_DIR
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-os.makedirs(IMAGES_FOLDER, exist_ok=True)
 os.makedirs(CSV_FOLDER, exist_ok=True)
 
 # Logging
@@ -883,19 +881,15 @@ def admin_upload_image(current_user):
         return jsonify({"message": "No selected file"}), 400
 
     if file and allowed_file(file.filename, ALLOWED_IMG):
-        saved_name = save_image_file(file)
-        return jsonify({
-            "message": "Image uploaded successfully",
-            "filename": saved_name,
-            "path": saved_name,
-            "url": f"/uploads/images/{saved_name}"
-        }), 201
+        saved_url = save_image_file(file)
+        if saved_url:
+            return jsonify({
+                "message": "Image uploaded successfully",
+                "url": saved_url
+            }), 201
+        else:
+            return jsonify({"message": "Image upload to S3 failed"}), 500
     return jsonify({"message": "Invalid image type"}), 400
-
-# ----- Serve images -----
-@app.route('/uploads/images/<path:filename>', methods=['GET'])
-def serve_image(filename):
-    return send_from_directory(IMAGES_FOLDER, filename, as_attachment=False)
 
 # ----- Admin: Export student attempts -----
 @app.route('/admin/export_student_attempts', methods=['GET'])
