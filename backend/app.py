@@ -8,6 +8,7 @@ from flask import Flask, request, jsonify, send_from_directory, send_file
 from flask_cors import CORS
 from dotenv import load_dotenv
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy import desc
 
 import jwt
 
@@ -651,7 +652,7 @@ def student_list_exams(current_user):
     if not student:
         return jsonify({'message':'student profile not found'}), 400
 
-    assigned = ExamStudent.query.filter_by(student_id=student.user_id).join(Exam).all()
+    assigned = ExamStudent.query.filter_by(student_id=student.user_id).join(Exam).order_by(desc(Exam.id)).all()
     exams = []
     for a in assigned:
         e = a.exam
