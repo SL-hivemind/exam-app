@@ -51,8 +51,8 @@ def save_image_file(file_storage, prefix="img"):
             file_storage,
             S3_BUCKET,
             unique_filename,
-            ExtraArgs={"ACL": "public-read", "ContentType": file_storage.content_type}
-        )
+            ExtraArgs={"ContentType": file_storage.content_type}
+            )
         url = f"https://{S3_BUCKET}.s3.{AWS_REGION}.amazonaws.com/{unique_filename}"
         return url
     except Exception as e:
