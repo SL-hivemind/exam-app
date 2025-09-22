@@ -36,10 +36,15 @@ def allowed_file(filename, allowed_set):
 
 
 def save_image_file(file_storage, prefix="img"):
-    """Save uploaded image to uploads/images and return the saved filename."""
+    """Save uploaded image to S3 and return the public URL."""
+    if not S3_BUCKET:
+        print("Error: S3_BUCKET_NAME environment variable not set.")
+        return None
+
     filename = secure_filename(file_storage.filename)
     ext = filename.rsplit(".", 1)[1].lower()
-    unique_filename = f"{prefix}_{secrets.token_hex(8)}.{ext}"
+    # FIX: Add "images/" prefix for better organization
+    unique_filename = f"images/{prefix}_{secrets.token_hex(10)}.{ext}"
 
     try:
         s3.upload_fileobj(
@@ -73,12 +78,14 @@ def upload_image():
         return jsonify({"message": "No selected file"}), 400
 
     if file and allowed_file(file.filename, ALLOWED_IMG):
-        saved_name = save_image_file(file)
-        return jsonify({
-            "message": "Image uploaded successfully",
-            "filename": saved_name,
-            "url": f"/uploads/images/{saved_name}"
-        }), 201
+       saved_url = save_image_file(file)
+       if saved_url:
+            return jsonify({
+                "message": "Image uploaded successfully",
+                "url": saved_url 
+            }), 201
+       else:
+            return jsonify({"message": "Image upload to S3 failed"}), 500
     return jsonify({"message": "Invalid image type"}), 400
 
 
