@@ -33,6 +33,10 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import UploadIcon from '@mui/icons-material/Upload';
 import DownloadIcon from '@mui/icons-material/Download';
+import AssignmentIcon from '@mui/icons-material/Assignment';
+import QuestionAnswerIcon from '@mui/icons-material/QuestionAnswer';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import api from '../../utils/api';
 import api from '../../utils/api';
 import useAuth from '../../hooks/useAuth';
 
@@ -67,6 +71,9 @@ export default function AdminExams() {
     image_path: ''
   });
   const [selectedExamId, setSelectedExamId] = useState(null);
+  const [questions, setQuestions] = useState([]);
+  const [assignedStudents, setAssignedStudents] = useState([]);
+  const [imageFile, setImageFile] = useState(null);
   const [openAssignmentDialog, setOpenAssignmentDialog] = useState(false);
   const [assignmentFilters, setAssignmentFilters] = useState({
     assign_all: false,
@@ -75,7 +82,11 @@ export default function AdminExams() {
     roll_number: '',
     student_ids: ''
   });
-  const [imageFile, setImageFile] = useState(null);
+  const [isEditQuestion, setIsEditQuestion] = useState(false);
+  const [questionsDialogOpen, setQuestionsDialogOpen] = useState(false);
+  const [questionFormOpen, setQuestionFormOpen] = useState(false);
+  const [assignmentsDialogOpen, setAssignmentsDialogOpen] = useState(false);
+  const [assignmentTab, setAssignmentTab] = useState(0);
 
   useEffect(() => {
     fetchExams();
@@ -580,6 +591,9 @@ export default function AdminExams() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setQuestionFormOpen(false)}>Cancel</Button>
+          <Button disabled={!currentQuestion.text}>
+            {isEditQuestion ? 'Save Changes' : 'Add Question'}
+          </Button>
           <Button
             onClick={handleSaveQuestion}
             variant="contained"
