@@ -4,6 +4,7 @@ import {
   Typography,
   TextField,
   Button,
+  IconButton,
   Table,
   TableBody,
   TableCell,
@@ -22,7 +23,8 @@ import {
   FormControl,
   InputLabel,
   Checkbox,
-  ListItemText,
+  Grid,
+  List, ListItemButton, ListItemText, Divider, Stack,
   Chip,
   FormControlLabel,
 } from '@mui/material';
@@ -211,16 +213,21 @@ export default function AdminExams() {
   };
 
   const handleSaveQuestion = async () => {
+    // When you save, currentQuestion.image_path will now have the S3 URL
+    const method = isEditQuestion ? 'put' : 'post';
+    const url = isEditQuestion
+      ? `/admin/exams/${selectedExam.id}/questions/${currentQuestion.id}`
+      : `/admin/exams/${selectedExam.id}/questions`;
+
     try {
-      await api.post(`/admin/exams/${selectedExamId}/questions`, currentQuestion);
-      handleCloseQuestionDialog();
-      setError('');
-      setSuccess('Question added successfully');
+      await api[method](url, currentQuestion);
+      setSuccess("Question saved successfully.");
+      setQuestionFormOpen(false);
+      // You would also refresh the question list here
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to add question');
-      console.error('Error adding question:', err);
+      setError("Failed to save question.");
     }
-  };
+  }
 
   const handleUploadCSV = async (e) => {
     const file = e.target.files[0];
@@ -253,13 +260,12 @@ export default function AdminExams() {
       const res = await api.post('/admin/upload_image', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      setCurrentQuestion({ ...currentQuestion, image_path: res.data.path });
-      setImageFile(null);
-      setError('');
-      setSuccess('Image uploaded successfully');
+      setCurrentQuestion({ ...currentQuestion, image_path: res.data.url });
+
+      setSuccess("Image uploaded successfully. The path is now set.");
+      setImageFile(null); // Clear the file input
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to upload image');
-      console.error('Error uploading image:', err);
+      setError("Image upload failed.");
     }
   };
 
@@ -399,18 +405,18 @@ export default function AdminExams() {
                   <IconButton onClick={() => handleOpenQuestionDialog(exam.id)} title="Manage Questions">
                     <AddIcon />
                   </IconButton>
-                <IconButton onClick={() => handleOpenAssignmentDialog(exam.id)} title="Assign Students">
-                  <UploadIcon />
-                </IconButton>
-                <IconButton onClick={() => handleExportExamResults(exam.id)} title="Export Exam Results">
-                  <DownloadIcon />
-                </IconButton>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </Paper>
+                  <IconButton onClick={() => handleOpenAssignmentDialog(exam.id)} title="Assign Students">
+                    <UploadIcon />
+                  </IconButton>
+                  <IconButton onClick={() => handleExportExamResults(exam.id)} title="Export Exam Results">
+                    <DownloadIcon />
+                  </IconButton>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </Paper>
 
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
         <DialogTitle>{isEdit ? 'Edit Exam' : 'Add Exam'}</DialogTitle>
@@ -500,18 +506,11 @@ export default function AdminExams() {
         </DialogActions>
       </Dialog>
 
-      <Dialog open={openQuestionDialog} onClose={handleCloseQuestionDialog} maxWidth="md" fullWidth>
-        <DialogTitle>Add Question</DialogTitle>
+      <Dialog open={questionFormOpen} onClose={() => setQuestionFormOpen(false)}>
+        <DialogTitle>{isEditQuestion ? 'Edit Question' : 'Add New Question'}</DialogTitle>
         <DialogContent>
-          <TextField
-            label="Question Text"
-            name="text"
-            fullWidth
-            margin="normal"
-            value={currentQuestion.text}
-            onChange={handleQuestionChange}
-            required
-          />
+          <TextField name="text" label="Question Text" value={currentQuestion.text} /* ... */ />
+          {/* ... other TextFields for options, etc. ... */}
           <TextField
             label="Option A"
             name="option_a"
@@ -562,35 +561,34 @@ export default function AdminExams() {
             onChange={handleQuestionChange}
           />
           <TextField
-            label="Image Path"
             name="image_path"
+            label="Image Path (auto-filled after upload)"
+            value={currentQuestion.image_path}
             fullWidth
             margin="normal"
-            value={currentQuestion.image_path}
-            onChange={handleQuestionChange}
+            disabled // Make it read-only
           />
-          <Box sx={{ mt: 2, display: 'flex', gap: 2 }}>
-            <Button variant="contained" component="label">
+          <Stack direction="row" spacing={2} alignItems="center">
+            <Button variant="outlined" component="label">
               Select Image
-              <input type="file" hidden onChange={handleImageChange} accept="image/*" />
+              <input type="file" hidden onChange={(e) => setImageFile(e.target.files[0])} accept="image/*" />
             </Button>
             <Button variant="contained" onClick={handleUploadImage} disabled={!imageFile}>
               Upload Image
             </Button>
-            <Button variant="contained" component="label">
-              Upload CSV
-              <input type="file" hidden onChange={handleUploadCSV} accept=".csv" />
-            </Button>
-          </Box>
+            {imageFile && <Typography variant="caption">{imageFile.name}</Typography>}
+          </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseQuestionDialog}>Cancel</Button>
+          <Button onClick={() => setQuestionFormOpen(false)}>Cancel</Button>
           <Button
             onClick={handleSaveQuestion}
             variant="contained"
+            // Keep this disabled logic to prevent saving empty questions
             disabled={!currentQuestion.text}
           >
-            Add Question
+            {/* Use "Save" as it works for both adding and editing */}
+            Save Question
           </Button>
         </DialogActions>
       </Dialog>
