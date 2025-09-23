@@ -70,6 +70,7 @@ export default function AdminExams() {
     image_path: ''
   });
   const [selectedExamId, setSelectedExamId] = useState(null);
+  const [selectedExam, setSelectedExam] = useState(null);
   const [questions, setQuestions] = useState([]);
   const [assignedStudents, setAssignedStudents] = useState([]);
   const [imageFile, setImageFile] = useState(null);
