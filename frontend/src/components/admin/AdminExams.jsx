@@ -187,6 +187,13 @@ export default function AdminExams() {
     }
   };
 
+  const handleOpenEditExam = (exam) => {
+    // If an exam object is passed, we're editing.
+    // If not, we're creating a new one, so use the initial empty state.
+    setCurrentExam(exam || initialExamState);
+    handleOpenDialog('editExam');
+  };
+
   return (
     <Box>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
