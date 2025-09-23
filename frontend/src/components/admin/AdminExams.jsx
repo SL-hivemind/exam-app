@@ -4,7 +4,7 @@ import {
   List, ListItemButton, ListItemText, Divider, Stack, Dialog,
   DialogActions, DialogContent, DialogTitle, TextField, Table,
   TableBody, TableCell, TableHead, TableRow, Tabs, Tab, Checkbox,
-  FormControlLabel, FormControl, InputLabel, Select, MenuItem, ListItemIcon
+  FormControlLabel, FormControl, InputLabel, Select, MenuItem, ListItemIcon, UploadIcon
 } from '@mui/material';
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import EditIcon from '@mui/icons-material/Edit';
