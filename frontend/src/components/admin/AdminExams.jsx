@@ -4,7 +4,7 @@ import {
   List, ListItemButton, ListItemText, Divider, Stack, Dialog,
   DialogActions, DialogContent, DialogTitle, TextField, Table,
   TableBody, TableCell, TableHead, TableRow, Tabs, Tab, Checkbox,
-  FormControlLabel, FormControl, InputLabel, Select, MenuItem
+  FormControlLabel, FormControl, InputLabel, Select, MenuItem, ListItemIcon
 } from '@mui/material';
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import EditIcon from '@mui/icons-material/Edit';
@@ -223,6 +223,24 @@ export default function AdminExams() {
     }
   };
 
+  const handleUploadCSV = async (e) => {
+    const file = e.target.files[0];
+    if (!file || !selectedExam) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      // The backend route for POST /questions already handles multipart/form-data
+      await api.post(`/admin/exams/${selectedExam.id}/questions`, formData);
+      setSuccess('Questions imported from CSV successfully!');
+      fetchQuestions(selectedExam.id); // Refresh the question list
+      handleCloseDialog();
+    } catch (err) {
+      setError('CSV import failed. Please check the file format.');
+    }
+  };
+
   return (
     <Box>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
@@ -287,7 +305,16 @@ export default function AdminExams() {
       <Dialog open={dialog.name === 'manageQuestions'} onClose={handleCloseDialog} fullWidth maxWidth="lg">
         <DialogTitle>Manage Questions for: {dialog.data?.title}</DialogTitle>
         <DialogContent>
-          <Button sx={{ mb: 2 }} variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenEditQuestion()}>Add New Question</Button>
+           <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
+            <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenEditQuestion()}>
+              Add New Question
+            </Button>
+            {/* --- NEW: Bulk Upload CSV Button --- */}
+            <Button variant="outlined" component="label" startIcon={<UploadIcon />}>
+              Bulk Upload (.csv)
+              <input type="file" hidden onChange={handleUploadCSV} accept=".csv" />
+            </Button>
+          </Stack>
           <Table size="small">
             <TableHead><TableRow><TableCell>Question Text</TableCell><TableCell>Actions</TableCell></TableRow></TableHead>
             <TableBody>
