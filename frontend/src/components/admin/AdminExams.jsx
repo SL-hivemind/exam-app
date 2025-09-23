@@ -74,6 +74,7 @@ export default function AdminExams() {
     student_ids: ''
   });
   const [imageFile, setImageFile] = useState(null);
+  const [questionTab, setQuestionTab] = useState(0);
 
   useEffect(() => {
     fetchExams();
@@ -221,25 +222,29 @@ export default function AdminExams() {
     }
   };
 
-  const handleUploadCSV = async (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const formData = new FormData();
-      formData.append('file', file);
-      try {
-        await api.post(`/admin/exams/${selectedExamId}/questions`, formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
-        handleCloseQuestionDialog();
-        setError('');
-        setSuccess('CSV uploaded successfully');
-      } catch (err) {
-        setError(err.response?.data?.message || 'Failed to upload CSV');
-        console.error('Error uploading CSV:', err);
-      }
+  const handleUploadCSV = async () => {
+    if (!csvFile || !selectedExamId) {
+      setError("Please select a CSV file and ensure an exam is selected.");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', csvFile); // Key 'file' matches backend
+
+    try {
+      // Use the existing multi-purpose endpoint
+      await api.post(`/admin/exams/${selectedExamId}/questions`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      setSuccess('CSV uploaded and questions imported successfully!');
+      handleCloseQuestionDialog();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to upload CSV');
+      console.error('Error uploading CSV:', err);
     }
   };
-
+  
+  
   const handleImageChange = (e) => {
     setImageFile(e.target.files[0]);
   };
@@ -499,100 +504,86 @@ export default function AdminExams() {
         </DialogActions>
       </Dialog>
 
-      <Dialog open={openQuestionDialog} onClose={handleCloseQuestionDialog} maxWidth="md" fullWidth>
-        <DialogTitle>Add Question</DialogTitle>
-        <DialogContent>
-          <TextField
-            label="Question Text"
-            name="text"
-            fullWidth
-            margin="normal"
-            value={currentQuestion.text}
-            onChange={handleQuestionChange}
-            required
-          />
-          <TextField
-            label="Option A"
-            name="option_a"
-            fullWidth
-            margin="normal"
-            value={currentQuestion.option_a}
-            onChange={handleQuestionChange}
-          />
-          <TextField
-            label="Option B"
-            name="option_b"
-            fullWidth
-            margin="normal"
-            value={currentQuestion.option_b}
-            onChange={handleQuestionChange}
-          />
-          <TextField
-            label="Option C"
-            name="option_c"
-            fullWidth
-            margin="normal"
-            value={currentQuestion.option_c}
-            onChange={handleQuestionChange}
-          />
-          <TextField
-            label="Option D"
-            name="option_d"
-            fullWidth
-            margin="normal"
-            value={currentQuestion.option_d}
-            onChange={handleQuestionChange}
-          />
-          <TextField
-            label="Correct Answer"
-            name="correct_answer"
-            fullWidth
-            margin="normal"
-            value={currentQuestion.correct_answer}
-            onChange={handleQuestionChange}
-          />
-          <TextField
-            label="Marks"
-            name="marks"
-            fullWidth
-            margin="normal"
-            type="number"
-            value={currentQuestion.marks}
-            onChange={handleQuestionChange}
-          />
-          <TextField
-            label="Image Path"
-            name="image_path"
-            fullWidth
-            margin="normal"
-            value={currentQuestion.image_path}
-            onChange={handleQuestionChange}
-          />
-          <Box sx={{ mt: 2, display: 'flex', gap: 2 }}>
-            <Button variant="contained" component="label">
-              Select Image
-              <input type="file" hidden onChange={handleImageChange} accept="image/*" />
-            </Button>
-            <Button variant="contained" onClick={handleUploadImage} disabled={!imageFile}>
-              Upload Image
-            </Button>
-            <Button variant="contained" component="label">
-              Upload CSV
-              <input type="file" hidden onChange={handleUploadCSV} accept=".csv" />
-            </Button>
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseQuestionDialog}>Cancel</Button>
-          <Button
-            onClick={handleSaveQuestion}
-            variant="contained"
-            disabled={!currentQuestion.text}
-          >
-            Add Question
+      {/* --- Dialog for Managing Questions (Single and Bulk) --- */}
+<Dialog open={openQuestionDialog} onClose={handleCloseQuestionDialog} maxWidth="md" fullWidth>
+  <DialogTitle>Manage Questions for Exam ID: {selectedExamId}</DialogTitle>
+  <DialogContent>
+    <Tabs value={questionTab} onChange={(e, newValue) => setQuestionTab(newValue)} sx={{ mb: 2 }}>
+      <Tab label="Add Single Question" />
+      <Tab label="Bulk Upload from CSV" />
+    </Tabs>
+
+    {/* --- TAB 1: Single Question Form --- */}
+    {questionTab === 0 && (
+      <Box>
+        <TextField
+          label="Question Text"
+          name="text"
+          fullWidth
+          margin="normal"
+          value={currentQuestion.text}
+          onChange={handleQuestionChange}
+          required
+          multiline
+          rows={3}
+        />
+        <Grid container spacing={2}>
+          <Grid item xs={6}><TextField name="option_a" label="Option A" fullWidth value={currentQuestion.option_a} onChange={handleQuestionChange} /></Grid>
+          <Grid item xs={6}><TextField name="option_b" label="Option B" fullWidth value={currentQuestion.option_b} onChange={handleQuestionChange} /></Grid>
+          <Grid item xs={6}><TextField name="option_c" label="Option C" fullWidth value={currentQuestion.option_c} onChange={handleQuestionChange} /></Grid>
+          <Grid item xs={6}><TextField name="option_d" label="Option D" fullWidth value={currentQuestion.option_d} onChange={handleQuestionChange} /></Grid>
+        </Grid>
+        <TextField label="Correct Answer (A, B, C, or D)" name="correct_answer" fullWidth margin="normal" value={currentQuestion.correct_answer} onChange={handleQuestionChange} />
+        <TextField label="Marks" name="marks" type="number" fullWidth margin="normal" value={currentQuestion.marks} onChange={handleQuestionChange} />
+        <TextField label="Image Path" name="image_path" fullWidth margin="normal" value={currentQuestion.image_path} disabled />
+        
+        <Stack direction="row" spacing={2} alignItems="center" sx={{ mt: 2 }}>
+          <Button variant="outlined" component="label">
+            Select Image
+            <input type="file" hidden onChange={handleImageChange} accept="image/*" />
           </Button>
-        </DialogActions>
-      </Dialog>
+          <Button variant="contained" onClick={handleUploadImage} disabled={!imageFile}>
+            Upload Image
+          </Button>
+          {imageFile && <Typography variant="caption">{imageFile.name}</Typography>}
+        </Stack>
+      </Box>
+    )}
+
+    {/* --- TAB 2: Bulk CSV Upload --- */}
+    {questionTab === 1 && (
+      <Box sx={{ p: 3, border: '1px dashed grey', borderRadius: 2, textAlign: 'center' }}>
+        <Typography gutterBottom>
+          Select a .csv file to bulk-upload questions for this exam.
+        </Typography>
+        <Typography variant="caption" display="block" sx={{mb: 2}}>
+          Required columns: text, option_a, option_b, option_c, option_d, correct_answer, marks
+        </Typography>
+        <Button
+          variant="contained"
+          component="label"
+          startIcon={<UploadIcon />}
+        >
+          Select CSV File
+          <input type="file" hidden accept=".csv" onChange={handleUploadCSV} />
+        </Button>
+      </Box>
+    )}
+  </DialogContent>
+  <DialogActions>
+    <Button onClick={handleCloseQuestionDialog}>Cancel</Button>
+    {/* Only show the "Add Question" button when on the first tab */}
+    {questionTab === 0 && (
+      <Button
+        onClick={handleSaveQuestion}
+        variant="contained"
+        disabled={!currentQuestion.text}
+      >
+        Add Question
+      </Button>
+    )}
+  </DialogActions>
+</Dialog>
 
       <Dialog open={openAssignmentDialog} onClose={handleCloseAssignmentDialog} maxWidth="md" fullWidth>
         <DialogTitle>Assign Students</DialogTitle>
