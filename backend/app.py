@@ -443,8 +443,8 @@ def admin_exams(current_user):
         total_marks = data.get('total_marks') or 0
         school_id = data.get('school_id')
 
-        if not title or not school_id:
-            return jsonify({'message':'title and school_id required'}), 400
+        if not title:
+            return jsonify({'message':'title is required'}), 400
         try:
             ast = datetime.fromisoformat(access_start) if access_start else None
             aend = datetime.fromisoformat(access_end) if access_end else None
@@ -453,7 +453,7 @@ def admin_exams(current_user):
 
         exam = Exam(title=title, description=description, access_start=ast, access_end=aend,
                     duration_minutes=int(duration), total_marks=int(total_marks),
-                    created_by=current_user.id, school_id=school_id)
+                    created_by=current_user.id)
         db.session.add(exam); db.session.commit()
         return jsonify({'message':'exam created','exam':exam.to_dict()}), 201
 
@@ -587,6 +587,35 @@ def admin_exam_question_detail(current_user, exam_id, question_id):
     db.session.commit()
     return jsonify({'message': 'Question deleted'}), 200
 
+# POST to clone an existing exam and its questions
+@app.route('/admin/exams/<int:exam_id>/clone', methods=['POST'])
+@admin_required
+def clone_exam(current_user, exam_id):
+    original_exam = Exam.query.get_or_404(exam_id)
+    new_exam = Exam(
+        title=f"Copy of {original_exam.title}",
+        description=original_exam.description,
+        duration_minutes=original_exam.duration_minutes,
+        total_marks=original_exam.total_marks,
+        created_by=current_user.id
+    )
+    for original_q in original_exam.questions:
+        new_q = Question(
+            text=original_q.text,
+            option_a=original_q.option_a, option_b=original_q.option_b,
+            option_c=original_q.option_c, option_d=original_q.option_d,
+            correct_answer=original_q.correct_answer, marks=original_q.marks,
+            image_path=original_q.image_path
+        )
+        new_exam.questions.append(new_q)
+    try:
+        db.session.add(new_exam)
+        db.session.commit()
+        return jsonify({'message': 'Exam cloned successfully', 'new_exam_id': new_exam.id}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'message': 'Failed to clone exam', 'detail': str(e)}), 500
+
 # ----- Admin: assign students to exam ----- (keeps existing flexible behavior)
 
 @app.route('/admin/exams/<int:exam_id>/assign', methods=['POST'])
@@ -639,6 +668,36 @@ def admin_assign_students(current_user, exam_id):
     except SQLAlchemyError as e:
         db.session.rollback()
         return jsonify({'message':'assignment failed','detail': str(e)}), 500
+
+# GET a list of students assigned to an exam
+@app.route('/admin/exams/<int:exam_id>/students', methods=['GET'])
+@admin_required
+def get_assigned_students(current_user, exam_id):
+    assignments = ExamStudent.query.filter_by(exam_id=exam_id).all()
+    student_user_ids = [a.student_id for a in assignments]
+    
+    assigned_students = Student.query.filter(Student.user_id.in_(student_user_ids)).all()
+    
+    # Serialize the student data
+    student_list = []
+    for s in assigned_students:
+        student_list.append({
+            'user_id': s.user_id,
+            'name': s.name,
+            'student_id': s.student_id
+            # Add other fields as needed by your frontend
+        })
+        
+    return jsonify(student_list), 200
+
+# DELETE (unassign) a student from an exam
+@app.route('/admin/exams/<int:exam_id>/students/<int:user_id>', methods=['DELETE'])
+@admin_required
+def unassign_student(current_user, exam_id, user_id):
+    assignment = ExamStudent.query.filter_by(exam_id=exam_id, student_id=user_id).first_or_404()
+    db.session.delete(assignment)
+    db.session.commit()
+    return jsonify({'message': 'Student unassigned successfully'}), 200
 
 # ----- Student: list assigned exams (student side) -----
 @app.route('/student/exams', methods=['GET'])
