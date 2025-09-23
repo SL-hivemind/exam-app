@@ -1,671 +1,333 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Box,
-  Typography,
-  TextField,
-  Button,
-  IconButton,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Paper,
-  Alert,
-  Switch,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  Checkbox,
-  Grid,
-  List, ListItemButton, ListItemText, Divider, Stack,
-  Chip,
-  FormControlLabel,
+  Box, Typography, Button, IconButton, Paper, Alert, Grid,
+  List, ListItemButton, ListItemText, Divider, Stack, Dialog,
+  DialogActions, DialogContent, DialogTitle, TextField, Table,
+  TableBody, TableCell, TableHead, TableRow, Tabs, Tab, Checkbox,
+  FormControlLabel, FormControl, InputLabel, Select, MenuItem
 } from '@mui/material';
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
-import UploadIcon from '@mui/icons-material/Upload';
-import DownloadIcon from '@mui/icons-material/Download';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import QuestionAnswerIcon from '@mui/icons-material/QuestionAnswer';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import api from '../../utils/api';
-import useAuth from '../../hooks/useAuth';
+
+const initialExamState = { id: null, title: '', description: '', access_start: null, access_end: null, duration_minutes: 60, total_marks: 100 };
+const initialQuestionState = { id: null, text: '', option_a: '', option_b: '', option_c: '', option_d: '', correct_answer: '', marks: 1, image_path: '' };
+const initialAssignmentFilters = { assign_all: false, school_id: '', class: '', roll_number: '', student_ids: '' };
 
 export default function AdminExams() {
-  const { authToken } = useAuth();
   const [exams, setExams] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [openDialog, setOpenDialog] = useState(false);
-  const [currentExam, setCurrentExam] = useState({
-    id: null,
-    title: '',
-    description: '',
-    access_start: '',
-    access_end: '',
-    duration_minutes: '',
-    total_marks: '',
-    school_id: ''
-  });
-  const [isEdit, setIsEdit] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [schools, setSchools] = useState([]);
-  const [openQuestionDialog, setOpenQuestionDialog] = useState(false);
-  const [currentQuestion, setCurrentQuestion] = useState({
-    text: '',
-    option_a: '',
-    option_b: '',
-    option_c: '',
-    option_d: '',
-    correct_answer: '',
-    marks: 1,
-    image_path: ''
-  });
-  const [selectedExamId, setSelectedExamId] = useState(null);
   const [selectedExam, setSelectedExam] = useState(null);
+  const [schools, setSchools] = useState([]);
+
+  // Consolidated state for managing all dialogs
+  const [dialog, setDialog] = useState({ name: null, data: null });
+
+  // State for data used inside the dialogs
   const [questions, setQuestions] = useState([]);
   const [assignedStudents, setAssignedStudents] = useState([]);
+  const [currentExam, setCurrentExam] = useState(initialExamState);
+  const [currentQuestion, setCurrentQuestion] = useState(initialQuestionState);
   const [imageFile, setImageFile] = useState(null);
-  const [openAssignmentDialog, setOpenAssignmentDialog] = useState(false);
-  const [assignmentFilters, setAssignmentFilters] = useState({
-    assign_all: false,
-    school_id: '',
-    class: '',
-    roll_number: '',
-    student_ids: ''
-  });
-  const [isEditQuestion, setIsEditQuestion] = useState(false);
-  const [questionsDialogOpen, setQuestionsDialogOpen] = useState(false);
-  const [questionFormOpen, setQuestionFormOpen] = useState(false);
-  const [assignmentsDialogOpen, setAssignmentsDialogOpen] = useState(false);
   const [assignmentTab, setAssignmentTab] = useState(0);
+  const [assignmentFilters, setAssignmentFilters] = useState(initialAssignmentFilters);
 
   useEffect(() => {
     fetchExams();
     fetchSchools();
-  }, [authToken]);
+  }, []);
 
   const fetchExams = async () => {
     try {
       const res = await api.get('/admin/exams');
       setExams(res.data.exams || []);
-      setError('');
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to fetch exams');
-      console.error('Error fetching exams:', err);
-    }
+    } catch (err) { setError('Failed to fetch exams'); }
   };
 
   const fetchSchools = async () => {
     try {
       const res = await api.get('/admin/schools');
       setSchools(res.data.schools || []);
-    } catch (err) {
-      console.error('Error fetching schools:', err);
-    }
+    } catch (err) { console.error('Error fetching schools:', err); }
   };
 
-  const handleOpenDialog = (exam = { id: null, title: '', description: '', access_start: '', access_end: '', duration_minutes: '', total_marks: '', school_id: '' }) => {
-    setCurrentExam({
-      id: exam.id,
-      title: exam.title || '',
-      description: exam.description || '',
-      access_start: exam.access_start || '',
-      access_end: exam.access_end || '',
-      duration_minutes: exam.duration_minutes || '',
-      total_marks: exam.total_marks || '',
-      school_id: exam.school_id || ''
-    });
-    setIsEdit(!!exam.id);
-    setOpenDialog(true);
-  };
-
+  const handleOpenDialog = (name, data = null) => setDialog({ name, data });
   const handleCloseDialog = () => {
-    setOpenDialog(false);
-    setCurrentExam({
-      id: null,
-      title: '',
-      description: '',
-      access_start: '',
-      access_end: '',
-      duration_minutes: '',
-      total_marks: '',
-      school_id: ''
-    });
-  };
-
-  const handleChange = (e) => {
-    setCurrentExam({ ...currentExam, [e.target.name]: e.target.value });
+    setDialog({ name: null, data: null });
+    // Reset forms when closing dialogs
+    setCurrentExam(initialExamState);
+    setCurrentQuestion(initialQuestionState);
+    setAssignmentFilters(initialAssignmentFilters);
+    setImageFile(null);
+    setAssignmentTab(0);
   };
 
   const handleSaveExam = async () => {
+    const isEdit = !!currentExam.id;
+    const method = isEdit ? 'put' : 'post';
+    const url = isEdit ? `/admin/exams/${currentExam.id}` : '/admin/exams';
     try {
-      const url = currentExam.id ? `/admin/exams/${currentExam.id}` : '/admin/exams';
-      const method = currentExam.id ? 'put' : 'post';
-
-      const data = {
-        title: currentExam.title,
-        description: currentExam.description,
-        access_start: currentExam.access_start || null,
-        access_end: currentExam.access_end || null,
-        duration_minutes: parseInt(currentExam.duration_minutes) || 60,
-        total_marks: parseInt(currentExam.total_marks) || 0,
-        school_id: parseInt(currentExam.school_id) || null
-      };
-
-      await api[method](url, data);
-
+      await api[method](url, currentExam);
+      setSuccess('Exam saved successfully.');
       fetchExams();
       handleCloseDialog();
-      setError('');
-      setSuccess('Exam saved successfully');
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to save exam');
-      console.error('Error saving exam:', err);
-    }
+    } catch (err) { setError('Failed to save exam.'); }
   };
-
-  const handleDeleteExam = async (id) => {
-    if (window.confirm('Are you sure you want to delete this exam?')) {
+  
+  const handleDeleteExam = async (examId) => {
+    if (window.confirm('Delete this exam and all its data?')) {
       try {
-        await api.delete(`/admin/exams/${id}`);
+        await api.delete(`/admin/exams/${examId}`);
+        setSuccess('Exam deleted.');
+        setSelectedExam(null);
         fetchExams();
-        setError('');
-        setSuccess('Exam deleted successfully');
-      } catch (err) {
-        setError(err.response?.data?.message || 'Failed to delete exam');
-        console.error('Error deleting exam:', err);
-      }
+      } catch (err) { setError('Failed to delete exam.'); }
     }
   };
 
-  const handleToggleResults = async (id, currentResults) => {
+  const handleCloneExam = async (examId) => {
+    if (window.confirm('Create a copy of this exam?')) {
+      try {
+        await api.post(`/admin/exams/${examId}/clone`);
+        setSuccess('Exam cloned successfully!');
+        fetchExams();
+      } catch (err) { setError('Failed to clone exam.'); }
+    }
+  };
+
+  const fetchQuestions = async (examId) => {
     try {
-      await api.put(`/admin/exams/${id}`, { results_released: !currentResults });
-      fetchExams();
-      setError('');
-      setSuccess('Results release toggled successfully');
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to toggle results release');
-      console.error('Error toggling results release:', err);
+      const res = await api.get(`/admin/exams/${examId}/questions`);
+      setQuestions(res.data.questions || []);
+    } catch (err) { setError('Failed to fetch questions'); }
+  };
+
+  const handleOpenQuestionsDialog = (exam) => {
+    fetchQuestions(exam.id);
+    handleOpenDialog('manageQuestions', exam);
+  };
+
+  const handleOpenEditQuestion = (question) => {
+    setCurrentQuestion(question || initialQuestionState);
+    handleOpenDialog('editQuestion', selectedExam);
+  };
+  
+  const handleDeleteQuestion = async (questionId) => {
+    if (window.confirm('Delete this question?')) {
+      try {
+        await api.delete(`/admin/exams/${selectedExam.id}/questions/${questionId}`);
+        fetchQuestions(selectedExam.id);
+      } catch (err) { setError('Failed to delete question.'); }
     }
   };
-
-  const handleOpenQuestionDialog = (examId) => {
-    setSelectedExamId(examId);
-    setOpenQuestionDialog(true);
-  };
-
-  const handleCloseQuestionDialog = () => {
-    setOpenQuestionDialog(false);
-    setCurrentQuestion({
-      text: '',
-      option_a: '',
-      option_b: '',
-      option_c: '',
-      option_d: '',
-      correct_answer: '',
-      marks: 1,
-      image_path: ''
-    });
-  };
-
-  const handleQuestionChange = (e) => {
-    setCurrentQuestion({ ...currentQuestion, [e.target.name]: e.target.value });
-  };
-
+  
   const handleSaveQuestion = async () => {
-    // When you save, currentQuestion.image_path will now have the S3 URL
-    const method = isEditQuestion ? 'put' : 'post';
-    const url = isEditQuestion
+    const isEdit = !!currentQuestion.id;
+    const method = isEdit ? 'put' : 'post';
+    const url = isEdit
       ? `/admin/exams/${selectedExam.id}/questions/${currentQuestion.id}`
       : `/admin/exams/${selectedExam.id}/questions`;
-
     try {
       await api[method](url, currentQuestion);
-      setSuccess("Question saved successfully.");
-      setQuestionFormOpen(false);
-      // You would also refresh the question list here
-    } catch (err) {
-      setError("Failed to save question.");
-    }
-  }
-
-  const handleUploadCSV = async (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const formData = new FormData();
-      formData.append('file', file);
-      try {
-        await api.post(`/admin/exams/${selectedExamId}/questions`, formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
-        handleCloseQuestionDialog();
-        setError('');
-        setSuccess('CSV uploaded successfully');
-      } catch (err) {
-        setError(err.response?.data?.message || 'Failed to upload CSV');
-        console.error('Error uploading CSV:', err);
-      }
-    }
-  };
-
-  const handleImageChange = (e) => {
-    setImageFile(e.target.files[0]);
+      setSuccess('Question saved.');
+      handleCloseDialog();
+      fetchQuestions(selectedExam.id);
+      handleOpenDialog('manageQuestions', selectedExam); // Re-open the main question dialog
+    } catch (err) { setError('Failed to save question.'); }
   };
 
   const handleUploadImage = async () => {
     if (!imageFile) return;
     const formData = new FormData();
-    formData.append('file', imageFile);
+    formData.append("file", imageFile);
     try {
-      const res = await api.post('/admin/upload_image', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
+      const res = await api.post("/admin/upload_image", formData);
       setCurrentQuestion({ ...currentQuestion, image_path: res.data.url });
+      setSuccess("Image uploaded!");
+      setImageFile(null);
+    } catch (err) { setError("Image upload failed."); }
+  };
+  
+  const fetchAssignedStudents = async (examId) => {
+    try {
+      const res = await api.get(`/admin/exams/${examId}/students`);
+      setAssignedStudents(res.data || []);
+    } catch (err) { setError('Failed to fetch assigned students.'); }
+  };
 
-      setSuccess("Image uploaded successfully. The path is now set.");
-      setImageFile(null); // Clear the file input
-    } catch (err) {
-      setError("Image upload failed.");
+  const handleOpenAssignmentsDialog = (exam) => {
+    fetchAssignedStudents(exam.id);
+    handleOpenDialog('manageAssignments', exam);
+  };
+
+  const handleRemoveAssignment = async (studentUserId) => {
+    if (window.confirm('Unassign this student?')) {
+      try {
+        await api.delete(`/admin/exams/${selectedExam.id}/students/${studentUserId}`);
+        fetchAssignedStudents(selectedExam.id);
+      } catch (err) { setError('Failed to unassign student.'); }
     }
-  };
-
-  const handleOpenAssignmentDialog = (examId) => {
-    setSelectedExamId(examId);
-    setOpenAssignmentDialog(true);
-  };
-
-  const handleCloseAssignmentDialog = () => {
-    setOpenAssignmentDialog(false);
-    setAssignmentFilters({
-      assign_all: false,
-      school_id: '',
-      class: '',
-      roll_number: '',
-      student_ids: ''
-    });
-  };
-
-  const handleAssignmentChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setAssignmentFilters({
-      ...assignmentFilters,
-      [name]: type === 'checkbox' ? checked : value
-    });
   };
 
   const handleSaveAssignment = async () => {
     try {
-      const data = { ...assignmentFilters };
-      if (data.assign_all) {
-        data.assign_all = true;
-      } else if (data.student_ids.length > 0) {
-        data.student_ids = data.student_ids.split(',').map(id => id.trim());
-      }
-      await api.post(`/admin/exams/${selectedExamId}/assign`, data);
-      handleCloseAssignmentDialog();
-      setError('');
-      setSuccess('Students assigned successfully');
+      const data = { ...assignmentFilters, student_ids: assignmentFilters.student_ids.split(',').map(id => id.trim()) };
+      await api.post(`/admin/exams/${selectedExam.id}/assign`, data);
+      setSuccess('Students assigned successfully.');
+      fetchAssignedStudents(selectedExam.id);
+      setAssignmentTab(0); // Switch back to the view tab
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to assign students');
-      console.error('Error assigning students:', err);
     }
   };
-
-  // Export exam results handler
-  const handleExportExamResults = async (examId) => {
-    try {
-      const response = await fetch(`http://127.0.0.1:5000/admin/export_student_attempts?exam_id=${examId}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `auth_token ${authToken}`
-        }
-      });
-      if (!response.ok) {
-        throw new Error('Failed to export exam results');
-      }
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `exam_${examId}_attempts.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-      setSuccess('Exported exam results successfully');
-    } catch (error) {
-      setError(error.message || 'Export failed');
-    }
-  };
-
-  const filteredExams = exams.filter((exam) =>
-    exam.title.toLowerCase().includes(searchTerm.toLowerCase())
-  );
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h5" gutterBottom>Manage Exams</Typography>
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-      {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
-      {exams.length === 0 && !error && (
-        <Alert severity="info" sx={{ mb: 2 }}>No exams found. Add a new exam to get started.</Alert>
-      )}
-      <Box display="flex" justifyContent="space-between" mb={2}>
-        <TextField
-          label="Search Exams"
-          variant="outlined"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          sx={{ width: '300px' }}
-        />
-        <Button variant="contained" onClick={() => handleOpenDialog()}>
-          <AddIcon /> Add Exam
-        </Button>
+    <Box>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+        <Typography variant="h5" gutterBottom>Manage Exams</Typography>
+        <Button variant="contained" onClick={() => handleOpenEditExam()} startIcon={<AddIcon />}>Create New Exam</Button>
       </Box>
-      <Paper>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>ID</TableCell>
-              <TableCell>Title</TableCell>
-              <TableCell>Description</TableCell>
-              <TableCell>Access Start</TableCell>
-              <TableCell>Access End</TableCell>
-              <TableCell>Duration (min)</TableCell>
-              <TableCell>Total Marks</TableCell>
-              <TableCell>School</TableCell>
-              <TableCell>Results Released</TableCell>
-              <TableCell>Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {filteredExams.map((exam) => (
-              <TableRow key={exam.id}>
-                <TableCell>{exam.id}</TableCell>
-                <TableCell>{exam.title}</TableCell>
-                <TableCell>{exam.description || 'N/A'}</TableCell>
-                <TableCell>{exam.access_start || 'N/A'}</TableCell>
-                <TableCell>{exam.access_end || 'N/A'}</TableCell>
-                <TableCell>{exam.duration_minutes || 'N/A'}</TableCell>
-                <TableCell>{exam.total_marks || 'N/A'}</TableCell>
-                <TableCell>{exam.school_name || 'N/A'}</TableCell>
-                <TableCell>
-                  <Switch
-                    checked={exam.results_released}
-                    onChange={() => handleToggleResults(exam.id, exam.results_released)}
-                  />
-                </TableCell>
-                <TableCell>
-                  <IconButton onClick={() => handleOpenDialog(exam)} title="Edit Exam">
-                    <EditIcon />
-                  </IconButton>
-                  <IconButton onClick={() => handleDeleteExam(exam.id)} title="Delete Exam">
-                    <DeleteIcon />
-                  </IconButton>
-                  <IconButton onClick={() => handleOpenQuestionDialog(exam.id)} title="Manage Questions">
-                    <AddIcon />
-                  </IconButton>
-                  <IconButton onClick={() => handleOpenAssignmentDialog(exam.id)} title="Assign Students">
-                    <UploadIcon />
-                  </IconButton>
-                  <IconButton onClick={() => handleExportExamResults(exam.id)} title="Export Exam Results">
-                    <DownloadIcon />
-                  </IconButton>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </Paper>
+      
+      {success && <Alert severity="success" onClose={() => setSuccess('')} sx={{mb: 2}}>{success}</Alert>}
+      {error && <Alert severity="error" onClose={() => setError('')} sx={{mb: 2}}>{error}</Alert>}
 
-      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
-        <DialogTitle>{isEdit ? 'Edit Exam' : 'Add Exam'}</DialogTitle>
-        <DialogContent>
-          <TextField
-            label="Title"
-            name="title"
-            fullWidth
-            margin="normal"
-            value={currentExam.title}
-            onChange={handleChange}
-            required
-          />
-          <TextField
-            label="Description"
-            name="description"
-            fullWidth
-            margin="normal"
-            multiline
-            rows={3}
-            value={currentExam.description}
-            onChange={handleChange}
-          />
-          <DateTimePicker
-            label="Access Start (Your Local Time)"
-            value={currentExam.access_start ? new Date(currentExam.access_start) : null}
-            onChange={(newValue) => {
-              setCurrentExam({ ...currentExam, access_start: newValue ? newValue.toISOString() : '' });
-            }}
-            minDateTime={new Date()}
-            sx={{ width: '100%', mt: 2 }}
-          />
-          <DateTimePicker
-            label="Access End (Your Local Time)"
-            value={currentExam.access_end ? new Date(currentExam.access_end) : null}
-            onChange={(newValue) => {
-              setCurrentExam({ ...currentExam, access_end: newValue ? newValue.toISOString() : '' });
-            }}
-            minDateTime={new Date()}
-            sx={{ width: '100%', mt: 2 }}
-          />
-          <TextField
-            label="Duration (minutes)"
-            name="duration_minutes"
-            fullWidth
-            margin="normal"
-            type="number"
-            value={currentExam.duration_minutes}
-            onChange={handleChange}
-            required
-          />
-          <TextField
-            label="Total Marks"
-            name="total_marks"
-            fullWidth
-            margin="normal"
-            type="number"
-            value={currentExam.total_marks}
-            onChange={handleChange}
-            required
-          />
-          <FormControl fullWidth margin="normal">
-            <InputLabel>School</InputLabel>
-            <Select
-              name="school_id"
-              value={currentExam.school_id}
-              onChange={handleChange}
-              label="School"
-            >
-              {schools.map((school) => (
-                <MenuItem key={school.id} value={school.id}>
-                  {school.name} ({school.code})
-                </MenuItem>
+      <Grid container spacing={3}>
+        <Grid item xs={12} md={4}>
+          <Paper sx={{ p: 2 }}>
+            <Typography variant="h6" sx={{ mb: 1 }}>Exam List</Typography>
+            <List component="nav" sx={{ maxHeight: '65vh', overflowY: 'auto' }}>
+              {exams.map((exam) => (
+                <ListItemButton key={exam.id} selected={selectedExam?.id === exam.id} onClick={() => setSelectedExam(exam)}>
+                  <ListItemText primary={exam.title} secondary={`ID: ${exam.id}`} />
+                </ListItemButton>
               ))}
-            </Select>
-          </FormControl>
+            </List>
+          </Paper>
+        </Grid>
+
+        <Grid item xs={12} md={8}>
+          <Paper sx={{ p: 3, minHeight: '70vh' }}>
+            {selectedExam ? (
+              <Box>
+                <Typography variant="h5" fontWeight={700}>{selectedExam.title}</Typography>
+                <Divider sx={{ my: 2 }} />
+                <Typography variant="h6" gutterBottom>Actions</Typography>
+                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                  <Button variant="outlined" startIcon={<EditIcon />} onClick={() => handleOpenEditExam(selectedExam)}>Edit Details</Button>
+                  <Button variant="outlined" startIcon={<QuestionAnswerIcon />} onClick={() => handleOpenQuestionsDialog(selectedExam)}>Manage Questions</Button>
+                  <Button variant="outlined" startIcon={<AssignmentIcon />} onClick={() => handleOpenAssignmentsDialog(selectedExam)}>Manage Assignments</Button>
+                  <Button variant="outlined" startIcon={<ContentCopyIcon />} onClick={() => handleCloneExam(selectedExam.id)}>Clone Exam</Button>
+                  <Button variant="outlined" color="error" startIcon={<DeleteIcon />} onClick={() => handleDeleteExam(selectedExam.id)}>Delete Exam</Button>
+                </Stack>
+              </Box>
+            ) : (
+              <Box sx={{ textAlign: 'center', pt: 8 }}><Typography color="text.secondary">Select an exam to manage</Typography></Box>
+            )}
+          </Paper>
+        </Grid>
+      </Grid>
+      
+      {/* --- DIALOGS --- */}
+      
+      <Dialog open={dialog.name === 'editExam'} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>{dialog.data?.id ? 'Edit Exam' : 'Create New Exam'}</DialogTitle>
+        <DialogContent>
+          <TextField name="title" label="Title" value={currentExam.title} onChange={(e) => setCurrentExam({...currentExam, title: e.target.value})} fullWidth margin="normal" />
+          <TextField name="description" label="Description" value={currentExam.description} onChange={(e) => setCurrentExam({...currentExam, description: e.target.value})} fullWidth margin="normal" multiline rows={3} />
+          <DateTimePicker label="Access Start" value={currentExam.access_start ? new Date(currentExam.access_start) : null} onChange={(val) => setCurrentExam({...currentExam, access_start: val?.toISOString()})} sx={{width: '100%', mt: 2}}/>
+          <DateTimePicker label="Access End" value={currentExam.access_end ? new Date(currentExam.access_end) : null} onChange={(val) => setCurrentExam({...currentExam, access_end: val?.toISOString()})} sx={{width: '100%', mt: 2}}/>
+          <TextField name="duration_minutes" label="Duration (minutes)" type="number" value={currentExam.duration_minutes} onChange={(e) => setCurrentExam({...currentExam, duration_minutes: e.target.value})} fullWidth margin="normal" />
+          <TextField name="total_marks" label="Total Marks" type="number" value={currentExam.total_marks} onChange={(e) => setCurrentExam({...currentExam, total_marks: e.target.value})} fullWidth margin="normal" />
         </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDialog}>Cancel</Button>
-          <Button
-            onClick={handleSaveExam}
-            variant="contained"
-            disabled={!currentExam.title || !currentExam.duration_minutes || !currentExam.total_marks}
-          >
-            Save
-          </Button>
-        </DialogActions>
+        <DialogActions><Button onClick={handleCloseDialog}>Cancel</Button><Button onClick={handleSaveExam} variant="contained">Save</Button></DialogActions>
+      </Dialog>
+      
+      <Dialog open={dialog.name === 'manageQuestions'} onClose={handleCloseDialog} fullWidth maxWidth="lg">
+        <DialogTitle>Manage Questions for: {dialog.data?.title}</DialogTitle>
+        <DialogContent>
+          <Button sx={{ mb: 2 }} variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenEditQuestion()}>Add New Question</Button>
+          <Table size="small">
+            <TableHead><TableRow><TableCell>Question Text</TableCell><TableCell>Actions</TableCell></TableRow></TableHead>
+            <TableBody>
+              {questions.map(q => (
+                <TableRow key={q.id}>
+                  <TableCell>{q.text}</TableCell>
+                  <TableCell>
+                    <IconButton size="small" onClick={() => handleOpenEditQuestion(q)}><EditIcon /></IconButton>
+                    <IconButton size="small" onClick={() => handleDeleteQuestion(q.id)}><DeleteIcon /></IconButton>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </DialogContent>
+        <DialogActions><Button onClick={handleCloseDialog}>Close</Button></DialogActions>
       </Dialog>
 
-      <Dialog open={questionFormOpen} onClose={() => setQuestionFormOpen(false)}>
-        <DialogTitle>{isEditQuestion ? 'Edit Question' : 'Add New Question'}</DialogTitle>
+      <Dialog open={dialog.name === 'editQuestion'} onClose={() => handleOpenDialog('manageQuestions', selectedExam)}>
+        <DialogTitle>{currentQuestion.id ? 'Edit Question' : 'Add New Question'}</DialogTitle>
         <DialogContent>
-          <TextField name="text" label="Question Text" value={currentQuestion.text} /* ... */ />
-          {/* ... other TextFields for options, etc. ... */}
-          <TextField
-            label="Option A"
-            name="option_a"
-            fullWidth
-            margin="normal"
-            value={currentQuestion.option_a}
-            onChange={handleQuestionChange}
-          />
-          <TextField
-            label="Option B"
-            name="option_b"
-            fullWidth
-            margin="normal"
-            value={currentQuestion.option_b}
-            onChange={handleQuestionChange}
-          />
-          <TextField
-            label="Option C"
-            name="option_c"
-            fullWidth
-            margin="normal"
-            value={currentQuestion.option_c}
-            onChange={handleQuestionChange}
-          />
-          <TextField
-            label="Option D"
-            name="option_d"
-            fullWidth
-            margin="normal"
-            value={currentQuestion.option_d}
-            onChange={handleQuestionChange}
-          />
-          <TextField
-            label="Correct Answer"
-            name="correct_answer"
-            fullWidth
-            margin="normal"
-            value={currentQuestion.correct_answer}
-            onChange={handleQuestionChange}
-          />
-          <TextField
-            label="Marks"
-            name="marks"
-            fullWidth
-            margin="normal"
-            type="number"
-            value={currentQuestion.marks}
-            onChange={handleQuestionChange}
-          />
-          <TextField
-            name="image_path"
-            label="Image Path (auto-filled after upload)"
-            value={currentQuestion.image_path}
-            fullWidth
-            margin="normal"
-            disabled // Make it read-only
-          />
-          <Stack direction="row" spacing={2} alignItems="center">
-            <Button variant="outlined" component="label">
-              Select Image
-              <input type="file" hidden onChange={(e) => setImageFile(e.target.files[0])} accept="image/*" />
-            </Button>
-            <Button variant="contained" onClick={handleUploadImage} disabled={!imageFile}>
-              Upload Image
-            </Button>
-            {imageFile && <Typography variant="caption">{imageFile.name}</Typography>}
-          </Stack>
+           <TextField name="text" label="Question Text" value={currentQuestion.text} onChange={(e) => setCurrentQuestion({...currentQuestion, text: e.target.value})} fullWidth multiline rows={3} margin="normal" />
+           <TextField name="option_a" label="Option A" value={currentQuestion.option_a} onChange={(e) => setCurrentQuestion({...currentQuestion, option_a: e.target.value})} fullWidth margin="dense" />
+           <TextField name="option_b" label="Option B" value={currentQuestion.option_b} onChange={(e) => setCurrentQuestion({...currentQuestion, option_b: e.target.value})} fullWidth margin="dense" />
+           <TextField name="option_c" label="Option C" value={currentQuestion.option_c} onChange={(e) => setCurrentQuestion({...currentQuestion, option_c: e.target.value})} fullWidth margin="dense" />
+           <TextField name="option_d" label="Option D" value={currentQuestion.option_d} onChange={(e) => setCurrentQuestion({...currentQuestion, option_d: e.target.value})} fullWidth margin="dense" />
+           <TextField name="correct_answer" label="Correct Answer (A, B, C, or D)" value={currentQuestion.correct_answer} onChange={(e) => setCurrentQuestion({...currentQuestion, correct_answer: e.target.value})} fullWidth margin="normal" />
+           <TextField name="marks" label="Marks" type="number" value={currentQuestion.marks} onChange={(e) => setCurrentQuestion({...currentQuestion, marks: e.target.value})} fullWidth margin="normal" />
+           <TextField name="image_path" label="Image Path" value={currentQuestion.image_path} disabled fullWidth margin="normal" />
+            <Stack direction="row" spacing={2} alignItems="center">
+              <Button variant="outlined" component="label">Select Image<input type="file" hidden onChange={(e) => setImageFile(e.target.files[0])} /></Button>
+              <Button variant="contained" onClick={handleUploadImage} disabled={!imageFile}>Upload Image</Button>
+            </Stack>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setQuestionFormOpen(false)}>Cancel</Button>
-          <Button disabled={!currentQuestion.text}>
-            {isEditQuestion ? 'Save Changes' : 'Add Question'}
-          </Button>
-          <Button
-            onClick={handleSaveQuestion}
-            variant="contained"
-            // Keep this disabled logic to prevent saving empty questions
-            disabled={!currentQuestion.text}
-          >
-            {/* Use "Save" as it works for both adding and editing */}
-            Save Question
-          </Button>
-        </DialogActions>
+        <DialogActions><Button onClick={() => handleOpenDialog('manageQuestions', selectedExam)}>Cancel</Button><Button onClick={handleSaveQuestion}>Save Question</Button></DialogActions>
       </Dialog>
 
-      <Dialog open={openAssignmentDialog} onClose={handleCloseAssignmentDialog} maxWidth="md" fullWidth>
-        <DialogTitle>Assign Students</DialogTitle>
+      <Dialog open={dialog.name === 'manageAssignments'} onClose={handleCloseDialog} fullWidth maxWidth="md">
+        <DialogTitle>Manage Assignments for: {dialog.data?.title}</DialogTitle>
         <DialogContent>
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={assignmentFilters.assign_all}
-                onChange={handleAssignmentChange}
-                name="assign_all"
-              />
-            }
-            label="Assign to all schools"
-          />
-          <FormControl fullWidth margin="normal">
-            <InputLabel>School</InputLabel>
-            <Select
-              name="school_id"
-              value={assignmentFilters.school_id}
-              onChange={handleAssignmentChange}
-              label="School"
-              disabled={assignmentFilters.assign_all}
-            >
-              {schools.map((school) => (
-                <MenuItem key={school.id} value={school.id}>
-                  {school.name} ({school.code})
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <TextField
-            label="Class"
-            name="class"
-            fullWidth
-            margin="normal"
-            value={assignmentFilters.class}
-            onChange={handleAssignmentChange}
-          />
-          <TextField
-            label="Roll Number"
-            name="roll_number"
-            fullWidth
-            margin="normal"
-            value={assignmentFilters.roll_number}
-            onChange={handleAssignmentChange}
-          />
-          <TextField
-            label="Student IDs (comma separated)"
-            name="student_ids"
-            fullWidth
-            margin="normal"
-            value={assignmentFilters.student_ids}
-            onChange={handleAssignmentChange}
-          />
+          <Tabs value={assignmentTab} onChange={(e, val) => setAssignmentTab(val)}>
+            <Tab label="View Assigned Students" />
+            <Tab label="Assign New Students" />
+          </Tabs>
+          {assignmentTab === 0 && (
+            <Table size="small" sx={{ mt: 2 }}>
+              <TableHead><TableRow><TableCell>Student Name</TableCell><TableCell>Action</TableCell></TableRow></TableHead>
+              <TableBody>
+                {assignedStudents.map(s => (
+                  <TableRow key={s.user_id}>
+                    <TableCell>{s.name}</TableCell>
+                    <TableCell><Button size="small" color="error" onClick={() => handleRemoveAssignment(s.user_id)}>Remove</Button></TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+          {assignmentTab === 1 && (
+            <Box sx={{ p: 2 }}>
+              {/* This is a simplified assignment form. You can expand it. */}
+              <Typography sx={{mb: 2}}>Assign all students from a specific school:</Typography>
+              <FormControl fullWidth>
+                <InputLabel>School</InputLabel>
+                <Select
+                  value={assignmentFilters.school_id}
+                  label="School"
+                  onChange={(e) => setAssignmentFilters({...assignmentFilters, school_id: e.target.value})}
+                >
+                  {schools.map(s => <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>)}
+                </Select>
+              </FormControl>
+              <Button sx={{mt: 2}} variant="contained" onClick={handleSaveAssignment}>Assign School</Button>
+            </Box>
+          )}
         </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseAssignmentDialog}>Cancel</Button>
-          <Button onClick={handleSaveAssignment} variant="contained">
-            Assign
-          </Button>
-        </DialogActions>
+        <DialogActions><Button onClick={handleCloseDialog}>Close</Button></DialogActions>
       </Dialog>
     </Box>
   );
