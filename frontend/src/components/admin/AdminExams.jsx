@@ -37,7 +37,6 @@ import AssignmentIcon from '@mui/icons-material/Assignment';
 import QuestionAnswerIcon from '@mui/icons-material/QuestionAnswer';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import api from '../../utils/api';
-import api from '../../utils/api';
 import useAuth from '../../hooks/useAuth';
 
 export default function AdminExams() {
