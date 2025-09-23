@@ -37,6 +37,8 @@ export default function AdminExams() {
   const [imageFile, setImageFile] = useState(null);
   const [assignmentTab, setAssignmentTab] = useState(0);
   const [assignmentFilters, setAssignmentFilters] = useState(initialAssignmentFilters);
+  const [studentsInSchool, setStudentsInSchool] = useState([]);
+  const [selectedStudents, setSelectedStudents] = useState(new Set());
 
   useEffect(() => {
     fetchExams();
@@ -79,7 +81,7 @@ export default function AdminExams() {
       handleCloseDialog();
     } catch (err) { setError('Failed to save exam.'); }
   };
-  
+
   const handleDeleteExam = async (examId) => {
     if (window.confirm('Delete this exam and all its data?')) {
       try {
@@ -117,7 +119,7 @@ export default function AdminExams() {
     setCurrentQuestion(question || initialQuestionState);
     handleOpenDialog('editQuestion', selectedExam);
   };
-  
+
   const handleDeleteQuestion = async (questionId) => {
     if (window.confirm('Delete this question?')) {
       try {
@@ -126,7 +128,7 @@ export default function AdminExams() {
       } catch (err) { setError('Failed to delete question.'); }
     }
   };
-  
+
   const handleSaveQuestion = async () => {
     const isEdit = !!currentQuestion.id;
     const method = isEdit ? 'put' : 'post';
@@ -153,7 +155,7 @@ export default function AdminExams() {
       setImageFile(null);
     } catch (err) { setError("Image upload failed."); }
   };
-  
+
   const fetchAssignedStudents = async (examId) => {
     try {
       const res = await api.get(`/admin/exams/${examId}/students`);
@@ -175,23 +177,50 @@ export default function AdminExams() {
     }
   };
 
-  const handleSaveAssignment = async () => {
-    try {
-      const data = { ...assignmentFilters, student_ids: assignmentFilters.student_ids.split(',').map(id => id.trim()) };
-      await api.post(`/admin/exams/${selectedExam.id}/assign`, data);
-      setSuccess('Students assigned successfully.');
-      fetchAssignedStudents(selectedExam.id);
-      setAssignmentTab(0); // Switch back to the view tab
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to assign students');
-    }
-  };
-
   const handleOpenEditExam = (exam) => {
     // If an exam object is passed, we're editing.
     // If not, we're creating a new one, so use the initial empty state.
     setCurrentExam(exam || initialExamState);
     handleOpenDialog('editExam');
+  };
+
+  const handleSchoolFilterChange = async (schoolId) => {
+    if (!schoolId) {
+      setStudentsInSchool([]);
+      return;
+    }
+    try {
+      // This assumes you have an endpoint to get all students from a school.
+      // If not, you'd need to add one.
+      const res = await api.get(`/admin/schools/${schoolId}/students`);
+      setStudentsInSchool(res.data.students || []);
+    } catch (err) {
+      setError('Failed to fetch students for this school.');
+    }
+  };
+
+  const handleStudentSelect = (studentId) => {
+    const newSelection = new Set(selectedStudents);
+    if (newSelection.has(studentId)) {
+      newSelection.delete(studentId);
+    } else {
+      newSelection.add(studentId);
+    }
+    setSelectedStudents(newSelection);
+  };
+
+  const handleSaveAssignment = async () => {
+    try {
+      await api.post(`/admin/exams/${selectedExam.id}/assign`, {
+        student_ids: Array.from(selectedStudents), // Send the array of selected IDs
+        replace: false // Set to false to add to existing assignments
+      });
+      setSuccess(`${selectedStudents.size} students assigned successfully.`);
+      fetchAssignedStudents(selectedExam.id);
+      setAssignmentTab(0);
+    } catch (err) {
+      setError('Failed to assign students.');
+    }
   };
 
   return (
@@ -200,9 +229,9 @@ export default function AdminExams() {
         <Typography variant="h5" gutterBottom>Manage Exams</Typography>
         <Button variant="contained" onClick={() => handleOpenEditExam()} startIcon={<AddIcon />}>Create New Exam</Button>
       </Box>
-      
-      {success && <Alert severity="success" onClose={() => setSuccess('')} sx={{mb: 2}}>{success}</Alert>}
-      {error && <Alert severity="error" onClose={() => setError('')} sx={{mb: 2}}>{error}</Alert>}
+
+      {success && <Alert severity="success" onClose={() => setSuccess('')} sx={{ mb: 2 }}>{success}</Alert>}
+      {error && <Alert severity="error" onClose={() => setError('')} sx={{ mb: 2 }}>{error}</Alert>}
 
       <Grid container spacing={3}>
         <Grid item xs={12} md={4}>
@@ -239,22 +268,22 @@ export default function AdminExams() {
           </Paper>
         </Grid>
       </Grid>
-      
+
       {/* --- DIALOGS --- */}
-      
+
       <Dialog open={dialog.name === 'editExam'} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
         <DialogTitle>{dialog.data?.id ? 'Edit Exam' : 'Create New Exam'}</DialogTitle>
         <DialogContent>
-          <TextField name="title" label="Title" value={currentExam.title} onChange={(e) => setCurrentExam({...currentExam, title: e.target.value})} fullWidth margin="normal" />
-          <TextField name="description" label="Description" value={currentExam.description} onChange={(e) => setCurrentExam({...currentExam, description: e.target.value})} fullWidth margin="normal" multiline rows={3} />
-          <DateTimePicker label="Access Start" value={currentExam.access_start ? new Date(currentExam.access_start) : null} onChange={(val) => setCurrentExam({...currentExam, access_start: val?.toISOString()})} sx={{width: '100%', mt: 2}}/>
-          <DateTimePicker label="Access End" value={currentExam.access_end ? new Date(currentExam.access_end) : null} onChange={(val) => setCurrentExam({...currentExam, access_end: val?.toISOString()})} sx={{width: '100%', mt: 2}}/>
-          <TextField name="duration_minutes" label="Duration (minutes)" type="number" value={currentExam.duration_minutes} onChange={(e) => setCurrentExam({...currentExam, duration_minutes: e.target.value})} fullWidth margin="normal" />
-          <TextField name="total_marks" label="Total Marks" type="number" value={currentExam.total_marks} onChange={(e) => setCurrentExam({...currentExam, total_marks: e.target.value})} fullWidth margin="normal" />
+          <TextField name="title" label="Title" value={currentExam.title} onChange={(e) => setCurrentExam({ ...currentExam, title: e.target.value })} fullWidth margin="normal" />
+          <TextField name="description" label="Description" value={currentExam.description} onChange={(e) => setCurrentExam({ ...currentExam, description: e.target.value })} fullWidth margin="normal" multiline rows={3} />
+          <DateTimePicker label="Access Start" value={currentExam.access_start ? new Date(currentExam.access_start) : null} onChange={(val) => setCurrentExam({ ...currentExam, access_start: val?.toISOString() })} sx={{ width: '100%', mt: 2 }} />
+          <DateTimePicker label="Access End" value={currentExam.access_end ? new Date(currentExam.access_end) : null} onChange={(val) => setCurrentExam({ ...currentExam, access_end: val?.toISOString() })} sx={{ width: '100%', mt: 2 }} />
+          <TextField name="duration_minutes" label="Duration (minutes)" type="number" value={currentExam.duration_minutes} onChange={(e) => setCurrentExam({ ...currentExam, duration_minutes: e.target.value })} fullWidth margin="normal" />
+          <TextField name="total_marks" label="Total Marks" type="number" value={currentExam.total_marks} onChange={(e) => setCurrentExam({ ...currentExam, total_marks: e.target.value })} fullWidth margin="normal" />
         </DialogContent>
         <DialogActions><Button onClick={handleCloseDialog}>Cancel</Button><Button onClick={handleSaveExam} variant="contained">Save</Button></DialogActions>
       </Dialog>
-      
+
       <Dialog open={dialog.name === 'manageQuestions'} onClose={handleCloseDialog} fullWidth maxWidth="lg">
         <DialogTitle>Manage Questions for: {dialog.data?.title}</DialogTitle>
         <DialogContent>
@@ -280,18 +309,18 @@ export default function AdminExams() {
       <Dialog open={dialog.name === 'editQuestion'} onClose={() => handleOpenDialog('manageQuestions', selectedExam)}>
         <DialogTitle>{currentQuestion.id ? 'Edit Question' : 'Add New Question'}</DialogTitle>
         <DialogContent>
-           <TextField name="text" label="Question Text" value={currentQuestion.text} onChange={(e) => setCurrentQuestion({...currentQuestion, text: e.target.value})} fullWidth multiline rows={3} margin="normal" />
-           <TextField name="option_a" label="Option A" value={currentQuestion.option_a} onChange={(e) => setCurrentQuestion({...currentQuestion, option_a: e.target.value})} fullWidth margin="dense" />
-           <TextField name="option_b" label="Option B" value={currentQuestion.option_b} onChange={(e) => setCurrentQuestion({...currentQuestion, option_b: e.target.value})} fullWidth margin="dense" />
-           <TextField name="option_c" label="Option C" value={currentQuestion.option_c} onChange={(e) => setCurrentQuestion({...currentQuestion, option_c: e.target.value})} fullWidth margin="dense" />
-           <TextField name="option_d" label="Option D" value={currentQuestion.option_d} onChange={(e) => setCurrentQuestion({...currentQuestion, option_d: e.target.value})} fullWidth margin="dense" />
-           <TextField name="correct_answer" label="Correct Answer (A, B, C, or D)" value={currentQuestion.correct_answer} onChange={(e) => setCurrentQuestion({...currentQuestion, correct_answer: e.target.value})} fullWidth margin="normal" />
-           <TextField name="marks" label="Marks" type="number" value={currentQuestion.marks} onChange={(e) => setCurrentQuestion({...currentQuestion, marks: e.target.value})} fullWidth margin="normal" />
-           <TextField name="image_path" label="Image Path" value={currentQuestion.image_path} disabled fullWidth margin="normal" />
-            <Stack direction="row" spacing={2} alignItems="center">
-              <Button variant="outlined" component="label">Select Image<input type="file" hidden onChange={(e) => setImageFile(e.target.files[0])} /></Button>
-              <Button variant="contained" onClick={handleUploadImage} disabled={!imageFile}>Upload Image</Button>
-            </Stack>
+          <TextField name="text" label="Question Text" value={currentQuestion.text} onChange={(e) => setCurrentQuestion({ ...currentQuestion, text: e.target.value })} fullWidth multiline rows={3} margin="normal" />
+          <TextField name="option_a" label="Option A" value={currentQuestion.option_a} onChange={(e) => setCurrentQuestion({ ...currentQuestion, option_a: e.target.value })} fullWidth margin="dense" />
+          <TextField name="option_b" label="Option B" value={currentQuestion.option_b} onChange={(e) => setCurrentQuestion({ ...currentQuestion, option_b: e.target.value })} fullWidth margin="dense" />
+          <TextField name="option_c" label="Option C" value={currentQuestion.option_c} onChange={(e) => setCurrentQuestion({ ...currentQuestion, option_c: e.target.value })} fullWidth margin="dense" />
+          <TextField name="option_d" label="Option D" value={currentQuestion.option_d} onChange={(e) => setCurrentQuestion({ ...currentQuestion, option_d: e.target.value })} fullWidth margin="dense" />
+          <TextField name="correct_answer" label="Correct Answer (A, B, C, or D)" value={currentQuestion.correct_answer} onChange={(e) => setCurrentQuestion({ ...currentQuestion, correct_answer: e.target.value })} fullWidth margin="normal" />
+          <TextField name="marks" label="Marks" type="number" value={currentQuestion.marks} onChange={(e) => setCurrentQuestion({ ...currentQuestion, marks: e.target.value })} fullWidth margin="normal" />
+          <TextField name="image_path" label="Image Path" value={currentQuestion.image_path} disabled fullWidth margin="normal" />
+          <Stack direction="row" spacing={2} alignItems="center">
+            <Button variant="outlined" component="label">Select Image<input type="file" hidden onChange={(e) => setImageFile(e.target.files[0])} /></Button>
+            <Button variant="contained" onClick={handleUploadImage} disabled={!imageFile}>Upload Image</Button>
+          </Stack>
         </DialogContent>
         <DialogActions><Button onClick={() => handleOpenDialog('manageQuestions', selectedExam)}>Cancel</Button><Button onClick={handleSaveQuestion}>Save Question</Button></DialogActions>
       </Dialog>
@@ -303,38 +332,61 @@ export default function AdminExams() {
             <Tab label="View Assigned Students" />
             <Tab label="Assign New Students" />
           </Tabs>
+
+          {/* View Assigned Students Tab */}
           {assignmentTab === 0 && (
             <Table size="small" sx={{ mt: 2 }}>
-              <TableHead><TableRow><TableCell>Student Name</TableCell><TableCell>Action</TableCell></TableRow></TableHead>
-              <TableBody>
-                {assignedStudents.map(s => (
-                  <TableRow key={s.user_id}>
-                    <TableCell>{s.name}</TableCell>
-                    <TableCell><Button size="small" color="error" onClick={() => handleRemoveAssignment(s.user_id)}>Remove</Button></TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
+              {/* ... (Your existing table to view assigned students) ... */}
             </Table>
           )}
+
+          {/* Assign New Students Tab */}
           {assignmentTab === 1 && (
             <Box sx={{ p: 2 }}>
-              {/* This is a simplified assignment form. You can expand it. */}
-              <Typography sx={{mb: 2}}>Assign all students from a specific school:</Typography>
+              <Typography sx={{ mb: 2 }}>Select students to add to this exam.</Typography>
               <FormControl fullWidth>
-                <InputLabel>School</InputLabel>
+                <InputLabel>Filter by School</InputLabel>
                 <Select
-                  value={assignmentFilters.school_id}
-                  label="School"
-                  onChange={(e) => setAssignmentFilters({...assignmentFilters, school_id: e.target.value})}
+                  label="Filter by School"
+                  onChange={(e) => handleSchoolFilterChange(e.target.value)}
                 >
+                  <MenuItem value=""><em>None</em></MenuItem>
                   {schools.map(s => <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>)}
                 </Select>
               </FormControl>
-              <Button sx={{mt: 2}} variant="contained" onClick={handleSaveAssignment}>Assign School</Button>
+
+              <Paper sx={{ maxHeight: 300, overflow: 'auto', mt: 2 }}>
+                <List dense>
+                  {studentsInSchool.map(student => (
+                    <ListItemButton key={student.user_id} onClick={() => handleStudentSelect(student.user_id)}>
+                      <ListItemIcon>
+                        <Checkbox
+                          edge="start"
+                          checked={selectedStudents.has(student.user_id)}
+                          tabIndex={-1}
+                          disableRipple
+                        />
+                      </ListItemIcon>
+                      <ListItemText primary={student.name} secondary={student.student_id} />
+                    </ListItemButton>
+                  ))}
+                </List>
+              </Paper>
+              <Typography sx={{ mt: 1, fontSize: '0.9rem' }}>
+                {selectedStudents.size} student(s) selected.
+              </Typography>
             </Box>
           )}
         </DialogContent>
-        <DialogActions><Button onClick={handleCloseDialog}>Close</Button></DialogActions>
+        <DialogActions>
+          <Button onClick={handleCloseDialog}>Cancel</Button>
+          {/* Only show the Assign button on the second tab */}
+          {assignmentTab === 1 && (
+            <Button variant="contained" onClick={handleSaveAssignment} disabled={selectedStudents.size === 0}>
+              Assign Selected Students
+            </Button>
+          )}
+        </DialogActions>
       </Dialog>
     </Box>
   );

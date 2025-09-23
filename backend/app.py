@@ -669,6 +669,24 @@ def admin_assign_students(current_user, exam_id):
         db.session.rollback()
         return jsonify({'message':'assignment failed','detail': str(e)}), 500
 
+@app.route('/admin/students/search', methods=['GET'])
+@admin_required
+def search_students(current_user):
+    query = request.args.get('q', '', type=str)
+    if not query or len(query) < 2:
+        return jsonify([]) # Don't search for very short strings
+    
+    # Search by student name or their unique student_id
+    students = Student.query.filter(
+        Student.name.ilike(f'%{query}%') |
+        Student.student_id.ilike(f'%{query}%')
+    ).limit(10).all()
+    
+    # Return a simple list of students for the frontend
+    return jsonify([
+        {'id': s.user_id, 'name': f'{s.name} ({s.student_id})'} for s in students
+    ])
+
 # GET a list of students assigned to an exam
 @app.route('/admin/exams/<int:exam_id>/students', methods=['GET'])
 @admin_required
