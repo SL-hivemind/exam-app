@@ -618,6 +618,7 @@ def clone_exam(current_user, exam_id):
 
 # ----- Admin: assign students to exam ----- (keeps existing flexible behavior)
 
+
 @app.route('/admin/exams/<int:exam_id>/assign', methods=['POST'])
 @admin_required
 def admin_assign_students(current_user, exam_id):
@@ -633,6 +634,7 @@ def admin_assign_students(current_user, exam_id):
         if data.get('assign_all'):
             students = Student.query.all()
         elif data.get('student_ids'):
+
             ids = data.get('student_ids')
             students = Student.query.filter(Student.student_id.in_(ids)).all()
         elif data.get('school_code') or data.get('school_id'):
@@ -668,7 +670,6 @@ def admin_assign_students(current_user, exam_id):
     except SQLAlchemyError as e:
         db.session.rollback()
         return jsonify({'message':'assignment failed','detail': str(e)}), 500
-
 @app.route('/admin/students/search', methods=['GET'])
 @admin_required
 def search_students(current_user):
