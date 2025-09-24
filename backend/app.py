@@ -625,68 +625,32 @@ def admin_assign_students(current_user, exam_id):
     exam = Exam.query.get_or_404(exam_id)
     data = request.json or {}
     replace = data.get('replace', True)
+    
     try:
         if replace:
             ExamStudent.query.filter_by(exam_id=exam.id).delete()
 
-        students = []
-        # Support select all schools option
-        if data.get('assign_all'):
-            students = Student.query.all()
-        elif data.get('student_ids'):
-
-            ids = data.get('student_ids')
-            students = Student.query.filter(Student.student_id.in_(ids)).all()
-        elif data.get('school_code') or data.get('school_id'):
-            sc = data.get('school_code')
-            school_id = data.get('school_id')
-            if sc:
-                # Ensure the school_code matches the exam's school if provided
-                if sc != exam.school.code:
-                    return jsonify({'message': 'school_code does not match exam school'}), 400
-                q = Student.query.join(School).filter(School.code == sc)
-            elif school_id:
-                if school_id != exam.school_id:
-                    return jsonify({'message': 'school_id does not match exam school'}), 400
-                q = Student.query.filter(Student.school_id == school_id)
-            else:
-                q = Student.query.filter(Student.school_id == exam.school_id)
-
-            if data.get('class'):
-                q = q.filter(Student.class_number == data.get('class'))
-            if data.get('roll_number'):
-                q = q.filter(Student.number == str(data.get('roll_number')))
-            students = q.all()
-        else:
-            return jsonify({'message':'no valid assign parameter provided'}), 400
+        students_query = Student.query
+        if data.get('school_id'):
+            students_query = students_query.filter_by(school_id=data.get('school_id'))
+        if data.get('class_number'):
+            students_query = students_query.filter_by(class_number=data.get('class_number'))
+        
+        students = students_query.all()
 
         for s in students:
-            if not ExamStudent.query.filter_by(exam_id=exam.id, student_id=s.user_id).first():
+            # Check if assignment already exists to avoid duplicates
+            exists = ExamStudent.query.filter_by(exam_id=exam.id, student_id=s.user_id).first()
+            if not exists:
                 db.session.add(ExamStudent(exam_id=exam.id, student_id=s.user_id))
+        
+        db.session.commit()
+        return jsonify({'message': f'Assigned {len(students)} students successfully'}), 200
 
-        db.session.commit()  # ✅ Commit once at the end
-        return jsonify({'message':'assigned', 'count': len(students)}), 200
-
-    except SQLAlchemyError as e:
+    except Exception as e:
         db.session.rollback()
-        return jsonify({'message':'assignment failed','detail': str(e)}), 500
-@app.route('/admin/students/search', methods=['GET'])
-@admin_required
-def search_students(current_user):
-    query = request.args.get('q', '', type=str)
-    if not query or len(query) < 2:
-        return jsonify([]) # Don't search for very short strings
-    
-    # Search by student name or their unique student_id
-    students = Student.query.filter(
-        Student.name.ilike(f'%{query}%') |
-        Student.student_id.ilike(f'%{query}%')
-    ).limit(10).all()
-    
-    # Return a simple list of students for the frontend
-    return jsonify([
-        {'id': s.user_id, 'name': f'{s.name} ({s.student_id})'} for s in students
-    ])
+        return jsonify({'message': 'Assignment failed', 'detail': str(e)}), 500
+
 
 # GET a list of students assigned to an exam
 @app.route('/admin/exams/<int:exam_id>/students', methods=['GET'])
@@ -709,14 +673,6 @@ def get_assigned_students(current_user, exam_id):
         
     return jsonify(student_list), 200
 
-# DELETE (unassign) a student from an exam
-@app.route('/admin/exams/<int:exam_id>/students/<int:user_id>', methods=['DELETE'])
-@admin_required
-def unassign_student(current_user, exam_id, user_id):
-    assignment = ExamStudent.query.filter_by(exam_id=exam_id, student_id=user_id).first_or_404()
-    db.session.delete(assignment)
-    db.session.commit()
-    return jsonify({'message': 'Student unassigned successfully'}), 200
 
 # ----- Student: list assigned exams (student side) -----
 @app.route('/student/exams', methods=['GET'])

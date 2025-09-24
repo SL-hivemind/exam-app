@@ -274,38 +274,43 @@ export default function AdminExams() {
 
   const handleCloseAssignmentDialog = () => {
     setOpenAssignmentDialog(false);
+    // Reset the full filter state when closing
     setAssignmentFilters({
-      assign_all: false,
-      school_id: '',
-      class: '',
-      roll_number: '',
-      student_ids: ''
+      assign_all: false, school_id: '', class: '',
+      roll_number: '', student_ids: ''
     });
+    setSelectedExamId(null);
   };
 
+  // This handler can remain the same as it correctly updates the complex state
   const handleAssignmentChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setAssignmentFilters({
-      ...assignmentFilters,
+    setAssignmentFilters(prev => ({
+      ...prev,
       [name]: type === 'checkbox' ? checked : value
-    });
+    }));
   };
 
+  // THIS IS THE CORRECTED SAVE HANDLER
   const handleSaveAssignment = async () => {
+    if (!selectedExamId) {
+      setError("No exam selected.");
+      return;
+    }
+
+    // Create a simple payload object that matches what the reverted backend expects.
+    const payload = {
+      school_id: assignmentFilters.school_id || null,
+      class_number: assignmentFilters.class || null // The backend expects 'class_number'
+    };
+
     try {
-      const data = { ...assignmentFilters };
-      if (data.assign_all) {
-        data.assign_all = true;
-      } else if (data.student_ids.length > 0) {
-        data.student_ids = data.student_ids.split(',').map(id => id.trim());
-      }
-      await api.post(`/admin/exams/${selectedExamId}/assign`, data);
+      // Send only the simple payload, not the entire assignmentFilters state.
+      await api.post(`/admin/exams/${selectedExamId}/assign`, payload);
+      setSuccess('Students assigned successfully based on the selected filters.');
       handleCloseAssignmentDialog();
-      setError('');
-      setSuccess('Students assigned successfully');
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to assign students');
-      console.error('Error assigning students:', err);
     }
   };
 
