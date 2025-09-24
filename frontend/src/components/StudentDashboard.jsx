@@ -4,9 +4,20 @@ import {
   TableHead, TableRow, Button, Alert, Chip, IconButton,Container, Stack
 } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import EventNoteIcon from '@mui/icons-material/EventNote'; 
 import { useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import useAuth from '../hooks/useAuth';
+
+
+const upcomingAssessments = [
+  "Assessment -2 (26th September 2025)",
+  "Assessment -3 (27th September 2025)",
+  "Assessment- 4 (28th September 2025)",
+  "Assessment -5 (29th September 2025)",
+];
+
+
 
 export default function StudentDashboard() {
   const { authToken } = useAuth();
@@ -128,6 +139,22 @@ export default function StudentDashboard() {
             <RefreshIcon sx={{ color: 'white' }} />
           </IconButton>
         </Box>
+
+  {/* --- NEW: Upcoming Assessments Section --- */}
+        <Paper sx={{ p: 3, mb: 3, backgroundColor: 'rgba(255, 255, 255, 0.9)', backdropFilter: 'blur(10px)', borderRadius: 3 }}>
+          <Typography variant="h5" fontWeight={600} gutterBottom>Upcoming Assessments</Typography>
+          <Typography variant="subtitle1" color="text.secondary" sx={{mb: 1}}>Term 1 - Vacation Assessments</Typography>
+          <List dense>
+            {upcomingAssessments.map((assessment, index) => (
+              <ListItem key={index} disablePadding>
+                <ListItemIcon sx={{minWidth: '40px'}}>
+                  <EventNoteIcon color="primary" />
+                </ListItemIcon>
+                <ListItemText primary={assessment} />
+              </ListItem>
+            ))}
+          </List>
+        </Paper>
         
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         {exams.length === 0 && !error && (
