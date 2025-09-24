@@ -168,7 +168,7 @@ def login():
         token = jwt.encode(payload, app.config['JWT_SECRET_KEY'], algorithm='HS256')
 
         # return profile info
-        profile = {'id': user.id, 'username': user.username, 'role': user.role}
+        profile = {'id': user.id, 'username': user.username, 'role': user.role, 'name': student.name if student else user.username}
         return jsonify({'auth_token': token, 'user': profile}), 200
     except Exception as e:
         return jsonify({'message': 'Login failed', 'detail': str(e)}), 500
