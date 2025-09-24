@@ -126,9 +126,9 @@ export default function Home() {
           </Typography>
           <Stack direction={{ xs: "column", sm: "row" }} spacing={2} justifyContent="center">
             <Button size="large" variant="contained" onClick={() => navigate("/login")}>Login</Button>
-            <Button size="large" variant="outlined" sx={{ color: 'white', borderColor: 'white', '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.1)' } }} onClick={() => navigate("/register")}>
+            {/* <Button size="large" variant="outlined" sx={{ color: 'white', borderColor: 'white', '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.1)' } }} onClick={() => navigate("/register")}>
               Register as Student
-            </Button>
+            </Button> */}
           </Stack>
         </Box>
       </Box>

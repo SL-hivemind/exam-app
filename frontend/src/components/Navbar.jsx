@@ -16,7 +16,7 @@ export default function Navbar() {
         {isAuthenticated ? (
           <>
             <Typography variant="body1" sx={{ mr: 2 }}>
-              Welcome, {user.username} ({user.id})
+              Welcome, {user.name || user.username}
             </Typography>
             <Button
               color="inherit"
