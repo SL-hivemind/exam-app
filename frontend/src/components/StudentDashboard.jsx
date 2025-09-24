@@ -140,30 +140,6 @@ export default function StudentDashboard() {
           </IconButton>
         </Box>
 
-  {/* --- NEW: Upcoming Assessments Section --- */}
-        <Paper sx={{ p: 3, mb: 3, backgroundColor: 'rgba(255, 255, 255, 0.9)', backdropFilter: 'blur(10px)', borderRadius: 3 }}>
-          <Typography variant="h5" fontWeight={600} gutterBottom>Upcoming Assessments</Typography>
-          <Typography variant="subtitle1" color="text.secondary" sx={{mb: 1}}>Term 1 - Vacation Assessments</Typography>
-          <List dense>
-            {upcomingAssessments.map((assessment, index) => (
-              <ListItem key={index} disablePadding>
-                <ListItemIcon sx={{minWidth: '40px'}}>
-                  <EventNoteIcon color="primary" />
-                </ListItemIcon>
-                <ListItemText primary={assessment} />
-              </ListItem>
-            ))}
-          </List>
-        </Paper>
-        
-        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-        {exams.length === 0 && !error && (
-          <Paper sx={{ p: 4, textAlign: 'center', backgroundColor: 'rgba(255, 255, 255, 0.8)', backdropFilter: 'blur(10px)' }}>
-            <Typography variant="h6">No exams have been assigned to you yet.</Typography>
-            <Typography color="text.secondary">Please check back later or contact your administrator.</Typography>
-          </Paper>
-        )}
-
         {/* --- DESKTOP VIEW: The Table (Visible on medium screens and up) --- */}
         <Paper sx={{
           display: { xs: 'none', md: 'block' }, // Hide on small screens, show on medium+
@@ -270,6 +246,30 @@ export default function StudentDashboard() {
             </Typography>
             <Button disabled={currentPage === totalPages} onClick={() => setCurrentPage(currentPage + 1)} sx={{ color: 'white' }}>Next</Button>
           </Box>
+        )}
+
+        {/* --- NEW: Upcoming Assessments Section --- */}
+        <Paper sx={{ p: 3, mb: 3, backgroundColor: 'rgba(255, 255, 255, 0.9)', backdropFilter: 'blur(10px)', borderRadius: 3 }}>
+          <Typography variant="h5" fontWeight={600} gutterBottom>Upcoming Assessments</Typography>
+          <Typography variant="subtitle1" color="text.secondary" sx={{mb: 1}}>Term 1 - Vacation Assessments</Typography>
+          <List dense>
+            {upcomingAssessments.map((assessment, index) => (
+              <ListItem key={index} disablePadding>
+                <ListItemIcon sx={{minWidth: '40px'}}>
+                  <EventNoteIcon color="primary" />
+                </ListItemIcon>
+                <ListItemText primary={assessment} />
+              </ListItem>
+            ))}
+          </List>
+        </Paper>
+        
+        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+        {exams.length === 0 && !error && (
+          <Paper sx={{ p: 4, textAlign: 'center', backgroundColor: 'rgba(255, 255, 255, 0.8)', backdropFilter: 'blur(10px)' }}>
+            <Typography variant="h6">No exams have been assigned to you yet.</Typography>
+            <Typography color="text.secondary">Please check back later or contact your administrator.</Typography>
+          </Paper>
         )}
       </Container>
     </Box>
