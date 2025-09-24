@@ -32,7 +32,7 @@ export default function Footer() {
             <Grid item xs={12} sm={4}>
               <Box display="flex" alignItems="center" mb={2}>
                 <img
-                  src="/logo192.png"
+                  src="/SLlogo.png"
                   alt="Logo"
                   style={{ width: '50px', height: '50px', marginRight: '10px', backgroundColor: 'white', padding: '4px', borderRadius: '8px' }}
                 />
