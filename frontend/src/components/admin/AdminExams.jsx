@@ -292,22 +292,33 @@ export default function AdminExams() {
   };
 
   const handleSaveAssignment = async () => {
-    try {
-      const data = { ...assignmentFilters };
-      if (data.assign_all) {
-        data.assign_all = true;
-      } else if (data.student_ids.length > 0) {
-        data.student_ids = data.student_ids.split(',').map(id => id.trim());
-      }
-      await api.post(`/admin/exams/${selectedExamId}/assign`, data);
-      handleCloseAssignmentDialog();
-      setError('');
-      setSuccess('Students assigned successfully');
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to assign students');
-      console.error('Error assigning students:', err);
+  try {
+    const data = { ...assignmentFilters };
+
+    if (data.assign_all) {
+      data.assign_all = true;
+    } else if (data.student_ids && data.student_ids.trim().length > 0) {
+      // ✅ Ensure it's an array
+      data.student_ids = data.student_ids
+        .split(",")
+        .map((id) => id.trim())
+        .filter((id) => id.length > 0);
+    } else {
+      // remove empty key so backend doesn't get a string
+      delete data.student_ids;
     }
-  };
+
+    await api.post(`/admin/exams/${selectedExamId}/assign`, data);
+
+    handleCloseAssignmentDialog();
+    setError("");
+    setSuccess("Students assigned successfully");
+  } catch (err) {
+    setError(err.response?.data?.message || "Failed to assign students");
+    console.error("Error assigning students:", err);
+  }
+};
+
 
   // Export exam results handler
   const handleExportExamResults = async (examId) => {
