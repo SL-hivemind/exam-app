@@ -457,7 +457,7 @@ def admin_exams(current_user):
         db.session.add(exam); db.session.commit()
         return jsonify({'message':'exam created','exam':exam.to_dict()}), 201
 
-    exams = Exam.query.all()
+    exams = Exam.query.order_by(desc(Exam.created_at)).all()
     return jsonify({'exams':[e.to_dict() for e in exams]}), 200
 
 
