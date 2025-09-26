@@ -11,7 +11,6 @@ import useAuth from '../hooks/useAuth';
 
 
 const upcomingAssessments = [
-  "Assessment -2 (26th September 2025)",
   "Assessment -3 (27th September 2025)",
   "Assessment- 4 (28th September 2025)",
   "Assessment -5 (29th September 2025)",
