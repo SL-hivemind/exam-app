@@ -315,32 +315,31 @@ export default function AdminExams() {
   };
 
   // Export exam results handler
-  const handleExportExamResults = async (examId) => {
+ const handleExportExamResults = async (examId) => {
     try {
-      const response = await fetch(`http://127.0.0.1:5000/admin/export_student_attempts?exam_id=${examId}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `auth_token ${authToken}`
-        }
+      setSuccess(''); // Clear previous messages
+      setError('');
+
+      const response = await api.get(`/admin/export_student_attempts?exam_id=${examId}`, {
+        responseType: 'blob', // Important: tells axios to expect a file
       });
-      if (!response.ok) {
-        throw new Error('Failed to export exam results');
-      }
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `exam_${examId}_attempts.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `exam_${examId}_attempts.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
       window.URL.revokeObjectURL(url);
-      setSuccess('Exported exam results successfully');
-    } catch (error) {
-      setError(error.message || 'Export failed');
+      
+      setSuccess('Export started successfully!');
+    } catch (err) {
+      setError('Failed to export exam results.');
+      console.error('Export error:', err);
     }
   };
-
+  
   const filteredExams = exams.filter((exam) =>
     exam.title.toLowerCase().includes(searchTerm.toLowerCase())
   );
