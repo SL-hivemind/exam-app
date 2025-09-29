@@ -10,11 +10,11 @@ import api from '../utils/api';
 import useAuth from '../hooks/useAuth';
 
 
-const upcomingAssessments = [
+/*const upcomingAssessments = [
   
   "Assessment- 4 (28th September 2025)",
   "Assessment -5 (29th September 2025)",
-];
+];*/
 
 
 
@@ -247,7 +247,7 @@ export default function StudentDashboard() {
           </Box>
         )}
 
-        {/* --- NEW: Upcoming Assessments Section --- */}
+        {/* --- NEW: Upcoming Assessments Section ---
         <Paper sx={{ p: 3, mb: 3, backgroundColor: 'rgba(255, 255, 255, 0.9)', backdropFilter: 'blur(10px)', borderRadius: 3 }}>
           <Typography variant="h5" fontWeight={600} gutterBottom>Upcoming Assessments</Typography>
           <Typography variant="subtitle1" color="text.secondary" sx={{mb: 1}}>Term 1 - Vacation Assessments</Typography>
@@ -261,6 +261,21 @@ export default function StudentDashboard() {
               </ListItem>
             ))}
           </List>
+        </Paper>*/ }
+         {/* --- NEW: Dussehra Holiday Message Section --- */}
+        <Paper sx={{ p: 3, mb: 3, backgroundColor: 'rgba(255, 255, 255, 0.9)', backdropFilter: 'blur(10px)', borderRadius: 3 }}>
+          <Typography variant="h5" fontWeight={600} gutterBottom>
+            Happy Dussehra! 🏹 Holiday Mode: Activated!
+          </Typography>
+          <Typography color="text.secondary" paragraph>
+            This Dussehra, may you conquer your own ten-headed Ravana of tough subjects! To aid in your victory, all upcoming assignments have been cleared.
+          </Typography>
+          <Typography color="text.secondary" paragraph>
+            Your only assignment for now is to enjoy the celebrations. Go burn away that pre-exam tension and have a blast. It's time to celebrate the victory of good over exam stress!
+          </Typography>
+          <Typography color="text.secondary">
+            Wishing you a fun-filled and victorious holiday!
+          </Typography>
         </Paper>
         
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
