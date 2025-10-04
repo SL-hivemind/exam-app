@@ -249,7 +249,7 @@ export default function StudentDashboard() {
         {/* --- NEW: Upcoming Assessments Section ---*/ }
         <Paper sx={{ p: 3, mb: 3, backgroundColor: 'rgba(255, 255, 255, 0.9)', backdropFilter: 'blur(10px)', borderRadius: 3 }}>
           <Typography variant="h5" fontWeight={600} gutterBottom>Upcoming Assessments</Typography>
-          <Typography variant="subtitle1" color="text.secondary" sx={{mb: 1}}>Term 1 - Vacation Assessments</Typography>
+          <Typography variant="subtitle1" color="text.secondary" sx={{mb: 1}}>Term 2</Typography>
           <List dense>
             {upcomingAssessments.map((assessment, index) => (
               <ListItem key={index} disablePadding>
