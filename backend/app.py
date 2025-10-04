@@ -371,26 +371,39 @@ def admin_students(current_user):
             print("Exception:", e)
             return jsonify({'message':'create failed','detail': str(e)}), 500
 
-    # GET list
-    students = Student.query.all()
+     # GET list with pagination and search
+    page = request.args.get('page', 1, type=int)
+    per_page = 20  # Show 20 students per page
+    search_term = request.args.get('search', '', type=str)
+
+    students_query = Student.query.join(School).join(User)
+
+    if search_term:
+        students_query = students_query.filter(
+            User.username.ilike(f'%{search_term}%') |
+            Student.name.ilike(f'%{search_term}%')
+        )
+
+    pagination = students_query.order_by(Student.name).paginate(page=page, per_page=per_page, error_out=False)
+    students_on_page = pagination.items
+
     out = []
-    for s in students:
-        user = s.user
-        school = s.school
+    for s in students_on_page:
+        # ... (your existing loop to build the student dictionary)
         out.append({
-            'id': s.user_id,  # for TableRow key and edit/delete
-            'username': user.username if user else None,
-            'email': user.email if user else None,
-            'mobile_number': getattr(user, 'mobile_number', None),  # if you have this field
-            'student_id': s.student_id,
+            'id': s.user_id,
+            'username': s.user.username,
             'name': s.name,
-            'class_number': s.class_number,
-            'number': s.number,
-            'school_id': s.school_id,
-            'school_name': school.name if school else None,
-            'school_code': school.code if school else None,
+            # ... other fields
         })
-    return jsonify({'students': out}), 200
+
+    return jsonify({
+        'students': out,
+        'total_pages': pagination.pages,
+        'current_page': pagination.page,
+        'has_next': pagination.has_next,
+        'has_prev': pagination.has_prev
+    }), 200
 
 
 

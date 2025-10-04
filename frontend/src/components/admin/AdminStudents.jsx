@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback} from "react";
 import {
   Box, Typography, TextField, Button, Table, TableBody, TableCell,
   TableHead, TableRow, IconButton, Dialog, DialogActions, DialogContent,
@@ -32,21 +32,39 @@ export default function AdminStudents() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
+  // --- Pagination State ---
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  // Debounce search input
   useEffect(() => {
-    fetchStudents();
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1); // Reset to first page on new search
+    }, 500); // 500ms delay
+    return () => clearTimeout(handler);
+  }, [search]);
+
+  const fetchStudents = useCallback(async (currentPage) => {
+    try {
+      const res = await api.get(`/admin/students?page=${currentPage}&search=${debouncedSearch}`);
+      setStudents(res.data.students || []);
+      setTotalPages(res.data.total_pages || 1);
+    } catch (err) {
+      setError("Failed to fetch students");
+    }
+  }, [debouncedSearch]);
+
+  useEffect(() => {
+    fetchStudents(page);
+  }, [page, fetchStudents]);
+
+  useEffect(() => {
     fetchSchools();
   }, [authToken]);
 
-  const fetchStudents = async () => {
-    try {
-      const res = await api.get("/admin/students", {
-        headers: { auth_token: authToken },
-      });
-      setStudents(res.data.students || []);
-    } catch (err) {
-      setError(err.response?.data?.message || "Failed to fetch students");
-    }
-  };
+  
 
   const fetchSchools = async () => {
     try {
@@ -201,7 +219,7 @@ export default function AdminStudents() {
 
       <Box display="flex" justifyContent="space-between" mb={2}>
         <TextField
-          label="Search Students"
+          label="Search by Name or Username"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           sx={{ width: "300px" }}
@@ -238,7 +256,7 @@ export default function AdminStudents() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {filtered.map((s) => (
+            {students.map((s) => (
               <TableRow key={s.id}>
                 <TableCell>{s.id}</TableCell>
                 <TableCell>{s.username || "N/A"}</TableCell> {/* Show username if present */}
@@ -256,6 +274,19 @@ export default function AdminStudents() {
           </TableBody>
         </Table>
       </Paper>
+
+      {/* --- Pagination Controls --- */}
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mt: 2 }}>
+        <Button onClick={() => setPage(page - 1)} disabled={page <= 1}>
+          Previous
+        </Button>
+        <Typography sx={{ mx: 2 }}>
+          Page {page} of {totalPages}
+        </Typography>
+        <Button onClick={() => setPage(page + 1)} disabled={page >= totalPages}>
+          Next
+        </Button>
+      </Box>
 
       <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
         <DialogTitle>{isEdit ? "Edit Student" : "Add Student"}</DialogTitle>
