@@ -19,7 +19,7 @@ from models import (
 from utils.files import (
     ALLOWED_CSV, ALLOWED_IMG, allowed_file, save_csv_file,
     save_image_file, import_students_csv, import_questions_csv,
-    IMAGES_DIR, CSV_DIR, export_student_attempts_to_excel, files_bp
+    IMAGES_DIR, CSV_DIR, export_student_attempts_to_excel
 )
 
 # ----- Load environment -----
@@ -938,28 +938,15 @@ def admin_upload_image(current_user):
         return jsonify({"message": "No selected file"}), 400
 
     if file and allowed_file(file.filename, ALLOWED_IMG):
-        # Fix: Add CORS headers for preflight and actual response
         saved_url = save_image_file(file)
         if saved_url:
-            response = jsonify({
+            return jsonify({
                 "message": "Image uploaded successfully",
                 "url": saved_url
-            })
-            response.headers.add("Access-Control-Allow-Origin", "https://sl-exam.onrender.com")
-            response.headers.add("Access-Control-Allow-Methods", "POST, OPTIONS")
-            response.headers.add("Access-Control-Allow-Headers", "Content-Type, Authorization")
-            return response, 201
+            }), 201
         else:
-            response = jsonify({"message": "Image upload to S3 failed"})
-            response.headers.add("Access-Control-Allow-Origin", "https://sl-exam.onrender.com")
-            response.headers.add("Access-Control-Allow-Methods", "POST, OPTIONS")
-            response.headers.add("Access-Control-Allow-Headers", "Content-Type, Authorization")
-            return response, 500
-    response = jsonify({"message": "Invalid image type"})
-    response.headers.add("Access-Control-Allow-Origin", "https://sl-exam.onrender.com")
-    response.headers.add("Access-Control-Allow-Methods", "POST, OPTIONS")
-    response.headers.add("Access-Control-Allow-Headers", "Content-Type, Authorization")
-    return response, 400
+            return jsonify({"message": "Image upload to S3 failed"}), 500
+    return jsonify({"message": "Invalid image type"}), 400
 
 # ----- Admin: Export student attempts -----
 @app.route('/admin/export_student_attempts', methods=['GET'])
