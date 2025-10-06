@@ -51,7 +51,7 @@ def save_image_file(file_storage, prefix="img"):
             file_storage,
             S3_BUCKET,
             unique_filename,
-            ExtraArgs={"ContentType": file_storage.content_type}
+            ExtraArgs={"ContentType": file_storage.content_type, "ACL": "public-read"}
             )
         url = f"https://{S3_BUCKET}.s3.{AWS_REGION}.amazonaws.com/{unique_filename}"
         return url
@@ -153,7 +153,7 @@ def upload_exam_image(exam_id):
             return jsonify({
                 "message": "Exam image uploaded successfully",
                 "filename": saved_name,
-                "url": f"/uploads/images/{saved_name}"
+                "url": saved_name
             }), 201
         except Exception as e:
             db.session.rollback()
