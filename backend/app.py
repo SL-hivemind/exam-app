@@ -927,7 +927,7 @@ def student_view_result(current_user, exam_id):
     return jsonify({'exam': exam.to_dict(), 'attempt': {'start_time': attempt.start_time.isoformat(), 'submitted_time': attempt.submitted_time.isoformat(), 'score': attempt.score}, 'answers': answers}), 200
 
 # ----- Admin: Upload image -----
-@app.route('/admin/upload_image', methods=['POST'])
+@app.route('/admin/upload/image', methods=['POST'])
 @admin_required
 def admin_upload_image(current_user):
     if "file" not in request.files:
