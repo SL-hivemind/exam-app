@@ -257,7 +257,7 @@ export default function AdminExams() {
       const res = await api.post('/upload/image', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      setCurrentQuestion({ ...currentQuestion, image_path: res.data.path });
+      setCurrentQuestion({ ...currentQuestion, image_path: res.data.url });
       setImageFile(null);
       setError('');
       setSuccess('Image uploaded successfully');
