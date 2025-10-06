@@ -638,42 +638,41 @@ def clone_exam(current_user, exam_id):
 def admin_assign_students(current_user, exam_id):
     exam = Exam.query.get_or_404(exam_id)
     data = request.json or {}
-    replace = data.get('replace', True)
-    
+    replace = data.get('replace', False)  # <-- FIX: default is append (False)
+
     try:
         if replace:
-            ExamStudent.query.filter_by(exam_id=exam.id).delete()
+            # Clear existing assignments
+            ExamStudent.query.filter_by(exam_id=exam.id).delete(synchronize_session=False)
 
-        # --- OPTIMIZED LOGIC STARTS HERE ---
-
-        # 1. Get all students that match the filters (1 query)
+        # Build student query
         students_query = Student.query
         if data.get('school_id'):
-            students_query = students_query.filter_by(school_id=data.get('school_id'))
+            students_query = students_query.filter_by(school_id=data['school_id'])
         if data.get('class_number'):
-            students_query = students_query.filter_by(class_number=data.get('class_number'))
+            students_query = students_query.filter_by(class_number=data['class_number'])
         students_to_assign = students_query.all()
 
-        # 2. Get all existing assignments for this exam in a single query (1 query)
+        # Get already assigned
         existing_assignments = db.session.query(ExamStudent.student_id).filter_by(exam_id=exam.id).all()
-        # Convert to a set for extremely fast lookups
-        assigned_student_ids = {assignment.student_id for assignment in existing_assignments}
+        assigned_student_ids = {row.student_id for row in existing_assignments}
 
         new_assignments_count = 0
-        # Loop through students IN MEMORY (no new queries)
         for student in students_to_assign:
-            # Check if the student is already in the set (very fast)
             if student.user_id not in assigned_student_ids:
                 db.session.add(ExamStudent(exam_id=exam.id, student_id=student.user_id))
                 new_assignments_count += 1
-        
+
         db.session.commit()
-        return jsonify({'message': f'Assignment complete. Added {new_assignments_count} new students.'}), 200
+        return jsonify({
+            'message': f'Assignment complete. Added {new_assignments_count} new students.'
+        }), 200
 
     except Exception as e:
         db.session.rollback()
         logger.error(f"Assignment failed for exam {exam_id}: {e}")
         return jsonify({'message': 'Assignment failed due to an internal error'}), 500
+
 
 # GET a list of students assigned to an exam
 @app.route('/admin/exams/<int:exam_id>/students', methods=['GET'])
