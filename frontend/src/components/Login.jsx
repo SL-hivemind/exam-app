@@ -1,5 +1,5 @@
 // src/components/Login.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Box, 
   Paper, 
@@ -16,6 +16,8 @@ import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import api from '../utils/api';
 import useAuth from '../hooks/useAuth';
+import InfoModal from '../components/InfoModal'; // Import the new modal
+import didYouKnowImage from '../assets/wisdom.jpg'; 
 
 export default function Login() {
   const navigate = useNavigate();
@@ -25,6 +27,15 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+   useEffect(() => {
+    setIsModalOpen(true); // Open the modal on page load
+  }, []);
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -136,6 +147,13 @@ export default function Login() {
           </Typography>
         </Stack>
       </Paper>
+      <InfoModal
+        isOpen={isModalOpen}
+        onClose={closeModal}
+        title="Did You Know?"
+        imageUrl={didYouKnowImage}
+      >
+      </InfoModal>
     </Box>
   );
 }
