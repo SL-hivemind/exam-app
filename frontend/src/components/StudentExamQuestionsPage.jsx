@@ -186,7 +186,14 @@ export default function StudentExamQuestionsPage() {
                       src={mcq.image_path}
                       alt="Question"
                       loading="lazy"
-                      style={{ maxWidth: '100%', maxHeight: 200, borderRadius: '8px' }}
+                      style={{
+                        width: '100%',
+                        height: 'auto',
+                        maxWidth: '600px',
+                        objectFit: 'contain',
+                        borderRadius: '8px',
+                        display: 'block', 
+                      }}
                     />
                   </Box>
                 )}
