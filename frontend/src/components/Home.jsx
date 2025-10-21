@@ -37,7 +37,7 @@ const recognitionImages = [
 ];
 
 // --- Fading Image Carousel Component ---
-const ImageCarousel = ({ images }) => {
+const ImageCarousel = ({ images }) => {   
   const [currentIndex, setCurrentIndex] = useState(0);
 
   useEffect(() => {

@@ -9,7 +9,6 @@ import {
 } from '@mui/material';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import Header from './components/Header';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import AppRoutes from './routes/AppRoutes';
@@ -31,7 +30,7 @@ export default function App() {
       <CssBaseline />
       <AuthProvider>
         <Box minHeight="100vh" display="flex" flexDirection="column">
-          <Header />
+          
           <Navbar /> {/* Ensure it uses useAuth for login/logout */}
           <Container maxWidth={false} disableGutters sx={{ flex: 1 }}>
             <AppRoutes />
