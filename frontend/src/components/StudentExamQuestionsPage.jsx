@@ -216,7 +216,7 @@ export default function StudentExamQuestionsPage() {
                 elevation={4}
                 sx={{
                   position: 'sticky',
-                  top: 0, // Sticks to the top of the scrolling container
+                  top: '64px', // Sticks to the top of the scrolling container
                   zIndex: 1100, // Stays on top of other content
                   mb: 2,
                 }}
