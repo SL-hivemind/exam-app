@@ -2,393 +2,205 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box, Typography, Paper, Button, Alert, RadioGroup,
-  FormControlLabel, Radio, CircularProgress, Dialog,
-  DialogTitle, DialogContent, DialogActions, IconButton, Container
+  FormControlLabel, Radio, CircularProgress
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import api from '../utils/api';
 import useAuth from '../hooks/useAuth';
+import { InlineMath, BlockMath } from 'react-katex';
 
 export default function StudentExamQuestionsPage() {
   const { examId } = useParams();
-  const { authToken, user } = useAuth(); // Get user object
+  const { authToken } = useAuth();
   const navigate = useNavigate();
 
   const [exam, setExam] = useState(null);
   const [mcqAnswers, setMcqAnswers] = useState({});
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(true); // Start with loading true
+  const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [results, setResults] = useState(null);
-  const [showResults, setShowResults] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(null);
+  const [started, setStarted] = useState(false);
+  const [error, setError] = useState('');
+
   const timerRef = useRef(null);
 
-  // pagination state for questions
   const [currentPage, setCurrentPage] = useState(1);
   const questionsPerPage = 3;
 
-  // Create a unique key for local storage
-  const storageKey = `examAnswers-${user?.id}-${examId}`;
-
   useEffect(() => {
-    // Moved fetchExamDetails inside useEffect to be callable
-    const fetchExamDetails = async () => {
-      setLoading(true);
-      try {
-        // 1. Get the exam status first
-        const canStartRes = await api.get(`/student/exams/${examId}/can_start`, { headers: { auth_token: authToken } });
+    validateExamAccess();
+    return () => clearInterval(timerRef.current);
+  }, [examId]);
 
-        const { assigned, within_window, already_submitted } = canStartRes.data;
+  const validateExamAccess = async () => {
+    setLoading(true);
+    try {
+      const canStartRes = await api.get(`/student/exams/${examId}/can_start`, {
+        headers: { auth_token: authToken },
+      });
 
-        // --- NEW: Check the status before proceeding ---
-        if (!assigned) {
-          setError("You are not assigned to this exam.");
-          setLoading(false);
-          return;
-        }
-        if (already_submitted) {
-          setError("You have already submitted this exam.");
-          setSubmitted(true); // Show the "submission complete" screen
-          setLoading(false);
-          return;
-        }
-        if (!within_window) {
-          setError("This exam is not currently available. Please check the access times.");
-          setLoading(false);
-          return;
-        }
-        // --- END OF NEW CHECK ---
+      setExam(canStartRes.data.exam);
 
-        // 3. If all checks pass, THEN fetch questions and start the exam
-        const questionsRes = await api.get(`/student/exams/${examId}/questions`, { headers: { auth_token: authToken } });
+      if (!canStartRes.data.can_start) {
+        setError(canStartRes.data.message || 'Exam is not available.');
+      }
 
-        setExam({ ...canStartRes.data.exam, questions: questionsRes.data.questions, results_released: canStartRes.data.exam?.results_released });
+      const saved = localStorage.getItem(`exam_${examId}_answers`);
+      if (saved) setMcqAnswers(JSON.parse(saved));
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to load exam.');
+    }
+    setLoading(false);
+  };
 
-        // 4. Now it's safe to start the attempt
-        const attemptRes = await api.post(`/student/exams/${examId}/start`, {}, { headers: { auth_token: authToken } });
-        localStorage.setItem(`exam_${examId}_attempt_id`, attemptRes.data.attempt_id);
+  const handleStartExam = async () => {
+    try {
+      const startRes = await api.post(
+        `/student/exams/${examId}/start`,
+        {},
+        { headers: { auth_token: authToken } }
+      );
 
+      setStarted(true);
+      setExam(prev => ({ ...prev, questions: startRes.data.questions }));
 
-        // --- Load saved answers from local storage ---
-        const savedAnswers = localStorage.getItem(storageKey);
-        if (savedAnswers) {
-          setMcqAnswers(JSON.parse(savedAnswers));
-        }
-        // --- End of loading code ---
-
-        const expiresAt = new Date(attemptRes.data.expires_at);
+      if (startRes.data.expires_at) {
+        const expiresAt = new Date(startRes.data.expires_at);
         const now = new Date();
-        const remainingMs = expiresAt - now;
-        const remainingSeconds = Math.max(0, Math.floor(remainingMs / 1000));
+        const remainingSeconds = Math.max(0, Math.floor((expiresAt - now) / 1000));
         setTimeLeft(remainingSeconds);
-
-        if (remainingSeconds <= 0) {
-          // This case should ideally not be hit if /start logic is correct,
-          // but good to keep as a fallback.
-          setTimeLeft(0);
-          handleSubmitMcqAnswers(true); // Force submit if time is already 0
-          setLoading(false);
-          return;
-        }
 
         timerRef.current = setInterval(() => {
           setTimeLeft(prev => {
             if (prev <= 1) {
               clearInterval(timerRef.current);
-              handleSubmitMcqAnswers(true); // Force submit
+              autoSubmitDueToTimeout();
               return 0;
             }
             return prev - 1;
           });
         }, 1000);
-
-        setError('');
-      } catch (err) {
-        setError(err.response?.data?.message || 'Failed to fetch exam details');
-        setExam(null);
       }
-      setLoading(false);
-    };
-
-    fetchExamDetails();
-
-    return () => {
-      clearInterval(timerRef.current);
-    };
-  }, [examId, authToken, storageKey]);
-
-  
-  useEffect(() => {
-    if (Object.keys(mcqAnswers).length > 0 && !submitted) {
-      localStorage.setItem(storageKey, JSON.stringify(mcqAnswers));
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to start exam.');
     }
-  }, [mcqAnswers, storageKey, submitted]);
-  
-
-
-  const handleMcqAnswerChange = (mcqId, answer) => {
-    setMcqAnswers(prev => ({ ...prev, [mcqId]: answer }));
   };
 
-  
-  const handleSubmitMcqAnswers = async (forceSubmit = false) => {
+  const autoSubmitDueToTimeout = async () => {
+    await handleSubmit(true);
+    navigate('/dashboard', { state: { autoSubmitted: true } });
+  };
+
+  const handleSubmit = async (auto = false) => {
     if (submitted) return;
-
-    const totalQuestions = exam?.questions?.length || 0;
-    const answeredQuestions = Object.keys(mcqAnswers).length;
-
-    // Check only runs if it's NOT a forced submit
-    if (answeredQuestions < totalQuestions && !forceSubmit) {
-      setError("Please attempt all questions before submitting.");
-      return; 
-    }
-
     setLoading(true);
-    setError(''); 
     try {
       const answers = Object.entries(mcqAnswers).map(([questionId, answer]) => ({
         question_id: parseInt(questionId),
         answer
       }));
 
-      await api.post(`/student/exams/${examId}/submit`, { answers }, { headers: { auth_token: authToken } });
+      await api.post(
+        `/student/exams/${examId}/submit`,
+        { answers },
+        { headers: { auth_token: authToken } }
+      );
+
       setSubmitted(true);
-      setShowResults(true);
       clearInterval(timerRef.current);
+      localStorage.removeItem(`exam_${examId}_answers`);
 
-      localStorage.removeItem(storageKey);
-
-    } catch (err) { 
+      if (!auto) navigate('/dashboard');
+    } catch (err) {
       setError(err.response?.data?.message || 'Submission failed');
     }
     setLoading(false);
   };
 
-  const fetchResults = async () => {
-    try {
-      const res = await api.get(`/student/exams/${examId}/result`, { headers: { auth_token: authToken } });
-      setResults(res.data);
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to fetch results');
-    }
+  const handleMcqAnswerChange = (mcqId, answer) => {
+    const updated = { ...mcqAnswers, [mcqId]: answer };
+    setMcqAnswers(updated);
+    localStorage.setItem(`exam_${examId}_answers`, JSON.stringify(updated));
   };
 
-  const formatTime = (seconds) => {
-    const m = Math.floor(seconds / 60).toString().padStart(2, '0');
-    const s = (seconds % 60).toString().padStart(2, '0');
-    return `${m}:${s}`;
-  };
+  const formatTime = (seconds) =>
+    `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
 
-  // Helper variables for validation
-  const totalQuestions = exam?.questions?.length || 0;
-  const answeredQuestions = Object.keys(mcqAnswers).length;
-  const allQuestionsAnswered = answeredQuestions === totalQuestions;
-
-  // Pagination logic for questions
   const indexOfLastQ = currentPage * questionsPerPage;
   const indexOfFirstQ = indexOfLastQ - questionsPerPage;
   const currentQuestions = exam?.questions?.slice(indexOfFirstQ, indexOfLastQ) || [];
-  const totalPages = Math.ceil((exam?.questions?.length || 0) / questionsPerPage);
 
-  if (loading) {
-    return (
-      <Box sx={{ p: 3, display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
+  const handlePageChange = (next) => {
+    setCurrentPage(next);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
-  // This now handles all errors: API errors, "not assigned", "already submitted", "window closed"
-  if (!exam && !loading) {
+  if (loading) return <Box p={3}><CircularProgress /></Box>;
+
+  if (error) return <Box p={3}><Alert severity="error">{error}</Alert></Box>;
+
+  if (!started)
     return (
-      <Container maxWidth="md" sx={{ py: 4 }}>
-        <Paper sx={{ p: 3, backgroundColor: 'rgba(255, 255, 255, 0.9)' }}>
-          <Typography variant="h5" gutterBottom>Error</Typography>
-          {error && <Alert severity="error">{error}</Alert>}
-          <Button 
-            variant="contained" 
-            onClick={() => navigate('/dashboard/student')} 
-            sx={{ mt: 2 }}
-            startIcon={<ArrowBackIcon />}
-          >
-            Back to Dashboard
-          </Button>
+      <Box p={3}>
+        <Button onClick={() => navigate('/dashboard')}>
+          <ArrowBackIcon sx={{ mr: 1 }} /> Back
+        </Button>
+
+        <Typography variant="h4" sx={{ mt: 2 }}>{exam?.title}</Typography>
+        <Typography variant="subtitle1">{exam?.description}</Typography>
+        <Typography sx={{ mt: 1 }}>Questions: {exam?.total_questions}</Typography>
+        <Typography>Duration: {exam?.duration_minutes} minutes</Typography>
+
+        <Paper sx={{ p: 2, mt: 3 }}>
+          <Typography variant="h6">Instructions:</Typography>
+          <Typography>• Do not refresh</Typography>
+          <Typography>• Do not switch tabs</Typography>
+          <Typography>• Submit before timer ends</Typography>
         </Paper>
-      </Container>
-    );
-  }
 
-  // This handles the "already submitted" case, showing the "Submission Complete" page directly
-  if (submitted) {
-    return (
-       <Box sx={{
-        width: '100%',
-        minHeight: 'calc(100vh - 140px)',
-        backgroundImage: 'url(/background.jpg)',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundAttachment: 'fixed',
-        py: 4,
-      }}>
-        <Container maxWidth="md">
-           <Paper sx={{ p: 3, mt: 3, backgroundColor: 'rgba(255, 255, 255, 0.9)' }}>
-              <Typography variant="h5" gutterBottom>Submission Complete</Typography>
-              <Typography>
-                {error ? error : 'Your answers have been submitted successfully.'}
-              </Typography>
-              <Typography>
-                {exam.results_released ? ' Results are available.' : ' Results will be available once released.'}
-              </Typography>
-              {exam.results_released && (
-                <Button onClick={fetchResults} variant="contained" sx={{ mt: 2 }}>View Results</Button>
-              )}
-               <Button 
-                variant="outlined" 
-                onClick={() => navigate('/dashboard/student')} 
-                sx={{ mt: 2, ml: 2 }}
-              >
-                Back to Dashboard
-              </Button>
-            </Paper>
-
-            {/* ... (Dialog code remains the same) ... */}
-            <Dialog open={showResults && results} onClose={() => setShowResults(false)} fullWidth maxWidth="sm">
-              <DialogTitle>Exam Results</DialogTitle>
-              <DialogContent>
-                {results && (
-                  <Box>
-                    <Typography>Score: {results.attempt.score}/{results.exam.total_marks}</Typography>
-                    <Typography>Submitted at: {results.attempt.submitted_time}</Typography>
-                  </Box>
-                )}
-              </DialogContent>
-              <DialogActions>
-                <Button onClick={() => setShowResults(false)}>Close</Button>
-              </DialogActions>
-            </Dialog>
-        </Container>
+        <Button variant="contained" sx={{ mt: 3 }} onClick={handleStartExam}>
+          Start Exam
+        </Button>
       </Box>
-    )
-  }
+    );
 
-  // This is the main exam-taking page
   return (
-    <Box sx={{
-      width: '100%',
-      minHeight: 'calc(100vh - 140px)',
-      backgroundImage: 'url(/background.jpg)',
-      backgroundSize: 'cover',
-      backgroundPosition: 'center',
-      backgroundAttachment: 'fixed',
-      py: 4,
-    }}>
-      <Container maxWidth="md">
-        {exam && (
-          <>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-              <IconButton onClick={() => navigate('/dashboard/student')} sx={{ mr: 2, backgroundColor: 'rgba(255,255,255,0.2)' }}>
-                <ArrowBackIcon sx={{ color: 'white' }} />
-              </IconButton>
-              <Box>
-                <Typography variant="h4" fontWeight={700} sx={{ color: 'white', textShadow: '1px 1px 3px #000' }}>{exam.title}</Typography>
-                <Typography variant="subtitle1" sx={{ color: 'white', textShadow: '1px 1px 2px #000' }}>{exam.description}</Typography>
-              </Box>
-            </Box>
+    <Box p={3}>
+      {timeLeft > 0 && (
+        <Alert severity="info" sx={{ mb: 2 }}>Time Remaining: {formatTime(timeLeft)}</Alert>
+      )}
 
-            {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {currentQuestions.map((mcq, idx) => (
+        <Paper key={mcq.id} sx={{ p: 3, mb: 2 }}>
+          <Typography variant="h6">Q{indexOfFirstQ + idx + 1}</Typography>
+          <BlockMath math={mcq.text} />
 
-            {!submitted && (
-              <Paper
-                elevation={4}
-                sx={{
-                  position: 'sticky',
-                  top: '64px', 
-                  zIndex: 1301, 
-                  mb: 2,
-                }}
-              >
-                <Alert
-                  severity={allQuestionsAnswered ? "success" : (timeLeft < 300 ? "warning" : "info")}
-                  sx={{
-                    backgroundColor: allQuestionsAnswered ? 'rgba(46, 125, 50, 0.9)' : (timeLeft < 300 ? 'rgba(255, 165, 0, 0.9)' : 'rgba(23, 118, 209, 0.9)'),
-                    color: 'white',
-                    fontWeight: 'bold',
-                    fontSize: '1.1rem'
-                  }}
-                  icon={false}
-                >
-                  {timeLeft > 0 ? `Time Remaining: ${formatTime(timeLeft)}` : "Time's up! Submitting..."} | Attempted: {answeredQuestions} of {totalQuestions}
-                </Alert>
-              </Paper>
-            )}
-
-            {currentQuestions.map((mcq, idx) => (
-              <Paper key={mcq.id} sx={{ p: 3, mb: 2, backgroundColor: 'rgba(255, 255, 255, 0.9)', backdropFilter: 'blur(10px)' }}>
-                <Typography variant="h6">Question {indexOfFirstQ + idx + 1}</Typography>
-                <Typography sx={{ my: 1 }}>{mcq.text}</Typography>
-
-                {mcq.image_path && (
-                  <Box sx={{ my: 2 }}>
-                    <img
-                      src={mcq.image_path}
-                      alt="Question"
-                      loading="lazy"
-                      style={{
-                        width: '100%',
-                        height: 'auto',
-                        maxWidth: '600px',
-                        objectFit: 'contain',
-                        borderRadius: '8px',
-                        display: 'block',
-                      }}
-                    />
-                  </Box>
-                )}
-
-                <RadioGroup value={mcqAnswers[mcq.id] || ''} onChange={e => handleMcqAnswerChange(mcq.id, e.target.value)}>
-                  <FormControlLabel value="A" control={<Radio disabled={submitted} />} label={`A: ${mcq.option_a}`} />
-                  <FormControlLabel value="B" control={<Radio disabled={submitted} />} label={`B: ${mcq.option_b}`} />
-                  <FormControlLabel value="C" control={<Radio disabled={submitted} />} label={`C: ${mcq.option_c}`} />
-                  <FormControlLabel value="D" control={<Radio disabled={submitted} />} label={`D: ${mcq.option_d}`} />
-                </RadioGroup>
-              </Paper>
+          <RadioGroup
+            value={mcqAnswers[mcq.id] || ''}
+            onChange={e => handleMcqAnswerChange(mcq.id, e.target.value)}
+          >
+            {['A','B','C','D'].map(opt => (
+              <FormControlLabel
+                key={opt}
+                value={opt}
+                control={<Radio />}
+                label={<InlineMath math={mcq[`option_${opt.toLowerCase()}`]} />}
+              />
             ))}
+          </RadioGroup>
+        </Paper>
+      ))}
 
-            {exam.questions?.length > questionsPerPage && (
-              <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, mb: 2, alignItems: 'center' }}>
-                <Button disabled={currentPage === 1} onClick={() => setCurrentPage(currentPage - 1)}>Prev</Button>
-                <Typography>Page {currentPage} of {totalPages}</Typography>
-                <Button disabled={currentPage === totalPages} onClick={() => setCurrentPage(currentPage + 1)}>Next</Button>
-                {!submitted && (
-                  <>
-                    <Button
-                      variant="contained"
-                      onClick={() => handleSubmitMcqAnswers(false)} // Explicitly call with false
-                      disabled={loading || !allQuestionsAnswered}
-                      sx={{ ml: 3 }}
-                    >
-                      {loading ? <CircularProgress size={24} /> : 'Submit Answers'}
-                    </Button>
-                  </>
-                )}
-              </Box>
-            )}
+      <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2 }}>
+        <Button disabled={currentPage === 1} onClick={() => handlePageChange(currentPage - 1)}>Prev</Button>
+        <Button disabled={indexOfLastQ >= exam.questions.length} onClick={() => handlePageChange(currentPage + 1)}>Next</Button>
+      </Box>
 
-            {(!exam.questions?.length || exam.questions?.length <= questionsPerPage) && !submitted && (
-              <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, mt: 3 }}>
-                <Button
-                  variant="contained"
-                  onClick={() => handleSubmitMcqAnswers(false)} // Explicitly call with false
-                  disabled={loading || !allQuestionsAnswered}
-                >
-                  {loading ? <CircularProgress size={24} /> : 'Submit Answers'}
-                </Button>
-              </Box>
-            )}
-          </>
-        )}
-      </Container>
+      <Box sx={{ mt: 3, textAlign: 'center' }}>
+        <Button variant="contained" onClick={() => handleSubmit(false)}>
+          Submit Exam
+        </Button>
+      </Box>
     </Box>
   );
 }
