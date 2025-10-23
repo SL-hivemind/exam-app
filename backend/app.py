@@ -964,56 +964,6 @@ def admin_export_student_attempts(current_user):
         logger.error(f"Traceback: {traceback.format_exc()}")
         return jsonify({'message': 'Export failed', 'detail': str(e)}), 500
 
-# ----- Student: exam attempts -----
-from datetime import datetime, timedelta
-
-@app.route("/exams/<int:exam_id>/attempt", methods=["GET"])
-@login_required
-def get_attempt(exam_id):
-    # returns { exam, attempt } where attempt can be None
-    exam = Exam.query.get_or_404(exam_id)
-    attempt = StudentExamAttempt.query.filter_by(exam_id=exam_id, user_id=current_user.id).first()
-    if attempt and not attempt.submitted_at:
-        # compute expiry
-        start_ts = attempt.started_at
-        if start_ts:
-            end_time = start_ts + timedelta(minutes=exam.duration or attempt.duration or 0)
-            if datetime.utcnow() > end_time:
-                # finalize attempt server-side
-                attempt.submitted_at = end_time
-                attempt.status = "submitted"
-                # optionally compute score here
-                db.session.add(attempt)
-                db.session.commit()
-    return jsonify({
-        "exam": {"id": exam.id, "duration": exam.duration},
-        "attempt": attempt.to_dict() if attempt else None
-    }), 200
-
-
-@app.route("/exams/<int:exam_id>/start", methods=["POST"])
-@login_required
-def start_exam(exam_id):
-    exam = Exam.query.get_or_404(exam_id)
-    attempt = StudentExamAttempt.query.filter_by(exam_id=exam_id, user_id=current_user.id).first()
-    if attempt:
-        # if already submitted or expired -> block
-        if attempt.submitted_at:
-            return jsonify({"error": "Exam already completed. Wait for results."}), 400
-        # check expiry again
-        if attempt.started_at and datetime.utcnow() > (attempt.started_at + timedelta(minutes=exam.duration)):
-            attempt.submitted_at = attempt.started_at + timedelta(minutes=exam.duration)
-            attempt.status = "submitted"
-            db.session.add(attempt); db.session.commit()
-            return jsonify({"error": "Exam time expired. Wait for results."}), 400
-        # else resume
-        return jsonify({"attempt": attempt.to_dict()}), 200
-    # create new attempt
-    new = StudentExamAttempt(exam_id=exam.id, user_id=current_user.id, started_at=datetime.utcnow(), status="in_progress")
-    db.session.add(new)
-    db.session.commit()
-    return jsonify({"attempt": new.to_dict()}), 201
-
 # ----- Run -----
 if __name__ == '__main__':
     with app.app_context():
