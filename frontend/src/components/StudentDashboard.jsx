@@ -1,17 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import {
   Box, Typography, Paper, Table, TableBody, TableCell,
-  TableHead, TableRow, Button, Alert, Chip, IconButton,Container, Stack, List, ListItem, ListItemIcon, ListItemText 
+  TableHead, TableRow, Button, Alert, Chip, IconButton, Container, Stack, List, ListItem, ListItemIcon, ListItemText
 } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import EventNoteIcon from '@mui/icons-material/EventNote'; 
+import EventNoteIcon from '@mui/icons-material/EventNote';
 import { useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import useAuth from '../hooks/useAuth';
 
 
 const upcomingAssessments = [
-  
+
   "Monthly Tests (October 2025)",
 ];
 
@@ -126,9 +126,9 @@ export default function StudentDashboard() {
     }}>
       <Container maxWidth="lg">
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Typography 
-            variant="h4" 
-            fontWeight={700} 
+          <Typography
+            variant="h4"
+            fontWeight={700}
             sx={{ color: 'white', textShadow: '1px 1px 3px rgba(0,0,0,0.7)' }}
           >
             Student Dashboard
@@ -166,31 +166,31 @@ export default function StudentDashboard() {
                   const status = getExamStatus(examObj);
                   return (
                     <TableRow key={exam.id}>
-                  <TableCell>{exam.title}</TableCell>
-                  <TableCell>{exam.description || 'N/A'}</TableCell>
-                  <TableCell>{exam.access_start ? new Date(exam.access_start).toLocaleString() : 'N/A'}</TableCell>
-                  <TableCell>{exam.access_end ? new Date(exam.access_end).toLocaleString() : 'N/A'}</TableCell>
-                  <TableCell>{exam.duration_minutes} mins</TableCell>
-                  <TableCell>{exam.total_marks}</TableCell>
-                  <TableCell>
-                    <Chip label={status.label} color={status.color} size="small" />
-                  </TableCell>
-                  <TableCell>
-                    {examObj.assigned && !examObj.attempted && isWithinAccessWindow(exam) && (
-                      <Button
-                        size="small"
-                        variant="contained"
-                        onClick={() => handleStartExam(exam.id)}
-                        disabled={startingExamId === exam.id}
-                      >
-                        {startingExamId === exam.id ? 'Starting...' : 'Start Exam'}
-                      </Button>
-                    )}
-                    {examObj.assigned && exam.results_released && (
-                      <Button size="small" variant="outlined" onClick={() => handleViewResults(exam.id)}>View Results</Button>
-                    )}
-                  </TableCell>
-                </TableRow>
+                      <TableCell>{exam.title}</TableCell>
+                      <TableCell>{exam.description || 'N/A'}</TableCell>
+                      <TableCell>{exam.access_start ? new Date(exam.access_start).toLocaleString() : 'N/A'}</TableCell>
+                      <TableCell>{exam.access_end ? new Date(exam.access_end).toLocaleString() : 'N/A'}</TableCell>
+                      <TableCell>{exam.duration_minutes} mins</TableCell>
+                      <TableCell>{exam.total_marks}</TableCell>
+                      <TableCell>
+                        <Chip label={status.label} color={status.color} size="small" />
+                      </TableCell>
+                      <TableCell>
+                        {examObj.assigned && !examObj.attempted && isWithinAccessWindow(exam) && (
+                          <Button
+                            size="small"
+                            variant="contained"
+                            onClick={() => handleStartExam(exam.id)}
+                            disabled={startingExamId === exam.id}
+                          >
+                            {startingExamId === exam.id ? 'Starting...' : 'Start Exam'}
+                          </Button>
+                        )}
+                        {examObj.assigned && exam.results_released && (
+                          <Button size="small" variant="outlined" onClick={() => handleViewResults(exam.id)}>View Results</Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
                   );
                 })}
               </TableBody>
@@ -208,12 +208,12 @@ export default function StudentDashboard() {
                 <Typography variant="h6" fontWeight="bold">{exam.title}</Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>{exam.description || 'No description'}</Typography>
                 <Chip label={status.label} color={status.color} size="small" sx={{ mb: 2 }} />
-                
+
                 <Typography variant="body2"><strong>Duration:</strong> {exam.duration_minutes} mins</Typography>
                 <Typography variant="body2"><strong>Marks:</strong> {exam.total_marks}</Typography>
                 <Typography variant="body2"><strong>Opens:</strong> {exam.access_start ? new Date(exam.access_start).toLocaleString() : 'N/A'}</Typography>
                 <Typography variant="body2"><strong>Closes:</strong> {exam.access_end ? new Date(exam.access_end).toLocaleString() : 'N/A'}</Typography>
-                
+
                 <Box sx={{ mt: 2, textAlign: 'right' }}>
                   {examObj.assigned && !examObj.attempted && isWithinAccessWindow(exam) && (
                     <Button
@@ -234,7 +234,7 @@ export default function StudentDashboard() {
             );
           })}
         </Stack>
-        
+
         {/* --- Pagination Controls (Visible for both views) --- */}
         {totalPages > 1 && (
           <Box sx={{ display: 'flex', justifyContent: 'center', p: 1.5, mt: 2, backgroundColor: 'rgba(0,0,0,0.4)', borderRadius: 2 }}>
@@ -246,14 +246,13 @@ export default function StudentDashboard() {
           </Box>
         )}
 
-        {/* --- NEW: Upcoming Assessments Section ---*/ }
-        <Paper sx={{ p: 3, mb: 3, backgroundColor: 'rgba(255, 255, 255, 0.9)', backdropFilter: 'blur(10px)', borderRadius: 3 }}>
-          <Typography variant="h5" fontWeight={600} gutterBottom>Upcoming Assessments</Typography>
-          <Typography variant="subtitle1" color="text.secondary" sx={{mb: 1}}>Term 2</Typography>
+        {/* --- NEW: Upcoming Assessments Section ---*/}
+        <Paper sx={{ p: 3, mb: 3, backgroundColor: 'rgba(255, 255, 255, 0.9)', backdropFilter: 'blur(10px)', borderRadius: 3 }}>          <Typography variant="h5" fontWeight={600} gutterBottom>Upcoming Assessments</Typography>
+          <Typography variant="subtitle1" color="text.secondary" sx={{ mb: 1 }}>Term 2</Typography>
           <List dense>
             {upcomingAssessments.map((assessment, index) => (
               <ListItem key={index} disablePadding>
-                <ListItemIcon sx={{minWidth: '40px'}}>
+                <ListItemIcon sx={{ minWidth: '40px' }}>
                   <EventNoteIcon color="primary" />
                 </ListItemIcon>
                 <ListItemText primary={assessment} />
@@ -261,8 +260,8 @@ export default function StudentDashboard() {
             ))}
           </List>
         </Paper>
-         
-        
+
+
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         {exams.length === 0 && !error && (
           <Paper sx={{ p: 4, textAlign: 'center', backgroundColor: 'rgba(255, 255, 255, 0.8)', backdropFilter: 'blur(10px)' }}>
