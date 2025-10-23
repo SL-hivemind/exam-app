@@ -11,13 +11,13 @@ import useAuth from '../hooks/useAuth';
 
 export default function StudentExamQuestionsPage() {
   const { examId } = useParams();
-  const { authToken } = useAuth();
+  const { authToken, user } = useAuth(); // Get user object
   const navigate = useNavigate();
 
   const [exam, setExam] = useState(null);
   const [mcqAnswers, setMcqAnswers] = useState({});
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true); // Start with loading true
   const [submitted, setSubmitted] = useState(false);
   const [results, setResults] = useState(null);
   const [showResults, setShowResults] = useState(false);
@@ -28,60 +28,81 @@ export default function StudentExamQuestionsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const questionsPerPage = 3;
 
+  // Create a unique key for local storage
+  const storageKey = `examAnswers-${user?.id}-${examId}`;
+
   useEffect(() => {
+    // Moved fetchExamDetails inside useEffect to be callable
+    const fetchExamDetails = async () => {
+      setLoading(true);
+      try {
+        // Get exam details from can_start first
+        const canStartRes = await api.get(`/student/exams/${examId}/can_start`, { headers: { auth_token: authToken } });
+
+        // Fetch questions
+        const questionsRes = await api.get(`/student/exams/${examId}/questions`, { headers: { auth_token: authToken } });
+
+        setExam({ ...canStartRes.data.exam, questions: questionsRes.data.questions, results_released: canStartRes.data.exam?.results_released });
+
+        // Get or start attempt to set timer
+        const attemptRes = await api.post(`/student/exams/${examId}/start`, {}, { headers: { auth_token: authToken } });
+        localStorage.setItem(`exam_${examId}_attempt_id`, attemptRes.data.attempt_id);
+
+        // --- NEW: Load saved answers from local storage ---
+        const savedAnswers = localStorage.getItem(storageKey);
+        if (savedAnswers) {
+          setMcqAnswers(JSON.parse(savedAnswers));
+        }
+        // --- End of new code ---
+
+        const expiresAt = new Date(attemptRes.data.expires_at);
+        const now = new Date();
+        const remainingMs = expiresAt - now;
+        const remainingSeconds = Math.max(0, Math.floor(remainingMs / 1000));
+        setTimeLeft(remainingSeconds);
+
+        if (remainingSeconds <= 0) {
+          // Time has already expired, set timeLeft to 0 and don't start timer
+          setTimeLeft(0);
+          setLoading(false);
+          return;
+        }
+
+        timerRef.current = setInterval(() => {
+          setTimeLeft(prev => {
+            if (prev <= 1) {
+              clearInterval(timerRef.current);
+              handleSubmitMcqAnswers();
+              return 0;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+
+        setError('');
+      } catch (err) {
+        setError(err.response?.data?.message || 'Failed to fetch exam questions');
+        setExam(null);
+      }
+      setLoading(false);
+    };
+
     fetchExamDetails();
 
     return () => {
       clearInterval(timerRef.current);
     };
-  }, [examId]);
+  }, [examId, authToken, storageKey]); // Added authToken and storageKey
 
-  const fetchExamDetails = async () => {
-    setLoading(true);
-    try {
-      // Get exam details from can_start first
-      const canStartRes = await api.get(`/student/exams/${examId}/can_start`, { headers: { auth_token: authToken } });
-
-      // Fetch questions
-      const questionsRes = await api.get(`/student/exams/${examId}/questions`, { headers: { auth_token: authToken } });
-
-      setExam({ ...canStartRes.data.exam, questions: questionsRes.data.questions, results_released: canStartRes.data.exam?.results_released });
-
-      // Get or start attempt to set timer
-      const attemptRes = await api.post(`/student/exams/${examId}/start`, {}, { headers: { auth_token: authToken } });
-      localStorage.setItem(`exam_${examId}_attempt_id`, attemptRes.data.attempt_id);
-
-      const expiresAt = new Date(attemptRes.data.expires_at);
-      const now = new Date();
-      const remainingMs = expiresAt - now;
-      const remainingSeconds = Math.max(0, Math.floor(remainingMs / 1000));
-      setTimeLeft(remainingSeconds);
-
-      if (remainingSeconds <= 0) {
-        // Time has already expired, set timeLeft to 0 and don't start timer
-        setTimeLeft(0);
-        setLoading(false);
-        return;
-      }
-
-      timerRef.current = setInterval(() => {
-        setTimeLeft(prev => {
-          if (prev <= 1) {
-            clearInterval(timerRef.current);
-            handleSubmitMcqAnswers();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-
-      setError('');
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to fetch exam questions');
-      setExam(null);
+  // --- NEW: useEffect to save answers to local storage on change ---
+  useEffect(() => {
+    // Don't save an empty object on initial load
+    if (Object.keys(mcqAnswers).length > 0 && !submitted) {
+      localStorage.setItem(storageKey, JSON.stringify(mcqAnswers));
     }
-    setLoading(false);
-  };
+  }, [mcqAnswers, storageKey, submitted]);
+  // --- End of new code ---
+
 
   const handleMcqAnswerChange = (mcqId, answer) => {
     setMcqAnswers(prev => ({ ...prev, [mcqId]: answer }));
@@ -89,7 +110,19 @@ export default function StudentExamQuestionsPage() {
 
   const handleSubmitMcqAnswers = async () => {
     if (submitted) return;
+
+    // --- NEW: Check if all questions are answered ---
+    const totalQuestions = exam?.questions?.length || 0;
+    const answeredQuestions = Object.keys(mcqAnswers).length;
+
+    if (answeredQuestions < totalQuestions) {
+      setError("Please attempt all questions before submitting.");
+      return; // Stop the submission
+    }
+    // --- End of new check ---
+
     setLoading(true);
+    setError(''); // Clear any previous errors
     try {
       const answers = Object.entries(mcqAnswers).map(([questionId, answer]) => ({
         question_id: parseInt(questionId),
@@ -100,6 +133,10 @@ export default function StudentExamQuestionsPage() {
       setSubmitted(true);
       setShowResults(true);
       clearInterval(timerRef.current);
+
+      // --- NEW: Clear local storage on successful submission ---
+      localStorage.removeItem(storageKey);
+
     } catch (err) {
       setError(err.response?.data?.message || 'Submission failed');
     }
@@ -120,6 +157,11 @@ export default function StudentExamQuestionsPage() {
     const s = (seconds % 60).toString().padStart(2, '0');
     return `${m}:${s}`;
   };
+
+  // Helper variables for validation
+  const totalQuestions = exam?.questions?.length || 0;
+  const answeredQuestions = Object.keys(mcqAnswers).length;
+  const allQuestionsAnswered = answeredQuestions === totalQuestions;
 
   // Pagination logic for questions
   const indexOfLastQ = currentPage * questionsPerPage;
@@ -168,7 +210,7 @@ export default function StudentExamQuestionsPage() {
 
             {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-            {/* --- VISIBLE STICKY TIMER --- */}
+            {/* --- VISIBLE STICKY TIMER (MODIFIED) --- */}
             {!submitted && (
               <Paper
                 elevation={4}
@@ -180,16 +222,16 @@ export default function StudentExamQuestionsPage() {
                 }}
               >
                 <Alert
-                  severity={timeLeft < 300 ? "warning" : "info"} // Turns yellow in the last 5 minutes
+                  severity={allQuestionsAnswered ? "success" : (timeLeft < 300 ? "warning" : "info")}
                   sx={{
-                    backgroundColor: timeLeft < 300 ? 'rgba(255, 165, 0, 0.9)' : 'rgba(23, 118, 209, 0.9)',
+                    backgroundColor: allQuestionsAnswered ? 'rgba(46, 125, 50, 0.9)' : (timeLeft < 300 ? 'rgba(255, 165, 0, 0.9)' : 'rgba(23, 118, 209, 0.9)'),
                     color: 'white',
                     fontWeight: 'bold',
                     fontSize: '1.1rem'
                   }}
                   icon={false}
                 >
-                  {timeLeft > 0 ? `Time Remaining: ${formatTime(timeLeft)}` : "Time's up! Submitting..."}
+                  {timeLeft > 0 ? `Time Remaining: ${formatTime(timeLeft)}` : "Time's up! Submitting..."} | Attempted: {answeredQuestions} of {totalQuestions}
                 </Alert>
               </Paper>
             )}
@@ -202,7 +244,6 @@ export default function StudentExamQuestionsPage() {
 
                 {mcq.image_path && (
                   <Box sx={{ my: 2 }}>
-                    {/* --- CRITICAL FIX: Use the direct S3 URL --- */}
                     <img
                       src={mcq.image_path}
                       alt="Question"
@@ -238,7 +279,7 @@ export default function StudentExamQuestionsPage() {
                     <Button
                       variant="contained"
                       onClick={handleSubmitMcqAnswers}
-                      disabled={loading}
+                      disabled={loading || !allQuestionsAnswered} // Modified
                       sx={{ ml: 3 }}
                     >
                       {loading ? <CircularProgress size={24} /> : 'Submit Answers'}
@@ -257,7 +298,11 @@ export default function StudentExamQuestionsPage() {
 
             {(!exam.questions?.length || exam.questions?.length <= questionsPerPage) && !submitted && (
               <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, mt: 3 }}>
-                <Button variant="contained" onClick={handleSubmitMcqAnswers} disabled={loading}>
+                <Button 
+                  variant="contained" 
+                  onClick={handleSubmitMcqAnswers} 
+                  disabled={loading || !allQuestionsAnswered} // Modified
+                >
                   {loading ? <CircularProgress size={24} /> : 'Submit Answers'}
                 </Button>
                 <Button
