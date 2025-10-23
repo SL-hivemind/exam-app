@@ -24,21 +24,21 @@ import "slick-carousel/slick/slick-theme.css";
 // --- MOCK DATA ---
 // Replace placeholder URLs with your actual S3 URLs
 const carouselImages = [
-    { id: 1, src: 'https://your-s3-bucket-name.s3.your-region.amazonaws.com/images/slider/slide1.jpg', alt: 'Welcome to Saaradaa Learknowations' },
-    { id: 2, src: 'https://your-s3-bucket-name.s3.your-region.amazonaws.com/images/slider/slide2.jpg', alt: 'what we offer' },
-    { id: 3, src: 'https://your-s3-bucket-name.s3.your-region.amazonaws.com/images/slider/slide3.jpg', alt: 'Brain training' },
-    { id: 4, src: 'https://your-s3-bucket-name.s3.your-region.amazonaws.com/images/slider/slide4.jpg', alt: 'Students feedback' },
-    { id: 5, src: 'https://your-s3-bucket-name.s3.your-region.amazonaws.com/images/slider/slide5.jpg', alt: 'Collaborations and recognition' },
+    { id: 1, src: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/slide1.jpg', alt: 'Welcome to Saaradaa Learknowations' },
+    { id: 2, src: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/slide2.jpg', alt: 'what we offer' },
+    { id: 3, src: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/slide3.jpg', alt: 'Brain training' },
+    { id: 4, src: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/slide4.jpg', alt: 'Students feedback' },
+    { id: 5, src: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/slide5.jpg', alt: 'Collaborations and recognition' },
 ];
 const thinkletArticles = [
-    { id: 1, title: '2025 Medical Laureates', summary: 'Explore the groundbreaking work that earned this year\'s Nobel Prize in Medicine.', image: 'https://your-s3-bucket-name.s3.your-region.amazonaws.com/images/news/Noble.png', link: '#', fullSummary: 'The Nobel Assembly at the Karolinska Institutet has decided to award the 2025 Nobel Prize in Physiology or Medicine to Mary E.Brunkow, Fred Ramsdell and Shimon Sakaguchi...' },
+    { id: 1, title: '2025 Medical Laureates', summary: 'Explore the groundbreaking work that earned this year\'s Nobel Prize in Medicine.', image: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/Noble.png', link: '#', fullSummary: 'The Nobel Assembly at the Karolinska Institutet has decided to award the 2025 Nobel Prize in Physiology or Medicine to Mary E.Brunkow, Fred Ramsdell and Shimon Sakaguchi...' },
     { id: 2, title: 'AI Co-Developer', summary: 'How AI is changing the landscape of software development.', image: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/AiCo.png', link: '#', fullSummary: 'A major shift in software engineering has solidified in 2025 with the widespread adoption of agentic AI systems...' },
-    { id: 3, title: 'Breakthroughs in Cancer Research', summary: 'Recent advancements in understanding and treating cancer.', image: 'https://your-s3-bucket-name.s3.your-region.amazonaws.com/images/news/Cancer.png', link: '#', fullSummary: 'Researchers at ETH Zurich, led by Sabine Werner, have made a key discovery "for identifying how cancer cells transfer their mitochondria... ' },
+    { id: 3, title: 'Breakthroughs in Cancer Research', summary: 'Recent advancements in understanding and treating cancer.', image: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/Cancer.png', link: '#', fullSummary: 'Researchers at ETH Zurich, led by Sabine Werner, have made a key discovery "for identifying how cancer cells transfer their mitochondria... ' },
 ];
 const suggestedBooks = [
-    { id: 1, title: 'Indias Biggest Coverup', author: 'Anuj Dhar', cover: 'https://your-s3-bucket-name.s3.your-region.amazonaws.com/images/books/indias_biggest_coverup.jpg', summary: 'This book investigates the mystery of Netaji Subhas Chandra Bose s disappearance...', takeaways: ['Question the accepted narrative; the pursuit of truth is a duty'] },
-    { id: 2, title: 'Serpents Revenge', author: 'Sudha Murthy', cover: 'https://your-s3-bucket-name.s3.your-region.amazonaws.com/images/books/serpents_revenge.jpg', summary: 'This is not one single story but a collection of many short, "unusual" tales...', takeaways: ['Dharma (duty/righteousness) is complex...'] },
-    { id: 3, title: 'Wings Of Fire', author: 'Dr. A.P.J. Abdul Kalam', cover: 'https://your-s3-bucket-name.s3.your-region.amazonaws.com/images/books/wingsoffire.jpg', summary: 'This is the autobiography of Dr. A. P. J. Abdul Kalam...', takeaways: ['Your dreams and your hard work define your future...'] },
+    { id: 1, title: 'Indias Biggest Coverup', author: 'Anuj Dhar', cover: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/Indias_biggest_coverup.jpg', summary: 'This book investigates the mystery of Netaji Subhas Chandra Bose s disappearance...', takeaways: ['Question the accepted narrative; the pursuit of truth is a duty'] },
+    { id: 2, title: 'Serpents Revenge', author: 'Sudha Murthy', cover: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/serpents_revenge.jpg', summary: 'This is not one single story but a collection of many short, "unusual" tales...', takeaways: ['Dharma (duty/righteousness) is complex...'] },
+    { id: 3, title: 'Wings Of Fire', author: 'Dr. A.P.J. Abdul Kalam', cover: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/wingsoffire.jpg', summary: 'This is the autobiography of Dr. A. P. J. Abdul Kalam...', takeaways: ['Your dreams and your hard work define your future...'] },
 ];
 
 export default function Home() {
