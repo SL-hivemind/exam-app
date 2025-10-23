@@ -168,11 +168,32 @@ export default function StudentExamQuestionsPage() {
 
             {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-            {!submitted && timeLeft > 0 && (
-              <Alert severity="info" sx={{ mb: 2, backgroundColor: 'rgba(23, 118, 209, 0.9)', color: 'white', fontWeight: 'bold' }}>
-                Time Remaining: {formatTime(timeLeft)}
-              </Alert>
+            {/* --- VISIBLE STICKY TIMER --- */}
+            {!submitted && (
+              <Paper
+                elevation={4}
+                sx={{
+                  position: 'sticky',
+                  top: 0, // Sticks to the top of the scrolling container
+                  zIndex: 1100, // Stays on top of other content
+                  mb: 2,
+                }}
+              >
+                <Alert
+                  severity={timeLeft < 300 ? "warning" : "info"} // Turns yellow in the last 5 minutes
+                  sx={{
+                    backgroundColor: timeLeft < 300 ? 'rgba(255, 165, 0, 0.9)' : 'rgba(23, 118, 209, 0.9)',
+                    color: 'white',
+                    fontWeight: 'bold',
+                    fontSize: '1.1rem'
+                  }}
+                  icon={false}
+                >
+                  {timeLeft > 0 ? `Time Remaining: ${formatTime(timeLeft)}` : "Time's up! Submitting..."}
+                </Alert>
+              </Paper>
             )}
+            {/* --- END OF TIMER --- */}
 
             {currentQuestions.map((mcq, idx) => (
               <Paper key={mcq.id} sx={{ p: 3, mb: 2, backgroundColor: 'rgba(255, 255, 255, 0.9)', backdropFilter: 'blur(10px)' }}>
@@ -192,7 +213,7 @@ export default function StudentExamQuestionsPage() {
                         maxWidth: '600px',
                         objectFit: 'contain',
                         borderRadius: '8px',
-                        display: 'block', 
+                        display: 'block',
                       }}
                     />
                   </Box>
