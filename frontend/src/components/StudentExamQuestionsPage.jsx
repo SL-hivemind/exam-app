@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+// --- FIX 1: Import useMemo ---
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box, Typography, Paper, Button, Alert, RadioGroup,
@@ -17,7 +18,7 @@ export default function StudentExamQuestionsPage() {
   const [exam, setExam] = useState(null);
   const [mcqAnswers, setMcqAnswers] = useState({});
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(true); // Start with loading true
+  const [loading, setLoading] = useState(true); // Page load state
   const [submitted, setSubmitted] = useState(false);
   const [results, setResults] = useState(null);
   const [showResults, setShowResults] = useState(false);
@@ -28,17 +29,24 @@ export default function StudentExamQuestionsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const questionsPerPage = 3;
 
-  // Create a unique key for local storage
-  const storageKey = `examAnswers-${user?.id}-${examId}`;
+  // --- FIX 2: Memoize storageKey ---
+  // This stops it from re-calculating on every render and breaking dependencies.
+  const storageKey = useMemo(() => (
+    `examAnswers-${user?.id}-${examId}`
+  ), [user?.id, examId]);
 
   // Add a new state for submit loading
   const [submitLoading, setSubmitLoading] = useState(false);
 
+  // --- FIX 3: Use a Ref to break the loop ---
+  // We will store the submit function in a ref
+  const handleSubmitRef = useRef(); 
+
   const handleSubmitMcqAnswers = React.useCallback(async (forceSubmit = false) => {
     if (submitted) return; 
 
-    setSubmitLoading(true); // Use separate loading state for submit
-    setError('');  
+    setSubmitLoading(true); 
+    setError('');   
     
     try {
       const answers = Object.entries(mcqAnswers).map(([questionId, answer]) => ({
@@ -50,64 +58,68 @@ export default function StudentExamQuestionsPage() {
         headers: { auth_token: authToken } 
       });
       
-      // Clear timer and storage
       clearInterval(timerRef.current);
       localStorage.removeItem(storageKey);
       
-      // Update states
       setSubmitted(true);
       setShowResults(true);
 
     } catch (err) {  
       setError(err.response?.data?.message || 'Submission failed');
     } finally {
-      setSubmitLoading(false); // Always reset submit loading
+      setSubmitLoading(false); 
     }
-  }, [examId, authToken, storageKey, mcqAnswers, submitted, timerRef]);
+  }, [examId, authToken, storageKey, mcqAnswers, submitted]); // timerRef is stable, can be removed
+
+  // This effect updates the ref to point to the *latest* version of handleSubmitMcqAnswers
+  // This way, the timer can call it without it being a dependency.
+  useEffect(() => {
+    handleSubmitRef.current = handleSubmitMcqAnswers;
+  }, [handleSubmitMcqAnswers]);
 
 
   useEffect(() => {
+    // --- FIX 4: Add Auth Guard Clause ---
+    // This stops the API call if the user isn't logged in
+    if (!authToken) {
+      setError("You are not logged in. Please log in.");
+      setLoading(false);
+      return;
+    }
+
     const fetchExamDetails = async () => {
-      setLoading(true); // <-- Set to true at the start
+      setLoading(true); 
       try {
-        // 1. Get the exam status first
         const canStartRes = await api.get(`/student/exams/${examId}/can_start`, { headers: { auth_token: authToken } });
         const { assigned, within_window, already_submitted } = canStartRes.data;
 
-        // --- Check for assignment ---
         if (!assigned) {
           setError("You are not assigned to this exam.");
-          return; // Exit, 'finally' will set loading to false
+          return; 
         }
 
-        // 2. Check for time window FIRST.
         if (!within_window && !already_submitted) {
           setError("This exam is not currently available. Please check the access times.");
-          return; // Exit, 'finally' will set loading to false
+          return;
         }
         
-        // 3. Check for submission SECOND.
         if (already_submitted) {
           setError("You have already submitted this exam.");
           setExam(canStartRes.data.exam);  
           setSubmitted(true);
-          return; // Exit, 'finally' will set loading to false
+          return;
         }
         
-        // 4. If all checks pass, THEN fetch questions and start the exam
         const questionsRes = await api.get(`/student/exams/${examId}/questions`, { headers: { auth_token: authToken } });
         setExam({ ...canStartRes.data.exam, questions: questionsRes.data.questions, results_released: canStartRes.data.exam?.results_released });
 
-        // 5. Now it's safe to start the attempt
         const attemptRes = await api.post(`/student/exams/${examId}/start`, {}, { headers: { auth_token: authToken } });
         localStorage.setItem(`exam_${examId}_attempt_id`, attemptRes.data.attempt_id);
 
-        // --- Load saved answers from local storage ---
         const savedAnswers = localStorage.getItem(storageKey);
         if (savedAnswers) {
           setMcqAnswers(JSON.parse(savedAnswers));
         }
-        // --- End of loading code ---
 
         const expiresAt = new Date(attemptRes.data.expires_at);
         const now = new Date();
@@ -117,15 +129,15 @@ export default function StudentExamQuestionsPage() {
 
         if (remainingSeconds <= 0) {
           setTimeLeft(0);
-          handleSubmitMcqAnswers(true); // Force submit if time is already 0
-          return; // Exit, 'finally' will set loading to false
+          handleSubmitRef.current(true); // --- FIX 5: Call via ref ---
+          return;
         }
 
         timerRef.current = setInterval(() => {
           setTimeLeft(prev => {
             if (prev <= 1) {
               clearInterval(timerRef.current);
-              handleSubmitMcqAnswers(true); // Force submit
+              handleSubmitRef.current(true); // --- FIX 5: Call via ref ---
               return 0;
             }
             return prev - 1;
@@ -137,9 +149,6 @@ export default function StudentExamQuestionsPage() {
         setError(err.response?.data?.message || 'Failed to fetch exam details');
         setExam(null);
       } finally {
-        // --- THIS IS THE FIX ---
-        // This block runs *no matter what* (success, error, or return)
-        // This guarantees the loading state is turned off.
         setLoading(false);
       }
     };
@@ -149,42 +158,37 @@ export default function StudentExamQuestionsPage() {
     return () => {
       clearInterval(timerRef.current);
     };
-  }, [examId, authToken, storageKey, handleSubmitMcqAnswers]); 
+    // --- FIX 6: REMOVED handleSubmitMcqAnswers from dependencies ---
+    // This breaks the loop. This effect now ONLY runs on load.
+  }, [examId, authToken, storageKey]); 
 
   
-  // Replace the existing localStorage useEffect with this debounced version
+  // Your debounced save (this is good)
   useEffect(() => {
-    // Don't save if submitted
     if (submitted) return;
 
-    // Debounce the save operation
     const saveTimer = setTimeout(() => {
       if (Object.keys(mcqAnswers).length > 0) {
+        // storageKey is now stable, so this works correctly
         localStorage.setItem(storageKey, JSON.stringify(mcqAnswers));
       }
-    }, 500); // Wait 500ms after last change before saving
+    }, 500); 
 
     return () => clearTimeout(saveTimer);
-  }, [mcqAnswers, storageKey, submitted]);
+  }, [mcqAnswers, storageKey, submitted]); // This is correct
   
 
 
   const handleMcqAnswerChange = (mcqId, answer) => {
-    // Don't allow changes if already submitted
     if (submitted) return;
-    
     setMcqAnswers(prev => ({ ...prev, [mcqId]: answer }));
   };
-
   
-  // handleSubmitMcqAnswers is now defined above using useCallback
-
-
   const fetchResults = async () => {
     try {
       const res = await api.get(`/student/exams/${examId}/result`, { headers: { auth_token: authToken } });
       setResults(res.data);
-      setShowResults(true); // Open the dialog once results are fetched
+      setShowResults(true); 
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to fetch results');
     }
@@ -196,18 +200,16 @@ export default function StudentExamQuestionsPage() {
     return `${m}:${s}`;
   };
 
-  // Helper variables
   const totalQuestions = exam?.questions?.length || 0;
   const answeredQuestions = Object.keys(mcqAnswers).length;
-  const allQuestionsAnswered = answeredQuestions === totalQuestions; // Still useful for the timer bar color
+  const allQuestionsAnswered = answeredQuestions === totalQuestions; 
 
-  // Pagination logic for questions
   const indexOfLastQ = currentPage * questionsPerPage;
   const indexOfFirstQ = indexOfLastQ - questionsPerPage;
   const currentQuestions = exam?.questions?.slice(indexOfFirstQ, indexOfLastQ) || [];
   const totalPages = Math.ceil((exam?.questions?.length || 0) / questionsPerPage);
 
-  // This is the initial full-page loader
+  // Initial page loader
   if (loading && !exam) { 
     return (
       <Box sx={{ p: 3, display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
@@ -216,7 +218,7 @@ export default function StudentExamQuestionsPage() {
     );
   }
 
-  // This block shows all errors ("Not assigned", "Not available", etc.)
+  // Error page (now also handles "not logged in")
   if (!exam && !loading) {
     return (
       <Container maxWidth="md" sx={{ py: 4 }}>
@@ -225,18 +227,18 @@ export default function StudentExamQuestionsPage() {
           {error && <Alert severity="error">{error}</Alert>}
           <Button 
             variant="contained" 
-            onClick={() => navigate('/dashboard/student')} 
+            onClick={() => navigate(authToken ? '/dashboard/student' : '/login')} // Go to login if not authenticated
             sx={{ mt: 2 }}
             startIcon={<ArrowBackIcon />}
           >
-            Back to Dashboard
+            Back
           </Button>
         </Paper>
       </Container>
     );
   }
 
-  // This handles the "already submitted" case
+  // Submitted page
   if (submitted) {
     return (
        <Box sx={{
@@ -290,7 +292,7 @@ export default function StudentExamQuestionsPage() {
     )
   }
 
-  // This is the main exam-taking page
+  // Main exam page
   return (
     <Box sx={{
       width: '100%',
@@ -388,15 +390,14 @@ export default function StudentExamQuestionsPage() {
                   color="primary"
                   size="large"
                   onClick={() => handleSubmitMcqAnswers(false)} 
-                  disabled={submitLoading || submitted} // Use submitLoading instead of loading
+                  // This is correct: use submitLoading, not the page loading
+                  disabled={submitLoading || submitted} 
                   sx={{ minWidth: '200px' }}
                 >
                   {submitLoading ? <CircularProgress size={24} /> : 'Submit Answers'}
                 </Button>
               </Box>
             )}
-
-            {/* Removed the "Please answer all questions" alert */}
           </>
         )}
       </Container>
