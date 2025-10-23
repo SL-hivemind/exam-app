@@ -1,232 +1,237 @@
 // src/components/Home.jsx
-import React, { useState, useEffect } from "react";
-import { 
-  Box, Typography, Button, Stack, Card, CardContent, Grid,
-  List, ListItem, ListItemIcon, ListItemText // Added List components
-} from "@mui/material";
-import { Masonry } from '@mui/lab';
-import { useNavigate } from "react-router-dom";
+import React, { useState, useRef } from 'react';
+import Slider from 'react-slick';
+import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
+import {
+    Box, Typography, Button, Grid, Container, Card, CardContent,
+    CardMedia, CardActions, Paper, Stack,
+    List, ListItem, ListItemIcon, ListItemText,
+    Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Divider
+} from '@mui/material';
 
-// All required icons
-import AutoStoriesIcon from '@mui/icons-material/AutoStories';
-import BarChartIcon from '@mui/icons-material/BarChart';
-import SchoolIcon from '@mui/icons-material/School';
-import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
-import FactCheckIcon from '@mui/icons-material/FactCheck';
-import ApartmentIcon from '@mui/icons-material/Apartment';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
-import MiscellaneousServicesIcon from '@mui/icons-material/MiscellaneousServices';
-import BookIcon from '@mui/icons-material/Book';
-import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
-import WorkIcon from '@mui/icons-material/Work';
+// Icons
+import CampaignIcon from '@mui/icons-material/Campaign';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import MenuBookIcon from '@mui/icons-material/MenuBook';
+import LightbulbOutlinedIcon from '@mui/icons-material/LightbulbOutlined';
+import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+import CloseIcon from '@mui/icons-material/Close';
+import ArticleIcon from '@mui/icons-material/Article';
+import "slick-carousel/slick/slick.css";
+import "slick-carousel/slick/slick-theme.css";
 
-
-// --- Mock Data ---
-const galleryImages = [
-  '/images/gallery1.jpg',
-  '/images/gallery2.jpg',
-  '/images/gallery3.jpg',
-  '/images/gallery4.jpg',
+// --- MOCK DATA ---
+// Replace placeholder URLs with your actual S3 URLs
+const carouselImages = [
+    { id: 1, src: 'https://your-s3-bucket-name.s3.your-region.amazonaws.com/images/slider/slide1.jpg', alt: 'Welcome to Saaradaa Learknowations' },
+    { id: 2, src: 'https://your-s3-bucket-name.s3.your-region.amazonaws.com/images/slider/slide2.jpg', alt: 'what we offer' },
+    { id: 3, src: 'https://your-s3-bucket-name.s3.your-region.amazonaws.com/images/slider/slide3.jpg', alt: 'Brain training' },
+    { id: 4, src: 'https://your-s3-bucket-name.s3.your-region.amazonaws.com/images/slider/slide4.jpg', alt: 'Students feedback' },
+    { id: 5, src: 'https://your-s3-bucket-name.s3.your-region.amazonaws.com/images/slider/slide5.jpg', alt: 'Collaborations and recognition' },
 ];
-
-const recognitionImages = [
-  '/images/DPIIT.jpeg',
-  '/images/ISBN.png',
-  '/images/DPIIT(2).png',
-  '/images/SONASIS-MSME.png'
+const thinkletArticles = [
+    { id: 1, title: '2025 Medical Laureates', summary: 'Explore the groundbreaking work that earned this year\'s Nobel Prize in Medicine.', image: 'https://your-s3-bucket-name.s3.your-region.amazonaws.com/images/news/Noble.png', link: '#', fullSummary: 'The Nobel Assembly at the Karolinska Institutet has decided to award the 2025 Nobel Prize in Physiology or Medicine to Mary E.Brunkow, Fred Ramsdell and Shimon Sakaguchi...' },
+    { id: 2, title: 'AI Co-Developer', summary: 'How AI is changing the landscape of software development.', image: 's3://sl-exams-uploads-2025/Home/AiCo.png', link: '#', fullSummary: 'A major shift in software engineering has solidified in 2025 with the widespread adoption of agentic AI systems...' },
+    { id: 3, title: 'Breakthroughs in Cancer Research', summary: 'Recent advancements in understanding and treating cancer.', image: 'https://your-s3-bucket-name.s3.your-region.amazonaws.com/images/news/Cancer.png', link: '#', fullSummary: 'Researchers at ETH Zurich, led by Sabine Werner, have made a key discovery "for identifying how cancer cells transfer their mitochondria... ' },
 ];
-
-// --- Fading Image Carousel Component ---
-const ImageCarousel = ({ images }) => {   
-  const [currentIndex, setCurrentIndex] = useState(0);
-
-  useEffect(() => {
-    const intervalId = setInterval(() => {
-      setCurrentIndex((prevIndex) => (prevIndex + 1) % images.length);
-    }, 3000);
-    return () => clearInterval(intervalId);
-  }, [images.length]);
-
-  return (
-    <Box sx={{
-      position: 'relative',
-      width: '100%',
-      height: '200px',
-      overflow: 'hidden',
-      borderRadius: 2,
-    }}>
-      {images.map((src, index) => (
-        <Box
-          key={index}
-          component="img"
-          src={src}
-          alt={`Carousel image ${index + 1}`}
-          sx={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-            objectFit: 'contain',
-            opacity: index === currentIndex ? 1 : 0,
-            transition: 'opacity 0.7s ease-in-out',
-          }}
-        />
-      ))}
-    </Box>
-  );
-};
+const suggestedBooks = [
+    { id: 1, title: 'Indias Biggest Coverup', author: 'Anuj Dhar', cover: 'https://your-s3-bucket-name.s3.your-region.amazonaws.com/images/books/indias_biggest_coverup.jpg', summary: 'This book investigates the mystery of Netaji Subhas Chandra Bose s disappearance...', takeaways: ['Question the accepted narrative; the pursuit of truth is a duty'] },
+    { id: 2, title: 'Serpents Revenge', author: 'Sudha Murthy', cover: 'https://your-s3-bucket-name.s3.your-region.amazonaws.com/images/books/serpents_revenge.jpg', summary: 'This is not one single story but a collection of many short, "unusual" tales...', takeaways: ['Dharma (duty/righteousness) is complex...'] },
+    { id: 3, title: 'Wings Of Fire', author: 'Dr. A.P.J. Abdul Kalam', cover: 'https://your-s3-bucket-name.s3.your-region.amazonaws.com/images/books/wingsoffire.jpg', summary: 'This is the autobiography of Dr. A. P. J. Abdul Kalam...', takeaways: ['Your dreams and your hard work define your future...'] },
+];
 
 export default function Home() {
-  const navigate = useNavigate();
+    const navigate = useNavigate();
 
-  // Common card styling for a consistent, "glass" look
-  const cardStyle = {
-    p: 2,
-    backgroundColor: 'rgba(255, 255, 255, 0.65)',
-    backdropFilter: 'blur(12px)',
-    border: '1px solid rgba(255, 255, 255, 0.2)',
-  };
+    const sliderSettings = {
+        dots: false,
+        infinite: true,
+        speed: 500,
+        slidesToShow: 1,
+        slidesToScroll: 1,
+        autoplay: true,
+        autoplaySpeed: 3000,
+        fade: true,
+        arrows: false,
+        pauseOnHover: true
+    };
 
-  return (
-    <Box sx={{
-      width: '100%',
-      minHeight: '100vh',
-      backgroundImage: 'url(/background.jpg)',
-      backgroundSize: 'cover',
-      backgroundPosition: 'center',
-      backgroundAttachment: 'fixed',
-    }}>
-      {/* --- Marquee Announcement --- */}
-      <Box component="section" sx={{ background: "#ff1744", color: "white", py: 1, overflow: "hidden" }}>
+    const [showRiddleAnswer, setShowRiddleAnswer] = useState(false);
+    const riddleAnswer = "A Candle";
+
+    const [openBookModal, setOpenBookModal] = useState(false);
+    const [selectedBook, setSelectedBook] = useState(null);
+    const [openThinkletModal, setOpenThinkletModal] = useState(false);
+    const [selectedThinklet, setSelectedThinklet] = useState(null);
+
+    const handleOpenBookModal = (book) => { setSelectedBook(book); setOpenBookModal(true); };
+    const handleCloseBookModal = () => { setOpenBookModal(false); setSelectedBook(null); };
+    const handleOpenThinkletModal = (article) => { setSelectedThinklet(article); setOpenThinkletModal(true); };
+    const handleCloseThinkletModal = () => { setOpenThinkletModal(false); setSelectedThinklet(null); };
+
+    return (
         <Box sx={{
-          display: "inline-block", whiteSpace: "nowrap", px: 2, fontWeight: 700,
-          animation: "ticker 20s linear infinite",
-          "@keyframes ticker": { "0%": { transform: "translateX(100%)" }, "100%": { transform: "translateX(-100%)" } },
+            bgcolor: '#ffffff',
+            position: 'relative',
+            overflow: 'hidden',
+            '@keyframes move_glow': {
+                '0%': { transform: 'translate(0, 0) rotate(0deg)' },
+                '50%': { transform: 'translate(100px, 150px) rotate(180deg)' },
+                '100%': { transform: 'translate(0, 0) rotate(360deg)' },
+            },
+            '@keyframes move_glow_alt': {
+                '0%': { transform: 'translate(0, 0) rotate(0deg)' },
+                '50%': { transform: 'translate(-100px, -150px) rotate(-180deg)' },
+                '100%': { transform: 'translate(0, 0) rotate(-360deg)' },
+            },
+            '&::before': {
+                content: '""',
+                position: 'absolute',
+                width: '500px',
+                height: '500px',
+                top: '-150px',
+                left: '-150px',
+                background: 'radial-gradient(circle, rgba(173, 216, 230, 0.4), transparent 70%)',
+                borderRadius: '50%',
+                filter: 'blur(100px)',
+                zIndex: 0,
+                animation: 'move_glow 25s ease-in-out infinite',
+            },
+            '&::after': {
+                content: '""',
+                position: 'absolute',
+                width: '500px',
+                height: '500px',
+                bottom: '-150px',
+                right: '-150px',
+                background: 'radial-gradient(circle, rgba(230, 230, 250, 0.4), transparent 70%)',
+                borderRadius: '50%',
+                filter: 'blur(100px)',
+                zIndex: 0,
+                animation: 'move_glow_alt 25s ease-in-out infinite',
+            },
         }}>
-          📢 Results for the National Science Olympiad are out now! | We are now recognized by DPIIT and MSME, Govt of India 🎉 | New exam schedules will be announced soon!
+            <Box sx={{ position: 'relative', zIndex: 1 }}>
+
+                <Box sx={{ py: 4, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Stack direction="row" spacing={2} component={motion.div} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.8, delay: 0.5 }}>
+                        <Button variant="contained" sx={{ boxShadow: 3 }} href="#thinklets">Thinklets</Button>
+                        <Button variant="contained" sx={{ boxShadow: 3 }} href="#books">Books</Button>
+                        <Button variant="contained" sx={{ boxShadow: 3 }} href="#riddle">Riddle</Button>
+                        <Button variant="contained" sx={{ boxShadow: 3 }} href="#announcements">Announcements</Button>
+                        <Button
+                            variant="contained"
+                            color="secondary"
+                            startIcon={<AccountCircleIcon />}
+                            sx={{ boxShadow: 3 }}
+                            onClick={() => navigate('/login')}
+                        >
+                            Login
+                        </Button>
+                    </Stack>
+                </Box>
+
+                <Box>
+                    <Slider {...sliderSettings}>
+                        {carouselImages.map((image) => ( <Box key={image.id} sx={{ height: { xs: '50vh', md: '75vh' } }}><Box component="img" src={image.src} alt={image.alt} sx={{ width: '100%', height: '100%', objectFit: 'contain' }} /></Box> ))}
+                    </Slider>
+                </Box>
+
+                <Container maxWidth="xl" sx={{ py: 6, mt: 4 }}>
+
+                    {/* --- Thinklets Section --- */}
+                    <Box id="thinklets" sx={{ mb: 8 }}>
+                        <Stack direction="row" spacing={1} alignItems="center" justifyContent="center" mb={4}>
+                             <ArticleIcon sx={{ fontSize: 40, color: 'primary.main' }} />
+                            <Typography variant="h4" component="h2" fontWeight={600} > Thinklets & News </Typography>
+                        </Stack>
+                        <Grid container spacing={4} justifyContent="center">
+                            {thinkletArticles.map(article => (
+                                <Grid item key={article.id} xs={12} sm={6} md={4}>
+                                    <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', boxShadow: 3 }}>
+                                        <CardMedia component="img" height="200" image={article.image} alt={article.title} />
+                                        <CardContent sx={{ flexGrow: 1 }}><Typography gutterBottom variant="h6">{article.title}</Typography></CardContent>
+                                        <CardActions sx={{ justifyContent: 'center', pb: 2 }}><Button size="small" variant="outlined" onClick={() => handleOpenThinkletModal(article)} endIcon={<ArrowForwardIcon/>}>Read More</Button></CardActions>
+                                    </Card>
+                                </Grid>
+                            ))}
+                        </Grid>
+                    </Box>
+
+                    {/* --- Books Section --- */}
+                    <Box id="books" sx={{ textAlign: 'center', mb: 8 }}>
+                        <MenuBookIcon sx={{ fontSize: 40, color: 'primary.main', mb: 1 }} />
+                        <Typography variant="h4" component="h2" fontWeight={600} mb={4}>Recommended Reading</Typography>
+                        <Grid container spacing={4} justifyContent="center">
+                            {suggestedBooks.map(book => (
+                                <Grid item key={book.id} xs={12} sm={4} md={3}>
+                                    <Card sx={{ border: '1px solid #ddd', boxShadow: 3, display: 'flex', flexDirection: 'column', height: '100%' }} elevation={0}>
+                                        <CardMedia component="img" image={book.cover} alt={book.title} sx={{ height: 250, objectFit: 'cover' }}/>
+                                        <CardContent sx={{ flexGrow: 1 }}><Typography fontWeight="bold" variant="body1">{book.title}</Typography></CardContent>
+                                        <CardActions sx={{ justifyContent: 'center', pb: 2 }}><Button size="small" variant="outlined" onClick={() => handleOpenBookModal(book)}>Read More</Button></CardActions>
+                                    </Card>
+                                </Grid>
+                            ))}
+                        </Grid>
+                    </Box>
+
+                    {/* --- Riddle Section --- */}
+                    <Box id="riddle" sx={{ textAlign: 'center', mb: 8 }}>
+                        <LightbulbOutlinedIcon sx={{ fontSize: 40, color: 'secondary.main', mb: 1 }} />
+                        <Typography variant="h4" component="h2" fontWeight={600} mb={4}>Think Riddles!</Typography>
+                        <Paper sx={{ maxWidth: '600px', mx: 'auto', p: 4, border: '1px solid #ddd', boxShadow: 3 }} variant="outlined">
+                            <Typography variant="h6" mb={3} sx={{ fontStyle: 'italic', color: 'text.secondary' }}> "You measure my life in hours and I serve you by expiring. I’m quick when I’m thin and slow when I’m fat. The wind is my enemy." </Typography>
+                            {!showRiddleAnswer && (<Button variant="contained" size="small" onClick={() => setShowRiddleAnswer(true)}>Show Answer</Button>)}
+                            {showRiddleAnswer && (<Box mt={2}><Typography fontWeight="bold" variant="h6" color="success.main"> Answer: {riddleAnswer} </Typography></Box>)}
+                        </Paper>
+                    </Box>
+
+                    {/* --- Announcements Section --- */}
+                    <Box id="announcements" sx={{ textAlign: 'center', mb: 8 }}>
+                        <CampaignIcon sx={{ fontSize: 40, color: 'primary.main', mb: 1 }} />
+                        <Typography variant="h4" component="h2" fontWeight={600} mb={3}>Announcements</Typography>
+                        <Paper sx={{ maxWidth: '800px', mx: 'auto', border: '1px solid #ddd', boxShadow: 3 }} variant='outlined'>
+                            <List>
+                                <ListItem><ListItemIcon><CampaignIcon color="primary" /></ListItemIcon><ListItemText primary="Exams: Monthly Exams (Oct)" secondary={`Announced on ${new Date().toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric'})}`} /></ListItem>
+                                <ListItem><ListItemIcon><CampaignIcon color="primary" /></ListItemIcon><ListItemText primary="Upcoming: Winter Olympiad" secondary="Registrations open from Nov 1, 2025" /></ListItem>
+                                <ListItem><ListItemIcon><CampaignIcon color="primary" /></ListItemIcon><ListItemText primary="New Feature: Practice Mode" secondary="Now available for all registered students!" /></ListItem>
+                            </List>
+                        </Paper>
+                    </Box>
+
+                </Container>
+            </Box>
+
+            {/* --- Book Detail Modal --- */}
+            <Dialog open={openBookModal} onClose={handleCloseBookModal} maxWidth="sm" fullWidth>
+                {selectedBook && (
+                    <>
+                        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>{selectedBook.title}<IconButton edge="end" color="inherit" onClick={handleCloseBookModal} aria-label="close"><CloseIcon /></IconButton></DialogTitle>
+                        <DialogContent dividers>
+                            <Grid container spacing={2}><Grid item xs={12} sm={4}><Box component="img" src={selectedBook.cover} alt={selectedBook.title} sx={{ width: '100%', borderRadius: 1 }}/></Grid><Grid item xs={12} sm={8}><Typography variant="subtitle1" color="text.secondary" gutterBottom>By {selectedBook.author}</Typography><Typography variant="body1" paragraph>{selectedBook.summary}</Typography></Grid></Grid>
+                            <Divider sx={{ my: 2 }} /><Typography variant="h6" gutterBottom>Key Takeaways:</Typography>
+                            <List dense>{selectedBook.takeaways.map((takeaway, index) => (<ListItem key={index}><ListItemIcon sx={{ minWidth: 'auto', mr: 1 }}>•</ListItemIcon><ListItemText primary={takeaway} /></ListItem>))}</List>
+                        </DialogContent>
+                        <DialogActions><Button onClick={handleCloseBookModal}>Close</Button></DialogActions>
+                    </>
+                )}
+            </Dialog>
+
+            {/* --- Thinklet Detail Modal --- */}
+            <Dialog open={openThinkletModal} onClose={handleCloseThinkletModal} maxWidth="md" fullWidth>
+                {selectedThinklet && (
+                    <>
+                        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>{selectedThinklet.title}<IconButton edge="end" color="inherit" onClick={handleCloseThinkletModal} aria-label="close"><CloseIcon /></IconButton></DialogTitle>
+                        <DialogContent dividers>
+                            <Box sx={{ width: '100%', maxHeight: '400px', overflow: 'hidden', mb: 2, borderRadius: 1 }}><img src={selectedThinklet.image} alt={selectedThinklet.title} style={{ width: '100%', height: 'auto', objectFit: 'cover' }} /></Box>
+                            <Typography variant="body1" paragraph>{selectedThinklet.fullSummary || selectedThinklet.summary}</Typography>
+                        </DialogContent>
+                        <DialogActions><Button onClick={handleCloseThinkletModal}>Close</Button></DialogActions>
+                    </>
+                )}
+            </Dialog>
+
         </Box>
-      </Box>
-
-      {/* --- Hero Section --- */}
-      <Box sx={{
-        height: '50vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        color: 'white', textAlign: 'center', position: 'relative', my: 2
-      }}>
-        <Box sx={{
-          position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.6)', zIndex: 1, borderRadius: 3
-        }} />
-        <Box sx={{ zIndex: 2, p: 3 }}>
-          <Typography variant="h2" fontWeight={700} gutterBottom>
-            A Seamless Online Examination Experience
-          </Typography>
-          <Typography variant="h6" color="inherit" sx={{ mb: 4, fontWeight: 300 }}>
-            Empowering educational institutions with a secure, intuitive, and robust platform.
-          </Typography>
-          <Stack direction={{ xs: "column", sm: "row" }} spacing={2} justifyContent="center">
-            <Button size="large" variant="contained" onClick={() => navigate("/login")}>Login</Button>
-            {/* <Button size="large" variant="outlined" sx={{ color: 'white', borderColor: 'white', '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.1)' } }} onClick={() => navigate("/register")}>
-              Register as Student
-            </Button> */}
-          </Stack>
-        </Box>
-      </Box>
-
-      {/* --- Main Content with Masonry Layout --- */}
-      <Box sx={{ px: { xs: 2, md: 4 }, pb: 4 }}>
-        <Masonry columns={{ xs: 1, sm: 2, lg: 2 }} spacing={3}>
-
-          {/* SECTION 1: What We Offer */}
-          <Card sx={cardStyle}>
-            <CardContent>
-              <Typography variant="h4" fontWeight={600} gutterBottom>What We Offer</Typography>
-              <Grid container spacing={3} sx={{ mt: 1 }}>
-                <Grid item xs={12} sm={6}><Stack direction="row" spacing={2} alignItems="center"><SchoolIcon color="primary" sx={{ fontSize: 40 }} /><Box><Typography variant="h6" fontWeight="bold">For Students</Typography><Typography color="text.secondary">A simple and secure portal to take exams and track progress.</Typography></Box></Stack></Grid>
-                <Grid item xs={12} sm={6}><Stack direction="row" spacing={2} alignItems="center"><AdminPanelSettingsIcon color="primary" sx={{ fontSize: 40 }} /><Box><Typography variant="h6" fontWeight="bold">For Admins</Typography><Typography color="text.secondary">Effortlessly manage schools, students, and the entire exam lifecycle.</Typography></Box></Stack></Grid>
-                <Grid item xs={12} sm={6}><Stack direction="row" spacing={2} alignItems="center"><AutoStoriesIcon color="primary" sx={{ fontSize: 40 }} /><Box><Typography variant="h6" fontWeight="bold">Grade-Specific Content</Typography><Typography color="text.secondary">A diverse question bank tailored for students from the 6th to 10th grade.</Typography></Box></Stack></Grid>
-                <Grid item xs={12} sm={6}><Stack direction="row" spacing={2} alignItems="center"><BarChartIcon color="primary" sx={{ fontSize: 40 }} /><Box><Typography variant="h6" fontWeight="bold">Performance Analytics</Typography><Typography color="text.secondary">Instant results and detailed reports to help students understand their strengths.</Typography></Box></Stack></Grid>
-              </Grid>
-            </CardContent>
-          </Card>
-
-          {/* SECTION 2: The Exam Experience */}
-          <Card sx={cardStyle}>
-            <CardContent>
-              <FactCheckIcon color="primary" sx={{ fontSize: 40, mb: 1 }} />
-              <Typography variant="h5" fontWeight={600} gutterBottom>A Fair & Focused Exam Experience</Typography>
-              <Typography color="text.secondary">
-                We provide a secure and intuitive testing environment designed to ensure fairness and focus. Our platform includes a real-time countdown timer to keep students on track, and robust anti-cheating measures that discourage tab-switching and unauthorized actions. With full support for image-based questions, we deliver a comprehensive assessment process. After submission, students can access detailed results and performance insights once they are released by the administrator.
-              </Typography>
-            </CardContent>
-          </Card>
-
-          {/* SECTION 3: Completed Exams */}
-          <Card sx={cardStyle}>
-            <CardContent>
-              <CheckCircleOutlineIcon color="primary" sx={{ fontSize: 40, mb: 1 }} />
-              <Typography variant="h5" fontWeight={600} gutterBottom>Completed Exams</Typography>
-              <List dense>
-                <ListItem>
-                  <ListItemIcon><CheckCircleOutlineIcon fontSize="small" color="success" /></ListItemIcon>
-                  <ListItemText primary="Monthly Exams (Sept)" secondary="Results Announced" />
-                </ListItem>
-                <ListItem>
-                  <ListItemIcon><CheckCircleOutlineIcon fontSize="small" color="success" /></ListItemIcon>
-                  <ListItemText primary="SWL 2025" secondary="Results Announced" />
-                </ListItem>
-              </List>
-            </CardContent>
-          </Card>
-
-          {/* SECTION 4: Our Other Works */}
-          <Card sx={cardStyle}>
-            <CardContent>
-              <MiscellaneousServicesIcon color="primary" sx={{ fontSize: 40, mb: 1 }} />
-              <Typography variant="h5" fontWeight={600} gutterBottom>Our Other Works</Typography>
-              <List dense>
-                <ListItem>
-                  <ListItemIcon><BookIcon fontSize="small" /></ListItemIcon>
-                  <ListItemText primary="Write Your Own Journals" />
-                </ListItem>
-                <ListItem>
-                  <ListItemIcon><EmojiEventsIcon fontSize="small" /></ListItemIcon>
-                  <ListItemText primary="Olympiad Exams for Students" />
-                </ListItem>
-                <ListItem>
-                  <ListItemIcon><SchoolIcon fontSize="small" /></ListItemIcon>
-                  <ListItemText primary="Materials for Higher Aims" />
-                </ListItem>
-                <ListItem>
-                  <ListItemIcon><WorkIcon fontSize="small" /></ListItemIcon>
-                  <ListItemText primary="Internships and Publications" />
-                </ListItem>
-              </List>
-            </CardContent>
-          </Card>
-
-          {/* SECTION 5: Image Gallery */}
-          <Card sx={{ ...cardStyle, overflow: 'hidden' }}>
-            <CardContent>
-              <Typography variant="h5" fontWeight={600} gutterBottom>Our Platform in Action</Typography>
-              <ImageCarousel images={galleryImages} />
-            </CardContent>
-          </Card>
-
-          {/* SECTION 6: Our Recognitions */}
-          <Card sx={{ ...cardStyle, overflow: 'hidden' }}>
-            <CardContent>
-              <ApartmentIcon color="primary" sx={{ fontSize: 40, mb: 1 }} />
-              <Typography variant="h5" fontWeight={600} gutterBottom>Recognitions</Typography>
-              <Typography color="text.secondary" sx={{ mb: 2 }}>
-                We are proud to be recognized by leading governmental bodies for our innovation in educational technology.
-              </Typography>
-              <ImageCarousel images={recognitionImages} />
-            </CardContent>
-          </Card>
-
-        </Masonry>
-      </Box>
-    </Box>
-  );
+    );
 }
