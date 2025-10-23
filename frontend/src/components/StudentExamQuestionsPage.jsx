@@ -27,7 +27,6 @@ export default function StudentExamQuestionsPage() {
   // pagination state for questions
   const [currentPage, setCurrentPage] = useState(1);
   const questionsPerPage = 3;
-  const [attempt, setAttempt] = useState(null);
 
   useEffect(() => {
     fetchExamDetails();
@@ -38,72 +37,51 @@ export default function StudentExamQuestionsPage() {
   }, [examId]);
 
   const fetchExamDetails = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      // First fetch attempt status
-      const attemptRes = await api.get(`/exams/${examId}/attempt`, {
-        headers: { auth_token: authToken }
-      });
-      
-      const existingAttempt = attemptRes.data?.attempt;
-      setAttempt(existingAttempt);
+      // Get exam details from can_start first
+      const canStartRes = await api.get(`/student/exams/${examId}/can_start`, { headers: { auth_token: authToken } });
 
-      // If no existing attempt or not started, this is a new attempt
-      if (!existingAttempt || !existingAttempt.started_at) {
-        const examRes = await api.get(`/exams/${examId}`, {
-          headers: { auth_token: authToken }
-        });
-        setExam(examRes.data);
-        // Set full duration for new attempt
-        setTimeLeft(examRes.data.duration * 60);
+      // Fetch questions
+      const questionsRes = await api.get(`/student/exams/${examId}/questions`, { headers: { auth_token: authToken } });
+
+      setExam({ ...canStartRes.data.exam, questions: questionsRes.data.questions, results_released: canStartRes.data.exam?.results_released });
+
+      // Get or start attempt to set timer
+      const attemptRes = await api.post(`/student/exams/${examId}/start`, {}, { headers: { auth_token: authToken } });
+      localStorage.setItem(`exam_${examId}_attempt_id`, attemptRes.data.attempt_id);
+
+      const expiresAt = new Date(attemptRes.data.expires_at);
+      const now = new Date();
+      const remainingMs = expiresAt - now;
+      const remainingSeconds = Math.max(0, Math.floor(remainingMs / 1000));
+      setTimeLeft(remainingSeconds);
+
+      if (remainingSeconds <= 0) {
+        // Time has already expired, set timeLeft to 0 and don't start timer
+        setTimeLeft(0);
+        setLoading(false);
         return;
       }
 
-      // For existing attempts, calculate remaining time
-      const startTime = new Date(existingAttempt.started_at).getTime();
-      const duration = existingAttempt.duration * 60 * 1000; // convert to ms
-      const now = Date.now();
-      const endTime = startTime + duration;
-      const remaining = Math.max(0, Math.floor((endTime - now) / 1000));
-
-      if (remaining <= 0) {
-        setError('Exam time is over');
-        setTimeLeft(0);
-      } else {
-        setTimeLeft(remaining);
-        // Fetch exam details if time remaining
-        const examRes = await api.get(`/exams/${examId}`, {
-          headers: { auth_token: authToken }
-        });
-        setExam(examRes.data);
-      }
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to load exam');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Start timer only if we have time left
-  useEffect(() => {
-    if (timeLeft > 0 && !timerRef.current) {
       timerRef.current = setInterval(() => {
         setTimeLeft(prev => {
           if (prev <= 1) {
             clearInterval(timerRef.current);
-            setError('Exam time is over');
+            handleSubmitMcqAnswers();
             return 0;
           }
           return prev - 1;
         });
       }, 1000);
+
+      setError('');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to fetch exam questions');
+      setExam(null);
     }
-    return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
-    };
-  }, [timeLeft]);
+    setLoading(false);
+  };
 
   const handleMcqAnswerChange = (mcqId, answer) => {
     setMcqAnswers(prev => ({ ...prev, [mcqId]: answer }));
