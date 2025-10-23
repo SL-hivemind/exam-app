@@ -794,14 +794,14 @@ def student_start_exam(current_user, exam_id):
             allowed_end = min(allowed_end, access_end_utc)
         db.session.add(attempt)
         db.session.commit()
-        return jsonify({'message':'started','attempt_id': attempt.id, 'start_time': attempt.start_time.isoformat(), 'expires_at': allowed_end.isoformat()}), 200
+        return jsonify({'message':'started','attempt_id': attempt.id, 'start_time': attempt.start_time.isoformat() + 'Z', 'expires_at': allowed_end.isoformat() + 'Z'}), 200
     else:
         # Attempt exists and not submitted, calculate allowed_end_time on the fly
         allowed_end = attempt.start_time + timedelta(minutes=exam.duration_minutes)
         if exam.access_end:
             access_end_utc = to_utc_naive(exam.access_end)
             allowed_end = min(allowed_end, access_end_utc)
-        return jsonify({'message':'exam already started', 'attempt_id': attempt.id, 'start_time': attempt.start_time.isoformat(), 'expires_at': allowed_end.isoformat()}), 200
+        return jsonify({'message':'exam already started', 'attempt_id': attempt.id, 'start_time': attempt.start_time.isoformat() + 'Z', 'expires_at': allowed_end.isoformat()+ 'Z'}), 200
 
 @app.route('/student/exams/<int:exam_id>/questions', methods=['GET'])
 @token_required
