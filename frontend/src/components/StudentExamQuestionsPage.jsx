@@ -31,10 +31,13 @@ export default function StudentExamQuestionsPage() {
   // Create a unique key for local storage
   const storageKey = `examAnswers-${user?.id}-${examId}`;
 
+  // Add a new state for submit loading
+  const [submitLoading, setSubmitLoading] = useState(false);
+
   const handleSubmitMcqAnswers = React.useCallback(async (forceSubmit = false) => {
     if (submitted) return; 
 
-    setLoading(true); // Start loading
+    setSubmitLoading(true); // Use separate loading state for submit
     setError('');  
     
     try {
@@ -54,11 +57,11 @@ export default function StudentExamQuestionsPage() {
       // Update states
       setSubmitted(true);
       setShowResults(true);
-      setLoading(false); // Stop loading on success
 
     } catch (err) {  
       setError(err.response?.data?.message || 'Submission failed');
-      setLoading(false); // Stop loading on error
+    } finally {
+      setSubmitLoading(false); // Always reset submit loading
     }
   }, [examId, authToken, storageKey, mcqAnswers, submitted, timerRef]);
 
@@ -149,15 +152,27 @@ export default function StudentExamQuestionsPage() {
   }, [examId, authToken, storageKey, handleSubmitMcqAnswers]); 
 
   
+  // Replace the existing localStorage useEffect with this debounced version
   useEffect(() => {
-    if (Object.keys(mcqAnswers).length > 0 && !submitted) {
-      localStorage.setItem(storageKey, JSON.stringify(mcqAnswers));
-    }
+    // Don't save if submitted
+    if (submitted) return;
+
+    // Debounce the save operation
+    const saveTimer = setTimeout(() => {
+      if (Object.keys(mcqAnswers).length > 0) {
+        localStorage.setItem(storageKey, JSON.stringify(mcqAnswers));
+      }
+    }, 500); // Wait 500ms after last change before saving
+
+    return () => clearTimeout(saveTimer);
   }, [mcqAnswers, storageKey, submitted]);
   
 
 
   const handleMcqAnswerChange = (mcqId, answer) => {
+    // Don't allow changes if already submitted
+    if (submitted) return;
+    
     setMcqAnswers(prev => ({ ...prev, [mcqId]: answer }));
   };
 
@@ -373,10 +388,10 @@ export default function StudentExamQuestionsPage() {
                   color="primary"
                   size="large"
                   onClick={() => handleSubmitMcqAnswers(false)} 
-                  disabled={loading || submitted}
+                  disabled={submitLoading || submitted} // Use submitLoading instead of loading
                   sx={{ minWidth: '200px' }}
                 >
-                  {loading ? <CircularProgress size={24} /> : 'Submit Answers'}
+                  {submitLoading ? <CircularProgress size={24} /> : 'Submit Answers'}
                 </Button>
               </Box>
             )}
