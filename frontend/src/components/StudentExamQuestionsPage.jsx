@@ -217,7 +217,7 @@ export default function StudentExamQuestionsPage() {
                 sx={{
                   position: 'sticky',
                   top: '64px', // Sticks to the top of the scrolling container
-                  zIndex: 1100, // Stays on top of other content
+                  zIndex: 13001, // Stays on top of other content
                   mb: 2,
                 }}
               >
