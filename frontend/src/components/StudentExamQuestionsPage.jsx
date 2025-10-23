@@ -9,11 +9,6 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import api from '../utils/api';
 import useAuth from '../hooks/useAuth';
 
-// Define handleSubmitMcqAnswers outside the component or wrap it in useCallback
-// This is necessary because it's used inside the useEffect dependency array.
-// For simplicity here, we'll keep it inside and add it to the dependency array,
-// but we must wrap it in useCallback to prevent infinite loops.
-
 export default function StudentExamQuestionsPage() {
   const { examId } = useParams();
   const { authToken, user } = useAuth(); // Get user object
@@ -37,27 +32,18 @@ export default function StudentExamQuestionsPage() {
   const storageKey = `examAnswers-${user?.id}-${examId}`;
 
   const handleSubmitMcqAnswers = React.useCallback(async (forceSubmit = false) => {
-    // We use a functional state update for 'submitted' to get the latest value
-    // inside this callback, which might otherwise be stale.
-    // However, checking 'submitted' state here is tricky.
-    // A better way is to check it *before* calling this function.
-    // But for the timer-based force submit, we need a check.
-    // Let's add a ref to track submission status.
-    
-    // Note: The 'submitted' state check in the original code was fine,
-    // but when using useCallback, dependencies become important.
-    // Let's stick to the original logic and add dependencies.
-
     if (submitted) return; 
 
-    const totalQuestions = exam?.questions?.length || 0;
-    const answeredQuestions = Object.keys(mcqAnswers).length;
+    // const totalQuestions = exam?.questions?.length || 0;
+    // const answeredQuestions = Object.keys(mcqAnswers).length;
 
+    // --- CHANGE 1: REMOVED THIS BLOCK ---
     // Check only runs if it's NOT a forced submit
-    if (answeredQuestions < totalQuestions && !forceSubmit) {
-      setError("Please attempt all questions before submitting.");
-      return;  
-    }
+    // if (answeredQuestions < totalQuestions && !forceSubmit) {
+    //   setError("Please attempt all questions before submitting.");
+    //   return;  
+    // }
+    // --- END OF CHANGE ---
 
     setLoading(true);
     setError('');  
@@ -69,7 +55,7 @@ export default function StudentExamQuestionsPage() {
 
       await api.post(`/student/exams/${examId}/submit`, { answers }, { headers: { auth_token: authToken } });
       setSubmitted(true);
-      setShowResults(true); // This might not be needed if results aren't immediate
+      setShowResults(true); 
       clearInterval(timerRef.current);
 
       localStorage.removeItem(storageKey);
@@ -100,15 +86,13 @@ export default function StudentExamQuestionsPage() {
         // --- (FIX) SWAPPED ORDER ---
 
         // 2. Check for time window FIRST.
-        // If the window is closed AND they haven't submitted, it's "not available" (a "missed" exam).
         if (!within_window && !already_submitted) {
           setError("This exam is not currently available. Please check the access times.");
           setLoading(false);
-          return; // This stops the code and ensures no questions are loaded
+          return; 
         }
         
         // 3. Check for submission SECOND.
-        // This correctly handles students who have already submitted.
         if (already_submitted) {
           setError("You have already submitted this exam.");
           setExam(canStartRes.data.exam);  
@@ -120,7 +104,6 @@ export default function StudentExamQuestionsPage() {
         // --- END OF CHECK ---
 
         // 4. If all checks pass, THEN fetch questions and start the exam
-        // (We only get here if: assigned=true, within_window=true, already_submitted=false)
         const questionsRes = await api.get(`/student/exams/${examId}/questions`, { headers: { auth_token: authToken } });
 
         setExam({ ...canStartRes.data.exam, questions: questionsRes.data.questions, results_released: canStartRes.data.exam?.results_released });
@@ -174,7 +157,6 @@ export default function StudentExamQuestionsPage() {
     return () => {
       clearInterval(timerRef.current);
     };
-    // Add handleSubmitMcqAnswers to the dependency array
   }, [examId, authToken, storageKey, handleSubmitMcqAnswers]); 
 
   
@@ -213,6 +195,7 @@ export default function StudentExamQuestionsPage() {
   // Helper variables for validation
   const totalQuestions = exam?.questions?.length || 0;
   const answeredQuestions = Object.keys(mcqAnswers).length;
+  // This variable is no longer used to disable the button
   const allQuestionsAnswered = answeredQuestions === totalQuestions;
 
   // Pagination logic for questions
@@ -221,7 +204,7 @@ export default function StudentExamQuestionsPage() {
   const currentQuestions = exam?.questions?.slice(indexOfFirstQ, indexOfLastQ) || [];
   const totalPages = Math.ceil((exam?.questions?.length || 0) / questionsPerPage);
 
-  if (loading && !exam) { // Only show full-page loader on initial load
+  if (loading && !exam) { 
     return (
       <Box sx={{ p: 3, display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
         <CircularProgress />
@@ -229,7 +212,7 @@ export default function StudentExamQuestionsPage() {
     );
   }
 
-  // This block shows all errors ("Not assigned", "Not available", etc.)
+  // This block shows all errors
   if (!exam && !loading) {
     return (
       <Container maxWidth="md" sx={{ py: 4 }}>
@@ -249,7 +232,7 @@ export default function StudentExamQuestionsPage() {
     );
   }
 
-  // This handles the "already submitted" case, showing the "Submission Complete" page directly
+  // This handles the "already submitted" case
   if (submitted) {
     return (
        <Box sx={{
@@ -265,7 +248,7 @@ export default function StudentExamQuestionsPage() {
             <Paper sx={{ p: 3, mt: 3, backgroundColor: 'rgba(255, 255, 255, 0.9)' }}>
               <Typography variant="h5" gutterBottom>Submission Complete</Typography>
               <Typography>
-                {/* The error state might hold the "You have already submitted" message, which is fine */
+                {
                  error && error.includes("submitted") ? error : 'Your answers have been submitted successfully.'
                 }
               </Typography>
@@ -334,8 +317,8 @@ export default function StudentExamQuestionsPage() {
                 elevation={4}
                 sx={{
                   position: 'sticky',
-                  top: '64px', // Adjust based on your AppBar height
-                  zIndex: 1301, // Above AppBar
+                  top: '64px', 
+                  zIndex: 1301, 
                   mb: 2,
                 }}
               >
@@ -400,19 +383,24 @@ export default function StudentExamQuestionsPage() {
                   variant="contained"
                   color="primary"
                   size="large"
-                  onClick={() => handleSubmitMcqAnswers(false)} // Explicitly call with false
-                  disabled={loading || !allQuestionsAnswered}
+                  onClick={() => handleSubmitMcqAnswers(false)} 
+                  // --- CHANGE 2: UPDATED THIS LINE ---
+                  disabled={loading} 
+                  // --- END OF CHANGE ---
                   sx={{ minWidth: '200px' }}
                 >
                   {loading ? <CircularProgress size={24} /> : 'Submit Answers'}
                 </Button>
               </Box>
             )}
-             {!allQuestionsAnswered && !submitted && (
+
+            {/* --- CHANGE 3: REMOVED THE WARNING BLOCK ---
+              {!allQuestionsAnswered && !submitted && (
                 <Alert severity="warning" sx={{ mt: 2 }}>
                   Please answer all questions to enable the submit button.
                 </Alert>
               )}
+            */}
           </>
         )}
       </Container>
