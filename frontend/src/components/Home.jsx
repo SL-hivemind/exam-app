@@ -32,7 +32,7 @@ const carouselImages = [
 ];
 const thinkletArticles = [
     { id: 1, title: '2025 Medical Laureates', summary: 'Explore the groundbreaking work that earned this year\'s Nobel Prize in Medicine.', image: 'https://your-s3-bucket-name.s3.your-region.amazonaws.com/images/news/Noble.png', link: '#', fullSummary: 'The Nobel Assembly at the Karolinska Institutet has decided to award the 2025 Nobel Prize in Physiology or Medicine to Mary E.Brunkow, Fred Ramsdell and Shimon Sakaguchi...' },
-    { id: 2, title: 'AI Co-Developer', summary: 'How AI is changing the landscape of software development.', image: 's3://sl-exams-uploads-2025/Home/AiCo.png', link: '#', fullSummary: 'A major shift in software engineering has solidified in 2025 with the widespread adoption of agentic AI systems...' },
+    { id: 2, title: 'AI Co-Developer', summary: 'How AI is changing the landscape of software development.', image: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/AiCo.png', link: '#', fullSummary: 'A major shift in software engineering has solidified in 2025 with the widespread adoption of agentic AI systems...' },
     { id: 3, title: 'Breakthroughs in Cancer Research', summary: 'Recent advancements in understanding and treating cancer.', image: 'https://your-s3-bucket-name.s3.your-region.amazonaws.com/images/news/Cancer.png', link: '#', fullSummary: 'Researchers at ETH Zurich, led by Sabine Werner, have made a key discovery "for identifying how cancer cells transfer their mitochondria... ' },
 ];
 const suggestedBooks = [
