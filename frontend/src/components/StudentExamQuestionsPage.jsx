@@ -49,8 +49,6 @@ export default function StudentExamQuestionsPage() {
         }
         if (already_submitted) {
           setError("You have already submitted this exam.");
-          // Optionally, fetch and set exam data to show results button
-          setExam(canStartRes.data.exam); 
           setSubmitted(true); // Show the "submission complete" screen
           setLoading(false);
           return;
@@ -118,22 +116,22 @@ export default function StudentExamQuestionsPage() {
     return () => {
       clearInterval(timerRef.current);
     };
-  }, [examId, authToken, storageKey]); // Added deps
+  }, [examId, authToken, storageKey]);
 
-  // --- useEffect to save answers to local storage on change ---
+  
   useEffect(() => {
     if (Object.keys(mcqAnswers).length > 0 && !submitted) {
       localStorage.setItem(storageKey, JSON.stringify(mcqAnswers));
     }
   }, [mcqAnswers, storageKey, submitted]);
-  // --- End of save code ---
+  
 
 
   const handleMcqAnswerChange = (mcqId, answer) => {
     setMcqAnswers(prev => ({ ...prev, [mcqId]: answer }));
   };
 
-  // --- Function now accepts a forceSubmit flag ---
+  
   const handleSubmitMcqAnswers = async (forceSubmit = false) => {
     if (submitted) return;
 
