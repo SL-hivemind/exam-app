@@ -1,22 +1,33 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import {
-  Box, Typography, Paper, Button, Alert, RadioGroup,
-  FormControlLabel, Radio, CircularProgress, Dialog,
-  DialogTitle, DialogContent, DialogActions, IconButton, Container
-} from '@mui/material';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import api from '../utils/api';
-import useAuth from '../hooks/useAuth';
+  Box,
+  Typography,
+  Paper,
+  Button,
+  Alert,
+  RadioGroup,
+  FormControlLabel,
+  Radio,
+  CircularProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  IconButton,
+  Container,
+} from "@mui/material";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import api from "../utils/api";
+import useAuth from "../hooks/useAuth";
 
-export default function StudentExamQuestionsPage() {
-  const { examId } = useParams();
+function StudentExamQuestionPage({ examId }) {
   const { authToken, user } = useAuth(); // Get user object
   const navigate = useNavigate();
 
   const [exam, setExam] = useState(null);
   const [mcqAnswers, setMcqAnswers] = useState({});
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(true); // Start with loading true
   const [submitted, setSubmitted] = useState(false);
   const [results, setResults] = useState(null);
@@ -30,6 +41,54 @@ export default function StudentExamQuestionsPage() {
 
   // Create a unique key for local storage
   const storageKey = `examAnswers-${user?.id}-${examId}`;
+
+  // attempt status
+  const [attempt, setAttempt] = useState(null);
+  const [canStart, setCanStart] = useState(false);
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    async function loadAttempt() {
+      try {
+        // endpoint should return existing attempt or null and include exam.duration (minutes)
+        const res = await api.get(`/exams/${examId}/attempt`);
+        const data = res.data || {};
+        const a = data.attempt || null;
+        const exam = data.exam || {};
+        setAttempt(a);
+
+        if (!a) {
+          // no attempt yet -> can start
+          setCanStart(true);
+          setMessage("");
+          return;
+        }
+
+        // attempt exists - compute expiry
+        const startedAt = a.started_at ? new Date(a.started_at).getTime() : null;
+        const durMs = (exam.duration || a.duration || 0) * 60 * 1000;
+        const endTime = startedAt ? startedAt + durMs : null;
+        const now = Date.now();
+
+        if (a.submitted_at || a.status === "submitted") {
+          setCanStart(false);
+          setMessage("Exam completed — wait for results.");
+        } else if (endTime && now > endTime) {
+          // expired: don't allow start, show message
+          setCanStart(false);
+          setMessage("Exam time finished — your attempt is completed. Wait for results.");
+        } else {
+          // attempt in progress and still within duration -> resume allowed
+          setCanStart(true);
+          setMessage("");
+        }
+      } catch (err) {
+        console.error(err);
+        setMessage("Failed to check attempt status.");
+      }
+    }
+    loadAttempt();
+  }, [examId]);
 
   useEffect(() => {
     // Moved fetchExamDetails inside useEffect to be callable
@@ -394,3 +453,5 @@ export default function StudentExamQuestionsPage() {
     </Box>
   );
 }
+
+export default StudentExamQuestionPage;
