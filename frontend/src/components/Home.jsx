@@ -115,7 +115,7 @@ export default function Home() {
             <Box sx={{ position: 'relative', zIndex: 1 }}>
 
                 <Box sx={{ py: 4, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Stack direction="row" spacing={2} component={motion.div} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.8, delay: 0.5 }}>
+                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} component={motion.div} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.8, delay: 0.5 }}>
                         <Button variant="contained" sx={{ boxShadow: 3 }} href="#thinklets">Thinklets</Button>
                         <Button variant="contained" sx={{ boxShadow: 3 }} href="#books">Books</Button>
                         <Button variant="contained" sx={{ boxShadow: 3 }} href="#riddle">Riddle</Button>
@@ -124,7 +124,7 @@ export default function Home() {
                             variant="contained"
                             color="secondary"
                             startIcon={<AccountCircleIcon />}
-                            sx={{ boxShadow: 3 }}
+                            sx={{ boxShadow: 3, width: { xs: '80%', sm: 'auto'} }}
                             onClick={() => navigate('/login')}
                         >
                             Login
