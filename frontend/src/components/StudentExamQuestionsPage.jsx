@@ -11,13 +11,13 @@ import useAuth from '../hooks/useAuth';
 
 export default function StudentExamQuestionsPage() {
   const { examId } = useParams();
-  const { authToken, user } = useAuth(); // Get user object
+  const { authToken } = useAuth();
   const navigate = useNavigate();
 
   const [exam, setExam] = useState(null);
   const [mcqAnswers, setMcqAnswers] = useState({});
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(true); // Start with loading true
+  const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [results, setResults] = useState(null);
   const [showResults, setShowResults] = useState(false);
@@ -27,125 +27,91 @@ export default function StudentExamQuestionsPage() {
   // pagination state for questions
   const [currentPage, setCurrentPage] = useState(1);
   const questionsPerPage = 3;
-
-  // Create a unique key for local storage
-  const storageKey = `examAnswers-${user?.id}-${examId}`;
+  const [attempt, setAttempt] = useState(null);
 
   useEffect(() => {
-    // Moved fetchExamDetails inside useEffect to be callable
-    const fetchExamDetails = async () => {
-      setLoading(true);
-      try {
-        // 1. Get the exam status first
-        const canStartRes = await api.get(`/student/exams/${examId}/can_start`, { headers: { auth_token: authToken } });
-
-        const { assigned, within_window, already_submitted } = canStartRes.data;
-
-        // --- Check for assignment and previous submission ---
-        if (!assigned) {
-          setError("You are not assigned to this exam.");
-          setLoading(false);
-          return;
-        }
-        if (already_submitted) {
-          setError("You have already submitted this exam.");
-          setExam(canStartRes.data.exam); 
-          setSubmitted(true); // Show the "submission complete" screen
-          setLoading(false);
-          return;
-        }
-        
-        if (!within_window) {
-          setError("This exam is not currently available. Please check the access times.");
-          setLoading(false);
-          return; // This stops the code and ensures no questions are loaded
-        }
-        // --- END OF CHECK ---
-
-        // 3. If all checks pass, THEN fetch questions and start the exam
-        const questionsRes = await api.get(`/student/exams/${examId}/questions`, { headers: { auth_token: authToken } });
-
-        setExam({ ...canStartRes.data.exam, questions: questionsRes.data.questions, results_released: canStartRes.data.exam?.results_released });
-
-        // 4. Now it's safe to start the attempt
-        const attemptRes = await api.post(`/student/exams/${examId}/start`, {}, { headers: { auth_token: authToken } });
-        localStorage.setItem(`exam_${examId}_attempt_id`, attemptRes.data.attempt_id);
-
-
-        // --- Load saved answers from local storage ---
-        const savedAnswers = localStorage.getItem(storageKey);
-        if (savedAnswers) {
-          setMcqAnswers(JSON.parse(savedAnswers));
-        }
-        // --- End of loading code ---
-
-        const expiresAt = new Date(attemptRes.data.expires_at);
-        const now = new Date();
-        const remainingMs = expiresAt - now;
-        const remainingSeconds = Math.max(0, Math.floor(remainingMs / 1000));
-        setTimeLeft(remainingSeconds);
-
-        if (remainingSeconds <= 0) {
-          setTimeLeft(0);
-          handleSubmitMcqAnswers(true); // Force submit if time is already 0
-          setLoading(false);
-          return;
-        }
-
-        timerRef.current = setInterval(() => {
-          setTimeLeft(prev => {
-            if (prev <= 1) {
-              clearInterval(timerRef.current);
-              handleSubmitMcqAnswers(true); // Force submit
-              return 0;
-            }
-            return prev - 1;
-          });
-        }, 1000);
-
-        setError('');
-      } catch (err) {
-        setError(err.response?.data?.message || 'Failed to fetch exam details');
-        setExam(null);
-      }
-      setLoading(false);
-    };
-
     fetchExamDetails();
 
     return () => {
       clearInterval(timerRef.current);
     };
-  }, [examId, authToken, storageKey]);
+  }, [examId]);
 
-  
-  useEffect(() => {
-    if (Object.keys(mcqAnswers).length > 0 && !submitted) {
-      localStorage.setItem(storageKey, JSON.stringify(mcqAnswers));
+  const fetchExamDetails = async () => {
+    try {
+      setLoading(true);
+      // First fetch attempt status
+      const attemptRes = await api.get(`/exams/${examId}/attempt`, {
+        headers: { auth_token: authToken }
+      });
+      
+      const existingAttempt = attemptRes.data?.attempt;
+      setAttempt(existingAttempt);
+
+      // If no existing attempt or not started, this is a new attempt
+      if (!existingAttempt || !existingAttempt.started_at) {
+        const examRes = await api.get(`/exams/${examId}`, {
+          headers: { auth_token: authToken }
+        });
+        setExam(examRes.data);
+        // Set full duration for new attempt
+        setTimeLeft(examRes.data.duration * 60);
+        return;
+      }
+
+      // For existing attempts, calculate remaining time
+      const startTime = new Date(existingAttempt.started_at).getTime();
+      const duration = existingAttempt.duration * 60 * 1000; // convert to ms
+      const now = Date.now();
+      const endTime = startTime + duration;
+      const remaining = Math.max(0, Math.floor((endTime - now) / 1000));
+
+      if (remaining <= 0) {
+        setError('Exam time is over');
+        setTimeLeft(0);
+      } else {
+        setTimeLeft(remaining);
+        // Fetch exam details if time remaining
+        const examRes = await api.get(`/exams/${examId}`, {
+          headers: { auth_token: authToken }
+        });
+        setExam(examRes.data);
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to load exam');
+    } finally {
+      setLoading(false);
     }
-  }, [mcqAnswers, storageKey, submitted]);
-  
+  };
 
+  // Start timer only if we have time left
+  useEffect(() => {
+    if (timeLeft > 0 && !timerRef.current) {
+      timerRef.current = setInterval(() => {
+        setTimeLeft(prev => {
+          if (prev <= 1) {
+            clearInterval(timerRef.current);
+            setError('Exam time is over');
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, [timeLeft]);
 
   const handleMcqAnswerChange = (mcqId, answer) => {
     setMcqAnswers(prev => ({ ...prev, [mcqId]: answer }));
   };
 
-  
-  const handleSubmitMcqAnswers = async (forceSubmit = false) => {
+  const handleSubmitMcqAnswers = async () => {
     if (submitted) return;
-
-    const totalQuestions = exam?.questions?.length || 0;
-    const answeredQuestions = Object.keys(mcqAnswers).length;
-
-    // Check only runs if it's NOT a forced submit
-    if (answeredQuestions < totalQuestions && !forceSubmit) {
-      setError("Please attempt all questions before submitting.");
-      return; 
-    }
-
     setLoading(true);
-    setError(''); 
     try {
       const answers = Object.entries(mcqAnswers).map(([questionId, answer]) => ({
         question_id: parseInt(questionId),
@@ -156,10 +122,7 @@ export default function StudentExamQuestionsPage() {
       setSubmitted(true);
       setShowResults(true);
       clearInterval(timerRef.current);
-
-      localStorage.removeItem(storageKey);
-
-    } catch (err) { 
+    } catch (err) {
       setError(err.response?.data?.message || 'Submission failed');
     }
     setLoading(false);
@@ -180,11 +143,6 @@ export default function StudentExamQuestionsPage() {
     return `${m}:${s}`;
   };
 
-  // Helper variables for validation
-  const totalQuestions = exam?.questions?.length || 0;
-  const answeredQuestions = Object.keys(mcqAnswers).length;
-  const allQuestionsAnswered = answeredQuestions === totalQuestions;
-
   // Pagination logic for questions
   const indexOfLastQ = currentPage * questionsPerPage;
   const indexOfFirstQ = indexOfLastQ - questionsPerPage;
@@ -199,79 +157,14 @@ export default function StudentExamQuestionsPage() {
     );
   }
 
-  // This block shows all errors ("Not assigned", "Already submitted", "Time's up")
   if (!exam && !loading) {
     return (
-      <Container maxWidth="md" sx={{ py: 4 }}>
-        <Paper sx={{ p: 3, backgroundColor: 'rgba(255, 255, 255, 0.9)' }}>
-          <Typography variant="h5" gutterBottom>Error</Typography>
-          {error && <Alert severity="error">{error}</Alert>}
-          <Button 
-            variant="contained" 
-            onClick={() => navigate('/dashboard/student')} 
-            sx={{ mt: 2 }}
-            startIcon={<ArrowBackIcon />}
-          >
-            Back to Dashboard
-          </Button>
-        </Paper>
-      </Container>
+      <Box sx={{ p: 3 }}>
+        {error && <Alert severity="error">{error}</Alert>}
+      </Box>
     );
   }
 
-  // This handles the "already submitted" case, showing the "Submission Complete" page directly
-  if (submitted) {
-    return (
-       <Box sx={{
-        width: '100%',
-        minHeight: 'calc(100vh - 140px)',
-        backgroundImage: 'url(/background.jpg)',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundAttachment: 'fixed',
-        py: 4,
-      }}>
-        <Container maxWidth="md">
-           <Paper sx={{ p: 3, mt: 3, backgroundColor: 'rgba(255, 255, 255, 0.9)' }}>
-              <Typography variant="h5" gutterBottom>Submission Complete</Typography>
-              <Typography>
-                {error ? error : 'Your answers have been submitted successfully.'}
-              </Typography>
-              <Typography>
-                {exam.results_released ? ' Results are available.' : ' Results will be available once released.'}
-              </Typography>
-              {exam.results_released && (
-                <Button onClick={fetchResults} variant="contained" sx={{ mt: 2 }}>View Results</Button>
-              )}
-               <Button 
-                variant="outlined" 
-                onClick={() => navigate('/dashboard/student')} 
-                sx={{ mt: 2, ml: 2 }}
-              >
-                Back to Dashboard
-              </Button>
-            </Paper>
-
-            <Dialog open={showResults && results} onClose={() => setShowResults(false)} fullWidth maxWidth="sm">
-              <DialogTitle>Exam Results</DialogTitle>
-              <DialogContent>
-                {results && (
-                  <Box>
-                    <Typography>Score: {results.attempt.score}/{results.exam.total_marks}</Typography>
-                    <Typography>Submitted at: {results.attempt.submitted_time}</Typography>
-                  </Box>
-                )}
-              </DialogContent>
-              <DialogActions>
-                <Button onClick={() => setShowResults(false)}>Close</Button>
-              </DialogActions>
-            </Dialog>
-        </Container>
-      </Box>
-    )
-  }
-
-  // This is the main exam-taking page
   return (
     <Box sx={{
       width: '100%',
@@ -297,30 +190,32 @@ export default function StudentExamQuestionsPage() {
 
             {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
+            {/* --- VISIBLE STICKY TIMER --- */}
             {!submitted && (
               <Paper
                 elevation={4}
                 sx={{
                   position: 'sticky',
-                  top: '64px', 
-                  zIndex: 1301, 
+                  top: 0, // Sticks to the top of the scrolling container
+                  zIndex: 1100, // Stays on top of other content
                   mb: 2,
                 }}
               >
                 <Alert
-                  severity={allQuestionsAnswered ? "success" : (timeLeft < 300 ? "warning" : "info")}
+                  severity={timeLeft < 300 ? "warning" : "info"} // Turns yellow in the last 5 minutes
                   sx={{
-                    backgroundColor: allQuestionsAnswered ? 'rgba(46, 125, 50, 0.9)' : (timeLeft < 300 ? 'rgba(255, 165, 0, 0.9)' : 'rgba(23, 118, 209, 0.9)'),
+                    backgroundColor: timeLeft < 300 ? 'rgba(255, 165, 0, 0.9)' : 'rgba(23, 118, 209, 0.9)',
                     color: 'white',
                     fontWeight: 'bold',
                     fontSize: '1.1rem'
                   }}
                   icon={false}
                 >
-                  {timeLeft > 0 ? `Time Remaining: ${formatTime(timeLeft)}` : "Time's up! Submitting..."} | Attempted: {answeredQuestions} of {totalQuestions}
+                  {timeLeft > 0 ? `Time Remaining: ${formatTime(timeLeft)}` : "Time's up! Submitting..."}
                 </Alert>
               </Paper>
             )}
+            {/* --- END OF TIMER --- */}
 
             {currentQuestions.map((mcq, idx) => (
               <Paper key={mcq.id} sx={{ p: 3, mb: 2, backgroundColor: 'rgba(255, 255, 255, 0.9)', backdropFilter: 'blur(10px)' }}>
@@ -329,6 +224,7 @@ export default function StudentExamQuestionsPage() {
 
                 {mcq.image_path && (
                   <Box sx={{ my: 2 }}>
+                    {/* --- CRITICAL FIX: Use the direct S3 URL --- */}
                     <img
                       src={mcq.image_path}
                       alt="Question"
@@ -363,11 +259,18 @@ export default function StudentExamQuestionsPage() {
                   <>
                     <Button
                       variant="contained"
-                      onClick={() => handleSubmitMcqAnswers(false)} // Explicitly call with false
-                      disabled={loading || !allQuestionsAnswered}
+                      onClick={handleSubmitMcqAnswers}
+                      disabled={loading}
                       sx={{ ml: 3 }}
                     >
                       {loading ? <CircularProgress size={24} /> : 'Submit Answers'}
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      onClick={() => navigate('/dashboard')}
+                      sx={{ ml: 2 }}
+                    >
+                      Back to Dashboard
                     </Button>
                   </>
                 )}
@@ -376,15 +279,45 @@ export default function StudentExamQuestionsPage() {
 
             {(!exam.questions?.length || exam.questions?.length <= questionsPerPage) && !submitted && (
               <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, mt: 3 }}>
-                <Button
-                  variant="contained"
-                  onClick={() => handleSubmitMcqAnswers(false)} // Explicitly call with false
-                  disabled={loading || !allQuestionsAnswered}
-                >
+                <Button variant="contained" onClick={handleSubmitMcqAnswers} disabled={loading}>
                   {loading ? <CircularProgress size={24} /> : 'Submit Answers'}
+                </Button>
+                <Button
+                  variant="outlined"
+                  onClick={() => navigate('/dashboard')}
+                >
+                  Back to Dashboard
                 </Button>
               </Box>
             )}
+
+            {submitted && (
+              <Paper sx={{ p: 3, mt: 3 }}>
+                <Typography>Submission Complete</Typography>
+                <Typography>
+                  Your answers have been submitted successfully.
+                  {exam.results_released ? ' Results are available.' : ' Results will be available once released.'}
+                </Typography>
+                {exam.results_released && (
+                  <Button onClick={fetchResults} variant="contained" sx={{ mt: 2 }}>View Results</Button>
+                )}
+              </Paper>
+            )}
+
+            <Dialog open={showResults && results} onClose={() => setShowResults(false)} fullWidth maxWidth="sm">
+              <DialogTitle>Exam Results</DialogTitle>
+              <DialogContent>
+                {results && (
+                  <Box>
+                    <Typography>Score: {results.attempt.score}/{results.exam.total_marks}</Typography>
+                    <Typography>Submitted at: {results.attempt.submitted_time}</Typography>
+                  </Box>
+                )}
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={() => setShowResults(false)}>Close</Button>
+              </DialogActions>
+            </Dialog>
           </>
         )}
       </Container>
