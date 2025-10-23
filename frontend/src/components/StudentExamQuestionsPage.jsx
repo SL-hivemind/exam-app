@@ -34,17 +34,7 @@ export default function StudentExamQuestionsPage() {
   const handleSubmitMcqAnswers = React.useCallback(async (forceSubmit = false) => {
     if (submitted) return; 
 
-    // const totalQuestions = exam?.questions?.length || 0;
-    // const answeredQuestions = Object.keys(mcqAnswers).length;
-
-    // --- CHANGE 1: REMOVED THIS BLOCK ---
-    // Check only runs if it's NOT a forced submit
-    // if (answeredQuestions < totalQuestions && !forceSubmit) {
-    //   setError("Please attempt all questions before submitting.");
-    //   return;  
-    // }
-    // --- END OF CHANGE ---
-
+    // No longer checking if all questions are answered
     setLoading(true);
     setError('');  
     try {
@@ -63,55 +53,45 @@ export default function StudentExamQuestionsPage() {
     } catch (err) {  
       setError(err.response?.data?.message || 'Submission failed');
     }
-    setLoading(false);
-  }, [examId, authToken, storageKey, mcqAnswers, exam?.questions?.length, submitted]); // Add all dependencies
+    setLoading(false); // Set loading false after submission attempt
+  }, [examId, authToken, storageKey, mcqAnswers, submitted]); // Removed exam?.questions?.length
 
 
   useEffect(() => {
     const fetchExamDetails = async () => {
-      setLoading(true);
+      setLoading(true); // <-- Set to true at the start
       try {
         // 1. Get the exam status first
         const canStartRes = await api.get(`/student/exams/${examId}/can_start`, { headers: { auth_token: authToken } });
-
         const { assigned, within_window, already_submitted } = canStartRes.data;
 
         // --- Check for assignment ---
         if (!assigned) {
           setError("You are not assigned to this exam.");
-          setLoading(false);
-          return;
+          return; // Exit, 'finally' will set loading to false
         }
-
-        // --- (FIX) SWAPPED ORDER ---
 
         // 2. Check for time window FIRST.
         if (!within_window && !already_submitted) {
           setError("This exam is not currently available. Please check the access times.");
-          setLoading(false);
-          return; 
+          return; // Exit, 'finally' will set loading to false
         }
         
         // 3. Check for submission SECOND.
         if (already_submitted) {
           setError("You have already submitted this exam.");
           setExam(canStartRes.data.exam);  
-          setSubmitted(true); // Show the "submission complete" screen
-          setLoading(false);
-          return;
+          setSubmitted(true);
+          return; // Exit, 'finally' will set loading to false
         }
         
-        // --- END OF CHECK ---
-
         // 4. If all checks pass, THEN fetch questions and start the exam
         const questionsRes = await api.get(`/student/exams/${examId}/questions`, { headers: { auth_token: authToken } });
-
         setExam({ ...canStartRes.data.exam, questions: questionsRes.data.questions, results_released: canStartRes.data.exam?.results_released });
 
         // 5. Now it's safe to start the attempt
         const attemptRes = await api.post(`/student/exams/${examId}/start`, {}, { headers: { auth_token: authToken } });
         localStorage.setItem(`exam_${examId}_attempt_id`, attemptRes.data.attempt_id);
-
 
         // --- Load saved answers from local storage ---
         const savedAnswers = localStorage.getItem(storageKey);
@@ -129,8 +109,7 @@ export default function StudentExamQuestionsPage() {
         if (remainingSeconds <= 0) {
           setTimeLeft(0);
           handleSubmitMcqAnswers(true); // Force submit if time is already 0
-          setLoading(false);
-          return;
+          return; // Exit, 'finally' will set loading to false
         }
 
         timerRef.current = setInterval(() => {
@@ -148,8 +127,12 @@ export default function StudentExamQuestionsPage() {
       } catch (err) {
         setError(err.response?.data?.message || 'Failed to fetch exam details');
         setExam(null);
+      } finally {
+        // --- THIS IS THE FIX ---
+        // This block runs *no matter what* (success, error, or return)
+        // This guarantees the loading state is turned off.
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     fetchExamDetails();
@@ -192,11 +175,10 @@ export default function StudentExamQuestionsPage() {
     return `${m}:${s}`;
   };
 
-  // Helper variables for validation
+  // Helper variables
   const totalQuestions = exam?.questions?.length || 0;
   const answeredQuestions = Object.keys(mcqAnswers).length;
-  // This variable is no longer used to disable the button
-  const allQuestionsAnswered = answeredQuestions === totalQuestions;
+  const allQuestionsAnswered = answeredQuestions === totalQuestions; // Still useful for the timer bar color
 
   // Pagination logic for questions
   const indexOfLastQ = currentPage * questionsPerPage;
@@ -204,6 +186,7 @@ export default function StudentExamQuestionsPage() {
   const currentQuestions = exam?.questions?.slice(indexOfFirstQ, indexOfLastQ) || [];
   const totalPages = Math.ceil((exam?.questions?.length || 0) / questionsPerPage);
 
+  // This is the initial full-page loader
   if (loading && !exam) { 
     return (
       <Box sx={{ p: 3, display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
@@ -212,7 +195,7 @@ export default function StudentExamQuestionsPage() {
     );
   }
 
-  // This block shows all errors
+  // This block shows all errors ("Not assigned", "Not available", etc.)
   if (!exam && !loading) {
     return (
       <Container maxWidth="md" sx={{ py: 4 }}>
@@ -384,23 +367,16 @@ export default function StudentExamQuestionsPage() {
                   color="primary"
                   size="large"
                   onClick={() => handleSubmitMcqAnswers(false)} 
-                  // --- CHANGE 2: UPDATED THIS LINE ---
-                  disabled={loading} 
-                  // --- END OF CHANGE ---
+                  disabled={loading} // <-- Only disabled when loading
                   sx={{ minWidth: '200px' }}
                 >
+                  {/* This will only show the loader if loading=true */}
                   {loading ? <CircularProgress size={24} /> : 'Submit Answers'}
                 </Button>
               </Box>
             )}
 
-            {/* --- CHANGE 3: REMOVED THE WARNING BLOCK ---
-              {!allQuestionsAnswered && !submitted && (
-                <Alert severity="warning" sx={{ mt: 2 }}>
-                  Please answer all questions to enable the submit button.
-                </Alert>
-              )}
-            */}
+            {/* Removed the "Please answer all questions" alert */}
           </>
         )}
       </Container>
