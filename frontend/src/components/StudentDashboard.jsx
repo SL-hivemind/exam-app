@@ -1,20 +1,31 @@
 import React, { useState, useEffect } from 'react';
 import {
   Box, Typography, Paper, Table, TableBody, TableCell,
-  TableHead, TableRow, Button, Alert, Chip, IconButton, Container, Stack, List, ListItem, ListItemIcon, ListItemText
+  TableHead, TableRow, Button, Alert, Chip, IconButton, Container, Stack, List, ListItem, ListItemIcon, ListItemText,
+  Dialog, DialogTitle, DialogContent, DialogActions, DialogContentText
 } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import EventNoteIcon from '@mui/icons-material/EventNote';
+import InfoIcon from '@mui/icons-material/Info'; // Import icon for instructions
 import { useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import useAuth from '../hooks/useAuth';
 
 
 const upcomingAssessments = [
-
   "Monthly Tests (October 2025)",
 ];
 
+// --- NEW: Instructions List ---
+const examInstructions = [
+  "Attempt all questions within the allotted time. There are no negative marks.",
+  "You must complete the exam within the specified duration.",
+  "If the timer runs out, your exam will be automatically submitted.",
+  "If the exam is interrupted (e.g., tab close, browser crash), log back in immediately to resume.",
+  "The exam timer does not stop for any reason (logout, tab close, network issues, etc.).",
+  "Do not switch tabs during the exam. Ensure you click the 'Submit' button to finalize your attempt.",
+  "No re-attempts are allowed for any exam."
+];
 
 
 export default function StudentDashboard() {
@@ -24,6 +35,9 @@ export default function StudentDashboard() {
   const [error, setError] = useState('');
   const [startingExamId, setStartingExamId] = useState(null);
 
+  // --- NEW: State for Instructions Modal ---
+  const [isInstructionsOpen, setIsInstructionsOpen] = useState(false);
+
   // pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const examsPerPage = 5;
@@ -31,6 +45,12 @@ export default function StudentDashboard() {
   useEffect(() => {
     fetchExams();
   }, [authToken]);
+
+  // --- NEW: useEffect to open instructions on load ---
+  useEffect(() => {
+    // Open the instructions modal once when the component mounts
+    setIsInstructionsOpen(true);
+  }, []); // Empty dependency array ensures this runs only once on mount
 
   const fetchExams = async () => {
     try {
@@ -42,6 +62,11 @@ export default function StudentDashboard() {
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to fetch exams');
     }
+  };
+
+  // --- NEW: Handler to close the instructions modal ---
+  const handleCloseInstructions = () => {
+    setIsInstructionsOpen(false);
   };
 
   const handleStartExam = async (examId) => {
@@ -125,6 +150,38 @@ export default function StudentDashboard() {
       py: 4,
     }}>
       <Container maxWidth="lg">
+        {/* --- NEW: Instructions Dialog Component --- */}
+        <Dialog
+          open={isInstructionsOpen}
+          onClose={handleCloseInstructions}
+          aria-labelledby="instructions-dialog-title"
+        >
+          <DialogTitle id="instructions-dialog-title">
+            Important Exam Instructions
+          </DialogTitle>
+          <DialogContent>
+            <DialogContentText component="div" sx={{ mb: 2 }}>
+              Please read the following rules carefully before starting any exam:
+            </DialogContentText>
+            <List dense>
+              {examInstructions.map((text, index) => (
+                <ListItem key={index}>
+                  <ListItemIcon sx={{ minWidth: '40px' }}>
+                    <InfoIcon color="primary" />
+                  </ListItemIcon>
+                  <ListItemText primary={text} />
+                </ListItem>
+              ))}
+            </List>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleCloseInstructions} variant="contained" autoFocus>
+              I Understand
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
           <Typography
             variant="h4"
@@ -247,7 +304,8 @@ export default function StudentDashboard() {
         )}
 
         {/* --- NEW: Upcoming Assessments Section ---*/}
-        <Paper sx={{ p: 3, mb: 3, backgroundColor: 'rgba(255, 255, 255, 0.9)', backdropFilter: 'blur(10px)', borderRadius: 3 }}>          <Typography variant="h5" fontWeight={600} gutterBottom>Upcoming Assessments</Typography>
+        <Paper sx={{ p: 3, mb: 3, backgroundColor: 'rgba(255, 255, 255, 0.9)', backdropFilter: 'blur(10px)', borderRadius: 3 }}>
+          <Typography variant="h5" fontWeight={600} gutterBottom>Upcoming Assessments</Typography>
           <Typography variant="subtitle1" color="text.secondary" sx={{ mb: 1 }}>Term 2</Typography>
           <List dense>
             {upcomingAssessments.map((assessment, index) => (
