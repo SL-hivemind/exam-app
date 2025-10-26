@@ -45,6 +45,10 @@ app.config["SQLALCHEMY_DATABASE_URI"] = (
 app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "super-secret")
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", secrets.token_hex(16))
 
+app.config['SQLALCHEMY_POOL_SIZE'] = 5
+app.config['SQLALCHEMY_POOL_TIMEOUT'] = 30
+app.config['SQLALCHEMY_POOL_RECYCLE'] = 300
+
 # ----- Logging -----
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
