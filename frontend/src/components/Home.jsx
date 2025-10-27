@@ -31,21 +31,67 @@ const carouselImages = [
     { id: 5, src: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/slide5.jpg', alt: 'Collaborations and recognition' },
 ];
 const thinkletArticles = [
-    { id: 1, title: '2025 Medical Laureates', summary: 'Explore the groundbreaking work that earned this year\'s Nobel Prize in Medicine.', image: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/Noble.png', link: '#', fullSummary: 'The Nobel Assembly at the Karolinska Institutet has decided to award the 2025 Nobel Prize in Physiology or Medicine to Mary E.Brunkow, Fred Ramsdell and Shimon Sakaguchi...' },
-    { id: 2, title: 'AI Co-Developer', summary: 'How AI is changing the landscape of software development.', image: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/AiCo.png', link: '#', fullSummary: 'A major shift in software engineering has solidified in 2025 with the widespread adoption of agentic AI systems...' },
-{
+    {
+        id: 1,
+        title: '2025 Medical Laureates',
+        // Updated Summary
+        summary: 'Discoveries regarding regulatory T cells earned the Nobel Prize, paving the way for new treatments in autoimmune diseases and cancer.',
+        image: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/Noble.png',
+        link: '#',
+        fullSummary: 'The Nobel Assembly at the Karolinska Institutet has decided to award the 2025 Nobel Prize in Physiology or Medicine to Mary E.Brunkow, Fred Ramsdell and Shimon Sakaguchi "for their discoveries concerning peripheral immune tolerance." They identified the immune system’s security guards, regulatory T cells, thus laying the foundation for a new field of research. The discoveries have also led to the development of potential medical treatments that are now being evaluated in clinical trials. The hope is to be able to treat or cure autoimmune diseases, provide more effective cancer treatments and prevent serious complications after stem cell transplants.'
+    },
+    {
+        id: 2,
+        title: 'AI Co-Developer',
+        // Updated Summary
+        summary: 'Agentic AI systems are revolutionizing software engineering, acting as autonomous team members that write, test, and debug code.',
+        image: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/AiCo.png',
+        link: '#',
+        fullSummary: 'A major shift in software engineering has solidified in 2025 with the widespread adoption of agentic AI systems. Unlike earlier AI assistants that just suggested code, these new AI "agents" function as active team members. They can be assigned complex tasks—such as "build a user authentication microservice" or "find and fix the security flaws in this module"—and will autonomously write, test, debug, and document the code, reporting back on completion. This is dramatically changing how software is built, moving the engineer s role from writing code to designing systems and managing AI development teams.'
+    },
+    {
         id: 3,
-        // Title and image updated to reflect the new content
         title: 'Vasuki indicus: India\'s Prehistoric Serpent Monarch',
-        summary: 'Discover a colossal serpent that ruled 47 million years ago.', // Updated summary
-        image: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/Vasuki-Indicus.jpg', // Placeholder for a relevant Vasuki image
+        summary: 'Discover a colossal serpent that ruled 47 million years ago.',
+        image: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/Vasuki_Indicus_Thinklet.jpg', // Placeholder image URL
         link: '#',
         fullSummary: `Vasuki indicus: India's Prehistoric Serpent Monarch\n\nWhere Continents Drifted and Serpents Reigned: The Story of Vasuki Indicus\n\nStudents, Student Leaders, Teachers, Young Researchers, Budding Scientists,\nLet me take you back; not hundreds, not thousands, but forty-seven million years into the past. A journey into the past! The Earth looked very different then. The Indian subcontinent was a lush, tropical island drifting slowly northward through the ancient seas. How many of you are aware of the name Vasuki, a name that is very much related to snakes? The story, dated back to tens of millions years ago, is quite interesting, didactic and informative.\n\nNearly 47 million years ago, when the Indian subcontinent was a lush, tropical world of swamps and dense forests, a colossal serpent ruled its ecosystems - the Vasuki indicus, a snake so vast it could stretch nearly the length of a tour bus. Measuring between 10.9 and 15.2 metres.\n\nLet us see the exact meaning of the word 'Vasuki Indicus'. "Vasuki" is attributed to the Mythological age. So, the generic name "Vasuki" comes from Hindu mythology. In Sanskrit, Vasuki (वासुकी) is the name of the King of the Nagas - the divine serpent beings staying in Nagaloka. Vasuki is most famously known as the serpent wrapped around Lord Shiva's neck, symbolizing 1) Power and fearlessness 2) Eternity (the cycle of life and death) 3) Balance between destruction and regeneration. In the epic Samudra Manthan (also termed Ksheerasaagara Madhanam) (the Churning of the Ocean of Milk), Vasuki served as the churning rope used by gods (Devas) and demons (Asuras) to extract amrita, ambrosia, the nectar of immortality.\n\nSo, moving further, naming this giant prehistoric snake "Vasuki" pays homage to India's mythological serpent deity, perfectly capturing its grandeur, strength, and cultural resonance. "Indicus" also is the other part of the name for this gigantic snake. "indicus" is the Scientific Descriptor. The second part, "indicus", is Latin for "of India" or "from India." It's a standard suffix used in zoological naming to denote geographical origin similar to: 1)Panthera tigris indicus → the Bengal tiger ("the tiger from India") 2) Elephas maximus indicus → the Indian elephant. Thus, "indicus" identifies where the species was found or originated.\n\nUnearthed from a lignite mine in Gujarat's Kutch region, paleontologists discovered 27 remarkably preserved vertebrae, each up to 11 cm wide - a testament to the serpent's monumental form. Using data from modern snakes and fossil analogues, Dr. Sunil Bajpai and Dr. Debajit Datta of IIT Roorkee reconstructed the life of this ancient titan. Their study revealed that Vasuki indicus was a slow-moving ambush predator, relying on sheer strength to coil around its prey and suffocate it. This is almost like that of modern pythons but on an unbelievable and uncanny scale.\n\nVasuki indicus descended from a lineage that stretched back 100 million years, across the Late Cretaceous to Late Pleistocene epochs. These snakes once spanned India, Africa, and Europe, suggesting a vast evolutionary journey that mirrored the drifting continents themselves. Scientists believe India was the birthplace of this serpentine family around 88 million years ago, during its isolation after the breakup of Gondwana. As the subcontinent drifted northward and collided with Asia, it forged land bridges that allowed species like Vasuki to migrate westward; giving rise to other giants such as Gigantophis garstini (we shall discuss on this in the next storyboard) in North Africa.\n\nIndia is never without mythological significance of various people, places, events, actions and many non-living things and gigantic and unbelievable people. So is the case with Vasuki indicus. The name Vasuki carries deep spiritual resonance. In Hindu mythology, Vasuki is the mighty serpent king (Nāgarāja) who coils around Lord Shiva's neck; a symbol of cosmic power, eternity, and control over fear and death.\n\nThe discovery of Vasuki indicus does more than rewrite the record of giant snakes. It positions India as a cradle of serpentine evolution, a land whose deep geological and mythological stories now converge. From the Eocene forests of Kutch to the pages of the Puranas (we shall also talk about this from the scientific evolution point of view), Vasuki indicus embodies the continuity between science and spirit, evolution and eternity. It is both a relic of Earth's ancient warmth and a reminder of how life, myth, and the movements of continents shape the story of the planet; one vertebra, one legend at a time. Vasuki indicus coils through history like time itself; ancient, eternal, unseen yet ever-present. It bridges India's mythic imagination with the truth of its prehistoric Earth. In its bones, we find a reminder: that what we call legend may simply be memory, worn smooth by time.\n\nFollow these articles for deeper research tint on this:\nSpringer paper: https://link.springer.com/article/10.1007/s43538-024-00315-9\nNature news summary: https://www.nature.com/articles/d44151-024-00048-0\nEurekAlert news release: https://www.eurekalert.org/news-releases/1041395`
-    },];
+    },
+];
 const suggestedBooks = [
-    { id: 1, title: 'Indias Biggest Coverup', author: 'Anuj Dhar', cover: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/Indias_biggest_coverup.jpg', summary: 'This book investigates the mystery of Netaji Subhas Chandra Bose s disappearance...', takeaways: ['Question the accepted narrative; the pursuit of truth is a duty'] },
-    { id: 2, title: 'Serpents Revenge', author: 'Sudha Murthy', cover: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/serpents_revenge.jpg', summary: 'This is not one single story but a collection of many short, "unusual" tales...', takeaways: ['Dharma (duty/righteousness) is complex...'] },
-    { id: 3, title: 'Wings Of Fire', author: 'Dr. A.P.J. Abdul Kalam', cover: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/wingsoffire.jpg', summary: 'This is the autobiography of Dr. A. P. J. Abdul Kalam...', takeaways: ['Your dreams and your hard work define your future...'] },
+    {
+        id: 1,
+        title: 'India\'s Biggest Cover-up',
+        author: 'Anuj Dhar',
+        cover: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/Indias_biggest_coverup.jpg',
+        // Expanded Summary
+        summary: 'Investigating the enduring mystery surrounding Netaji Subhas Chandra Bose\'s disappearance, this book challenges the official narrative of his death in a 1945 plane crash. Author Anuj Dhar meticulously examines declassified government files, inquiry commission reports, and eyewitness accounts to argue that the official story might be a deliberate cover-up. The book explores compelling alternative theories, including Netaji\'s possible escape to the Soviet Union or his later life in India as an ascetic, prompting readers to question historical certainties and the nature of state secrets.',
+        takeaways: ['Question accepted narratives; the pursuit of truth is a duty.'],
+        // Added Link
+        link: 'https://www.amazon.in/Indias-Biggest-Cover-up-Anuj-Dhar/dp/8190913998/' // Example Amazon link
+    },
+    {
+        id: 2,
+        title: 'The Serpent\'s Revenge',
+        author: 'Sudha Murty',
+        cover: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/serpents_revenge.jpg',
+        // Expanded Summary
+        summary: 'This collection brings to life lesser-known yet fascinating tales from the epic Mahabharata, often overshadowed by the main conflict. Sudha Murty retells intriguing stories such as why the Serpent King Takshaka cursed King Parikshit, leading to his death; the circumstances under which Yama, the god of death, faced a curse; and the lesson a humble mongoose taught King Yudhishthira about genuine sacrifice. Each concise story delves into themes of dharma, curses, boons, and the intricate web of consequences flowing from actions within Hindu mythology.',
+        takeaways: ['Dharma (duty/righteousness) is complex, and every action, big or small, has powerful consequences.'],
+        // Added Link
+        link: 'https://www.amazon.in/Serpents-Revenge-Unusual-Mahabharata-Murty/dp/0143427814/' // Example Amazon link
+    },
+    {
+        id: 3,
+        title: 'Wings Of Fire',
+        author: 'Dr. A.P.J. Abdul Kalam',
+        cover: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/wingsoffire.jpg',
+        // Expanded Summary
+        summary: 'The inspiring autobiography of Dr. A. P. J. Abdul Kalam, chronicling his extraordinary life from a modest childhood in Rameswaram, where he distributed newspapers, to becoming India\'s leading rocket scientist and eventually its President. The book details his relentless hard work, his crucial role in developing India\'s space program (including the SLV-3 rocket) and missile technology (Agni, Prithvi), earning him the title "Missile Man." It\'s a profound narrative of overcoming obstacles, embracing failure, fostering teamwork, and unwavering dedication to national progress.',
+        takeaways: ['Your dreams and hard work define your future, not your background.', 'Perseverance is key to overcoming challenges.', 'Leadership involves inspiring and enabling teams.'], // Expanded takeaways
+        // Added Link
+        link: 'https://www.amazon.in/Wings-Fire-Autobiography-Abdul-Kalam/dp/8173711461/' // Example Amazon link
+    },
 ];
 
 export default function Home() {
