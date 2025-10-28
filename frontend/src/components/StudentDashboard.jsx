@@ -52,12 +52,60 @@ export default function StudentDashboard() {
     setIsInstructionsOpen(true);
   }, []); // Empty dependency array ensures this runs only once on mount
 
+  // --- HELPER FUNCTIONS (Moved Up) ---
+
+  const isWithinAccessWindow = (exam) => {
+    const now = new Date();
+    const accessStart = exam.access_start ? new Date(exam.access_start) : null;
+    const accessEnd = exam.access_end ? new Date(exam.access_end) : null;
+    if (accessStart && now < accessStart) return false;
+    if (accessEnd && now > accessEnd) return false;
+    return true;
+  };
+
+  const getExamStatus = (examObj) => {
+    if (!examObj.assigned) return { label: 'Not Assigned', color: 'default' };
+    const exam = examObj.exam;
+    const now = new Date();
+    const accessStart = exam.access_start ? new Date(exam.access_start) : null;
+    const accessEnd = exam.access_end ? new Date(exam.access_end) : null;
+
+    if (!examObj.attempted) {
+      if (accessStart && now < accessStart) return { label: 'Not Yet Available', color: 'default' };
+      if (accessEnd && now > accessEnd) return { label: 'Expired', color: 'error' };
+      return { label: 'Available', color: 'primary' };
+    }
+    return exam.results_released ? { label: 'Submitted', color: 'success' } : { label: 'Submitted (Pending)', color: 'warning' };
+  };
+
+  // --- NEW HELPER: Checks if an exam is "Available" to start ---
+  const isExamAvailable = (examObj) => {
+    if (!examObj || !examObj.exam) return false;
+    // An exam is available if it's assigned, not attempted, and within the window
+    return examObj.assigned && !examObj.attempted && isWithinAccessWindow(examObj.exam);
+  };
+
+
   const fetchExams = async () => {
     try {
       const res = await api.get('/student/exams', {
         headers: { auth_token: authToken },
       });
-      setExams(res.data.exams || []);
+      const fetchedExams = res.data.exams || [];
+
+      // --- MODIFICATION: Sort exams to put "Available" ones first ---
+      const sortedExams = fetchedExams.sort((a, b) => {
+        const isAAvailable = isExamAvailable(a);
+        const isBAvailable = isExamAvailable(b);
+
+        if (isAAvailable && !isBAvailable) return -1; // a (available) comes before b (not available)
+        if (!isAAvailable && isBAvailable) return 1;  // b (available) comes before a (not available)
+        
+        return 0; // Maintain original relative order for exams of the same status
+      });
+      // --- END MODIFICATION ---
+
+      setExams(sortedExams); // Set the newly sorted list
       setError('');
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to fetch exams');
@@ -107,30 +155,6 @@ export default function StudentDashboard() {
 
   const handleViewResults = (examId) => {
     navigate(`/exam/${examId}/results`);
-  };
-
-  const isWithinAccessWindow = (exam) => {
-    const now = new Date();
-    const accessStart = exam.access_start ? new Date(exam.access_start) : null;
-    const accessEnd = exam.access_end ? new Date(exam.access_end) : null;
-    if (accessStart && now < accessStart) return false;
-    if (accessEnd && now > accessEnd) return false;
-    return true;
-  };
-
-  const getExamStatus = (examObj) => {
-    if (!examObj.assigned) return { label: 'Not Assigned', color: 'default' };
-    const exam = examObj.exam;
-    const now = new Date();
-    const accessStart = exam.access_start ? new Date(exam.access_start) : null;
-    const accessEnd = exam.access_end ? new Date(exam.access_end) : null;
-
-    if (!examObj.attempted) {
-      if (accessStart && now < accessStart) return { label: 'Not Yet Available', color: 'default' };
-      if (accessEnd && now > accessEnd) return { label: 'Expired', color: 'error' };
-      return { label: 'Available', color: 'primary' };
-    }
-    return exam.results_released ? { label: 'Submitted', color: 'success' } : { label: 'Submitted (Pending)', color: 'warning' };
   };
 
   // Pagination logic
@@ -304,7 +328,7 @@ export default function StudentDashboard() {
         )}
 
         {/* --- NEW: Upcoming Assessments Section ---*/}
-        <Paper sx={{ p: 3, mb: 3, backgroundColor: 'rgba(255, 255, 255, 0.9)', backdropFilter: 'blur(10px)', borderRadius: 3 }}>
+        <Paper sx={{ p: 3, mt: 3, mb: 3, backgroundColor: 'rgba(255, 255, 255, 0.9)', backdropFilter: 'blur(10px)', borderRadius: 3 }}>
           <Typography variant="h5" fontWeight={600} gutterBottom>Upcoming Assessments</Typography>
           <Typography variant="subtitle1" color="text.secondary" sx={{ mb: 1 }}>Term 2</Typography>
           <List dense>
