@@ -45,9 +45,27 @@ app.config["SQLALCHEMY_DATABASE_URI"] = (
 app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "super-secret")
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", secrets.token_hex(16))
 
-app.config['SQLALCHEMY_POOL_SIZE'] = 100
+# --- Start of DB Pool Config ---
+
+# This prevents "MySQL Connection not available" errors.
+app.config['SQLALCHEMY_POOL_PRE_PING'] = True
+
+# 2. Start with 10 connections per worker (10 * 4 = 40 total)
+app.config['SQLALCHEMY_POOL_SIZE'] = 10
+
+# 3. Allow each worker to open up to 20 *more* connections under heavy load
+# Max per worker = 10 + 20 = 30
+# Max total = 30 * 4 workers = 120 connections
+app.config['SQLALCHEMY_MAX_OVERFLOW'] = 20
+
+# 4. How long to wait for a connection before timing out
 app.config['SQLALCHEMY_POOL_TIMEOUT'] = 10
-app.config['SQLALCHEMY_POOL_RECYCLE'] = 300
+
+# 5. Recycle connections older than 4.5 minutes (280s)
+# This is safely *less* than most server's 5-minute (300s) timeout.
+app.config['SQLALCHEMY_POOL_RECYCLE'] = 280
+
+# --- End of new DB Pool Config ---
 
 # ----- Logging -----
 logging.basicConfig(level=logging.INFO)
