@@ -47,23 +47,25 @@ app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", secrets.token_hex(16))
 
 # --- Start of DB Pool Config ---
 
-# This prevents "MySQL Connection not available" errors.
-app.config['SQLALCHEMY_POOL_PRE_PING'] = True
+# In your app.py or config.py
 
-# 2. Start with 10 connections per worker (10 * 4 = 40 total)
-app.config['SQLALCHEMY_POOL_SIZE'] = 10
+# This one block replaces all the other pool settings
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    # 1. Recycle connections older than 4.5 minutes (280s)
+    'pool_recycle': 280,
 
-# 3. Allow each worker to open up to 20 *more* connections under heavy load
-# Max per worker = 10 + 20 = 30
-# Max total = 30 * 4 workers = 120 connections
-app.config['SQLALCHEMY_MAX_OVERFLOW'] = 20
+    # 2. Check if the connection is alive before using it
+    'pool_pre_ping': True,
 
-# 4. How long to wait for a connection before timing out
-app.config['SQLALCHEMY_POOL_TIMEOUT'] = 10
+    # 3. Start with 10 connections
+    'pool_size': 10,
+    
+    # 4. Allow up to 20 more connections under load
+    'max_overflow': 20,
 
-# 5. Recycle connections older than 4.5 minutes (280s)
-# This is safely *less* than most server's 5-minute (300s) timeout.
-app.config['SQLALCHEMY_POOL_RECYCLE'] = 280
+    # 5. How long to wait for a connection before timing out
+    'pool_timeout': 10
+}
 
 # --- End of new DB Pool Config ---
 
