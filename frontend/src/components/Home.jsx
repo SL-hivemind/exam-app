@@ -33,21 +33,19 @@ const carouselImages = [
 const thinkletArticles = [
     {
         id: 1,
-        title: '2025 Medical Laureates',
-        // Updated Summary
-        summary: 'Discoveries regarding regulatory T cells earned the Nobel Prize, paving the way for new treatments in autoimmune diseases and cancer.',
-        image: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/Noble.png',
-        link: '#',
-        fullSummary: 'The Nobel Assembly at the Karolinska Institutet has decided to award the 2025 Nobel Prize in Physiology or Medicine to Mary E.Brunkow, Fred Ramsdell and Shimon Sakaguchi "for their discoveries concerning peripheral immune tolerance." They identified the immune system’s security guards, regulatory T cells, thus laying the foundation for a new field of research. The discoveries have also led to the development of potential medical treatments that are now being evaluated in clinical trials. The hope is to be able to treat or cure autoimmune diseases, provide more effective cancer treatments and prevent serious complications after stem cell transplants.'
+        title: 'New Study: Nanotyrannus is a Distinct Species',
+        summary: 'A 2024 analysis of skull features and bone growth rings suggests the smaller Nanotyrannus was a mature predator, not a teenage T. rex.',
+        image: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/nanotyrannus.jpg', // Replace with your S3 link
+        link: 'https://www.sciencenews.org/article/nanotyrannus-not-teenaged-t-rex',
+        fullSummary: 'The long-standing debate over Nanotyrannus continues. Was it a separate, \'pygmy\' tyrannosaur species, or simply a teenage T. rex? A new 2024 study by paleontologists re-examines key fossils, focusing on skull features and growth rings within the bones. Their findings contradict previous research, suggesting that the growth patterns indicate the animal was nearing adulthood, not growing rapidly like a juvenile. This evidence points to Nanotyrannus being a distinct, smaller, and more agile species that co-existed with its massive cousin, T. rex.'
     },
     {
         id: 2,
-        title: 'AI Co-Developer',
-        // Updated Summary
-        summary: 'Agentic AI systems are revolutionizing software engineering, acting as autonomous team members that write, test, and debug code.',
-        image: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/AiCo.png',
-        link: '#',
-        fullSummary: 'A major shift in software engineering has solidified in 2025 with the widespread adoption of agentic AI systems. Unlike earlier AI assistants that just suggested code, these new AI "agents" function as active team members. They can be assigned complex tasks—such as "build a user authentication microservice" or "find and fix the security flaws in this module"—and will autonomously write, test, debug, and document the code, reporting back on completion. This is dramatically changing how software is built, moving the engineer s role from writing code to designing systems and managing AI development teams.'
+        title: 'Can AI Chatbots Really Help With Your Mental Health?',
+        summary: 'AI bots are being used as accessible mental health tools, but experts are cautious about their risks, privacy, and lack of real empathy.',
+        image: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/Ai-chatbot.png', // Replace with your S3 link
+        link: 'https://www.snexplores.org/article/ai-chatbots-mental-health-therapy',
+        fullSummary: 'AI chatbots are increasingly being used as mental health tools, offering instant, accessible support for people who may not be able to access traditional therapy. These bots can listen, offer coping strategies, and provide a non-judgmental space. However, mental health experts are cautious. They raise concerns about the bots\' ability to handle serious crises, the privacy of sensitive user data, and the lack of genuine human empathy and understanding. While they can be a useful first step or supplementary tool, they are not a replacement for professional human therapists.'
     },
     {
         id: 3,
