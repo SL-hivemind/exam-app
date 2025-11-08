@@ -105,7 +105,7 @@ export default function Home() {
   };
 
   const [showRiddleAnswer, setShowRiddleAnswer] = useState(false);
-  const riddleAnswer = "A Candle";
+  const riddleAnswer = "A Postbox";
 
   const [openBookModal, setOpenBookModal] = useState(false);
   const [selectedBook, setSelectedBook] = useState(null);
@@ -206,7 +206,7 @@ export default function Home() {
           title="Pause on hover"
         >
           {/* Use your exact message; lightly cleaned punctuation */}
-          Monthly tests results are out now — login and check. | Are you want be the olympiad compion? Don’t just be a king, be an emperor — participate in olympiad tests and compete with state, and etc...
+          Monthly tests results are out now — login and check. | Are you want be the olympiad champion? Don’t just be a king, be an emperor — participate in olympiad tests and compete with state. | New Thinklets and Books added this week! | Try today’s riddle and challenge your friends!
         </Box>
       </Box>
 
@@ -304,7 +304,7 @@ export default function Home() {
             <Typography variant="h4" component="h2" fontWeight={600} mb={4}>Think Riddles!</Typography>
             <Paper sx={{ maxWidth: '600px', mx: 'auto', p: 4, border: '1px solid #ddd', boxShadow: 3 }} variant="outlined">
               <Typography variant="h6" mb={3} sx={{ fontStyle: 'italic', color: 'text.secondary' }}>
-                "You measure my life in hours and I serve you by expiring. I’m quick when I’m thin and slow when I’m fat. The wind is my enemy."
+                "Iam a seven letter word if you remove 1 letter from me i remain the same , if you remove 2 letter from me i remain the same , if you remove 3 letter from me i remain the same, if you remove 4 letter from me i remain the same, if you remove 5 letter from me i remain the same,  yoifu remove 6 letter from me i remain the same, if you remove all the  letter from me i remain the same. Who Am I?  Hint : "letters" "
               </Typography>
               {!showRiddleAnswer && (
                 <Button variant="contained" size="small" onClick={() => setShowRiddleAnswer(true)}>Show Answer</Button>
@@ -328,13 +328,13 @@ export default function Home() {
                 <ListItem>
                   <ListItemIcon><CampaignIcon color="primary" /></ListItemIcon>
                   <ListItemText
-                    primary="Exams: Monthly Exams (Oct)"
+                    primary="Exams: Monthly Exams (October 2025) Results Released"
                     secondary={`Announced on ${new Date().toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric'})}`}
                   />
                 </ListItem>
                 <ListItem>
                   <ListItemIcon><CampaignIcon color="primary" /></ListItemIcon>
-                  <ListItemText primary="Upcoming: Winter Olympiad" secondary="Registrations open from Nov 1, 2025" />
+                  <ListItemText primary="Upcoming: Winter Olympiad" secondary="Registrations opens soon" />
                 </ListItem>
                 <ListItem>
                   <ListItemIcon><CampaignIcon color="primary" /></ListItemIcon>
