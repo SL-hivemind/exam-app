@@ -58,10 +58,10 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
     'pool_pre_ping': True,
 
     # 3. Start with 10 connections
-    'pool_size': 10,
+    'pool_size': 5,
     
     # 4. Allow up to 20 more connections under load
-    'max_overflow': 20,
+    'max_overflow': 10,
 
     # 5. How long to wait for a connection before timing out
     'pool_timeout': 10
