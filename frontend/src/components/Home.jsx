@@ -351,9 +351,9 @@ export default function Home() {
                 <Grid container spacing={6} alignItems="center">
                     <Grid item xs={12} md={6}>
                          <RecordVoiceOverIcon sx={{ fontSize: 80, color: '#2e7d32', mb: 2 }} />
-                         <Typography variant="h3" fontWeight={800} gutterBottom color="success.dark">English LSRW Labs</Typography>
+                         <Typography variant="h3" fontWeight={800} gutterBottom color="success.dark">English LSRW </Typography>
                          <Typography variant="h6" color="text.secondary" gutterBottom>Listening • Speaking • Reading • Writing</Typography>
-                         <Typography variant="body1" paragraph>A dedicated program to enhance communication skills using AI-assisted tools and expert faculty.</Typography>
+                         <Typography variant="body1" paragraph>A dedicated program to enhance communication skills by expert faculty.</Typography>
                          <Button variant="outlined" color="success" size="large">Request Demo</Button>
                     </Grid>
                     <Grid item xs={12} md={6}>
@@ -383,10 +383,15 @@ export default function Home() {
                 <Stack direction={{ xs: 'column', md: 'row' }} spacing={6} alignItems="center">
                     <Box flex={1}>
                         <Stack direction="row" alignItems="center" spacing={2} mb={2}><PublishIcon sx={{ fontSize: 40, color: '#4fc3f7' }} /><Typography variant="h4" fontWeight={800}>SJIS: Call for Papers</Typography></Stack>
-                        <Typography variant="h6" gutterBottom sx={{ color: '#b3e5fc' }}>Saradaa Journal of International Studies</Typography>
+                        <Typography variant="h6" gutterBottom sx={{ color: '#b3e5fc' }}>Saradaa Journal of Interdiciplinary Studies</Typography>
                         <Typography variant="body1" paragraph sx={{ opacity: 0.8 }}>We invite researchers, academicians, and students to submit their original work.</Typography>
                     </Box>
-                    <Box><Button variant="contained" color="info" size="large" href="mailto:Saradapublications18@gmail.com">Submit Manuscript</Button></Box>
+                    <Box>
+                        <Stack direction="row" spacing={2}>
+                            <Button variant="contained" color="info" size="large" href="mailto:Saradapublications18@gmail.com">Submit Manuscript</Button>
+                            <Button variant="outlined" color="info" size="large" onClick={() => window.open('https://journal.e2eindia.org/', '_blank')}>Know More</Button>
+                        </Stack>
+                    </Box>
                 </Stack>
             </FadeInSection>
         </Container>
