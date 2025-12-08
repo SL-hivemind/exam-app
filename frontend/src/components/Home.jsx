@@ -1,443 +1,433 @@
-// src/components/Home.jsx
-import React, { useState, useRef, useEffect } from 'react';
-import Slider from 'react-slick';
-import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import React, { useState } from "react";
+import Slider from "react-slick"; 
+import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import {
-  Box, Typography, Button, Grid, Container, Card, CardContent,
-  CardMedia, CardActions, Paper, Stack,
-  List, ListItem, ListItemIcon, ListItemText,
-  Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Divider
-} from '@mui/material';
+  Box, Typography, Button, Grid, Container, Card, CardContent, CardMedia,
+  CardActions, Paper, Stack, Dialog, DialogTitle, DialogContent, IconButton,
+  Chip, Avatar, List, ListItem, ListItemText, useTheme, useMediaQuery, ListItemIcon,
+  Divider
+} from "@mui/material";
 
 // Icons
-import CampaignIcon from '@mui/icons-material/Campaign';
-import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import MenuBookIcon from '@mui/icons-material/MenuBook';
-import LightbulbOutlinedIcon from '@mui/icons-material/LightbulbOutlined';
-import AccountCircleIcon from '@mui/icons-material/AccountCircle';
-import CloseIcon from '@mui/icons-material/Close';
-import ArticleIcon from '@mui/icons-material/Article';
+import CampaignIcon from "@mui/icons-material/Campaign";
+import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
+import ScienceIcon from "@mui/icons-material/Science";
+import RecordVoiceOverIcon from "@mui/icons-material/RecordVoiceOver";
+import SchoolIcon from "@mui/icons-material/School";
+import SupervisorAccountIcon from "@mui/icons-material/SupervisorAccount";
+import LocalLibraryIcon from "@mui/icons-material/LocalLibrary";
+import PublishIcon from "@mui/icons-material/Publish";
+import AutoStoriesIcon from "@mui/icons-material/AutoStories";
+import CloseIcon from "@mui/icons-material/Close";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import CancelIcon from "@mui/icons-material/Cancel"; 
+import StarIcon from "@mui/icons-material/Star";
+import MenuBookIcon from "@mui/icons-material/MenuBook";
+import LightbulbIcon from "@mui/icons-material/Lightbulb"; 
+
+// --- UI COMPONENTS ---
+import AnimatedText from "./ui/AnimatedText";
+import BookStack from "./ui/BookStack"; 
+
 import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
 
-// --- MOCK DATA ---
-// Replace placeholder URLs with your actual S3 URLs
-const carouselImages = [
-  { id: 1, src: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/slide1.jpg', alt: 'Welcome to Saaradaa Learknowations' },
-  { id: 2, src: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/slide2.jpg', alt: 'what we offer' },
-  { id: 3, src: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/slide3.jpg', alt: 'Brain training' },
-  { id: 4, src: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/slide4.jpg', alt: 'Students feedback' },
-  { id: 5, src: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/slide5.jpg', alt: 'Collaborations and recognition' },
-];
+// --- DATA ---
 
 const thinkletArticles = [
-  {
-    id: 1,
-    title: 'New Study: Nanotyrannus is a Distinct Species',
-    summary: 'A 2024 analysis of skull features and bone growth rings suggests the smaller Nanotyrannus was a mature predator, not a teenage T. rex.',
-    image: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/nanotyrannus.jpg',
-    link: 'https://www.sciencenews.org/article/nanotyrannus-not-teenaged-t-rex',
-    fullSummary: 'The long-standing debate over Nanotyrannus continues. Was it a separate, \'pygmy\' tyrannosaur species, or simply a teenage T. rex? A new 2024 study by paleontologists re-examines key fossils, focusing on skull features and growth rings within the bones. Their findings contradict previous research, suggesting that the growth patterns indicate the animal was nearing adulthood, not growing rapidly like a juvenile. This evidence points to Nanotyrannus being a distinct, smaller, and more agile species that co-existed with its massive cousin, T. rex.'
-  },
-  {
-    id: 2,
-    title: 'Can AI Chatbots Really Help With Your Mental Health?',
-    summary: 'AI bots are being used as accessible mental health tools, but experts are cautious about their risks, privacy, and lack of real empathy.',
-    image: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/Ai-chatbot.png',
-    link: 'https://www.snexplores.org/article/ai-chatbots-mental-health-therapy',
-    fullSummary: 'AI chatbots are increasingly being used as mental health tools, offering instant, accessible support for people who may not be able to access traditional therapy. These bots can listen, offer coping strategies, and provide a non-judgmental space. However, mental health experts are cautious. They raise concerns about the bots\' ability to handle serious crises, the privacy of sensitive user data, and the lack of genuine human empathy and understanding. While they can be a useful first step or supplementary tool, they are not a replacement for professional human therapists.'
-  },
-  {
-    id: 3,
-    title: 'Which City in Asia is Also a Country?',
-    summary: 'Discover the unique city-state in Asia that functions as both a major global city and a sovereign country.',
-    image: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/singapore.jpg',
-    link: 'https://www.indiatoday.in/amp/education-today/gk-current-affairs/story/which-is-the-only-city-in-aisa-that-is-also-a-country-2813262-2025-11-04',
-    fullSummary: 'The answer is Singapore. Officially known as the Republic of Singapore, it is the only city in Asia that is also a sovereign country. It is an island city-state located in maritime Southeast Asia. Despite its small size of about 734 square kilometers, it is a global hub for finance, technology, and trade. Because it is a city-state, its government manages both municipal (city) and national affairs, making it unique in the continent.'
-  },
+    { id: 1, title: '2025 Medical Laureates', summary: 'Discoveries regarding regulatory T cells earned the Nobel Prize.', image: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/Noble.png', link: 'https://www.nobelprize.org/' },
+    { id: 2, title: 'Milk Capital: India', summary: 'India stands as the largest milk producer. Anand is the heart.', image: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/dr_kurien_amul.jpg', link: 'https://en.wikipedia.org/wiki/Operation_Flood' },
+    { id: 3, title: 'AI Co-Developer', summary: 'Agentic AI systems are revolutionizing software engineering.', image: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/AiCo.png', link: 'https://openai.com/blog' },
+    { id: 4, title: 'Vasuki indicus', summary: 'Discover a colossal serpent that ruled 47 million years ago.', image: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/Vasuki_Indicus_Thinklet.jpg', link: 'https://www.nature.com/articles/s41598-024-58377-0' },
+    { id: 5, title: 'Quantum Computing', summary: 'The next frontier in computational power and security.', image: 'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?auto=format&fit=crop&w=500&q=80', link: 'https://science.nasa.gov/mission/quantum-technologies/' },
 ];
 
 const suggestedBooks = [
-  {
-    id: 1,
-    title: 'India\'s Biggest Cover-up',
-    author: 'Anuj Dhar',
-    cover: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/Indias_biggest_coverup.jpg',
-    summary: 'Investigating the enduring mystery surrounding Netaji Subhas Chandra Bose\'s disappearance, this book challenges the official narrative of his death in a 1945 plane crash. Author Anuj Dhar meticulously examines declassified government files, inquiry commission reports, and eyewitness accounts to argue that the official story might be a deliberate cover-up. The book explores compelling alternative theories, including Netaji\'s possible escape to the Soviet Union or his later life in India as an ascetic, prompting readers to question historical certainties and the nature of state secrets.',
-    takeaways: ['Question accepted narratives; the pursuit of truth is a duty.'],
-    link: 'https://www.amazon.in/Indias-Biggest-Cover-up-Anuj-Dhar/dp/8190913998/'
+  { 
+      id: 1, 
+      title: 'Wings of Fire', 
+      author: 'APJ Abdul Kalam', 
+      cover: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/wingsoffire.jpg',
+      moral: "Determination and humility can overcome any obstacle.",
+      summary: "An autobiography of A.P.J. Abdul Kalam, former President of India. It narrates his journey from a humble background in Rameswaram to becoming a key player in Indian space research and missile programs. The book is not just about his personal life but also a tribute to the unflagging spirit of the countless unsung heroes of Indian science. It inspires the youth to dream big and work hard to achieve those dreams, emphasizing that resilience is key to success."
   },
-  {
-    id: 2,
-    title: 'The Serpent\'s Revenge',
-    author: 'Sudha Murty',
-    cover: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/serpents_revenge.jpg',
-    summary: 'This collection brings to life lesser-known yet fascinating tales from the epic Mahabharata, often overshadowed by the main conflict. Sudha Murty retells intriguing stories such as why the Serpent King Takshaka cursed King Parikshit, leading to his death; the circumstances under which Yama, the god of death, faced a curse; and the lesson a humble mongoose taught King Yudhishthira about genuine sacrifice. Each concise story delves into themes of dharma, curses, boons, and the intricate web of consequences flowing from actions within Hindu mythology.',
-    takeaways: ['Dharma (duty/righteousness) is complex, and every action, big or small, has powerful consequences.'],
-    link: 'https://www.amazon.in/Serpents-Revenge-Unusual-Mahabharata-Murty/dp/0143427814/'
+  { 
+      id: 2, 
+      title: 'The Alchemist', 
+      author: 'Paulo Coelho', 
+      cover: 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&w=500&q=80',
+      moral: "When you want something, all the universe conspires in helping you to achieve it.",
+      summary: "This enchanting novel tells the story of Santiago, an Andalusian shepherd boy who yearns to travel in search of a worldly treasure. His quest leads him to riches far different—and far more satisfying—than he ever imagined. Santiago's journey teaches us about the essential wisdom of listening to our hearts, of recognizing opportunity and learning to read the omens strewn along life's path, and, above all, following our dreams."
   },
-  {
-    id: 3,
-    title: 'Wings Of Fire',
-    author: 'Dr. A.P.J. Abdul Kalam',
-    cover: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/wingsoffire.jpg',
-    summary: 'The inspiring autobiography of Dr. A. P. J. Abdul Kalam, chronicling his extraordinary life from a modest childhood in Rameswaram, where he distributed newspapers, to becoming India\'s leading rocket scientist and eventually its President. The book details his relentless hard work, his crucial role in developing India\'s space program (including the SLV-3 rocket) and missile technology (Agni, Prithvi), earning him the title "Missile Man." It\'s a profound narrative of overcoming obstacles, embracing failure, fostering teamwork, and unwavering dedication to national progress.',
-    takeaways: ['Your dreams and hard work define your future, not your background.', 'Perseverance is key to overcoming challenges.', 'Leadership involves inspiring and enabling teams.'],
-    link: 'https://www.amazon.in/Wings-Fire-Autobiography-Abdul-Kalam/dp/8173711461/'
+  { 
+      id: 3, 
+      title: 'Atomic Habits', 
+      author: 'James Clear', 
+      cover: 'https://images.unsplash.com/photo-1589829085413-56de8ae18c73?auto=format&fit=crop&w=500&q=80',
+      moral: "Tiny changes, remarkable results.",
+      summary: "James Clear reveals practical strategies that will teach you exactly how to form good habits, break bad ones, and master the tiny behaviors that lead to remarkable results. If you're having trouble changing your habits, the problem isn't you. The problem is your system. Bad habits repeat themselves again and again not because you don't want to change, but because you have the wrong system for change. This book gives you a proven system to reach new heights."
   },
 ];
 
+const publicationStacks = [
+    {
+        id: 'pre',
+        category: 'Baby Steps (Pre-Primary)',
+        color: '#FFAB91', 
+        books: [
+            { title: 'Tiny Steps Math', desc: 'Interactive basics', cover: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/wingsoffire.jpg' },
+            { title: 'Alpha Fun', desc: 'Learning alphabets', cover: '' },
+            { title: 'World Around Us', desc: 'EVS for kids', cover: '' },
+        ]
+    },
+    {
+        id: 'primary',
+        category: 'Little Leaps (Primary)',
+        color: '#81D4FA', 
+        books: [
+            { title: 'Science Explorer', desc: 'Curiosity driven', cover: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/serpents_revenge.jpg' },
+            { title: 'Math Magic', desc: 'Foundation logic', cover: '' },
+            { title: 'Social Life', desc: 'Community basics', cover: '' },
+        ]
+    },
+    {
+        id: 'secondary',
+        category: 'ROM (Competitive)',
+        color: '#CE93D8', 
+        books: [
+            { title: 'IIT Foundation', desc: 'Physics & Math', cover: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/Indias_biggest_coverup.jpg' },
+            { title: 'NEET Biology', desc: 'Masterclass', cover: '' },
+            { title: 'UPSC Inclusion', desc: 'General Studies', cover: '' },
+        ]
+    }
+];
+
+const pricingPlans = [
+    {
+        title: "Tier 1: Essential",
+        subtitle: "Academic Package",
+        priceDesc: "School Discount: 70-75%",
+        color: "#4db6ac", 
+        features: ["Printed Book Set (Full Year)", "Basic LMS & Exam Portal", "Digital Worksheets", "Mobile App (Basic)", "Offline Monthly Exams"], 
+        missing: ["STEM Activities", "Lab Setup", "Book Fair Setup", "SJIS (Not included)"] 
+    },
+    {
+        title: "Tier 2: Comprehensive",
+        subtitle: "Most Opted by Schools",
+        priceDesc: "School Discount: 60-65%",
+        color: "#1e88e5", 
+        recommended: true,
+        features: ["Everything in Tier 1", "Advanced LMS (Analytics)", "Full Exam Portal", "2 Student Workshops", "Digital Question Bank"], 
+        missing: ["Lab Setup", "Large Book Fair Events", "SJIS (Not included)"] 
+    },
+    {
+        title: "Tier 3: Premium",
+        subtitle: "Complete Transformation",
+        priceDesc: "School Discount: 35-45%",
+        color: "#ff9800", 
+        features: ["Everything in Tier 2", "Custom-Branded App", "Premium LMS (AI)", "Full Book Fair Setup", "STEM Kits & Lab Support", "Monthly Academic Coordinator", "⭐ SJIS Journal Included"], 
+        missing: [] 
+    }
+];
+
+const schoolServices = [
+  { title: "School Lab Setup", icon: <ScienceIcon fontSize="large"/>, desc: "Complete basic to advanced science lab infrastructure setup and consulting.", color: "#e3f2fd" },
+  { title: "Library Management", icon: <LocalLibraryIcon fontSize="large"/>, desc: "Curating books and digital cataloging systems for modern school libraries.", color: "#f3e5f5" },
+  { title: "Guest Faculty", icon: <SupervisorAccountIcon fontSize="large"/>, desc: "Expert faculty visits twice a month to boost academic performance.", color: "#fff3e0" },
+];
+
+const FadeInSection = ({ children, delay = 0 }) => {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 50 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-50px" }}
+      transition={{ duration: 0.6, delay: delay }}
+    >
+      {children}
+    </motion.div>
+  );
+};
+
 export default function Home() {
   const navigate = useNavigate();
+  const [openThinklet, setOpenThinklet] = useState(null);
+  const [openBook, setOpenBook] = useState(null); // STATE FOR BOOK MODAL
 
-  const sliderSettings = {
-    dots: false,
-    infinite: true,
-    speed: 500,
-    slidesToShow: 1,
-    slidesToScroll: 1,
-    autoplay: true,
-    autoplaySpeed: 3000,
-    fade: true,
-    arrows: false,
-    pauseOnHover: true
+  const carouselSettings = {
+    dots: true, infinite: true, speed: 500, slidesToShow: 3, slidesToScroll: 1,
+    responsive: [
+        { breakpoint: 1024, settings: { slidesToShow: 2 } },
+        { breakpoint: 600, settings: { slidesToShow: 1 } }
+    ]
   };
 
-  const [showRiddleAnswer, setShowRiddleAnswer] = useState(false);
-  const riddleAnswer = "A Postbox";
-
-  const [openBookModal, setOpenBookModal] = useState(false);
-  const [selectedBook, setSelectedBook] = useState(null);
-  const [openThinkletModal, setOpenThinkletModal] = useState(false);
-  const [selectedThinklet, setSelectedThinklet] = useState(null);
-
-  // NEW: overlay news dialog
-  const [openNewsOverlay, setOpenNewsOverlay] = useState(true);
-
-  useEffect(() => {
-    // If you want it to show only once per session:
-    const seen = sessionStorage.getItem('seenNewsOverlay');
-    if (!seen) {
-      setOpenNewsOverlay(true);
-      sessionStorage.setItem('seenNewsOverlay', '1');
-    } else {
-      setOpenNewsOverlay(false);
-    }
-  }, []);
-
-  const handleOpenBookModal = (book) => { setSelectedBook(book); setOpenBookModal(true); };
-  const handleCloseBookModal = () => { setOpenBookModal(false); setSelectedBook(null); };
-  const handleOpenThinkletModal = (article) => { setSelectedThinklet(article); setOpenThinkletModal(true); };
-  const handleCloseThinkletModal = () => { setOpenThinkletModal(false); setSelectedThinklet(null); };
-
   return (
-    <Box sx={{
-      bgcolor: '#ffffff',
-      position: 'relative',
-      overflow: 'hidden',
-      '@keyframes move_glow': {
-        '0%': { transform: 'translate(0, 0) rotate(0deg)' },
-        '50%': { transform: 'translate(100px, 150px) rotate(180deg)' },
-        '100%': { transform: 'translate(0, 0) rotate(360deg)' },
-      },
-      '@keyframes move_glow_alt': {
-        '0%': { transform: 'translate(0, 0) rotate(0deg)' },
-        '50%': { transform: 'translate(-100px, -150px) rotate(-180deg)' },
-        '100%': { transform: 'translate(0, 0) rotate(-360deg)' },
-      },
-      '&::before': {
-        content: '""',
-        position: 'absolute',
-        width: '500px',
-        height: '500px',
-        top: '-150px',
-        left: '-150px',
-        background: 'radial-gradient(circle, rgba(173, 216, 230, 0.4), transparent 70%)',
-        borderRadius: '50%',
-        filter: 'blur(100px)',
-        zIndex: 0,
-        animation: 'move_glow 25s ease-in-out infinite',
-      },
-      '&::after': {
-        content: '""',
-        position: 'absolute',
-        width: '500px',
-        height: '500px',
-        bottom: '-150px',
-        right: '-150px',
-        background: 'radial-gradient(circle, rgba(230, 230, 250, 0.4), transparent 70%)',
-        borderRadius: '50%',
-        filter: 'blur(100px)',
-        zIndex: 0,
-        animation: 'move_glow_alt 25s ease-in-out infinite',
-      },
-      // NEW: marquee keyframes
-      '@keyframes marqueeSlide': {
-        '0%': { transform: 'translateX(100%)' },
-        '100%': { transform: 'translateX(-100%)' },
-      }
-    }}>
-      {/* NEW: FLASH NEWS MARQUEE (sticky top) */}
-      <Box
-        sx={{
-          position: 'sticky',
-          top: 0,
-          zIndex: 10,
-          bgcolor: '#d32f2f',
-          color: '#fff',
-          overflow: 'hidden',
-          height: 40,
-          display: 'flex',
-          alignItems: 'center',
-          boxShadow: 3
-        }}
-      >
-        <Box
-          sx={{
-            display: 'inline-block',
-            whiteSpace: 'nowrap',
-            px: 2,
-            animation: 'marqueeSlide 18s linear infinite',
-            '&:hover': { animationPlayState: 'paused', cursor: 'pointer' },
-            fontSize: { xs: 12, sm: 14 },
-            fontWeight: 600
-          }}
-          title="Pause on hover"
-        >
-          {/* Use your exact message; lightly cleaned punctuation */}
-          Monthly tests results are out now — login and check. | Are you want be the olympiad champion? Don’t just be a king, be an emperor — participate in olympiad tests and compete with state. | New Thinklets and Books added this week! | Try today’s riddle and challenge your friends!
-        </Box>
-      </Box>
-
-      <Box sx={{ position: 'relative', zIndex: 1 }}>
-        <Box sx={{ py: 4, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Stack
-            direction={{ xs: 'column', sm: 'row' }}
-            spacing={2}
-            component={motion.div}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.8, delay: 0.5 }}
-          >
-            <Button variant="contained" sx={{ boxShadow: 3 }} href="#thinklets">Thinklets</Button>
-            <Button variant="contained" sx={{ boxShadow: 3 }} href="#books">Books</Button>
-            <Button variant="contained" sx={{ boxShadow: 3 }} href="#riddle">Riddle</Button>
-            <Button variant="contained" sx={{ boxShadow: 3 }} href="#announcements">Announcements</Button>
-            <Button
-              variant="contained"
-              color="secondary"
-              startIcon={<AccountCircleIcon />}
-              sx={{ boxShadow: 3, width: { xs: '80%', sm: 'auto'} }}
-              onClick={() => navigate('/login')}
-            >
-              Login
-            </Button>
-          </Stack>
-        </Box>
-
-        <Box>
-          <Slider {...sliderSettings}>
-            {carouselImages.map((image) => (
-              <Box key={image.id} sx={{ height: { xs: '50vh', md: '75vh' } }}>
-                <Box
-                  component="img"
-                  src={image.src}
-                  alt={image.alt}
-                  sx={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                />
-              </Box>
-            ))}
-          </Slider>
-        </Box>
-
-        <Container maxWidth="xl" sx={{ py: 6, mt: 4 }}>
-          {/* --- Thinklets Section --- */}
-          <Box id="thinklets" sx={{ mb: 8 }}>
-            <Stack direction="row" spacing={1} alignItems="center" justifyContent="center" mb={4}>
-              <ArticleIcon sx={{ fontSize: 40, color: 'primary.main' }} />
-              <Typography variant="h4" component="h2" fontWeight={600}> Thinklets & News </Typography>
-            </Stack>
-            <Grid container spacing={4} justifyContent="center">
-              {thinkletArticles.map(article => (
-                <Grid item key={article.id} xs={12} sm={6} md={4}>
-                  <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', boxShadow: 3 }}>
-                    <CardMedia component="img" height="200" image={article.image} alt={article.title} />
-                    <CardContent sx={{ flexGrow: 1 }}>
-                      <Typography gutterBottom variant="h6">{article.title}</Typography>
-                    </CardContent>
-                    <CardActions sx={{ justifyContent: 'center', pb: 2 }}>
-                      <Button size="small" variant="outlined" onClick={() => handleOpenThinkletModal(article)} endIcon={<ArrowForwardIcon/>}>
-                        Read More
-                      </Button>
-                    </CardActions>
-                  </Card>
-                </Grid>
-              ))}
-            </Grid>
-          </Box>
-
-          {/* --- Books Section --- */}
-          <Box id="books" sx={{ textAlign: 'center', mb: 8 }}>
-            <MenuBookIcon sx={{ fontSize: 40, color: 'primary.main', mb: 1 }} />
-            <Typography variant="h4" component="h2" fontWeight={600} mb={4}>Recommended Reading</Typography>
-            <Grid container spacing={4} justifyContent="center">
-              {suggestedBooks.map(book => (
-                <Grid item key={book.id} xs={12} sm={4} md={3}>
-                  <Card sx={{ border: '1px solid #ddd', boxShadow: 3, display: 'flex', flexDirection: 'column', height: '100%' }} elevation={0}>
-                    <CardMedia component="img" image={book.cover} alt={book.title} sx={{ height: 250, objectFit: 'cover' }}/>
-                    <CardContent sx={{ flexGrow: 1 }}>
-                      <Typography fontWeight="bold" variant="body1">{book.title}</Typography>
-                    </CardContent>
-                    <CardActions sx={{ justifyContent: 'center', pb: 2 }}>
-                      <Button size="small" variant="outlined" onClick={() => handleOpenBookModal(book)}>Read More</Button>
-                    </CardActions>
-                  </Card>
-                </Grid>
-              ))}
-            </Grid>
-          </Box>
-
-          {/* --- Riddle Section --- */}
-          <Box id="riddle" sx={{ textAlign: 'center', mb: 8 }}>
-            <LightbulbOutlinedIcon sx={{ fontSize: 40, color: 'secondary.main', mb: 1 }} />
-            <Typography variant="h4" component="h2" fontWeight={600} mb={4}>Think Riddles!</Typography>
-            <Paper sx={{ maxWidth: '600px', mx: 'auto', p: 4, border: '1px solid #ddd', boxShadow: 3 }} variant="outlined">
-              <Typography variant="h6" mb={3} sx={{ fontStyle: 'italic', color: 'text.secondary' }}>
-                "Iam a seven letter word if you remove 1 letter from me i remain the same , if you remove 2 letter from me i remain the same , if you remove 3 letter from me i remain the same, if you remove 4 letter from me i remain the same, if you remove 5 letter from me i remain the same,  yoifu remove 6 letter from me i remain the same, if you remove all the  letter from me i remain the same. Who Am I?  Hint : "letters" "
-              </Typography>
-              {!showRiddleAnswer && (
-                <Button variant="contained" size="small" onClick={() => setShowRiddleAnswer(true)}>Show Answer</Button>
-              )}
-              {showRiddleAnswer && (
-                <Box mt={2}>
-                  <Typography fontWeight="bold" variant="h6" color="success.main">
-                    Answer: {riddleAnswer}
+    <Box sx={{ bgcolor: "#ffffff", minHeight: "100vh", overflowX: 'hidden' }}>
+      
+      {/* 1. HERO SECTION */}
+      <Box sx={{ position: "relative", minHeight: "85vh", display: 'flex', alignItems: 'center', background: "radial-gradient(circle at 50% 50%, rgb(242, 246, 252) 0%, rgb(255, 255, 255) 80%)" }}>
+        <Container maxWidth="xl">
+           <FadeInSection>
+              <Box textAlign="center">
+                  <Chip label="Admissions Open 2025-26" color="warning" sx={{ mb: 4, fontWeight: 'bold', px: 2 }} />
+                  <Box sx={{ mb: 4, display: 'flex', justifyContent: 'center' }}>
+                    <AnimatedText 
+                        type="rotate"
+                        text="Your Partner for" 
+                        words={["Secure Exams", "Publications", "School Growth", "Innovation"]} 
+                        color="#1976d2"
+                    />
+                  </Box>
+                  <Typography variant="h5" sx={{ color: '#455a64', mb: 6, lineHeight: 1.8, fontWeight: 400, maxWidth: 800, mx: 'auto' }}>
+                      A comprehensive ecosystem for Schools, Aspirants, and Educators. From advanced lab setups to secure competitive exams.
                   </Typography>
-                </Box>
-              )}
-            </Paper>
-          </Box>
-
-          {/* --- Announcements Section --- */}
-          <Box id="announcements" sx={{ textAlign: 'center', mb: 8 }}>
-            <CampaignIcon sx={{ fontSize: 40, color: 'primary.main', mb: 1 }} />
-            <Typography variant="h4" component="h2" fontWeight={600} mb={3}>Announcements</Typography>
-            <Paper sx={{ maxWidth: '800px', mx: 'auto', border: '1px solid #ddd', boxShadow: 3 }} variant='outlined'>
-              <List>
-                <ListItem>
-                  <ListItemIcon><CampaignIcon color="primary" /></ListItemIcon>
-                  <ListItemText
-                    primary="Exams: Monthly Exams (October 2025) Results Released"
-                    secondary={`Announced on ${new Date().toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric'})}`}
-                  />
-                </ListItem>
-                <ListItem>
-                  <ListItemIcon><CampaignIcon color="primary" /></ListItemIcon>
-                  <ListItemText primary="Upcoming: Winter Olympiad" secondary="Registrations opens soon" />
-                </ListItem>
-                <ListItem>
-                  <ListItemIcon><CampaignIcon color="primary" /></ListItemIcon>
-                  <ListItemText primary="New Feature: Practice Mode" secondary="Now available for all registered students!" />
-                </ListItem>
-              </List>
-            </Paper>
-          </Box>
+                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3} justifyContent="center">
+                    <Button variant="contained" size="large" sx={{ px: 6, py: 1.8, fontSize: '1.2rem', borderRadius: 10 }} onClick={() => navigate('/register')}>Get Started</Button>
+                    <Button variant="outlined" size="large" sx={{ px: 6, py: 1.8, fontSize: '1.2rem', borderRadius: 10, borderWidth: 2 }} onClick={() => document.getElementById('plans').scrollIntoView({behavior:'smooth'})}>View Plans</Button>
+                  </Stack>
+              </Box>
+           </FadeInSection>
         </Container>
       </Box>
 
-      {/* --- Book Detail Modal --- */}
-      <Dialog open={openBookModal} onClose={handleCloseBookModal} maxWidth="sm" fullWidth>
-        {selectedBook && (
-          <>
-            <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              {selectedBook.title}
-              <IconButton edge="end" color="inherit" onClick={handleCloseBookModal} aria-label="close"><CloseIcon /></IconButton>
-            </DialogTitle>
-            <DialogContent dividers>
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={4}>
-                  <Box component="img" src={selectedBook.cover} alt={selectedBook.title} sx={{ width: '100%', borderRadius: 1 }}/>
+      {/* 2. THINKLETS */}
+      <Box sx={{ py: 10, bgcolor: '#f5f7fa' }}>
+        <Container maxWidth="xl">
+            <FadeInSection>
+                <Typography variant="h4" fontWeight={800} sx={{ mb: 4, pl: 2, borderLeft: '6px solid #1a237e' }}>Thinklets & Contemporary News</Typography>
+                <Box sx={{ px: 2 }}>
+                    <Slider {...carouselSettings}>
+                        {thinkletArticles.map((article) => (
+                            <Box key={article.id} sx={{ p: 2 }}>
+                                <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', borderRadius: 3, boxShadow: 3 }}>
+                                    <CardMedia component="img" height="180" image={article.image} alt={article.title} />
+                                    <CardContent sx={{ flexGrow: 1 }}>
+                                        <Typography variant="h6" fontWeight={700} gutterBottom>{article.title}</Typography>
+                                        <Typography variant="body2" color="text.secondary" noWrap>{article.summary}</Typography>
+                                    </CardContent>
+                                    <CardActions sx={{ p: 2, pt: 0 }}>
+                                        <Button size="small" endIcon={<ArrowForwardIcon />} onClick={() => window.open(article.link, '_blank')}>Read Full Story</Button>
+                                    </CardActions>
+                                </Card>
+                            </Box>
+                        ))}
+                    </Slider>
+                </Box>
+            </FadeInSection>
+        </Container>
+      </Box>
+
+      {/* 3. BOOKS WE SUGGEST */}
+      <Box sx={{ py: 10, bgcolor: '#fff' }}>
+        <Container maxWidth="xl">
+            <FadeInSection>
+                <Stack direction="row" justifyContent="space-between" alignItems="center" mb={4}>
+                    <Box>
+                        <Typography variant="overline" color="secondary" fontWeight={700}>Curated by Experts</Typography>
+                        <Typography variant="h4" fontWeight={800}>Books We Suggest</Typography>
+                    </Box>
+                </Stack>
+
+                <Grid container spacing={4}>
+                    {suggestedBooks.map((book) => (
+                        <Grid item xs={12} sm={6} md={4} key={book.id}>
+                            <Card sx={{ height: '100%', borderRadius: 3, boxShadow: 3, transition: '0.3s', '&:hover': { boxShadow: 6 } }}>
+                                <Box sx={{ p: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
+                                    <Box component="img" src={book.cover} sx={{ width: 80, height: 120, objectFit: 'cover', borderRadius: 1 }} />
+                                    <Box>
+                                        <Typography variant="h6" fontWeight={700}>{book.title}</Typography>
+                                        <Typography variant="body2" color="text.secondary" gutterBottom>by {book.author}</Typography>
+                                        {/* CLICK TO OPEN DIALOG */}
+                                        <Button 
+                                            size="small" 
+                                            variant="outlined" 
+                                            startIcon={<MenuBookIcon />}
+                                            onClick={() => setOpenBook(book)}
+                                            sx={{ mt: 1, borderRadius: 20 }}
+                                        >
+                                            Read Summary
+                                        </Button>
+                                    </Box>
+                                </Box>
+                            </Card>
+                        </Grid>
+                    ))}
                 </Grid>
-                <Grid item xs={12} sm={8}>
-                  <Typography variant="subtitle1" color="text.secondary" gutterBottom>By {selectedBook.author}</Typography>
-                  <Typography variant="body1" paragraph>{selectedBook.summary}</Typography>
+            </FadeInSection>
+        </Container>
+      </Box>
+
+      {/* 4. OUR PUBLICATIONS */}
+      <Box id="publications" sx={{ py: 12, bgcolor: '#fff', borderTop: '1px solid #eee' }}>
+        <Container maxWidth="xl">
+            <FadeInSection>
+                <Box textAlign="center" mb={10}>
+                    <AutoStoriesIcon sx={{ fontSize: 50, color: 'primary.main', mb: 2 }} />
+                    <Typography variant="h3" fontWeight={800} gutterBottom>Our Publications</Typography>
+                    <Typography variant="h6" color="text.secondary">From Pre-Primary to Competitive Exams. High-quality content aligned with NEP.</Typography>
+                </Box>
+
+                <Grid container spacing={8} justifyContent="center" alignItems="flex-end">
+                    {publicationStacks.map((stack, index) => (
+                        <Grid item xs={12} md={4} key={stack.id}>
+                            <BookStack category={stack.category} books={stack.books} color={stack.color} />
+                        </Grid>
+                    ))}
                 </Grid>
+            </FadeInSection>
+        </Container>
+      </Box>
+
+      {/* 5. PRICING */}
+      <Box id="plans" sx={{ py: 12, bgcolor: "#f4f6f8" }}>
+          <Container maxWidth="xl">
+              <FadeInSection>
+                <Box textAlign="center" mb={8}>
+                    <Typography variant="overline" fontWeight={800} letterSpacing={3} color="secondary">Partnership Models</Typography>
+                    <Typography variant="h3" fontWeight={800} sx={{ mt: 1 }}>Book Your Comfort</Typography>
+                    <Typography variant="body1" color="text.secondary" sx={{ mt: 2 }}>Flexible academic plans designed to suit every school's budget and vision.</Typography>
+                </Box>
+                <Grid container spacing={4} alignItems="flex-start" justifyContent="center">
+                    {pricingPlans.map((plan, index) => (
+                        <Grid item xs={12} md={4} key={index}>
+                            <FadeInSection delay={index * 0.2}>
+                                <Paper elevation={plan.recommended ? 12 : 2} sx={{ p: 0, borderRadius: 4, overflow: 'hidden', position: 'relative', transform: plan.recommended ? 'scale(1.05)' : 'scale(1)', border: plan.recommended ? `2px solid ${plan.color}` : 'none', height: '100%' }}>
+                                    {plan.recommended && <Box sx={{ bgcolor: plan.color, color: 'white', textAlign: 'center', py: 1 }}><Typography variant="caption" fontWeight={700} letterSpacing={1} display="flex" justifyContent="center" alignItems="center" gap={1}><StarIcon fontSize="small" /> MOST POPULAR</Typography></Box>}
+                                    <Box sx={{ p: 4, bgcolor: plan.recommended ? 'rgba(0,0,0,0.02)' : 'white' }}>
+                                        <Typography variant="h5" fontWeight={800} sx={{ color: plan.color }}>{plan.title}</Typography>
+                                        <Typography variant="subtitle1" fontWeight={600} gutterBottom>{plan.subtitle}</Typography>
+                                        <Chip label={plan.priceDesc} size="small" sx={{ mt: 1, bgcolor: plan.color, color: 'white', fontWeight: 'bold' }} />
+                                        <Divider sx={{ my: 3 }} />
+                                        <List dense>
+                                            {plan.features.map((feat, i) => (
+                                                <ListItem key={i} alignItems="flex-start" disableGutters><ListItemIcon sx={{ minWidth: 32 }}><CheckCircleIcon sx={{ color: plan.color, fontSize: 20 }} /></ListItemIcon><ListItemText primary={feat} primaryTypographyProps={{ variant: 'body2', fontWeight: 500 }} /></ListItem>
+                                            ))}
+                                            {plan.missing.map((miss, i) => (
+                                                <ListItem key={i} alignItems="flex-start" disableGutters><ListItemIcon sx={{ minWidth: 32 }}><CancelIcon sx={{ color: 'text.disabled', fontSize: 20 }} /></ListItemIcon><ListItemText primary={miss} primaryTypographyProps={{ variant: 'body2', color: 'text.disabled' }} /></ListItem>
+                                            ))}
+                                        </List>
+                                        <Button variant={plan.recommended ? "contained" : "outlined"} fullWidth size="large" sx={{ mt: 4, borderRadius: 3, bgcolor: plan.recommended ? plan.color : 'transparent', color: plan.recommended ? 'white' : plan.color, borderColor: plan.color, '&:hover': { bgcolor: plan.color, color: 'white' } }} onClick={() => navigate('/contact')}>Select Plan</Button>
+                                    </Box>
+                                </Paper>
+                            </FadeInSection>
+                        </Grid>
+                    ))}
+                </Grid>
+              </FadeInSection>
+          </Container>
+      </Box>
+
+      {/* 6. ECOSYSTEM */}
+      <Box id="ecosystem" sx={{ py: 12, bgcolor: "#fff" }}>
+        <Container maxWidth="xl">
+          <FadeInSection>
+            <Box textAlign="center" mb={8}>
+              <SchoolIcon sx={{ fontSize: 60, color: 'primary.main', mb: 2 }} />
+              <Typography variant="h3" fontWeight={800}>School Support Ecosystem</Typography>
+            </Box>
+          </FadeInSection>
+          <Grid container spacing={4} justifyContent="center">
+            {schoolServices.map((service, index) => (
+              <Grid item xs={12} sm={6} md={4} key={index}>
+                <FadeInSection delay={index * 0.1}>
+                  <Paper elevation={2} sx={{ p: 4, height: '100%', borderRadius: 4, bgcolor: service.color, textAlign: 'center', transition: '0.3s', '&:hover': { transform: 'translateY(-5px)' } }}>
+                    <Box sx={{ color: 'text.primary', mb: 3 }}>{service.icon}</Box>
+                    <Typography variant="h6" fontWeight={700} gutterBottom>{service.title}</Typography>
+                    <Typography variant="body2" color="text.secondary" lineHeight={1.6}>{service.desc}</Typography>
+                  </Paper>
+                </FadeInSection>
               </Grid>
-              <Divider sx={{ my: 2 }} />
-              <Typography variant="h6" gutterBottom>Key Takeaways:</Typography>
-              <List dense>
-                {selectedBook.takeaways.map((takeaway, index) => (
-                  <ListItem key={index}>
-                    <ListItemIcon sx={{ minWidth: 'auto', mr: 1 }}>•</ListItemIcon>
-                    <ListItemText primary={takeaway} />
-                  </ListItem>
-                ))}
-              </List>
-            </DialogContent>
-            <DialogActions><Button onClick={handleCloseBookModal}>Close</Button></DialogActions>
-          </>
-        )}
-      </Dialog>
+            ))}
+          </Grid>
+        </Container>
+      </Box>
 
-      {/* --- Thinklet Detail Modal --- */}
-      <Dialog open={openThinkletModal} onClose={handleCloseThinkletModal} maxWidth="md" fullWidth>
-        {selectedThinklet && (
+      {/* 7. LSRW */}
+      <Box sx={{ py: 10, bgcolor: "#e8f5e9" }}>
+        <Container maxWidth="lg">
+            <FadeInSection>
+                <Grid container spacing={6} alignItems="center">
+                    <Grid item xs={12} md={6}>
+                         <RecordVoiceOverIcon sx={{ fontSize: 80, color: '#2e7d32', mb: 2 }} />
+                         <Typography variant="h3" fontWeight={800} gutterBottom color="success.dark">English LSRW Labs</Typography>
+                         <Typography variant="h6" color="text.secondary" gutterBottom>Listening • Speaking • Reading • Writing</Typography>
+                         <Typography variant="body1" paragraph>A dedicated program to enhance communication skills using AI-assisted tools and expert faculty.</Typography>
+                         <Button variant="outlined" color="success" size="large">Request Demo</Button>
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                        <Paper sx={{ p: 6, bgcolor: '#fff', borderRadius: 4, textAlign: 'center', border: '2px dashed #a5d6a7' }}><Typography variant="h2" fontWeight={900} sx={{ color: '#81c784' }}>LSRW</Typography><Typography variant="caption" sx={{ display: 'block', mt: 1 }}>Language Lab Certified</Typography></Paper>
+                    </Grid>
+                </Grid>
+            </FadeInSection>
+        </Container>
+      </Box>
+
+      {/* 8. AMBASSADOR */}
+      <Box id="ambassador" sx={{ py: 12, bgcolor: "#ede7f6", textAlign: 'center' }}>
+        <Container maxWidth="md">
+            <FadeInSection>
+                <Avatar sx={{ width: 90, height: 90, bgcolor: 'secondary.main', mx: 'auto', mb: 3 }}><CampaignIcon fontSize="large" /></Avatar>
+                <Typography variant="h3" fontWeight={800} gutterBottom color="secondary.main">Student Ambassador Program</Typography>
+                <Typography variant="h6" color="text.secondary" gutterBottom sx={{ fontStyle: 'italic' }}>"To teach is to learn twice."</Typography>
+                <Button variant="contained" color="secondary" size="large" sx={{ borderRadius: 5, px: 4 }}>Apply Now</Button>
+            </FadeInSection>
+        </Container>
+      </Box>
+
+      {/* 9. PAPERS */}
+      <Box sx={{ py: 10, bgcolor: "#263238", color: 'white' }}>
+        <Container maxWidth="lg">
+            <FadeInSection>
+                <Stack direction={{ xs: 'column', md: 'row' }} spacing={6} alignItems="center">
+                    <Box flex={1}>
+                        <Stack direction="row" alignItems="center" spacing={2} mb={2}><PublishIcon sx={{ fontSize: 40, color: '#4fc3f7' }} /><Typography variant="h4" fontWeight={800}>SJIS: Call for Papers</Typography></Stack>
+                        <Typography variant="h6" gutterBottom sx={{ color: '#b3e5fc' }}>Saradaa Journal of International Studies</Typography>
+                        <Typography variant="body1" paragraph sx={{ opacity: 0.8 }}>We invite researchers, academicians, and students to submit their original work.</Typography>
+                    </Box>
+                    <Box><Button variant="contained" color="info" size="large" href="mailto:Saradapublications18@gmail.com">Submit Manuscript</Button></Box>
+                </Stack>
+            </FadeInSection>
+        </Container>
+      </Box>
+
+      {/* --- BOOK DETAILS DIALOG (Global Modal) --- */}
+      <Dialog 
+        open={!!openBook} 
+        onClose={() => setOpenBook(null)} 
+        maxWidth="md" 
+        fullWidth
+      >
+        {openBook && (
           <>
             <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              {selectedThinklet.title}
-              <IconButton edge="end" color="inherit" onClick={handleCloseThinkletModal} aria-label="close"><CloseIcon /></IconButton>
+              <Typography variant="h6" fontWeight={700}>{openBook.title}</Typography>
+              <IconButton onClick={() => setOpenBook(null)}><CloseIcon/></IconButton>
             </DialogTitle>
             <DialogContent dividers>
-              <Box sx={{ width: '100%', maxHeight: '400px', overflow: 'hidden', mb: 2, borderRadius: 1 }}>
-                <img src={selectedThinklet.image} alt={selectedThinklet.title} style={{ width: '100%', height: 'auto', objectFit: 'cover' }} />
-              </Box>
-              <Typography variant="body1" paragraph>{selectedThinklet.fullSummary || selectedThinklet.summary}</Typography>
+              <Grid container spacing={4}>
+                  <Grid item xs={12} sm={4}>
+                     <Box component="img" src={openBook.cover} sx={{ width: '100%', borderRadius: 2, boxShadow: 3 }} />
+                  </Grid>
+                  <Grid item xs={12} sm={8}>
+                     <Typography variant="h6" color="primary" gutterBottom>About the Book</Typography>
+                     <Typography paragraph>{openBook.summary}</Typography>
+                     
+                     <Box sx={{ mt: 3, p: 2, bgcolor: '#fff8e1', borderRadius: 2, borderLeft: '4px solid #ffb300' }}>
+                        <Stack direction="row" gap={1} alignItems="center">
+                            <LightbulbIcon sx={{ color: '#ffb300' }} />
+                            <Typography variant="subtitle1" fontWeight={700}>Moral of the Story</Typography>
+                        </Stack>
+                        <Typography variant="body2" sx={{ mt: 1 }}>{openBook.moral}</Typography>
+                     </Box>
+                  </Grid>
+              </Grid>
             </DialogContent>
-            <DialogActions><Button onClick={handleCloseThinkletModal}>Close</Button></DialogActions>
           </>
         )}
       </Dialog>
 
-      {/* NEW: Overlay News / Direct Login */}
-      <Dialog open={openNewsOverlay} onClose={() => setOpenNewsOverlay(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Stack direction="row" spacing={1} alignItems="center">
-            <CampaignIcon color="error" />
-            <Typography variant="h6" fontWeight={700}>Results Are Out!</Typography>
-          </Stack>
-          <IconButton onClick={() => setOpenNewsOverlay(false)} aria-label="close"><CloseIcon /></IconButton>
-        </DialogTitle>
-        <DialogContent dividers>
-          <Typography variant="body1" paragraph>
-            Monthly tests results are out now — check your scores by logging in to your account.
-          </Typography>
-          <Typography variant="body2" color="text.secondary" paragraph>
-            Also, have a look at our Thinklets, Books, and today’s Riddle while you’re here!
-          </Typography>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} mt={1}>
-            <Button
-              variant="contained"
-              startIcon={<AccountCircleIcon />}
-              onClick={() => { setOpenNewsOverlay(false); navigate('/login'); }}
-            >
-              Login
-            </Button>
-            <Button variant="outlined" onClick={() => { setOpenNewsOverlay(false); document.querySelector('#thinklets')?.scrollIntoView({ behavior: 'smooth' }); }}>
-              Explore Thinklets
-            </Button>
-            <Button variant="outlined" onClick={() => { setOpenNewsOverlay(false); document.querySelector('#books')?.scrollIntoView({ behavior: 'smooth' }); }}>
-              Browse Books
-            </Button>
-            <Button variant="outlined" onClick={() => { setOpenNewsOverlay(false); document.querySelector('#riddle')?.scrollIntoView({ behavior: 'smooth' }); }}>
-              Try the Riddle
-            </Button>
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenNewsOverlay(false)}>Close</Button>
-        </DialogActions>
-      </Dialog>
     </Box>
   );
 }

@@ -1,28 +1,31 @@
-// src/routes/ProtectedRoute.jsx
-import React, { useState, useEffect } from 'react';
-import { Navigate } from 'react-router-dom';
-import useAuth from '../hooks/useAuth';
+import React from "react";
+import { Navigate, useLocation } from "react-router-dom";
+import useAuth from "../hooks/useAuth";
 
-export default function ProtectedRoute({ children, roles }) {
-  const { user, isAuthenticated } = useAuth();
-  const [isLoading, setIsLoading] = useState(true);
+export default function ProtectedRoute({ children, roles = [] }) {
+  const { user, isAuthenticated, loading } = useAuth();
+  const location = useLocation();
 
-  useEffect(() => {
-    setIsLoading(false);
-  }, [user, isAuthenticated]);
+  // 1. Wait for Auth Context to finish initialization
+  if (loading) return <div>Loading session...</div>;
 
-  if (isLoading) return <div>Loading...</div>; // Prevent premature redirect
-
+  // 2. Check if logged in
   if (!isAuthenticated) {
-    console.log('Not authenticated, redirecting to login...');
-    return <Navigate to="/login" state={{ from: window.location.pathname }} replace />;
+    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   }
 
-  if (roles && (!user || !roles.includes(user.role))) {
-    console.log('Role not allowed, redirecting to login...', user);
-    return <Navigate to="/login" state={{ from: window.location.pathname }} replace />;
+  // 3. Role Check
+  if (roles.length && user && !roles.includes(user.role)) {
+    // Redirect to the correct dashboard based on role
+    if (user.role === "admin") return <Navigate to="/admin" replace />;
+    if (user.role === "school_admin") return <Navigate to="/school" replace />;
+    // FIX: Send specialist to THEIR dashboard, not admin
+    if (user.role === "subject_specialist") return <Navigate to="/specialist" replace />;
+    if (user.role === "student") return <Navigate to="/student" replace />;
+    
+    // Fallback
+    return <Navigate to="/login" replace />;
   }
 
-  console.log('Access granted to:', window.location.pathname, user);
   return children;
 }

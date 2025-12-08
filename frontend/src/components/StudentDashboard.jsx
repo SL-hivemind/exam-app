@@ -1,60 +1,60 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Box, Typography, Paper, Table, TableBody, TableCell,
-  TableHead, TableRow, Button, Alert, Chip, IconButton, Container, Stack, List, ListItem, ListItemIcon, ListItemText,
-  Dialog, DialogTitle, DialogContent, DialogActions, DialogContentText
+  Box, Typography, Paper, Button, Alert, Chip, IconButton, Container, Toolbar,
+  Stack, List, ListItem, ListItemIcon, ListItemText,
+  Dialog, DialogTitle, DialogContent, DialogActions, DialogContentText,
+  Grid, Card, CardContent, CardActions, Divider, Tooltip, Zoom, CircularProgress
 } from '@mui/material';
-import RefreshIcon from '@mui/icons-material/Refresh';
-import EventNoteIcon from '@mui/icons-material/EventNote';
-import InfoIcon from '@mui/icons-material/Info'; // Import icon for instructions
+import {
+  Refresh as RefreshIcon,
+  EventNote as EventNoteIcon,
+  Info as InfoIcon,
+  Timer as TimerIcon,
+  AccessTime as AccessTimeIcon,
+  Assignment as AssignmentIcon,
+  CheckCircle as CheckCircleIcon,
+  Lock as LockIcon,
+  PlayArrow as PlayArrowIcon,
+  History as HistoryIcon,
+  HourglassEmpty as PendingIcon
+} from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import useAuth from '../hooks/useAuth';
-
+import AnimatedText from './ui/AnimatedText';
 
 const upcomingAssessments = [
   "Monthly Tests (October 2025)",
 ];
 
-// --- NEW: Instructions List ---
 const examInstructions = [
-  "Attempt all questions within the allotted time. There are no negative marks.",
+  "Attempt all questions within the allotted time. No negative marks.",
   "You must complete the exam within the specified duration.",
   "If the timer runs out, your exam will be automatically submitted.",
-  "If the exam is interrupted (e.g., tab close, browser crash), log back in immediately to resume.",
-  "The exam timer does not stop for any reason (logout, tab close, network issues, etc.).",
-  "Do not switch tabs during the exam. Ensure you click the 'Submit' button to finalize your attempt.",
-  "No re-attempts are allowed for any exam."
+  "If interrupted (e.g., tab close), log back in immediately to resume.",
+  "Do not switch tabs. Ensure you click 'Submit' to finalize.",
+  "No re-attempts are allowed."
 ];
 
-
 export default function StudentDashboard() {
-  const { authToken } = useAuth();
+  // --- FIX: Destructure 'user' here ---
+  const { authToken, user } = useAuth(); 
   const navigate = useNavigate();
   const [exams, setExams] = useState([]);
   const [error, setError] = useState('');
   const [startingExamId, setStartingExamId] = useState(null);
-
-  // --- NEW: State for Instructions Modal ---
   const [isInstructionsOpen, setIsInstructionsOpen] = useState(false);
-
-  // pagination state
-  const [currentPage, setCurrentPage] = useState(1);
-  const examsPerPage = 5;
 
   useEffect(() => {
     fetchExams();
+    const instructionsShown = localStorage.getItem('instructionsShown');
+    if (!instructionsShown) {
+      setIsInstructionsOpen(true);
+      localStorage.setItem('instructionsShown', 'true');
+    }
   }, [authToken]);
 
-  // --- NEW: useEffect to open instructions on load ---
-  useEffect(() => {
-    // Open the instructions modal once when the component mounts
-    setIsInstructionsOpen(true);
-  }, []); // Empty dependency array ensures this runs only once on mount
-
-
-  // --- MODIFICATION 1: Helper functions moved ABOVE fetchExams ---
-
+  // --- HELPERS ---
   const isWithinAccessWindow = (exam) => {
     const now = new Date();
     const accessStart = exam.access_start ? new Date(exam.access_start) : null;
@@ -65,90 +65,69 @@ export default function StudentDashboard() {
   };
 
   const getExamStatus = (examObj) => {
-    if (!examObj.assigned) return { label: 'Not Assigned', color: 'default' };
+    if (!examObj.assigned) return { label: 'Not Assigned', color: 'default', bg: '#e0e0e0', icon: <LockIcon /> };
+    
     const exam = examObj.exam;
     const now = new Date();
     const accessStart = exam.access_start ? new Date(exam.access_start) : null;
     const accessEnd = exam.access_end ? new Date(exam.access_end) : null;
 
     if (!examObj.attempted) {
-      if (accessStart && now < accessStart) return { label: 'Not Yet Available', color: 'default' };
-      if (accessEnd && now > accessEnd) return { label: 'Expired', color: 'error' };
-      return { label: 'Available', color: 'primary' };
+      if (accessStart && now < accessStart) return { label: 'Upcoming', color: 'info', bg: '#0288d1', icon: <AccessTimeIcon /> };
+      if (accessEnd && now > accessEnd) return { label: 'Missed', color: 'error', bg: '#d32f2f', icon: <LockIcon /> };
+      return { label: 'Active', color: 'success', bg: '#2e7d32', icon: <PlayArrowIcon /> };
     }
-    return exam.results_released ? { label: 'Submitted', color: 'success' } : { label: 'Submitted (Pending)', color: 'warning' };
+    
+    if (!exam.results_released) {
+        return { label: 'Results Pending', color: 'warning', bg: '#ed6c02', icon: <PendingIcon /> };
+    }
+    
+    return { label: 'Completed', color: 'success', bg: '#2e7d32', icon: <CheckCircleIcon /> };
   };
 
-  // --- MODIFICATION 2: New helper to check if exam is "Available" ---
   const isExamAvailable = (examObj) => {
     if (!examObj || !examObj.exam) return false;
-    // An exam is available if it's assigned, not attempted, and within the window
     return examObj.assigned && !examObj.attempted && isWithinAccessWindow(examObj.exam);
   };
 
+  const formatDateTime = (isoString) => {
+    if (!isoString) return 'N/A';
+    return new Date(isoString).toLocaleString('en-US', {
+      month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+    });
+  };
 
   const fetchExams = async () => {
     try {
-      const res = await api.get('/student/exams', {
-        headers: { auth_token: authToken },
-      });
+      const res = await api.get('/student/exams', { headers: { auth_token: authToken } });
       const fetchedExams = res.data.exams || [];
 
-      // --- MODIFICATION 3: Sort exams to put "Available" (active) ones first ---
       const sortedExams = fetchedExams.sort((a, b) => {
-        const isAAvailable = isExamAvailable(a);
-        const isBAvailable = isExamAvailable(b);
-
-        if (isAAvailable && !isBAvailable) return -1; // a (available) comes before b (not available)
-        if (!isAAvailable && isBAvailable) return 1;  // b (available) comes before a (not available)
-        
-        // If both are same status (both available or both not), keep original order (or sort by ID)
-        // For example, to sort by ID as a secondary factor:
-        // return a.exam.id - b.exam.id;
-        return 0; // Maintain original relative order for exams of the same status
+        const aActive = isExamAvailable(a);
+        const bActive = isExamAvailable(b);
+        if (aActive && !bActive) return -1;
+        if (!aActive && bActive) return 1;
+        return 0;
       });
-      // --- END MODIFICATION ---
 
-      setExams(sortedExams); // Set the newly sorted list
+      setExams(sortedExams);
       setError('');
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to fetch exams');
     }
   };
 
-  // --- NEW: Handler to close the instructions modal ---
-  const handleCloseInstructions = () => {
-    setIsInstructionsOpen(false);
-  };
-
   const handleStartExam = async (examId) => {
-    if (startingExamId) return; // Prevent multiple clicks
+    if (startingExamId) return;
     setStartingExamId(examId);
     try {
-      const canStart = await api.get(`/student/exams/${examId}/can_start`, {
-        headers: { auth_token: authToken },
-      });
+      const canStart = await api.get(`/student/exams/${examId}/can_start`, { headers: { auth_token: authToken } });
+      
+      if (!canStart.data.assigned) return alert('Exam not assigned.');
+      if (!canStart.data.within_window) return alert('Exam is not accessible now.');
+      if (canStart.data.already_submitted) return alert('Already submitted.');
 
-      if (!canStart.data.assigned) {
-        alert('Exam not assigned.');
-        setStartingExamId(null);
-        return;
-      }
-      if (!canStart.data.within_window) {
-        alert('Exam is not accessible now.');
-        setStartingExamId(null);
-        return;
-      }
-      if (canStart.data.already_submitted) {
-        alert('Already submitted.');
-        setStartingExamId(null);
-        return;
-      }
-
-      await api.post(`/student/exams/${examId}/start`, {}, {
-        headers: { auth_token: authToken },
-      });
-
+      await api.post(`/student/exams/${examId}/start`, {}, { headers: { auth_token: authToken } });
       navigate(`/exams/${examId}/questions`);
     } catch (err) {
       alert(err.response?.data?.message || 'Cannot start exam');
@@ -157,205 +136,241 @@ export default function StudentDashboard() {
     }
   };
 
-  const handleViewResults = (examId) => {
-    navigate(`/exam/${examId}/results`);
-  };
-
-  // Pagination logic
-  const indexOfLastExam = currentPage * examsPerPage;
-  const indexOfFirstExam = indexOfLastExam - examsPerPage;
-  const currentExams = exams.slice(indexOfFirstExam, indexOfLastExam);
-  const totalPages = Math.ceil(exams.length / examsPerPage);
-
   return (
-    <Box sx={{
-      width: '100%',
-      minHeight: 'calc(100vh - 140px)',
-      backgroundImage: 'url(/background.jpg)',
-      backgroundSize: 'cover',
-      backgroundPosition: 'center',
-      backgroundAttachment: 'fixed',
-      py: 4,
-    }}>
-      <Container maxWidth="lg">
-        {/* --- NEW: Instructions Dialog Component --- */}
-        <Dialog
-          open={isInstructionsOpen}
-          onClose={handleCloseInstructions}
-          aria-labelledby="instructions-dialog-title"
+    <Box sx={{ width: '100%', minHeight: '100vh', bgcolor: '#f5f7fa' }}>
+      
+      <Toolbar /> 
+
+      <Container maxWidth="lg" sx={{ py: 4 }}>
+        
+        <Paper 
+          elevation={0}
+          sx={{ 
+            p: 3, mb: 4, borderRadius: 3, 
+            bgcolor: 'white', 
+            border: '1px solid #e0e0e0',
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2
+          }}
         >
-          <DialogTitle id="instructions-dialog-title">
-            Important Exam Instructions
-          </DialogTitle>
-          <DialogContent>
-            <DialogContentText component="div" sx={{ mb: 2 }}>
-              Please read the following rules carefully before starting any exam:
-            </DialogContentText>
-            <List dense>
-              {examInstructions.map((text, index) => (
-                <ListItem key={index}>
-                  <ListItemIcon sx={{ minWidth: '40px' }}>
-                    <InfoIcon color="primary" />
-                  </ListItemIcon>
-                  <ListItemText primary={text} />
-                </ListItem>
-              ))}
-            </List>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={handleCloseInstructions} variant="contained" autoFocus>
-              I Understand
-            </Button>
-          </DialogActions>
-        </Dialog>
-
-
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Typography
-            variant="h4"
-            fontWeight={700}
-            sx={{ color: 'white', textShadow: '1px 1px 3px rgba(0,0,0,0.7)' }}
-          >
-            Student Dashboard
-          </Typography>
-          <IconButton onClick={fetchExams} title="Refresh" sx={{ backgroundColor: 'rgba(255,255,255,0.2)', '&:hover': { backgroundColor: 'rgba(255,255,255,0.3)' } }}>
-            <RefreshIcon sx={{ color: 'white' }} />
-          </IconButton>
-        </Box>
-
-        {/* --- DESKTOP VIEW: The Table (Visible on medium screens and up) --- */}
-        <Paper sx={{
-          display: { xs: 'none', md: 'block' }, // Hide on small screens, show on medium+
-          backgroundColor: 'rgba(255, 255, 255, 0.85)',
-          backdropFilter: 'blur(10px)',
-          borderRadius: 3,
-          overflow: 'hidden'
-        }}>
-          <Box sx={{ overflowX: 'auto' }}>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Title</TableCell>
-                  <TableCell>Description</TableCell>
-                  <TableCell>Access Start</TableCell>
-                  <TableCell>Access End</TableCell>
-                  <TableCell>Duration</TableCell>
-                  <TableCell>Total Marks</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {currentExams.map((examObj) => {
-                  const exam = examObj.exam;
-                  const status = getExamStatus(examObj);
-                  return (
-                    <TableRow key={exam.id}>
-                      <TableCell>{exam.title}</TableCell>
-                      <TableCell>{exam.description || 'N/A'}</TableCell>
-                      <TableCell>{exam.access_start ? new Date(exam.access_start).toLocaleString() : 'N/A'}</TableCell>
-                      <TableCell>{exam.access_end ? new Date(exam.access_end).toLocaleString() : 'N/A'}</TableCell>
-                      <TableCell>{exam.duration_minutes} mins</TableCell>
-                      <TableCell>{exam.total_marks}</TableCell>
-                      <TableCell>
-                        <Chip label={status.label} color={status.color} size="small" />
-                      </TableCell>
-                      <TableCell>
-                        {examObj.assigned && !examObj.attempted && isWithinAccessWindow(exam) && (
-                          <Button
-                            size="small"
-                            variant="contained"
-                            onClick={() => handleStartExam(exam.id)}
-                            disabled={startingExamId === exam.id}
-                          >
-                            {startingExamId === exam.id ? 'Starting...' : 'Start Exam'}
-                          </Button>
-                        )}
-                        {examObj.assigned && exam.results_released && (
-                          <Button size="small" variant="outlined" onClick={() => handleViewResults(exam.id)}>View Results</Button>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+          <Box>
+            <Box sx={{ color: 'primary.main', mb: 1 }}>
+                <AnimatedText 
+                    text={`Hello, ${user?.name || user?.username || 'Student'}!`} 
+                    type="split" 
+                    tag="h1"
+                    className="MuiTypography-root MuiTypography-h4"
+                    color="#1976d2"
+                />
+            </Box>
+            <Typography variant="body1" color="text.secondary">
+              View your schedule and take assessments.
+            </Typography>
           </Box>
+
+          <Stack direction="row" spacing={2}>
+             <Button 
+                startIcon={<InfoIcon />} 
+                variant="outlined" 
+                onClick={() => setIsInstructionsOpen(true)}
+                sx={{ display: { xs: 'none', sm: 'flex' } }}
+             >
+               Rules
+             </Button>
+             <Tooltip title="Refresh List" arrow>
+                <IconButton onClick={fetchExams} color="primary" sx={{ border: '1px solid #e0e0e0' }}>
+                  <RefreshIcon />
+                </IconButton>
+             </Tooltip>
+          </Stack>
         </Paper>
 
-        {/* --- MOBILE VIEW: Card List (Visible on small screens) --- */}
-        <Stack spacing={2} sx={{ display: { xs: 'flex', md: 'none' } }}>
-          {currentExams.map((examObj) => {
-            const exam = examObj.exam;
-            const status = getExamStatus(examObj);
-            return (
-              <Paper key={exam.id} sx={{ p: 2, backgroundColor: 'rgba(255, 255, 255, 0.9)', backdropFilter: 'blur(10px)' }}>
-                <Typography variant="h6" fontWeight="bold">{exam.title}</Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>{exam.description || 'No description'}</Typography>
-                <Chip label={status.label} color={status.color} size="small" sx={{ mb: 2 }} />
+        {error && <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>{error}</Alert>}
 
-                <Typography variant="body2"><strong>Duration:</strong> {exam.duration_minutes} mins</Typography>
-                <Typography variant="body2"><strong>Marks:</strong> {exam.total_marks}</Typography>
-                <Typography variant="body2"><strong>Opens:</strong> {exam.access_start ? new Date(exam.access_start).toLocaleString() : 'N/A'}</Typography>
-                <Typography variant="body2"><strong>Closes:</strong> {exam.access_end ? new Date(exam.access_end).toLocaleString() : 'N/A'}</Typography>
-
-                <Box sx={{ mt: 2, textAlign: 'right' }}>
-                  {examObj.assigned && !examObj.attempted && isWithinAccessWindow(exam) && (
-                    <Button
-                      variant="contained"
-                      onClick={() => handleStartExam(exam.id)}
-                      disabled={startingExamId === exam.id}
-                    >
-                      {startingExamId === exam.id ? 'Starting...' : 'Start Exam'}
-                    </Button>
-                  )}
-                  {examObj.assigned && exam.results_released && (
-                    <Button variant="outlined" color="success" onClick={() => handleViewResults(exam.id)}>
-                      View Results
-                    </Button>
-                  )}
-                </Box>
+        <Grid container spacing={3}>
+          
+          <Grid item xs={12} md={8}>
+            {exams.length === 0 && !error ? (
+              <Paper sx={{ p: 5, textAlign: 'center', borderRadius: 3, bgcolor: 'white', border: '1px solid #e0e0e0' }}>
+                <AssignmentIcon sx={{ fontSize: 60, color: 'text.disabled', mb: 2 }} />
+                <Typography variant="h6" color="text.secondary">No exams assigned yet.</Typography>
               </Paper>
-            );
-          })}
-        </Stack>
+            ) : (
+              <Grid container spacing={3}>
+                {exams.map((examObj) => {
+                  const exam = examObj.exam;
+                  const status = getExamStatus(examObj);
+                  const active = isExamAvailable(examObj);
 
-        {/* --- Pagination Controls (Visible for both views) --- */}
-        {totalPages > 1 && (
-          <Box sx={{ display: 'flex', justifyContent: 'center', p: 1.5, mt: 2, backgroundColor: 'rgba(0,0,0,0.4)', borderRadius: 2 }}>
-            <Button disabled={currentPage === 1} onClick={() => setCurrentPage(currentPage - 1)} sx={{ color: 'white' }}>Previous</Button>
-            <Typography sx={{ color: 'white', alignSelf: 'center', mx: 2 }}>
-              Page {currentPage} of {totalPages}
-            </Typography>
-            <Button disabled={currentPage === totalPages} onClick={() => setCurrentPage(currentPage + 1)} sx={{ color: 'white' }}>Next</Button>
-          </Box>
-        )}
+                  return (
+                    <Grid item xs={12} sm={6} key={exam.id}>
+                      <Card 
+                        elevation={0}
+                        sx={{ 
+                          height: '100%', 
+                          display: 'flex', flexDirection: 'column', 
+                          borderRadius: 3,
+                          border: '1px solid #e0e0e0',
+                          overflow: 'hidden',
+                          transition: 'transform 0.2s, box-shadow 0.2s',
+                          '&:hover': { transform: 'translateY(-4px)', boxShadow: 4 }
+                        }}
+                      >
+                        <Box sx={{ bgcolor: status.bg, height: 6, width: '100%' }} />
+                        
+                        <CardContent sx={{ flexGrow: 1, p: 3 }}>
+                          <Stack direction="row" justifyContent="space-between" alignItems="start" mb={2}>
+                            <Chip 
+                              icon={status.icon} 
+                              label={status.label} 
+                              color={status.color} 
+                              size="small" 
+                              sx={{ fontWeight: 'bold' }} 
+                            />
+                            <Typography variant="caption" fontWeight={600} color="text.secondary">
+                              ID: {exam.id}
+                            </Typography>
+                          </Stack>
 
-        {/* --- NEW: Upcoming Assessments Section ---*/}
-        <Paper sx={{ p: 3, mt: 3, mb: 3, backgroundColor: 'rgba(255, 255, 255, 0.9)', backdropFilter: 'blur(10px)', borderRadius: 3 }}>
-          <Typography variant="h5" fontWeight={600} gutterBottom>Upcoming Assessments</Typography>
-          <Typography variant="subtitle1" color="text.secondary" sx={{ mb: 1 }}>Term 2</Typography>
+                          <Typography variant="h6" fontWeight={700} gutterBottom lineHeight={1.2}>
+                            {exam.title}
+                          </Typography>
+                          
+                          <Divider sx={{ my: 1.5 }} />
+
+                          <Stack spacing={1}>
+                            <Stack direction="row" alignItems="center" spacing={1}>
+                              <AccessTimeIcon fontSize="small" color="action" />
+                              <Typography variant="body2" color="text.secondary">
+                                Start: <strong>{formatDateTime(exam.access_start)}</strong>
+                              </Typography>
+                            </Stack>
+                            <Stack direction="row" alignItems="center" spacing={1}>
+                              <TimerIcon fontSize="small" color="action" />
+                              <Typography variant="body2" color="text.secondary">
+                                Duration: <strong>{exam.duration_minutes} mins</strong>
+                              </Typography>
+                            </Stack>
+                            <Stack direction="row" alignItems="center" spacing={1}>
+                              <AssignmentIcon fontSize="small" color="action" />
+                              <Typography variant="body2" color="text.secondary">
+                                Total Marks: <strong>{exam.total_marks}</strong>
+                              </Typography>
+                            </Stack>
+                          </Stack>
+                        </CardContent>
+
+                        <CardActions sx={{ p: 2, pt: 0, bgcolor: '#fafafa' }}>
+                          {active ? (
+                            <Button 
+                              fullWidth 
+                              variant="contained" 
+                              color="primary"
+                              size="large"
+                              onClick={() => handleStartExam(exam.id)}
+                              disabled={startingExamId === exam.id}
+                              startIcon={startingExamId === exam.id ? <CircularProgress size={20} color="inherit"/> : <PlayArrowIcon />}
+                            >
+                              {startingExamId === exam.id ? 'Loading...' : 'Start Exam'}
+                            </Button>
+                          ) : examObj.assigned && exam.results_released ? (
+                            <Button 
+                              fullWidth 
+                              variant="outlined" 
+                              color="success"
+                              onClick={() => navigate(`/exam/${exam.id}/results`)}
+                            >
+                              View Results
+                            </Button>
+                          ) : (
+                            <Button fullWidth variant="outlined" disabled>
+                              {status.label}
+                            </Button>
+                          )}
+                        </CardActions>
+                      </Card>
+                    </Grid>
+                  );
+                })}
+              </Grid>
+            )}
+          </Grid>
+
+          <Grid item xs={12} md={4}>
+            <Paper 
+              elevation={0} 
+              sx={{ 
+                p: 3, borderRadius: 3, 
+                bgcolor: 'white', 
+                border: '1px solid #e0e0e0',
+                position: 'sticky', top: 90 
+              }}
+            >
+              <Typography variant="h6" fontWeight={700} gutterBottom display="flex" alignItems="center">
+                <EventNoteIcon sx={{ mr: 1, color: 'primary.main' }} /> 
+                Upcoming
+              </Typography>
+              <Divider sx={{ mb: 2 }} />
+              
+              <List disablePadding>
+                {upcomingAssessments.map((assessment, index) => (
+                  <ListItem key={index} sx={{ px: 0 }}>
+                    <ListItemIcon sx={{ minWidth: 36 }}>
+                      <CheckCircleIcon color="success" fontSize="small" />
+                    </ListItemIcon>
+                    <ListItemText 
+                      primary={assessment} 
+                      primaryTypographyProps={{ variant: 'body2', fontWeight: 500 }} 
+                    />
+                  </ListItem>
+                ))}
+              </List>
+
+              <Box mt={4} p={2} bgcolor="#e3f2fd" borderRadius={2}>
+                <Typography variant="subtitle2" color="primary.main" gutterBottom fontWeight={700}>
+                  Did you know?
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Exams are auto-submitted when the timer runs out. Ensure you save your answers frequently.
+                </Typography>
+              </Box>
+            </Paper>
+          </Grid>
+
+        </Grid>
+      </Container>
+
+      <Dialog
+        open={isInstructionsOpen}
+        onClose={() => setIsInstructionsOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        TransitionComponent={Zoom}
+      >
+        <DialogTitle sx={{ bgcolor: 'primary.main', color: 'white', display: 'flex', alignItems: 'center', gap: 1 }}>
+          <InfoIcon /> Important Instructions
+        </DialogTitle>
+        <DialogContent sx={{ mt: 2 }}>
+          <DialogContentText paragraph fontWeight="bold">
+            Please review the rules before proceeding:
+          </DialogContentText>
           <List dense>
-            {upcomingAssessments.map((assessment, index) => (
-              <ListItem key={index} disablePadding>
-                <ListItemIcon sx={{ minWidth: '40px' }}>
-                  <EventNoteIcon color="primary" />
+            {examInstructions.map((text, index) => (
+              <ListItem key={index} alignItems="flex-start" disableGutters>
+                <ListItemIcon sx={{ minWidth: 32, mt: 0.5 }}>
+                  <CheckCircleIcon fontSize="small" color="action" />
                 </ListItemIcon>
-                <ListItemText primary={assessment} />
+                <ListItemText primary={text} />
               </ListItem>
             ))}
           </List>
-        </Paper>
+        </DialogContent>
+        <DialogActions sx={{ p: 2, bgcolor: '#f5f5f5' }}>
+          <Button onClick={() => setIsInstructionsOpen(false)} variant="contained" size="large" fullWidth>
+            I Understand & Agree
+          </Button>
+        </DialogActions>
+      </Dialog>
 
-
-        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-        {exams.length === 0 && !error && (
-          <Paper sx={{ p: 4, textAlign: 'center', backgroundColor: 'rgba(255, 255, 255, 0.8)', backdropFilter: 'blur(10px)' }}>
-            <Typography variant="h6">No exams have been assigned to you yet.</Typography>
-            <Typography color="text.secondary">Please check back later or contact your administrator.</Typography>
-          </Paper>
-        )}
-      </Container>
     </Box>
   );
 }

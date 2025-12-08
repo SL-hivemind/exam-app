@@ -1,0 +1,538 @@
+import React, { useEffect, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import {
+  Box,
+  Typography,
+  Button,
+  Paper,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  Grid,
+  Alert,
+  CircularProgress,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  FormControlLabel,
+  Checkbox,
+  Stack,
+  Chip,
+  Divider,
+  Tabs,
+  Tab,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  Tooltip,
+  InputAdornment
+} from "@mui/material";
+import {
+  ArrowBack as ArrowBackIcon,
+  Edit as EditIcon,
+  GroupAdd as GroupAddIcon,
+  Download as DownloadIcon,
+  Quiz as QuizIcon,
+  Event as EventIcon,
+  AccessTime as AccessTimeIcon,
+  School as SchoolIcon,
+  Grade as GradeIcon,
+  Publish as PublishIcon,
+  Unpublished as UnpublishIcon,
+  RestartAlt as RestartIcon,
+  Search as SearchIcon,
+  WarningAmber as WarningIcon // Imported for the danger dialog
+} from "@mui/icons-material";
+import { format } from "date-fns";
+import api from "../../utils/api";
+import useAuth from "../../hooks/useAuth";
+
+export default function AdminExamDetail() {
+  const { examId } = useParams();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+
+  const [exam, setExam] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  // --- TABS & STUDENTS LIST ---
+  const [tabIndex, setTabIndex] = useState(0);
+  const [studentList, setStudentList] = useState([]);
+  const [studentSearch, setStudentSearch] = useState("");
+  const [loadingStudents, setLoadingStudents] = useState(false);
+
+  // --- SAFE RESET STATE ---
+  const [resetDialog, setResetDialog] = useState({ open: false, studentId: null, studentName: '' });
+  const [confirmText, setConfirmText] = useState(""); 
+
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [assignSchoolId, setAssignSchoolId] = useState("");
+  const [assignClass, setAssignClass] = useState("");
+  const [assignStudentId, setAssignStudentId] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState(null);
+
+  // edit dialog state
+  const [editOpen, setEditOpen] = useState(false);
+  const [editBusy, setEditBusy] = useState(false);
+  const [editFields, setEditFields] = useState({
+    title: "", description: "", duration_minutes: 60,
+    access_start: "", access_end: "", results_released: false,
+    school_id: "", total_marks: 0,
+  });
+
+  const [schools, setSchools] = useState([]);
+  const [loadingSchools, setLoadingSchools] = useState(false);
+
+  const getBasePath = () => {
+    if (user?.role === 'school_admin') return '/school';
+    return '/admin';
+  };
+  const basePath = getBasePath();
+
+  useEffect(() => {
+    fetchExamData();
+  }, [examId]);
+
+  useEffect(() => {
+    if (tabIndex === 1) {
+        fetchStudentAttempts();
+    }
+  }, [tabIndex]);
+
+  const fetchExamData = () => {
+    if (!examId) return;
+    setLoading(true);
+    api.get(`/admin/exams/${examId}`)
+      .then((res) => {
+        setExam(res.data.exam);
+        const e = res.data.exam || {};
+        setEditFields({
+          title: e.title || "",
+          description: e.description || "",
+          duration_minutes: e.duration_minutes || 60,
+          access_start: e.access_start || "",
+          access_end: e.access_end || "",
+          results_released: !!e.results_released,
+          school_id: e.school_id || "",
+          total_marks: e.total_marks || 0,
+        });
+      })
+      .catch((err) => setError(err.response?.data?.message || "failed to load exam"))
+      .finally(() => setLoading(false));
+  };
+
+  const fetchStudentAttempts = async () => {
+    setLoadingStudents(true);
+    try {
+        const res = await api.get(`/admin/exams/${examId}/attempts`);
+        setStudentList(res.data.students || []);
+    } catch (err) {
+        console.error(err);
+        setMsg({ type: 'error', text: "Failed to load student list" });
+    } finally {
+        setLoadingStudents(false);
+    }
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    async function getSchools() {
+      try {
+        setLoadingSchools(true);
+        const res = await api.get("/admin/schools");
+        if (cancelled) return;
+        setSchools(res.data.schools || []);
+      } catch (e) {
+        console.error("failed to fetch schools", e);
+      } finally {
+        if (!cancelled) setLoadingSchools(false);
+      }
+    }
+    getSchools();
+    return () => { cancelled = true; };
+  }, []);
+
+  // --- ACTUAL RESET API CALL ---
+  const executeReset = async () => {
+      try {
+          await api.delete(`/admin/exams/${examId}/attempts/${resetDialog.studentId}`);
+          setMsg({ type: 'success', text: `Attempt reset for ${resetDialog.studentName}` });
+          fetchStudentAttempts(); 
+          setResetDialog({ ...resetDialog, open: false }); // Close dialog
+      } catch (err) {
+          setMsg({ type: 'error', text: err.response?.data?.message || "Reset failed" });
+      }
+  };
+
+  const formatDate = (isoString) => {
+    if (!isoString) return "Not Scheduled";
+    try { return format(new Date(isoString), "PPp"); } catch { return isoString; }
+  };
+
+  const handleToggleRelease = async () => {
+    try {
+        setBusy(true);
+        const newStatus = !exam.results_released;
+        await api.put(`/admin/exams/${examId}`, { results_released: newStatus });
+        setExam(prev => ({ ...prev, results_released: newStatus }));
+        setMsg({ 
+            type: newStatus ? "success" : "info", 
+            text: newStatus ? "Results RELEASED to students." : "Results HIDDEN from students." 
+        });
+    } catch (err) {
+        setMsg({ type: "error", text: "Failed to update status" });
+    } finally {
+        setBusy(false);
+    }
+  };
+
+  const handleDownloadAttempts = async () => {
+    try {
+      setBusy(true);
+      const resp = await api.get(`/admin/export_student_attempts`, {
+        params: { exam_id: examId },
+        responseType: "blob",
+      });
+
+      const contentType = resp.headers["content-type"] || "";
+      if (contentType.includes("application/json")) {
+        const text = await resp.data.text();
+        let j;
+        try { j = JSON.parse(text); } catch (e) { j = { message: text }; }
+        setMsg({ type: "error", text: j.detail || j.message || "export failed" });
+        return;
+      }
+
+      const url = window.URL.createObjectURL(new Blob([resp.data]));
+      const a = document.createElement("a");
+      a.href = url;
+      a.setAttribute("download", `exam_${examId}_attempts.xlsx`);
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      setMsg({ type: "error", text: "Export failed" });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleAssign = async () => {
+    if (!assignStudentId && !assignSchoolId && !assignClass) {
+      setMsg({ type: "warning", text: "please choose a school/class or enter a student id" });
+      return;
+    }
+    try {
+      setBusy(true);
+      if (assignStudentId) {
+        const res = await api.post(`/admin/exams/${examId}/assign/student`, { student_id: assignStudentId });
+        setMsg({ type: "success", text: res.data.message || "student assigned" });
+      } else {
+        const payload = {
+          school_id: assignSchoolId || undefined,
+          class_number: assignClass || undefined,
+          replace: false,
+        };
+        const res = await api.post(`/admin/exams/${examId}/assign`, payload);
+        setMsg({ type: "success", text: res.data.message || "assignment completed" });
+      }
+      setAssignOpen(false);
+    } catch (err) {
+      setMsg({
+        type: "error",
+        text: err.response?.data?.message || err.response?.data?.detail || err.message || "assignment failed",
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const openEditDialog = () => {
+    if (exam) {
+      setEditFields({
+        title: exam.title || "",
+        description: exam.description || "",
+        duration_minutes: exam.duration_minutes || 60,
+        access_start: exam.access_start || "",
+        access_end: exam.access_end || "",
+        results_released: !!exam.results_released,
+        school_id: exam.school_id || "",
+        total_marks: exam.total_marks || 0,
+      });
+    }
+    setEditOpen(true);
+  };
+
+  const handleEditSave = async () => {
+    try {
+      setEditBusy(true);
+      const payload = {
+        title: editFields.title,
+        description: editFields.description,
+        access_start: editFields.access_start || null,
+        access_end: editFields.access_end || null,
+        duration_minutes: parseInt(editFields.duration_minutes || 0, 10),
+        total_marks: parseInt(editFields.total_marks || 0, 10),
+        results_released: !!editFields.results_released,
+      };
+      await api.put(`/admin/exams/${examId}`, payload);
+      fetchExamData(); 
+      setMsg({ type: "success", text: "Exam updated successfully" });
+      setEditOpen(false);
+    } catch (err) {
+      setMsg({ type: "error", text: err.response?.data?.message || "Update failed" });
+    } finally {
+      setEditBusy(false);
+    }
+  };
+
+  const setField = (k, v) => setEditFields((s) => ({ ...s, [k]: v }));
+
+  const filteredStudents = studentList.filter(s => 
+     s.name.toLowerCase().includes(studentSearch.toLowerCase()) || 
+     s.student_id.toLowerCase().includes(studentSearch.toLowerCase())
+  );
+
+  if (loading) return <Box p={4} display="flex" justifyContent="center"><CircularProgress /></Box>;
+  if (error) return <Box p={4}><Alert severity="error">{error}</Alert></Box>;
+  if (!exam) return null;
+
+  return (
+    <Box sx={{ p: 3, bgcolor: '#f5f7fa', minHeight: '100vh' }}>
+      
+      <Stack direction="row" spacing={2} alignItems="center" mb={3}>
+        <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(`${basePath}/exams`)} sx={{ color: 'text.secondary' }}>Back</Button>
+        <Typography variant="h5" fontWeight={700} color="text.primary">Exam Details</Typography>
+      </Stack>
+
+      {msg && <Alert severity={msg.type} onClose={() => setMsg(null)} sx={{ mb: 3 }}>{msg.text}</Alert>}
+
+      <Paper sx={{ mb: 3 }}>
+          <Tabs value={tabIndex} onChange={(e, v) => setTabIndex(v)} indicatorColor="primary" textColor="primary">
+              <Tab label="Overview & Actions" />
+              <Tab label="Student Progress & Re-attempt" />
+          </Tabs>
+      </Paper>
+
+      {/* === TAB 0: OVERVIEW === */}
+      {tabIndex === 0 && (
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={8}>
+                <Paper elevation={0} sx={{ p: 3, borderRadius: 2, border: '1px solid #e0e0e0', height: '100%' }}>
+                    <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+                        <Box>
+                            <Typography variant="h4" fontWeight={700} color="primary.main" gutterBottom>{exam.title}</Typography>
+                            <Typography variant="body1" color="text.secondary" paragraph>{exam.description}</Typography>
+                        </Box>
+                        <Chip 
+                            label={exam.results_released ? "Released" : "Draft/Hidden"} 
+                            color={exam.results_released ? "success" : "warning"}
+                            variant={exam.results_released ? "filled" : "outlined"}
+                        />
+                    </Stack>
+                    <Divider sx={{ my: 3 }} />
+                    <Grid container spacing={3}>
+                        <Grid item xs={4}>
+                            <Typography variant="caption">Duration</Typography>
+                            <Typography variant="subtitle1" fontWeight={600}>{exam.duration_minutes} min</Typography>
+                        </Grid>
+                        <Grid item xs={4}>
+                            <Typography variant="caption">Total Marks</Typography>
+                            <Typography variant="subtitle1" fontWeight={600}>{exam.total_marks}</Typography>
+                        </Grid>
+                        <Grid item xs={4}>
+                             <Typography variant="caption">Assigned</Typography>
+                            <Typography variant="subtitle1" fontWeight={600}>{exam.assigned_users?.length || 0}</Typography>
+                        </Grid>
+                    </Grid>
+                </Paper>
+            </Grid>
+
+            <Grid item xs={12} md={4}>
+                <Paper elevation={0} sx={{ p: 3, borderRadius: 2, border: '1px solid #e0e0e0', height: '100%' }}>
+                    <Typography variant="h6" fontWeight={700} gutterBottom>Actions</Typography>
+                    <Stack spacing={2}>
+                        <Button variant="contained" color={exam.results_released ? "warning" : "success"} startIcon={exam.results_released ? <UnpublishIcon /> : <PublishIcon />} onClick={handleToggleRelease} fullWidth>
+                            {exam.results_released ? "Unpublish Results" : "Release Results"}
+                        </Button>
+                        <Button variant="outlined" startIcon={<QuizIcon />} onClick={() => navigate(`${basePath}/exams/${examId}/questions`)} fullWidth>Manage Questions</Button>
+                        <Button variant="outlined" startIcon={<GroupAddIcon />} onClick={() => setAssignOpen(true)} fullWidth>Assign Students</Button>
+                        <Button variant="outlined" startIcon={<EditIcon />} onClick={() => setEditOpen(true)} fullWidth>Edit Details</Button>
+                        <Divider />
+                        <Button variant="contained" color="secondary" startIcon={<DownloadIcon />} onClick={handleDownloadAttempts} fullWidth>Download Excel</Button>
+                    </Stack>
+                </Paper>
+            </Grid>
+          </Grid>
+      )}
+
+      {/* === TAB 1: STUDENT PROGRESS === */}
+      {tabIndex === 1 && (
+          <Paper sx={{ p: 3 }}>
+              <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+                  <Typography variant="h6">Student Attempts</Typography>
+                  <TextField 
+                    size="small" 
+                    placeholder="Search student..." 
+                    value={studentSearch} 
+                    onChange={(e) => setStudentSearch(e.target.value)} 
+                    InputProps={{ endAdornment: <SearchIcon color="action" /> }}
+                  />
+              </Stack>
+              
+              <Table>
+                  <TableHead>
+                      <TableRow>
+                          <TableCell>Student ID</TableCell>
+                          <TableCell>Name</TableCell>
+                          <TableCell>Status</TableCell>
+                          <TableCell>Score</TableCell>
+                          <TableCell>Started At</TableCell>
+                          <TableCell align="right">Actions</TableCell>
+                      </TableRow>
+                  </TableHead>
+                  <TableBody>
+                      {loadingStudents ? (
+                          <TableRow><TableCell colSpan={6} align="center"><CircularProgress /></TableCell></TableRow>
+                      ) : filteredStudents.length === 0 ? (
+                          <TableRow><TableCell colSpan={6} align="center">No students found.</TableCell></TableRow>
+                      ) : (
+                          filteredStudents.map((s) => (
+                              <TableRow key={s.user_id}>
+                                  <TableCell>{s.student_id}</TableCell>
+                                  <TableCell>{s.name}</TableCell>
+                                  <TableCell>
+                                      <Chip 
+                                        label={s.status} 
+                                        color={s.status === 'Completed' ? 'success' : s.status === 'Discontinued' ? 'error' : 'default'} 
+                                        size="small" 
+                                      />
+                                  </TableCell>
+                                  <TableCell>{s.score !== null ? s.score : '-'}</TableCell>
+                                  <TableCell>{s.start_time ? new Date(s.start_time).toLocaleString() : '-'}</TableCell>
+                                  <TableCell align="right">
+                                      {/* RE-ATTEMPT BUTTON (Triggers Dialog) */}
+                                      {(s.status === 'Completed' || s.status === 'Discontinued') && (
+                                          <Tooltip title="Reset Attempt (Allows Re-exam)">
+                                              <Button 
+                                                size="small" 
+                                                color="error" 
+                                                startIcon={<RestartIcon />} 
+                                                onClick={() => {
+                                                    setResetDialog({ open: true, studentId: s.user_id, studentName: s.name });
+                                                    setConfirmText("");
+                                                }}
+                                              >
+                                                  Reset
+                                              </Button>
+                                          </Tooltip>
+                                      )}
+                                  </TableCell>
+                              </TableRow>
+                          ))
+                      )}
+                  </TableBody>
+              </Table>
+          </Paper>
+      )}
+
+      {/* --- DIALOGS --- */}
+      
+      {/* 1. ASSIGN DIALOG */}
+      <Dialog open={assignOpen} onClose={() => setAssignOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Assign Students</DialogTitle>
+        <DialogContent dividers>
+          <Grid container spacing={2}>
+            <Grid item xs={12}>
+              <FormControl fullWidth>
+                <InputLabel>Select School</InputLabel>
+                <Select value={assignSchoolId} label="Select School" onChange={(e) => setAssignSchoolId(e.target.value)}>
+                  <MenuItem value=""><em>None</em></MenuItem>
+                  {schools.map((s) => <MenuItem key={s.id} value={s.id}>{s.name} ({s.code})</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12}><TextField label="Class (Optional)" value={assignClass} onChange={(e) => setAssignClass(e.target.value)} fullWidth /></Grid>
+            <Grid item xs={12}><TextField label="Single Student ID (Optional)" value={assignStudentId} onChange={(e) => setAssignStudentId(e.target.value)} fullWidth /></Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}><Button onClick={() => setAssignOpen(false)}>Cancel</Button><Button onClick={handleAssign} variant="contained" disabled={busy}>Assign</Button></DialogActions>
+      </Dialog>
+      
+      {/* 2. EDIT DIALOG */}
+      <Dialog open={editOpen} onClose={() => setEditOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Edit Exam</DialogTitle>
+        <DialogContent dividers>
+            <Grid container spacing={3}>
+                <Grid item xs={12}><TextField label="Exam Title" value={editFields.title} onChange={(e)=>setField('title', e.target.value)} fullWidth /></Grid>
+                <Grid item xs={12}><TextField label="Description" value={editFields.description} onChange={(e)=>setField('description', e.target.value)} fullWidth multiline rows={3} /></Grid>
+                <Grid item xs={6}><TextField label="Start (ISO)" value={editFields.access_start || ""} onChange={(e)=>setField('access_start', e.target.value)} fullWidth /></Grid>
+                <Grid item xs={6}><TextField label="End (ISO)" value={editFields.access_end || ""} onChange={(e)=>setField('access_end', e.target.value)} fullWidth /></Grid>
+                <Grid item xs={6}><TextField label="Duration (min)" type="number" value={editFields.duration_minutes} onChange={(e)=>setField('duration_minutes', e.target.value)} fullWidth /></Grid>
+                <Grid item xs={6}><TextField label="Total Marks" type="number" value={editFields.total_marks} onChange={(e)=>setField('total_marks', e.target.value)} fullWidth /></Grid>
+            </Grid>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}><Button onClick={() => setEditOpen(false)}>Cancel</Button><Button onClick={handleEditSave} variant="contained" disabled={editBusy}>Save</Button></DialogActions>
+      </Dialog>
+
+      {/* 3. SAFE RESET CONFIRMATION DIALOG */}
+      <Dialog 
+        open={resetDialog.open} 
+        onClose={() => setResetDialog({ ...resetDialog, open: false })}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle sx={{ color: 'error.main', display: 'flex', alignItems: 'center', gap: 1 }}>
+          <WarningIcon /> Confirm Reset
+        </DialogTitle>
+        
+        <DialogContent>
+          <Typography variant="body2" paragraph>
+            You are about to delete the exam attempt for <strong>{resetDialog.studentName}</strong>.
+          </Typography>
+          
+          <Alert severity="error" sx={{ mb: 2 }}>
+            <strong>Warning:</strong> This action cannot be undone. All answers and scores for this student will be permanently lost.
+          </Alert>
+
+          <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
+            Type <strong>{resetDialog.studentName}</strong> below to confirm.
+          </Typography>
+
+          <TextField
+            autoFocus
+            fullWidth
+            size="small"
+            placeholder="Type student name here"
+            value={confirmText}
+            onChange={(e) => setConfirmText(e.target.value)}
+            error={confirmText.length > 0 && confirmText !== resetDialog.studentName}
+          />
+        </DialogContent>
+        
+        <DialogActions sx={{ p: 2, bgcolor: '#fef2f2' }}>
+          <Button onClick={() => setResetDialog({ ...resetDialog, open: false })} color="inherit">
+            Cancel
+          </Button>
+          <Button 
+            variant="contained" 
+            color="error"
+            disabled={confirmText !== resetDialog.studentName}
+            onClick={executeReset}
+          >
+            Delete & Reset
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+    </Box>
+  );
+}

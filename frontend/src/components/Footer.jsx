@@ -2,14 +2,14 @@
 import React, { useState } from "react";
 import { 
   Box, Typography, Link, Container, Grid, IconButton, Stack,
-  Dialog, DialogTitle, DialogContent, DialogActions, Button 
+  Dialog, DialogTitle, DialogContent, DialogActions, Button, Divider
 } from "@mui/material";
 import XIcon from '@mui/icons-material/X';
 import InstagramIcon from '@mui/icons-material/Instagram';
 import PinterestIcon from '@mui/icons-material/Pinterest';
 import YouTubeIcon from '@mui/icons-material/YouTube';
 import LinkedInIcon from '@mui/icons-material/LinkedIn';
-import LanguageIcon from '@mui/icons-material/Language';
+import SchoolIcon from "@mui/icons-material/School";
 
 export default function Footer() {
   const [openAbout, setOpenAbout] = useState(false);
@@ -19,80 +19,95 @@ export default function Footer() {
       <Box
         component="footer"
         sx={{
-          backgroundColor: '#ff6600ee', // Deep orange
-          color: 'white',
-          py: 6,
+          backgroundColor: '#0d1b2a', // Dark Navy for contrast with the Blue Navbar
+          color: 'rgba(255,255,255,0.8)',
+          py: 8,
           mt: 'auto'
         }}
       >
-        <Container maxWidth="lg">
-          <Grid container spacing={4}>
+        <Container maxWidth="xl">
+          <Grid container spacing={6}>
 
             {/* Column 1: Brand and Mission */}
-            <Grid item xs={12} sm={4}>
+            <Grid item xs={12} md={4}>
               <Box display="flex" alignItems="center" mb={2}>
-                <img
-                  src="/SLlogo.png"
-                  alt="Logo"
-                  style={{ width: '50px', height: '50px', marginRight: '10px', backgroundColor: 'white', padding: '4px', borderRadius: '8px' }}
-                />
-                <Typography variant="h6" fontWeight={700}>
-                  SAARADAA LEARKNOWATIONS
+                <SchoolIcon sx={{ fontSize: 40, mr: 1, color: 'white' }} />
+                <Typography variant="h5" fontWeight={800} color="white">
+                  SL EXAMS
                 </Typography>
               </Box>
-              <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.8)' }}>
-                Providing a seamless and secure online examination experience to empower educational institutions.
+              <Typography variant="body2" sx={{ lineHeight: 1.8, maxWidth: 300 }}>
+                A unit of Saaradaa Learknowations. We are dedicated to revolutionizing education through secure assessments, high-quality publications, and comprehensive school support services.
               </Typography>
+              
+              <Box sx={{ mt: 3, display: 'flex', gap: 1 }}>
+                <IconButton href="https://x.com/saradapubl" target="_blank" sx={{ color: 'white', bgcolor: 'rgba(255,255,255,0.1)' }}><XIcon /></IconButton>
+                <IconButton href="https://www.linkedin.com/company/sarada-publications" target="_blank" sx={{ color: 'white', bgcolor: 'rgba(255,255,255,0.1)' }}><LinkedInIcon /></IconButton>
+                <IconButton href="https://www.instagram.com/saradapublications" target="_blank" sx={{ color: 'white', bgcolor: 'rgba(255,255,255,0.1)' }}><InstagramIcon /></IconButton>
+              </Box>
             </Grid>
 
-            {/* Column 2: Our Websites */}
-            <Grid item xs={12} sm={2}>
-              <Typography variant="h6" gutterBottom>
-                Websites
+            {/* Column 2: Quick Links */}
+            <Grid item xs={6} md={2}>
+              <Typography variant="subtitle1" fontWeight={700} color="white" gutterBottom>
+                Platform
               </Typography>
-              <Stack spacing={1}>
-                <Link href="https://e2eindia.org" target="_blank" rel="noopener" color="inherit" underline="hover" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><LanguageIcon fontSize="small"/> e2eindia.org</Link>
-                <Link href="https://journal.e2eindia.org/" target="_blank" rel="noopener" color="inherit" underline="hover" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><LanguageIcon fontSize="small"/> Our Journals</Link>
+              <Stack spacing={1.5}>
+                <Link href="#" color="inherit" underline="hover" onClick={(e) => { e.preventDefault(); document.getElementById('services')?.scrollIntoView({behavior:'smooth'})}}>Services</Link>
+                <Link href="#" color="inherit" underline="hover" onClick={(e) => { e.preventDefault(); document.getElementById('exams')?.scrollIntoView({behavior:'smooth'})}}>Exams</Link>
+                <Link href="#" color="inherit" underline="hover" onClick={(e) => { e.preventDefault(); document.getElementById('publications')?.scrollIntoView({behavior:'smooth'})}}>Publications</Link>
+                <Link href="/login" color="inherit" underline="hover">Student Login</Link>
+                <Link href="/register" color="inherit" underline="hover">Register School</Link>
               </Stack>
             </Grid>
 
-            {/* Column 3: About & Feedback */}
-            <Grid item xs={12} sm={3}>
-              <Typography variant="h6" gutterBottom>
-                Information
+            {/* Column 3: Resources */}
+            <Grid item xs={6} md={3}>
+              <Typography variant="subtitle1" fontWeight={700} color="white" gutterBottom>
+                Resources
               </Typography>
-              <Link component="button" variant="body2" onClick={() => setOpenAbout(true)} color="inherit" display="block" underline="hover" sx={{ mb: 1, textAlign: 'left', p: 0 }}>
-                About Us
-              </Link>
-              <Link href="mailto:Saradapublications18@gmail.com" color="inherit" display="block" underline="hover" sx={{ textAlign: 'left', p: 0 }}>
-                Send Feedback
-              </Link>
+              <Stack spacing={1.5}>
+                <Link href="https://e2eindia.org" target="_blank" color="inherit" underline="hover">E2E India</Link>
+                <Link href="https://journal.e2eindia.org/" target="_blank" color="inherit" underline="hover">Scientific Journals</Link>
+                <Link component="button" variant="body2" onClick={() => setOpenAbout(true)} color="inherit" underline="hover" sx={{ textAlign:'left' }}>
+                  About Us
+                </Link>
+                <Link href="mailto:Saradapublications18@gmail.com" color="inherit" underline="hover">
+                  Report an Issue
+                </Link>
+              </Stack>
             </Grid>
-            
-            {/* Column 4: Social Media */}
-            <Grid item xs={12} sm={3}>
-              <Typography variant="h6" gutterBottom>
-                Follow Us
+
+            {/* Column 4: Contact */}
+            <Grid item xs={12} md={3}>
+              <Typography variant="subtitle1" fontWeight={700} color="white" gutterBottom>
+                Contact Us
               </Typography>
-              <IconButton href="https://x.com/saradapubl" target="_blank" rel="noopener" aria-label="X" sx={{ color: 'white' }}><XIcon /></IconButton>
-              <IconButton href="https://www.instagram.com/saradapublications" target="_blank" rel="noopener" aria-label="Instagram" sx={{ color: 'white' }}><InstagramIcon /></IconButton>
-              <IconButton href="https://in.pinterest.com/infosaradapublications/" target="_blank" rel="noopener" aria-label="Pinterest" sx={{ color: 'white' }}><PinterestIcon /></IconButton>
-              <IconButton href="https://www.youtube.com/@saradapublications-v1l" target="_blank" rel="noopener" aria-label="YouTube" sx={{ color: 'white' }}><YouTubeIcon /></IconButton>
-              <IconButton href="https://www.linkedin.com/company/sarada-publications" target="_blank" rel="noopener" aria-label="LinkedIn" sx={{ color: 'white' }}><LinkedInIcon /></IconButton>
+              <Typography variant="body2" paragraph>
+                Hyderabad, Telangana, India
+              </Typography>
+              <Typography variant="body2" paragraph>
+                <strong>Email:</strong> support@slexams.com<br/>
+                <strong>Phone:</strong> +91 98765 43210
+              </Typography>
+              <Button variant="outlined" color="inherit" size="small" href="mailto:Saradapublications18@gmail.com">
+                Send Message
+              </Button>
             </Grid>
 
           </Grid>
-          
-          {/* Bottom Bar with Copyright */}
-          <Box sx={{ mt: 5, pt: 3, borderTop: '1px solid rgba(255, 255, 255, 0.2)', textAlign: 'center' }}>
-            <Typography variant="body2">
-              © {new Date().getFullYear()} Saaradaa Learknowations. All Rights Reserved.
+
+          <Divider sx={{ my: 4, borderColor: 'rgba(255,255,255,0.1)' }} />
+
+          <Box textAlign="center">
+            <Typography variant="caption" sx={{ opacity: 0.6 }}>
+              © {new Date().getFullYear()} Saaradaa Learknowations. Recognized by DPIIT and MSME, Govt of India.
             </Typography>
           </Box>
         </Container>
       </Box>
 
-      {/* About Us Dialog (Modal) */}
+      {/* About Us Dialog */}
       <Dialog open={openAbout} onClose={() => setOpenAbout(false)} maxWidth="md">
         <DialogTitle variant="h4">About Saaradaa Learknowations</DialogTitle>
         <DialogContent>

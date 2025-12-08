@@ -1,675 +1,501 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from "react";
 import {
   Box,
-  Typography,
-  TextField,
   Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  Tabs,
+  Tab,
+  Typography,
+  Grid,
+  Paper,
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableRow,
-  IconButton,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Paper,
-  Alert,
-  Grid, Stack, Tabs, Tab,
-  Switch,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
   Checkbox,
-  FormControlLabel,
-} from '@mui/material';
-import EditIcon from '@mui/icons-material/Edit';
-import DeleteIcon from '@mui/icons-material/Delete';
-import AddIcon from '@mui/icons-material/Add';
-import UploadIcon from '@mui/icons-material/Upload';
-import DownloadIcon from '@mui/icons-material/Download';
-import api from '../../utils/api';
-import useAuth from '../../hooks/useAuth';
+  IconButton,
+  CircularProgress,
+  Snackbar,
+  Alert,
+  Stack,
+  Chip,
+  InputAdornment,
+  Divider,
+  FormControl, 
+  InputLabel, 
+  Select, 
+  MenuItem
+} from "@mui/material";
+import { 
+  Add as AddIcon, 
+  Search as SearchIcon, 
+  Visibility as ViewIcon, 
+  Quiz as QuizIcon, 
+  Event as EventIcon,
+  Timer as TimerIcon
+} from "@mui/icons-material";
+import { formatISO, format, parseISO } from "date-fns"; // Added parseISO
+import api from "../../utils/api";
+import useAuth from "../../hooks/useAuth";
+import { useNavigate } from "react-router-dom";
+
+// --- NEW IMPORTS FOR CALENDAR ---
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 
 export default function AdminExams() {
-  const { authToken } = useAuth();
+  const { user } = useAuth();
+  const navigate = useNavigate();
+
   const [exams, setExams] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [openDialog, setOpenDialog] = useState(false);
-  const [currentExam, setCurrentExam] = useState({
-    id: null,
-    title: '',
-    description: '',
-    access_start: '',
-    access_end: '',
-    duration_minutes: '',
-    total_marks: '',
-    school_id: ''
-  });
-  const [isEdit, setIsEdit] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [schools, setSchools] = useState([]);
-  const [openQuestionDialog, setOpenQuestionDialog] = useState(false);
-  const [currentQuestion, setCurrentQuestion] = useState({
-    text: '',
-    option_a: '',
-    option_b: '',
-    option_c: '',
-    option_d: '',
-    correct_answer: '',
-    marks: 1,
-    image_path: ''
-  });
-  const [selectedExamId, setSelectedExamId] = useState(null);
-  const [openAssignmentDialog, setOpenAssignmentDialog] = useState(false);
-  const [assignmentFilters, setAssignmentFilters] = useState({
-    assign_all: false,
-    school_id: '',
-    class: '',
-    roll_number: '',
-    student_ids: ''
-  });
-  const [imageFile, setImageFile] = useState(null);
-  const [questionTab, setQuestionTab] = useState(0);
-  const [csvFile, setCsvFile] = useState(null);
+  const [filteredExams, setFilteredExams] = useState([]);
+  const [loadingExams, setLoadingExams] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  // create dialog
+  const [openCreate, setOpenCreate] = useState(false);
+  const [createTab, setCreateTab] = useState(0); 
+
+  // common create fields
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [duration, setDuration] = useState(60);
+  
+  // Dates stored as Date objects locally for the picker, converted to string for API
+  const [accessStart, setAccessStart] = useState(null);
+  const [accessEnd, setAccessEnd] = useState(null);
+  
+  const [schoolId, setSchoolId] = useState("");
+
+  // repository flow state
+  const [repoClass, setRepoClass] = useState("");
+  const [repoSubject, setRepoSubject] = useState("");
+  const [repoSearch, setRepoSearch] = useState("");
+  const [repoQuestions, setRepoQuestions] = useState([]);
+  const [repoLoading, setRepoLoading] = useState(false);
+  const [selectedRepoIds, setSelectedRepoIds] = useState(new Set());
+  const [repoPage, setRepoPage] = useState(1);
+
+  // ui
+  const [busy, setBusy] = useState(false);
+  const [snack, setSnack] = useState({ open: false, severity: "success", message: "" });
+
+  const getBasePath = () => {
+    if (user?.role === 'school_admin') return '/school';
+    return '/admin';
+  };
+  const basePath = getBasePath();
+  const isSchoolAdmin = user?.role === 'school_admin';
 
   useEffect(() => {
     fetchExams();
-    fetchSchools();
-  }, [authToken]);
+  }, []);
 
-  const fetchExams = async () => {
+  useEffect(() => {
+    if (!searchTerm) {
+      setFilteredExams(exams);
+    } else {
+      const lower = searchTerm.toLowerCase();
+      setFilteredExams(exams.filter(e => e.title.toLowerCase().includes(lower)));
+    }
+  }, [searchTerm, exams]);
+
+  async function fetchExams() {
     try {
-      const res = await api.get('/admin/exams');
+      setLoadingExams(true);
+      const res = await api.get("/admin/exams");
       setExams(res.data.exams || []);
-      setError('');
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to fetch exams');
-      console.error('Error fetching exams:', err);
+    } catch (e) {
+      console.error("fetchExams:", e);
+      setSnack({ open: true, severity: "error", message: "failed to load exams" });
+    } finally {
+      setLoadingExams(false);
+    }
+  }
+
+  function openCreateDialog() {
+    setCreateTab(0);
+    setTitle("");
+    setDescription("");
+    setDuration(60);
+    setAccessStart(null);
+    setAccessEnd(null);
+    setSchoolId(""); 
+    setSelectedRepoIds(new Set());
+    setRepoQuestions([]);
+    setOpenCreate(true);
+  }
+
+  function closeCreate() {
+    setOpenCreate(false);
+  }
+
+  const formatDate = (isoString) => {
+    if (!isoString) return "—";
+    try {
+      return format(new Date(isoString), "MMM d, yyyy HH:mm");
+    } catch {
+      return isoString;
     }
   };
 
-  const fetchSchools = async () => {
-    try {
-      const res = await api.get('/admin/schools');
-      setSchools(res.data.schools || []);
-    } catch (err) {
-      console.error('Error fetching schools:', err);
+  async function handleManualCreate() {
+    if (!title.trim()) {
+      setSnack({ open: true, severity: "warning", message: "Title is required" });
+      return;
     }
-  };
-
-  const handleOpenDialog = (exam = { id: null, title: '', description: '', access_start: '', access_end: '', duration_minutes: '', total_marks: '', school_id: '' }) => {
-    setCurrentExam({
-      id: exam.id,
-      title: exam.title || '',
-      description: exam.description || '',
-      access_start: exam.access_start || '',
-      access_end: exam.access_end || '',
-      duration_minutes: exam.duration_minutes || '',
-      total_marks: exam.total_marks || '',
-      school_id: exam.school_id || ''
-    });
-    setIsEdit(!!exam.id);
-    setOpenDialog(true);
-  };
-
-  const handleCloseDialog = () => {
-    setOpenDialog(false);
-    setCurrentExam({
-      id: null,
-      title: '',
-      description: '',
-      access_start: '',
-      access_end: '',
-      duration_minutes: '',
-      total_marks: '',
-      school_id: ''
-    });
-  };
-
-  const handleChange = (e) => {
-    setCurrentExam({ ...currentExam, [e.target.name]: e.target.value });
-  };
-
-  const handleSaveExam = async () => {
     try {
-      const url = currentExam.id ? `/admin/exams/${currentExam.id}` : '/admin/exams';
-      const method = currentExam.id ? 'put' : 'post';
-
-      const data = {
-        title: currentExam.title,
-        description: currentExam.description,
-        access_start: currentExam.access_start || null,
-        access_end: currentExam.access_end || null,
-        duration_minutes: parseInt(currentExam.duration_minutes) || 60,
-        total_marks: parseInt(currentExam.total_marks) || 0,
-        school_id: parseInt(currentExam.school_id) || null
+      setBusy(true);
+      const payload = {
+        title: title.trim(),
+        description,
+        duration_minutes: parseInt(duration, 10) || 60,
+        // Convert Date objects to ISO Strings for backend
+        access_start: accessStart ? accessStart.toISOString() : null,
+        access_end: accessEnd ? accessEnd.toISOString() : null,
+        school_id: schoolId || null,
       };
-
-      await api[method](url, data);
-
+      const res = await api.post("/admin/exams", payload);
+      setSnack({ open: true, severity: "success", message: "Exam created successfully" });
+      closeCreate();
       fetchExams();
-      handleCloseDialog();
-      setError('');
-      setSuccess('Exam saved successfully');
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to save exam');
-      console.error('Error saving exam:', err);
-    }
-  };
-
-  const handleDeleteExam = async (id) => {
-    if (window.confirm('Are you sure you want to delete this exam?')) {
-      try {
-        await api.delete(`/admin/exams/${id}`);
-        fetchExams();
-        setError('');
-        setSuccess('Exam deleted successfully');
-      } catch (err) {
-        setError(err.response?.data?.message || 'Failed to delete exam');
-        console.error('Error deleting exam:', err);
-      }
-    }
-  };
-
-  const handleToggleResults = async (id, currentResults) => {
-    try {
-      await api.put(`/admin/exams/${id}`, { results_released: !currentResults });
-      fetchExams();
-      setError('');
-      setSuccess('Results release toggled successfully');
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to toggle results release');
-      console.error('Error toggling results release:', err);
-    }
-  };
-
-  const handleOpenQuestionDialog = (examId) => {
-    setSelectedExamId(examId);
-    setOpenQuestionDialog(true);
-  };
-
-  const handleCloseQuestionDialog = () => {
-    setOpenQuestionDialog(false);
-    setCurrentQuestion({
-      text: '',
-      option_a: '',
-      option_b: '',
-      option_c: '',
-      option_d: '',
-      correct_answer: '',
-      marks: 1,
-      image_path: ''
-    });
-    setCsvFile(null);
-  };
-
-  const handleQuestionChange = (e) => {
-    setCurrentQuestion({ ...currentQuestion, [e.target.name]: e.target.value });
-  };
-
-  const handleSaveQuestion = async () => {
-    try {
-      await api.post(`/admin/exams/${selectedExamId}/questions`, currentQuestion);
-      handleCloseQuestionDialog();
-      setError('');
-      setSuccess('Question added successfully');
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to add question');
-      console.error('Error adding question:', err);
-    }
-  };
-
-  const handleUploadCSV = async () => {
-    if (!csvFile || !selectedExamId) {
-      setError("Please select a CSV file and ensure an exam is selected.");
-      return;
-    }
-
-    const formData = new FormData();
-    formData.append('file', csvFile);
-
-    try {
-      await api.post(`/admin/exams/${selectedExamId}/questions`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      setSuccess('CSV uploaded and questions imported successfully!');
-      setCsvFile(null); // clear after upload
-      handleCloseQuestionDialog();
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to upload CSV');
-      console.error('Error uploading CSV:', err);
-    }
-  };
-
-  const handleImageChange = (e) => {
-    setImageFile(e.target.files[0]);
-  };
-
-  const handleUploadImage = async () => {
-    if (!imageFile) return;
-    const formData = new FormData();
-    formData.append('file', imageFile);
-    try {
-      const res = await api.post('/admin/upload/image', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      setCurrentQuestion({ ...currentQuestion, image_path: res.data.url });
-      setImageFile(null);
-      setError('');
-      setSuccess('Image uploaded successfully');
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to upload image');
-      console.error('Error uploading image:', err);
-    }
-  };
-
-  const handleOpenAssignmentDialog = (examId) => {
-    setSelectedExamId(examId);
-    setOpenAssignmentDialog(true);
-  };
-
-  const handleCloseAssignmentDialog = () => {
-    setOpenAssignmentDialog(false);
-    // Reset the full filter state when closing
-    setAssignmentFilters({
-      assign_all: false, school_id: '', class: '',
-      roll_number: '', student_ids: ''
-    });
-    setSelectedExamId(null);
-  };
-
-  // This handler can remain the same as it correctly updates the complex state
-  const handleAssignmentChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setAssignmentFilters(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
-  };
-
-  // THIS IS THE CORRECTED SAVE HANDLER
-  const handleSaveAssignment = async () => {
-    if (!selectedExamId) {
-      setError("No exam selected.");
-      return;
-    }
-
-    // Create a simple payload object that matches what the reverted backend expects.
-    const payload = {
-      school_id: assignmentFilters.school_id || null,
-      class_number: assignmentFilters.class || null // The backend expects 'class_number'
-    };
-
-    try {
-      // Send only the simple payload, not the entire assignmentFilters state.
-      await api.post(`/admin/exams/${selectedExamId}/assign`, payload);
-      setSuccess('Students assigned successfully based on the selected filters.');
-      handleCloseAssignmentDialog();
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to assign students');
-    }
-  };
-
-  // Export exam results handler
- const handleExportExamResults = async (examId) => {
-    try {
-      setSuccess(''); // Clear previous messages
-      setError('');
-
-      const response = await api.get(`/admin/export_student_attempts?exam_id=${examId}`, {
-        responseType: 'blob', // Important: tells axios to expect a file
-      });
-
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `exam_${examId}_attempts.xlsx`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
       
-      setSuccess('Export started successfully!');
+      const newExam = res.data.exam;
+      if (newExam && newExam.id) {
+          navigate(`${basePath}/exams/${newExam.id}`);
+      }
     } catch (err) {
-      setError('Failed to export exam results.');
-      console.error('Export error:', err);
+      console.error(err);
+      setSnack({ open: true, severity: "error", message: "Failed to create exam" });
+    } finally {
+      setBusy(false);
     }
-  };
-  
-  const filteredExams = exams.filter((exam) =>
-    exam.title.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  }
+
+  async function fetchRepoQuestions(page = 1) {
+    try {
+      setRepoLoading(true);
+      const params = {
+        class_number: repoClass || undefined,
+        subject: repoSubject || undefined,
+        search: repoSearch || undefined,
+        page,
+      };
+      const res = await api.get("/admin/repository/questions", { params });
+      const qs = res.data.questions || [];
+      setRepoQuestions(qs);
+      setRepoPage(page);
+    } catch (e) {
+      console.error(e);
+      setSnack({ open: true, severity: "error", message: "Failed to fetch repository questions" });
+    } finally {
+      setRepoLoading(false);
+    }
+  }
+
+  function toggleSelectRepo(qid) {
+    setSelectedRepoIds((prev) => {
+      const copy = new Set(prev);
+      if (copy.has(qid)) copy.delete(qid);
+      else copy.add(qid);
+      return copy;
+    });
+  }
+
+  async function handleCreateFromRepo() {
+    if (!title.trim()) {
+      setSnack({ open: true, severity: "warning", message: "Title is required" });
+      return;
+    }
+    if (selectedRepoIds.size === 0) {
+      setSnack({ open: true, severity: "warning", message: "Select at least one question" });
+      return;
+    }
+    try {
+      setBusy(true);
+      const payload = {
+        title: title.trim(),
+        description,
+        duration_minutes: parseInt(duration, 10) || 60,
+        access_start: accessStart ? accessStart.toISOString() : null,
+        access_end: accessEnd ? accessEnd.toISOString() : null,
+        school_id: schoolId || null,
+      };
+      const createRes = await api.post("/admin/exams", payload);
+      const newExam = createRes.data.exam;
+      
+      if (!newExam || !newExam.id) throw new Error("Creation failed");
+
+      const repoIdsArray = Array.from(selectedRepoIds);
+      await api.post(`/admin/exams/${newExam.id}/questions/pick`, { repository_ids: repoIdsArray });
+
+      setSnack({ open: true, severity: "success", message: "Exam created with selected questions" });
+      closeCreate();
+      fetchExams();
+      navigate(`${basePath}/exams/${newExam.id}`);
+    } catch (err) {
+      console.error(err);
+      setSnack({ open: true, severity: "error", message: "Failed to create exam" });
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h5" gutterBottom>Manage Exams</Typography>
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-      {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
-      {exams.length === 0 && !error && (
-        <Alert severity="info" sx={{ mb: 2 }}>No exams found. Add a new exam to get started.</Alert>
-      )}
-      <Box display="flex" justifyContent="space-between" mb={2}>
-        <TextField
-          label="Search Exams"
-          variant="outlined"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          sx={{ width: '300px' }}
-        />
-        <Button variant="contained" onClick={() => handleOpenDialog()}>
-          <AddIcon /> Add Exam
+    <Box sx={{ p: 3, bgcolor: '#f5f7fa' }}>
+      
+      <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems="center" mb={4} spacing={2}>
+        <Box>
+            <Typography variant="h4" fontWeight={700} color="primary.main">Exam Management</Typography>
+            <Typography variant="body2" color="text.secondary">Create and manage assessments.</Typography>
+        </Box>
+        <Button variant="contained" startIcon={<AddIcon />} onClick={openCreateDialog} sx={{ px: 3, py: 1, borderRadius: 2 }}>
+          Create New Exam
         </Button>
-      </Box>
-      <Paper>
+      </Stack>
+
+      <Paper elevation={0} sx={{ p: 2, mb: 3, borderRadius: 2, border: '1px solid #e0e0e0' }}>
+        <TextField 
+            fullWidth 
+            size="small" 
+            placeholder="Search exams by title..." 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            InputProps={{
+                startAdornment: <InputAdornment position="start"><SearchIcon color="action" /></InputAdornment>
+            }}
+        />
+      </Paper>
+
+      <Paper elevation={1} sx={{ borderRadius: 2, overflow: 'hidden' }}>
         <Table>
-          <TableHead>
+          <TableHead sx={{ bgcolor: '#f8f9fa' }}>
             <TableRow>
-              <TableCell>ID</TableCell>
-              <TableCell>Title</TableCell>
-              <TableCell>Description</TableCell>
-              <TableCell>Access Start</TableCell>
-              <TableCell>Access End</TableCell>
-              <TableCell>Duration (min)</TableCell>
-              <TableCell>Total Marks</TableCell>
-              <TableCell>School</TableCell>
-              <TableCell>Results Released</TableCell>
-              <TableCell>Actions</TableCell>
+              <TableCell><strong>Title & Description</strong></TableCell>
+              <TableCell><strong>Duration</strong></TableCell>
+              <TableCell><strong>Schedule</strong></TableCell>
+              <TableCell><strong>Status</strong></TableCell>
+              <TableCell align="right"><strong>Actions</strong></TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {filteredExams.map((exam) => (
-              <TableRow key={exam.id}>
-                <TableCell>{exam.id}</TableCell>
-                <TableCell>{exam.title}</TableCell>
-                <TableCell>{exam.description || 'N/A'}</TableCell>
-                <TableCell>{exam.access_start || 'N/A'}</TableCell>
-                <TableCell>{exam.access_end || 'N/A'}</TableCell>
-                <TableCell>{exam.duration_minutes || 'N/A'}</TableCell>
-                <TableCell>{exam.total_marks || 'N/A'}</TableCell>
-                <TableCell>{exam.school_name || 'N/A'}</TableCell>
-                <TableCell>
-                  <Switch
-                    checked={exam.results_released}
-                    onChange={() => handleToggleResults(exam.id, exam.results_released)}
-                  />
-                </TableCell>
-                <TableCell>
-                  <IconButton onClick={() => handleOpenDialog(exam)} title="Edit Exam">
-                    <EditIcon />
-                  </IconButton>
-                  <IconButton onClick={() => handleDeleteExam(exam.id)} title="Delete Exam">
-                    <DeleteIcon />
-                  </IconButton>
-                  <IconButton onClick={() => handleOpenQuestionDialog(exam.id)} title="Manage Questions">
-                    <AddIcon />
-                  </IconButton>
-                  <IconButton onClick={() => handleOpenAssignmentDialog(exam.id)} title="Assign Students">
-                    <UploadIcon />
-                  </IconButton>
-                  <IconButton onClick={() => handleExportExamResults(exam.id)} title="Export Exam Results">
-                    <DownloadIcon />
-                  </IconButton>
-                </TableCell>
-              </TableRow>
-            ))}
+            {loadingExams ? (
+              <TableRow><TableCell colSpan={5} align="center"><CircularProgress sx={{ my: 2 }} /></TableCell></TableRow>
+            ) : filteredExams.length === 0 ? (
+              <TableRow><TableCell colSpan={5} align="center" sx={{ py: 3, color: 'text.secondary' }}>No exams found.</TableCell></TableRow>
+            ) : (
+              filteredExams.map((e) => (
+                <TableRow key={e.id} hover>
+                  <TableCell>
+                    <Typography variant="subtitle1" fontWeight={600} color="primary.main">
+                      {e.title}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" noWrap display="block" sx={{ maxWidth: 300 }}>
+                      {e.description || "No description provided"}
+                    </Typography>
+                  </TableCell>
+                  
+                  <TableCell>
+                    <Stack direction="row" alignItems="center" spacing={0.5}>
+                        <TimerIcon fontSize="small" color="action" />
+                        <Typography variant="body2">{e.duration_minutes} min</Typography>
+                    </Stack>
+                  </TableCell>
+                  
+                  <TableCell>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                        <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <EventIcon fontSize="inherit" color="success" /> Start: {formatDate(e.access_start)}
+                        </Typography>
+                        <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <EventIcon fontSize="inherit" color="error" /> End: &nbsp;{formatDate(e.access_end)}
+                        </Typography>
+                    </Box>
+                  </TableCell>
+                  
+                  <TableCell>
+                    <Chip 
+                        label={e.results_released ? "Released" : "Draft"} 
+                        color={e.results_released ? "success" : "default"} 
+                        size="small" 
+                        variant={e.results_released ? "filled" : "outlined"}
+                    />
+                  </TableCell>
+                  
+                  <TableCell align="right">
+                    <Stack direction="row" justifyContent="flex-end" spacing={1}>
+                        <Button 
+                            variant="outlined" 
+                            size="small" 
+                            startIcon={<ViewIcon />} 
+                            onClick={() => navigate(`${basePath}/exams/${e.id}`)}
+                        >
+                            View
+                        </Button>
+                        <Button 
+                            variant="contained" 
+                            size="small" 
+                            startIcon={<QuizIcon />} 
+                            onClick={() => navigate(`${basePath}/exams/${e.id}/questions`)}
+                            color="secondary"
+                        >
+                            Questions
+                        </Button>
+                    </Stack>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </Paper>
 
-      {/* Exam Dialog */}
-      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
-        <DialogTitle>{isEdit ? 'Edit Exam' : 'Add Exam'}</DialogTitle>
-        <DialogContent>
-          <TextField
-            label="Title"
-            name="title"
-            fullWidth
-            margin="normal"
-            value={currentExam.title}
-            onChange={handleChange}
-            required
-          />
-          <TextField
-            label="Description"
-            name="description"
-            fullWidth
-            margin="normal"
-            multiline
-            rows={3}
-            value={currentExam.description}
-            onChange={handleChange}
-          />
-          <TextField
-            label="Access Start (ISO format)"
-            name="access_start"
-            fullWidth
-            margin="normal"
-            value={currentExam.access_start}
-            onChange={handleChange}
-            placeholder="e.g., 2025-08-26T14:30:00"
-          />
-          <TextField
-            label="Access End (ISO format)"
-            name="access_end"
-            fullWidth
-            margin="normal"
-            value={currentExam.access_end}
-            onChange={handleChange}
-            placeholder="e.g., 2025-08-26T16:30:00"
-          />
-          <TextField
-            label="Duration (minutes)"
-            name="duration_minutes"
-            fullWidth
-            margin="normal"
-            type="number"
-            value={currentExam.duration_minutes}
-            onChange={handleChange}
-            required
-          />
-          <TextField
-            label="Total Marks"
-            name="total_marks"
-            fullWidth
-            margin="normal"
-            type="number"
-            value={currentExam.total_marks}
-            onChange={handleChange}
-            required
-          />
-          <FormControl fullWidth margin="normal">
-            <InputLabel>School</InputLabel>
-            <Select
-              name="school_id"
-              value={currentExam.school_id}
-              onChange={handleChange}
-              label="School"
-            >
-              {schools.map((school) => (
-                <MenuItem key={school.id} value={school.id}>
-                  {school.name} ({school.code})
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDialog}>Cancel</Button>
-          <Button
-            onClick={handleSaveExam}
-            variant="contained"
-            disabled={!currentExam.title || !currentExam.duration_minutes || !currentExam.total_marks}
-          >
-            Save
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* --- Manage Questions Dialog --- */}
-      <Dialog open={openQuestionDialog} onClose={handleCloseQuestionDialog} maxWidth="md" fullWidth>
-        <DialogTitle>Manage Questions for Exam ID: {selectedExamId}</DialogTitle>
-        <DialogContent>
-          <Tabs value={questionTab} onChange={(e, newValue) => setQuestionTab(newValue)} sx={{ mb: 2 }}>
-            <Tab label="Add Single Question" />
-            <Tab label="Bulk Upload from CSV" />
-          </Tabs>
-
-          {/* TAB 1: Add Single Question */}
-          {questionTab === 0 && (
-            <Box>
-              <TextField
-                label="Question Text"
-                name="text"
-                fullWidth
-                margin="normal"
-                value={currentQuestion.text}
-                onChange={handleQuestionChange}
-                required
-                multiline
-                rows={3}
-              />
-              <Grid container spacing={2}>
-                <Grid item xs={6}><TextField name="option_a" label="Option A" fullWidth value={currentQuestion.option_a} onChange={handleQuestionChange} /></Grid>
-                <Grid item xs={6}><TextField name="option_b" label="Option B" fullWidth value={currentQuestion.option_b} onChange={handleQuestionChange} /></Grid>
-                <Grid item xs={6}><TextField name="option_c" label="Option C" fullWidth value={currentQuestion.option_c} onChange={handleQuestionChange} /></Grid>
-                <Grid item xs={6}><TextField name="option_d" label="Option D" fullWidth value={currentQuestion.option_d} onChange={handleQuestionChange} /></Grid>
-              </Grid>
-              <TextField label="Correct Answer (A, B, C, or D)" name="correct_answer" fullWidth margin="normal" value={currentQuestion.correct_answer} onChange={handleQuestionChange} />
-              <TextField label="Marks" name="marks" type="number" fullWidth margin="normal" value={currentQuestion.marks} onChange={handleQuestionChange} />
-              <TextField label="Image Path" name="image_path" fullWidth margin="normal" value={currentQuestion.image_path} disabled />
-
-              <Stack direction="row" spacing={2} alignItems="center" sx={{ mt: 2 }}>
-                <Button variant="outlined" component="label">
-                  Select Image
-                  <input type="file" hidden onChange={handleImageChange} accept="image/*" />
-                </Button>
-                <Button variant="contained" onClick={handleUploadImage} disabled={!imageFile}>
-                  Upload Image
-                </Button>
-                {imageFile && <Typography variant="caption">{imageFile.name}</Typography>}
-              </Stack>
+      {/* CREATE EXAM DIALOG */}
+      <Dialog open={openCreate} onClose={closeCreate} fullWidth maxWidth="lg" PaperProps={{ sx: { borderRadius: 2, minHeight: '80vh' } }}>
+        <DialogTitle sx={{ bgcolor: 'primary.main', color: 'white' }}>
+            <Typography variant="h6">Create New Exam</Typography>
+        </DialogTitle>
+        
+        <LocalizationProvider dateAdapter={AdapterDateFns}>
+          <DialogContent sx={{ p: 0 }}>
+            <Box sx={{ borderBottom: 1, borderColor: 'divider', px: 3, pt: 2 }}>
+              <Tabs value={createTab} onChange={(ev, v) => setCreateTab(v)} textColor="primary" indicatorColor="primary">
+                <Tab label="1. Basic Details" />
+                <Tab label="2. Add Questions (Repository)" disabled={createTab === 0} />
+              </Tabs>
             </Box>
-          )}
 
-          {/* TAB 2: Bulk Upload */}
-          {questionTab === 1 && (
-            <Box sx={{ p: 3, border: '1px dashed grey', borderRadius: 2, textAlign: 'center' }}>
-              <Typography gutterBottom>
-                Select a .csv file to bulk-upload questions for this exam.
-              </Typography>
-              <Typography variant="caption" display="block" sx={{ mb: 2 }}>
-                Required columns: text, option_a, option_b, option_c, option_d, correct_answer, marks
-              </Typography>
-              <Stack spacing={2} alignItems="center">
-                <Button
-                  variant="contained"
-                  component="label"
-                  startIcon={<UploadIcon />}
-                >
-                  Select CSV File
-                  <input
-                    type="file"
-                    hidden
-                    accept=".csv"
-                    onChange={(e) => setCsvFile(e.target.files[0])}
-                  />
-                </Button>
-                {csvFile && (
-                  <Typography variant="body2">
-                    Selected File: {csvFile.name}
-                  </Typography>
-                )}
-                <Button
-                  variant="contained"
-                  onClick={handleUploadCSV}
-                  disabled={!csvFile}
-                >
-                  Upload CSV
-                </Button>
-              </Stack>
+            <Box sx={{ p: 4 }}>
+              {/* TAB 0: MANUAL DETAILS */}
+              <Box display={createTab === 0 ? "block" : "none"}>
+                  <Grid container spacing={3}>
+                      <Grid item xs={12} md={8}>
+                          <TextField label="Exam Title" value={title} onChange={(e) => setTitle(e.target.value)} fullWidth required />
+                      </Grid>
+                      <Grid item xs={12} md={4}>
+                          <TextField label="Duration (minutes)" value={duration} onChange={(e) => setDuration(e.target.value)} type="number" fullWidth />
+                      </Grid>
+                      <Grid item xs={12}>
+                          <TextField label="Description / Instructions" value={description} onChange={(e) => setDescription(e.target.value)} fullWidth multiline rows={3} />
+                      </Grid>
+                      
+                      <Grid item xs={12}><Divider textAlign="left"><Typography variant="caption">Scheduling (Optional)</Typography></Divider></Grid>
+                      
+                      {/* --- NEW CALENDAR PICKERS --- */}
+                      <Grid item xs={12} md={6}>
+                          <DateTimePicker
+                              label="Access Start Time"
+                              value={accessStart}
+                              onChange={(newValue) => setAccessStart(newValue)}
+                              slotProps={{ textField: { fullWidth: true } }}
+                          />
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                          <DateTimePicker
+                              label="Access End Time"
+                              value={accessEnd}
+                              onChange={(newValue) => setAccessEnd(newValue)}
+                              slotProps={{ textField: { fullWidth: true } }}
+                          />
+                      </Grid>
+                      {/* ---------------------------- */}
+                      
+                      {!isSchoolAdmin && (
+                          <Grid item xs={12} md={6}>
+                              <TextField label="Assign School ID" value={schoolId} onChange={(e) => setSchoolId(e.target.value)} fullWidth />
+                          </Grid>
+                      )}
+                  </Grid>
+                  
+                  <Box mt={4} display="flex" justifyContent="flex-end">
+                      <Button variant="contained" onClick={() => setCreateTab(1)} endIcon={<QuizIcon />}>
+                          Next: Select Questions
+                      </Button>
+                  </Box>
+              </Box>
+
+              {/* TAB 1: REPOSITORY */}
+              <Box display={createTab === 1 ? "block" : "none"}>
+                  <Paper elevation={0} sx={{ p: 2, mb: 2, bgcolor: '#f8f9fa', border: '1px solid #eee' }}>
+                      <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+                          <TextField size="small" label="Class" value={repoClass} onChange={(e) => setRepoClass(e.target.value)} />
+                          <TextField size="small" label="Subject" value={repoSubject} onChange={(e) => setRepoSubject(e.target.value)} />
+                          <TextField size="small" label="Search Question..." value={repoSearch} onChange={(e) => setRepoSearch(e.target.value)} fullWidth InputProps={{ endAdornment: <IconButton size="small" onClick={() => fetchRepoQuestions(1)}><SearchIcon /></IconButton> }} />
+                          <Button variant="outlined" onClick={() => fetchRepoQuestions(1)}>Filter</Button>
+                      </Stack>
+                  </Paper>
+
+                  <Paper variant="outlined" sx={{ height: 400, overflow: 'auto' }}>
+                      {repoLoading ? (
+                          <Box display="flex" justifyContent="center" alignItems="center" height="100%"><CircularProgress /></Box>
+                      ) : (
+                          <Table size="small" stickyHeader>
+                              <TableHead>
+                                  <TableRow>
+                                      <TableCell padding="checkbox"></TableCell>
+                                      <TableCell>Question</TableCell>
+                                      <TableCell width={100}>Sub/Class</TableCell>
+                                      <TableCell width={80}>Marks</TableCell>
+                                  </TableRow>
+                              </TableHead>
+                              <TableBody>
+                                  {repoQuestions.map((q) => (
+                                      <TableRow key={q.id} hover selected={selectedRepoIds.has(q.id)}>
+                                          <TableCell padding="checkbox">
+                                              <Checkbox checked={selectedRepoIds.has(q.id)} onChange={() => toggleSelectRepo(q.id)} />
+                                          </TableCell>
+                                          <TableCell>
+                                              <Typography variant="body2" noWrap sx={{ maxWidth: 500 }}>{q.text}</Typography>
+                                          </TableCell>
+                                          <TableCell>
+                                              <Typography variant="caption" display="block">{q.subject}</Typography>
+                                              <Chip label={q.class_number} size="small" sx={{ height: 20, fontSize: '0.6rem' }} />
+                                          </TableCell>
+                                          <TableCell>{q.marks}</TableCell>
+                                      </TableRow>
+                                  ))}
+                                  {repoQuestions.length === 0 && <TableRow><TableCell colSpan={4} align="center">No questions found. Try filtering.</TableCell></TableRow>}
+                              </TableBody>
+                          </Table>
+                      )}
+                  </Paper>
+                  
+                  <Box mt={2} display="flex" justifyContent="space-between" alignItems="center">
+                      <Typography variant="subtitle2" color="primary">{selectedRepoIds.size} questions selected</Typography>
+                      <Stack direction="row" spacing={1}>
+                          <Button size="small" onClick={() => fetchRepoQuestions(Math.max(1, repoPage - 1))} disabled={repoPage <= 1}>Prev</Button>
+                          <Button size="small" onClick={() => fetchRepoQuestions(repoPage + 1)}>Next</Button>
+                      </Stack>
+                  </Box>
+              </Box>
             </Box>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseQuestionDialog}>Cancel</Button>
-          {questionTab === 0 && (
-            <Button
-              onClick={handleSaveQuestion}
-              variant="contained"
-              disabled={!currentQuestion.text}
-            >
-              Add Question
-            </Button>
+          </DialogContent>
+        </LocalizationProvider>
+
+        <DialogActions sx={{ p: 2, bgcolor: '#f8f9fa' }}>
+          <Button onClick={closeCreate} disabled={busy} color="inherit">Cancel</Button>
+          
+          {createTab === 0 ? (
+             <Button variant="outlined" onClick={handleManualCreate} disabled={busy}>
+               {busy ? "Creating..." : "Create Empty Exam"}
+             </Button>
+          ) : (
+             <Button variant="contained" onClick={handleCreateFromRepo} disabled={busy}>
+               {busy ? <CircularProgress size={18} color="inherit" /> : `Create Exam with ${selectedRepoIds.size} Questions`}
+             </Button>
           )}
         </DialogActions>
       </Dialog>
 
-      {/* Assignment Dialog */}
-      <Dialog open={openAssignmentDialog} onClose={handleCloseAssignmentDialog} maxWidth="md" fullWidth>
-        <DialogTitle>Assign Students</DialogTitle>
-        <DialogContent>
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={assignmentFilters.assign_all}
-                onChange={handleAssignmentChange}
-                name="assign_all"
-              />
-            }
-            label="Assign to all schools"
-          />
-          <FormControl fullWidth margin="normal">
-            <InputLabel>School</InputLabel>
-            <Select
-              name="school_id"
-              value={assignmentFilters.school_id}
-              onChange={handleAssignmentChange}
-              label="School"
-              disabled={assignmentFilters.assign_all}
-            >
-              {schools.map((school) => (
-                <MenuItem key={school.id} value={school.id}>
-                  {school.name} ({school.code})
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <TextField
-            label="Class"
-            name="class"
-            fullWidth
-            margin="normal"
-            value={assignmentFilters.class}
-            onChange={handleAssignmentChange}
-          />
-          <TextField
-            label="Roll Number"
-            name="roll_number"
-            fullWidth
-            margin="normal"
-            value={assignmentFilters.roll_number}
-            onChange={handleAssignmentChange}
-          />
-          <TextField
-            label="Student IDs (comma separated)"
-            name="student_ids"
-            fullWidth
-            margin="normal"
-            value={assignmentFilters.student_ids}
-            onChange={handleAssignmentChange}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseAssignmentDialog}>Cancel</Button>
-          <Button onClick={handleSaveAssignment} variant="contained">
-            Assign
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <Snackbar open={snack.open} autoHideDuration={4000} onClose={() => setSnack((s) => ({...s, open:false}))}>
+        <Alert severity={snack.severity} onClose={() => setSnack((s)=>({...s, open:false}))}>{snack.message}</Alert>
+      </Snackbar>
     </Box>
   );
 }

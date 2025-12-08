@@ -1,39 +1,245 @@
-import React from "react";
-import { AppBar, Toolbar, Typography, Button } from "@mui/material";
-import { useNavigate } from "react-router-dom";
+import React, { useState } from "react";
+import {
+  AppBar,
+  Toolbar,
+  Typography,
+  Button,
+  Box,
+  IconButton,
+  Container,
+  Drawer,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemText,
+  useScrollTrigger,
+  Stack
+} from "@mui/material";
+import { useNavigate, useLocation } from "react-router-dom";
+import MenuIcon from "@mui/icons-material/Menu";
+import SchoolIcon from "@mui/icons-material/School";
 import useAuth from "../hooks/useAuth";
 
-export default function Navbar() {
+// --- SCROLL HANDLER (FIXED) ---
+const ScrollHandler = (props) => {
+  const { children, window, isHome } = props; // Added isHome prop
+  const trigger = useScrollTrigger({
+    disableHysteresis: true,
+    threshold: 0,
+    target: window ? window() : undefined,
+  });
+
+  return React.cloneElement(children, {
+    elevation: trigger ? 4 : 0,
+    sx: {
+      // LOGIC: If scrolled OR not on home page -> White Background. 
+      // Otherwise (Top of Home Page) -> Transparent.
+      backgroundColor: trigger || !isHome ? "rgba(255, 255, 255, 0.95)" : "transparent",
+      backdropFilter: trigger || !isHome ? "blur(20px)" : "none",
+      
+      // LOGIC: If scrolled OR not on home page -> Blue Text.
+      // Otherwise -> White Text.
+      color: trigger || !isHome ? "#1a237e" : "white", 
+      
+      transition: "all 0.3s ease",
+      borderBottom: trigger || !isHome ? "1px solid rgba(0,0,0,0.05)" : "none",
+    },
+  });
+};
+
+export default function Navbar(props) {
   const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
-  return (
-    <AppBar position="sticky">
-      <Toolbar>
-        <Typography variant="h6" sx={{ flexGrow: 1 }}>
-          SAARADAA LEARKNOWATIONS
-        </Typography>
+  // Check if we are on home
+  const isHome = location.pathname === "/";
+
+  // --- SMART DASHBOARD NAVIGATION ---
+  const handleDashboardClick = () => {
+    if (!user) return navigate("/login");
+    
+    if (user.role === 'admin') navigate("/admin");
+    else if (user.role === 'school_admin') navigate("/school");
+    else if (user.role === 'subject_specialist') navigate("/specialist");
+    else if (user.role === 'student') navigate("/student");
+    else navigate("/"); 
+    
+    setMobileOpen(false);
+  };
+
+  // --- SCROLL NAVIGATION HANDLER ---
+  const handleNavClick = (sectionId) => {
+    if (location.pathname !== "/") {
+      navigate("/");
+      setTimeout(() => {
+        const element = document.getElementById(sectionId);
+        if (element) element.scrollIntoView({ behavior: "smooth" });
+      }, 100);
+    } else {
+      const element = document.getElementById(sectionId);
+      if (element) element.scrollIntoView({ behavior: "smooth" });
+    }
+    setMobileOpen(false);
+  };
+
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+    setMobileOpen(false);
+  };
+
+  const menuItems = [
+    { label: "Services", id: "services" },
+    { label: "Exams", id: "exams" },
+    { label: "Publishing", id: "publications" },
+    { label: "Ambassadors", id: "ambassador" },
+  ];
+
+  // Mobile Drawer Content
+  const drawer = (
+    <Box sx={{ width: 250, pt: 2 }} role="presentation">
+      <Stack direction="row" alignItems="center" spacing={1} sx={{ px: 2, pb: 2 }}>
+        <SchoolIcon color="primary" />
+        <Typography variant="h6" fontWeight={700} color="primary">SL Exams</Typography>
+      </Stack>
+      <List>
+        {menuItems.map((item) => (
+          <ListItem key={item.id} disablePadding>
+            <ListItemButton onClick={() => handleNavClick(item.id)}>
+              <ListItemText primary={item.label} />
+            </ListItemButton>
+          </ListItem>
+        ))}
         {isAuthenticated ? (
           <>
-            <Typography variant="body1" sx={{ mr: 2 }}>
-              Welcome, {user.name || user.username}
-            </Typography>
-            <Button
-              color="inherit"
-              onClick={() => {
-                logout();
-                navigate("/login", { replace: true });
-              }}
-            >
-              Logout
-            </Button>
+            <ListItem disablePadding>
+              <ListItemButton onClick={handleDashboardClick}>
+                <ListItemText primary="Dashboard" />
+              </ListItemButton>
+            </ListItem>
+            <ListItem disablePadding>
+              <ListItemButton onClick={handleLogout}>
+                <ListItemText primary="Logout" />
+              </ListItemButton>
+            </ListItem>
           </>
         ) : (
-          <Button color="inherit" onClick={() => navigate("/login")}>
-            Login
-          </Button>
+          <>
+            <ListItem disablePadding>
+              <ListItemButton onClick={() => { navigate("/login"); setMobileOpen(false); }}>
+                <ListItemText primary="Login" />
+              </ListItemButton>
+            </ListItem>
+            <ListItem disablePadding>
+              <ListItemButton onClick={() => { navigate("/register"); setMobileOpen(false); }}>
+                <ListItemText primary="Register" />
+              </ListItemButton>
+            </ListItem>
+          </>
         )}
-      </Toolbar>
-    </AppBar>
+      </List>
+    </Box>
+  );
+
+  return (
+    <>
+      {/* Pass isHome to the ScrollHandler */}
+      <ScrollHandler {...props} isHome={isHome}>
+        <AppBar position="fixed">
+          <Container maxWidth="xl">
+            <Toolbar disableGutters sx={{ justifyContent: "space-between" }}>
+              
+              {/* BRAND LOGO */}
+              <Stack 
+                direction="row" 
+                alignItems="center" 
+                spacing={1} 
+                onClick={() => navigate("/")} 
+                sx={{ cursor: "pointer" }}
+              >
+                <SchoolIcon fontSize="large" color="inherit" />
+                <Typography
+                  variant="h5"
+                  noWrap
+                  sx={{
+                    fontWeight: 800,
+                    letterSpacing: ".05rem",
+                    color: "inherit",
+                    textDecoration: "none",
+                  }}
+                >
+                  SL EXAMS
+                </Typography>
+              </Stack>
+
+              {/* DESKTOP MENU */}
+              <Box sx={{ display: { xs: "none", md: "flex" }, alignItems: 'center', gap: 2 }}>
+                {menuItems.map((item) => (
+                  <Button
+                    key={item.id}
+                    onClick={() => handleNavClick(item.id)}
+                    sx={{ color: "inherit", fontWeight: 500 }}
+                  >
+                    {item.label}
+                  </Button>
+                ))}
+
+                {isAuthenticated ? (
+                  <>
+                    <Button variant="outlined" color="inherit" onClick={handleDashboardClick} sx={{ ml: 2, borderColor: 'currentColor' }}>
+                      Dashboard
+                    </Button>
+                    <Button variant="contained" color="warning" onClick={handleLogout}>
+                      Logout
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button color="inherit" onClick={() => navigate("/login")}>
+                      Login
+                    </Button>
+                    <Button 
+                      variant="contained" 
+                      color={isHome ? "warning" : "primary"} 
+                      onClick={() => navigate("/register")}
+                      sx={{ borderRadius: 5, px: 3 }}
+                    >
+                      Get Started
+                    </Button>
+                  </>
+                )}
+              </Box>
+
+              {/* MOBILE MENU ICON */}
+              <IconButton
+                color="inherit"
+                aria-label="open drawer"
+                edge="start"
+                onClick={() => setMobileOpen(!mobileOpen)}
+                sx={{ display: { xs: "flex", md: "none" } }}
+              >
+                <MenuIcon />
+              </IconButton>
+            </Toolbar>
+          </Container>
+        </AppBar>
+      </ScrollHandler>
+      
+      {/* Mobile Drawer */}
+      <Drawer
+        variant="temporary"
+        open={mobileOpen}
+        onClose={() => setMobileOpen(false)}
+        ModalProps={{ keepMounted: true }}
+        sx={{
+          display: { xs: "block", md: "none" },
+          "& .MuiDrawer-paper": { boxSizing: "border-box", width: 250 },
+        }}
+      >
+        {drawer}
+      </Drawer>
+    </>
   );
 }

@@ -1,89 +1,127 @@
-import React, { useState, useEffect, useCallback} from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Box, Typography, TextField, Button, Table, TableBody, TableCell,
   TableHead, TableRow, IconButton, Dialog, DialogActions, DialogContent,
-  DialogTitle, Paper, Alert, Grid
+  DialogTitle, Paper, Alert, Grid, MenuItem, Select, FormControl, InputLabel,
+  Stack, InputAdornment, Chip, CircularProgress, TablePagination
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import AddIcon from "@mui/icons-material/Add";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
+import SearchIcon from "@mui/icons-material/Search";
+import FilterListIcon from "@mui/icons-material/FilterList";
+import ClassIcon from "@mui/icons-material/Class";
 import api from "../../utils/api";
 import useAuth from "../../hooks/useAuth";
 
 export default function AdminStudents() {
-  const { authToken } = useAuth();
+  const { user } = useAuth();
   const [students, setStudents] = useState([]);
   const [schools, setSchools] = useState([]);
+  const [loading, setLoading] = useState(false);
+  
+  // --- FILTERS & PAGINATION ---
   const [search, setSearch] = useState("");
+  const [selectedSchoolFilter, setSelectedSchoolFilter] = useState("");
+  const [classFilter, setClassFilter] = useState("");
+  const [page, setPage] = useState(0); 
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [totalItems, setTotalItems] = useState(0);
+
+  // --- DIALOG STATE ---
   const [open, setOpen] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
-  const [csvFile, setCsvFile] = useState(null);
   const [current, setCurrent] = useState({
-    id: null,
-    password: "",
-    email: "",
-    mobile_number: "",
-    school_id: "", // <-- use school_id
-    name: "",
-    class_number: "",
-    number: ""
+    id: null, password: "", email: "", mobile_number: "",
+    school_id: "", name: "", class_number: "", number: ""
   });
+  
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  // --- Pagination State ---
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [debouncedClass, setDebouncedClass] = useState("");
 
-  // Debounce search input
+  const isSuperAdmin = user?.role === 'admin';
+
+  // Debounce Logic
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearch(search);
-      setPage(1); // Reset to first page on new search
-    }, 500); // 500ms delay
+      setDebouncedClass(classFilter);
+      setPage(0);
+    }, 500);
     return () => clearTimeout(handler);
-  }, [search]);
+  }, [search, classFilter]);
 
-  const fetchStudents = useCallback(async (currentPage) => {
+  // --- FETCH DATA ---
+  const fetchStudents = useCallback(async () => {
     try {
-      const res = await api.get(`/admin/students?page=${currentPage}&search=${debouncedSearch}`);
+      setLoading(true);
+      
+      const params = new URLSearchParams();
+      params.append('page', page + 1);
+      params.append('per_page', rowsPerPage);
+      
+      if (debouncedSearch) params.append('search', debouncedSearch);
+      
+      // If Super Admin, use the dropdown value. 
+      // If School Admin, backend handles it automatically.
+      if (isSuperAdmin && selectedSchoolFilter) {
+          params.append('school_id', selectedSchoolFilter);
+      }
+      
+      if (debouncedClass) params.append('class_number', debouncedClass);
+
+      const res = await api.get(`/admin/students?${params.toString()}`);
+      
       setStudents(res.data.students || []);
-      setTotalPages(res.data.total_pages || 1);
+      setTotalItems(res.data.total_items || 0);
+
     } catch (err) {
+      console.error(err);
       setError("Failed to fetch students");
+    } finally {
+      setLoading(false);
     }
-  }, [debouncedSearch]);
-
-  useEffect(() => {
-    fetchStudents(page);
-  }, [page, fetchStudents]);
-
-  useEffect(() => {
-    fetchSchools();
-  }, [authToken]);
-
-  
+  }, [page, rowsPerPage, debouncedSearch, selectedSchoolFilter, debouncedClass, isSuperAdmin]);
 
   const fetchSchools = async () => {
     try {
-      const res = await api.get("/admin/schools", {
-        headers: { auth_token: authToken },
-      });
+      const res = await api.get("/admin/schools");
       setSchools(res.data.schools || []);
     } catch (err) {
       console.error("Failed to fetch schools");
     }
   };
 
+  useEffect(() => {
+    fetchStudents();
+  }, [fetchStudents]);
+
+  useEffect(() => {
+    if (isSuperAdmin) {
+        fetchSchools();
+    }
+  }, [isSuperAdmin]);
+
+  // --- SORTING LOGIC ---
+  const sortedStudents = [...students].sort((a, b) => {
+    const idA = a.student_id || "";
+    const idB = b.student_id || "";
+    return idA.localeCompare(idB, undefined, { numeric: true, sensitivity: 'base' });
+  });
+
+  // --- HANDLERS ---
   const handleOpen = (student = {}) => {
     setCurrent({
       id: student.id || null,
       password: "",
       email: student.email || "",
       mobile_number: student.mobile_number || "",
-      school_id: student.school_id || "", // <-- use school_id
+      // FIX: If School Admin, Auto-fill their school ID (backend will validate)
+      school_id: student.school_id || (isSuperAdmin ? "" : user.school_id) || "", 
       name: student.name || "",
       class_number: student.class_number || "",
       number: student.number || ""
@@ -94,282 +132,287 @@ export default function AdminStudents() {
 
   const handleClose = () => {
     setOpen(false);
-    setCurrent({
-      id: null,
-      password: "",
-      email: "",
-      mobile_number: "",
-      school_id: "",
-      name: "",
-      class_number: "",
-      number: ""
-    });
+    setError("");
   };
 
   const handleSave = async () => {
-    try {
-      // Required fields
-      if (!current.name || !current.school_id || !current.number) {
-        setError(" Name, School, and Roll Number are required");
-        return;
-      }
+    // FIX: If School Admin, use their ID if current.school_id is empty
+    const finalSchoolId = isSuperAdmin ? current.school_id : (user.school_id || current.school_id);
 
-      // Map frontend fields to backend
+    if (!current.name || !finalSchoolId || !current.number) {
+      setError("Name, School, and Roll Number are required");
+      return;
+    }
+
+    try {
       const data = {
-        password: current.password || "",
+        password: current.password || undefined,
         email: current.email || null,
         mobile_number: current.mobile_number || null,
         role: "student",
         name: current.name,
-        school_id: current.school_id, // <-- use school_id
+        school_id: finalSchoolId,
         class_number: current.class_number || null,
-        number: current.number       // numeric roll number
+        number: current.number
       };
 
       if (isEdit) {
-        await api.put(`/admin/students/${current.id}`, data, {
-          headers: { auth_token: authToken },
-        });
+        await api.put(`/admin/students/${current.id}`, data);
+        setSuccess("Student updated successfully");
       } else {
-        await api.post("/admin/students", data, {
-          headers: { auth_token: authToken },
-        });
+        await api.post("/admin/students", data);
+        setSuccess("Student created successfully");
       }
-
       fetchStudents();
       handleClose();
-      setSuccess(isEdit ? "Student updated" : "Student added");
     } catch (err) {
-      setError(
-        err.response?.data?.message ||
-        err.response?.data?.detail ||
-        "Failed to save student"
-      );
+      setError(err.response?.data?.message || "Operation failed");
     }
   };
 
   const handleDelete = async (id) => {
     if (!window.confirm("Delete this student?")) return;
     try {
-      await api.delete(`/admin/students/${id}`, {
-        headers: { auth_token: authToken },
-      });
+      await api.delete(`/admin/students/${id}`);
       fetchStudents();
       setSuccess("Student deleted");
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to delete student");
+      setError("Failed to delete student");
     }
   };
 
-  const handleCsvUpload = async () => {
-    if (!csvFile) {
-      setError("Please select a CSV file");
-      return;
-    }
+  const handleCsvUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
     const formData = new FormData();
-    formData.append("file", csvFile);
-
+    formData.append("file", file);
     try {
+      setLoading(true);
       const res = await api.post("/admin/students/import", formData, {
-        headers: { auth_token: authToken, "Content-Type": "multipart/form-data" },
+        headers: { "Content-Type": "multipart/form-data" },
       });
-      setSuccess(res.data.message || "Students uploaded successfully");
+      setSuccess(res.data.message || "Import successful");
       fetchStudents();
-      setCsvFile(null);
     } catch (err) {
-      setError(err.response?.data?.message || err.response?.data?.detail || "CSV upload failed");
+      setError(err.response?.data?.message || "Import failed");
+    } finally {
+        setLoading(false);
     }
   };
-
-  const handleExport = async () => {
-    try {
-      const response = await fetch('/admin/export_student_attempts', {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${authToken}`
-        }
-      });
-      if (!response.ok) {
-        throw new Error('Failed to export student attempts');
-      }
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'student_attempts.xlsx';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-      setSuccess('Exported student attempts successfully');
-    } catch (error) {
-      setError(error.message || 'Export failed');
-    }
-  };
-
-  const filtered = students.filter((s) =>
-    s.username.toLowerCase().includes(search.toLowerCase())
-  );
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h5" gutterBottom>Manage Students</Typography>
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-      {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
-
-      <Box display="flex" justifyContent="space-between" mb={2}>
-        <TextField
-          label="Search by Name or Username"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          sx={{ width: "300px" }}
-        />
+    <Box sx={{ p: 3, bgcolor: '#f5f7fa', minHeight: '100vh' }}>
+      
+      {/* HEADER */}
+      <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems="center" mb={3} spacing={2}>
         <Box>
-          <Button variant="outlined" component="label" sx={{ mr: 2 }}>
-            <UploadFileIcon /> Upload CSV
-            <input type="file" accept=".csv" hidden onChange={(e) => setCsvFile(e.target.files[0])} />
-          </Button>
-          <Button variant="contained" onClick={handleCsvUpload} disabled={!csvFile}>
-            Submit CSV
-          </Button>
-          <Button variant="contained" sx={{ ml: 2 }} onClick={() => handleOpen()}>
-            <AddIcon /> Add Student
-          </Button>
-          <Button variant="outlined" sx={{ ml: 2 }} onClick={handleExport}>
-            Export Attempts to Excel
-          </Button>
+            <Typography variant="h4" fontWeight={700} color="primary.main">Students</Typography>
+            <Typography variant="body2" color="text.secondary">Manage student accounts and enrollments.</Typography>
         </Box>
-      </Box>
+        <Stack direction="row" spacing={2}>
+            <Button variant="outlined" component="label" startIcon={<UploadFileIcon />}>
+                Import CSV
+                <input type="file" accept=".csv" hidden onChange={handleCsvUpload} />
+            </Button>
+            <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpen()}>
+                Add Student
+            </Button>
+        </Stack>
+      </Stack>
 
-      <Paper>
+      {/* ALERTS */}
+      {error && <Alert severity="error" onClose={() => setError("")} sx={{ mb: 3 }}>{error}</Alert>}
+      {success && <Alert severity="success" onClose={() => setSuccess("")} sx={{ mb: 3 }}>{success}</Alert>}
+
+      {/* FILTERS */}
+      <Paper elevation={0} sx={{ p: 2, mb: 3, borderRadius: 2, border: '1px solid #e0e0e0' }}>
+        <Grid container spacing={2} alignItems="center">
+            
+            <Grid item xs={12} md={4}>
+                <TextField
+                    fullWidth
+                    size="small"
+                    placeholder="Search Name / Username..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    InputProps={{
+                        startAdornment: <InputAdornment position="start"><SearchIcon color="action" /></InputAdornment>
+                    }}
+                />
+            </Grid>
+            
+            {/* Show School Filter ONLY to Super Admin */}
+            {isSuperAdmin && (
+                <Grid item xs={12} md={4}>
+                    <FormControl fullWidth size="small">
+                        <InputLabel>Filter by School</InputLabel>
+                        <Select
+                            value={selectedSchoolFilter}
+                            label="Filter by School"
+                            onChange={(e) => setSelectedSchoolFilter(e.target.value)}
+                            startAdornment={<InputAdornment position="start"><FilterListIcon fontSize="small" /></InputAdornment>}
+                        >
+                            <MenuItem value=""><em>All Schools</em></MenuItem>
+                            {schools.map(s => <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>)}
+                        </Select>
+                    </FormControl>
+                </Grid>
+            )}
+
+            <Grid item xs={12} md={4}>
+                <TextField
+                    fullWidth
+                    size="small"
+                    label="Filter by Class"
+                    placeholder="e.g. 10"
+                    value={classFilter}
+                    onChange={(e) => setClassFilter(e.target.value)}
+                    InputProps={{
+                        startAdornment: <InputAdornment position="start"><ClassIcon fontSize="small" color="action" /></InputAdornment>
+                    }}
+                />
+            </Grid>
+
+        </Grid>
+      </Paper>
+
+      {/* TABLE */}
+      <Paper elevation={1} sx={{ borderRadius: 2, overflow: 'hidden' }}>
         <Table>
-          <TableHead>
+          <TableHead sx={{ bgcolor: '#f8f9fa' }}>
             <TableRow>
-              <TableCell>ID</TableCell>
-              <TableCell>Username</TableCell>
-              <TableCell>Name</TableCell>
-              <TableCell>Mobile</TableCell>
-              <TableCell>School</TableCell>
-              <TableCell>Class</TableCell>
-              <TableCell>Roll</TableCell>
-              <TableCell>Actions</TableCell>
+              <TableCell><strong>Student Info</strong></TableCell>
+              <TableCell><strong>Contact</strong></TableCell>
+              <TableCell><strong>School & Class</strong></TableCell>
+              <TableCell><strong>Username</strong></TableCell>
+              <TableCell align="right"><strong>Actions</strong></TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {students.map((s) => (
-              <TableRow key={s.id}>
-                <TableCell>{s.id}</TableCell>
-                <TableCell>{s.username || "N/A"}</TableCell> {/* Show username if present */}
-                <TableCell>{s.name || "N/A"}</TableCell>
-                <TableCell>{s.mobile_number || "N/A"}</TableCell>
-                <TableCell>{s.school_name || "N/A"}</TableCell>
-                <TableCell>{s.class_number || "N/A"}</TableCell>
-                <TableCell>{s.number || "N/A"}</TableCell>
-                <TableCell>
-                  <IconButton onClick={() => handleOpen(s)}><EditIcon /></IconButton>
-                  <IconButton onClick={() => handleDelete(s.id)}><DeleteIcon /></IconButton>
-                </TableCell>
-              </TableRow>
-            ))}
+            {loading ? (
+                <TableRow><TableCell colSpan={5} align="center"><CircularProgress sx={{ my: 2 }} /></TableCell></TableRow>
+            ) : sortedStudents.length === 0 ? (
+                <TableRow><TableCell colSpan={5} align="center">No students found matching filters.</TableCell></TableRow>
+            ) : (
+                sortedStudents.map((s) => (
+                <TableRow key={s.id} hover>
+                    <TableCell>
+                        <Typography variant="subtitle2" fontWeight={600}>{s.name}</Typography>
+                        <Chip label={s.student_id || "No ID"} size="small" sx={{ mt: 0.5, bgcolor: '#e3f2fd', fontWeight: 'bold', color: '#1565c0' }} />
+                    </TableCell>
+                    <TableCell>{s.mobile_number || "—"}</TableCell>
+                    <TableCell>
+                        <Stack direction="row" spacing={1}>
+                            <Chip label={s.school_name || "N/A"} size="small" variant="outlined" />
+                            {s.class_number && <Chip label={`Class ${s.class_number}`} size="small" color="secondary" variant="outlined" />}
+                        </Stack>
+                    </TableCell>
+                    <TableCell>{s.username}</TableCell>
+                    <TableCell align="right">
+                        <IconButton size="small" onClick={() => handleOpen(s)} color="primary"><EditIcon /></IconButton>
+                        <IconButton size="small" onClick={() => handleDelete(s.id)} color="error"><DeleteIcon /></IconButton>
+                    </TableCell>
+                </TableRow>
+                ))
+            )}
           </TableBody>
         </Table>
+        
+        <TablePagination
+            component="div"
+            count={totalItems}
+            page={page}
+            onPageChange={(e, newPage) => setPage(newPage)}
+            rowsPerPage={rowsPerPage}
+            onRowsPerPageChange={(e) => {
+                setRowsPerPage(parseInt(e.target.value, 10));
+                setPage(0);
+            }}
+        />
       </Paper>
 
-      {/* --- Pagination Controls --- */}
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mt: 2 }}>
-        <Button onClick={() => setPage(page - 1)} disabled={page <= 1}>
-          Previous
-        </Button>
-        <Typography sx={{ mx: 2 }}>
-          Page {page} of {totalPages}
-        </Typography>
-        <Button onClick={() => setPage(page + 1)} disabled={page >= totalPages}>
-          Next
-        </Button>
-      </Box>
-
-      <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
-        <DialogTitle>{isEdit ? "Edit Student" : "Add Student"}</DialogTitle>
-        <DialogContent>
-          <Grid container spacing={2}>
-            <Grid item xs={12} md={6}>
-
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                label="Name"
-                required
+      {/* DIALOG FORM */}
+      <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
+        <DialogTitle>{isEdit ? "Edit Student" : "Register Student"}</DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            
+            <TextField
+                label="Full Name"
                 fullWidth
-                margin="normal"
                 value={current.name}
                 onChange={(e) => setCurrent({ ...current, name: e.target.value })}
-              />
-            </Grid>
+            />
+
             {!isEdit && (
-              <Grid item xs={12} md={6}>
                 <TextField
-                  label="Password"
-                  required
-                  type="password"
-                  fullWidth
-                  margin="normal"
-                  value={current.password}
-                  onChange={(e) => setCurrent({ ...current, password: e.target.value })}
+                    label="Password"
+                    type="password"
+                    fullWidth
+                    value={current.password}
+                    onChange={(e) => setCurrent({ ...current, password: e.target.value })}
+                    helperText="Default password will be generated if left blank."
                 />
-              </Grid>
             )}
-            <Grid item xs={12} md={6}>
-              <TextField
+
+            {/* FIX: Only show School Dropdown if Super Admin. 
+                If School Admin, we auto-assign their school ID in handleSave. 
+            */}
+            {isSuperAdmin && (
+                <FormControl fullWidth>
+                    <InputLabel>School</InputLabel>
+                    <Select
+                        native
+                        label="School"
+                        value={current.school_id}
+                        onChange={(e) => setCurrent({ ...current, school_id: e.target.value })}
+                    >
+                        <option value="">Select School</option>
+                        {schools.map((s) => (
+                            <option key={s.id} value={s.id}>{s.name} ({s.code})</option>
+                        ))}
+                    </Select>
+                </FormControl>
+            )}
+
+            <Grid container spacing={2}>
+                <Grid item xs={6}>
+                    <TextField
+                        label="Class"
+                        fullWidth
+                        value={current.class_number}
+                        onChange={(e) => setCurrent({ ...current, class_number: e.target.value })}
+                    />
+                </Grid>
+                <Grid item xs={6}>
+                    <TextField
+                        label="Roll Number"
+                        fullWidth
+                        value={current.number}
+                        onChange={(e) => setCurrent({ ...current, number: e.target.value })}
+                    />
+                </Grid>
+            </Grid>
+
+            <TextField
                 label="Mobile Number"
                 fullWidth
-                margin="normal"
                 value={current.mobile_number}
                 onChange={(e) => setCurrent({ ...current, mobile_number: e.target.value })}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                select
-                label="School"
-                required
-                SelectProps={{ native: true }}
+            />
+            
+            <TextField
+                label="Email (Optional)"
                 fullWidth
-                margin="normal"
-                value={current.school_id}
-                onChange={(e) => setCurrent({ ...current, school_id: e.target.value })} // <-- use id
-              >
-                <option value="">Select School</option>
-                {schools.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name} ({s.code})
-                  </option>
-                ))}
-              </TextField>
-            </Grid>
-            <Grid item xs={6} md={4}>
-              <TextField
-                label="Class"
-                fullWidth
-                margin="normal"
-                value={current.class_number}
-                onChange={(e) => setCurrent({ ...current, class_number: e.target.value })}
-              />
-            </Grid>
-            <Grid item xs={6} md={4}>
-              <TextField
-                label="Roll Number"
-                required
-                fullWidth
-                margin="normal"
-                value={current.number}
-                onChange={(e) => setCurrent({ ...current, number: e.target.value })}
-              />
-            </Grid>
-          </Grid>
+                value={current.email}
+                onChange={(e) => setCurrent({ ...current, email: e.target.value })}
+            />
+
+          </Stack>
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={{ p: 2 }}>
           <Button onClick={handleClose}>Cancel</Button>
-          <Button onClick={handleSave} variant="contained">Save</Button>
+          <Button onClick={handleSave} variant="contained">Save Changes</Button>
         </DialogActions>
       </Dialog>
     </Box>
