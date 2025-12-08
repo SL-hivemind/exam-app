@@ -5,7 +5,7 @@ import boto3
 from flask import Blueprint, request, jsonify
 from werkzeug.utils import secure_filename
 from sqlalchemy.exc import IntegrityError
-from models import db, School, User, Student, Question, Exam, StudentExamAttempt
+from models import db, School, User, Student, Question, Exam, StudentExamAttempt, QuestionRepository
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment
 
@@ -401,7 +401,7 @@ def export_student_attempts_to_excel(exam_id=None):
                 start_time = attempt.start_time.isoformat() if attempt.start_time else ""
                 submitted_time = attempt.submitted_time.isoformat() if attempt.submitted_time else ""
                 score = attempt.score if attempt.score is not None else ""
-                status = "Completed" if attempt.submitted_time else "In Progress"
+                status = "Completed" if attempt.submitted_time else "Discontinued"
 
                 row = [student_id, student_name, school_name, exam_title, start_time, submitted_time, score, status]
                 ws.append(row)
@@ -432,3 +432,54 @@ def export_student_attempts_to_excel(exam_id=None):
     except Exception as e:
         logger.error(f"Error in export_student_attempts_to_excel: {str(e)}", exc_info=True)
         raise
+def import_repository_csv(path, current_user_id):
+    """
+    Import questions into the QuestionRepository from a CSV file.
+    Now supports 'image_path' column.
+    """
+    count = 0
+    # Use utf-8-sig to handle Excel CSVs (removes BOM)
+    with open(path, newline="", encoding="utf-8-sig") as fh:
+        reader = csv.DictReader(fh)
+        
+        # Clean headers (strip spaces, lowercase)
+        reader.fieldnames = [h.strip().lower() if h else '' for h in reader.fieldnames]
+
+        for row in reader:
+            text = row.get('text', '').strip()
+            
+            # Skip empty rows
+            if not text:
+                continue
+            
+            # 1. Logic to determine Subject
+            row_subject = row.get('subject')
+            # Note: In app.py we usually pass the user object to check permissions, 
+            # but here we just passed the ID. Ideally, the 'app.py' should filter 
+            # or override this before saving if strict subject control is needed.
+            # For now, we accept what is in the CSV.
+
+            # 2. Logic to get Image URL from CSV
+            # Supports columns named: 'image', 'image_path', or 'image_url'
+            image_url = row.get('image') or row.get('image_path') or row.get('image_url')
+
+            q = QuestionRepository(
+                text=text,
+                option_a=row.get('option_a'),
+                option_b=row.get('option_b'),
+                option_c=row.get('option_c'),
+                option_d=row.get('option_d'),
+                correct_answer=row.get('correct_answer'),
+                marks=int(row.get('marks') or 1),
+                subject=row_subject,
+                class_number=row.get('class') or row.get('class_number'),
+                
+                # ✅ FIX: Map the image path here
+                image_path=image_url,
+                
+                created_by=current_user_id
+            )
+            db.session.add(q)
+            count += 1
+            
+    return count
