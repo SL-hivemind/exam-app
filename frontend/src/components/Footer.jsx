@@ -88,7 +88,7 @@ export default function Footer() {
               </Typography>
               <Typography variant="body2" paragraph>
                 <strong>Email:</strong> support@slexams.com<br/>
-                <strong>Phone:</strong> +91 98765 43210
+                <strong>Phone:</strong> 040 45150531
               </Typography>
               <Button variant="outlined" color="inherit" size="small" href="mailto:Saradapublications18@gmail.com">
                 Send Message
