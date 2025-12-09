@@ -107,7 +107,7 @@ const pricingPlans = [
     {
         title: "Tier 1: Essential",
         subtitle: "Academic Package",
-        priceDesc: "School Discount: 70-75%",
+        // priceDesc: "School Discount: 70-75%",
         color: "#4db6ac", 
         features: ["Printed Book Set (Full Year)", "Basic LMS & Exam Portal", "Digital Worksheets", "Mobile App (Basic)", "Offline Monthly Exams"], 
         missing: ["STEM Activities", "Lab Setup", "Book Fair Setup", "SJIS (Not included)"] 
@@ -115,7 +115,7 @@ const pricingPlans = [
     {
         title: "Tier 2: Comprehensive",
         subtitle: "Most Opted by Schools",
-        priceDesc: "School Discount: 60-65%",
+        // priceDesc: "School Discount: 60-65%",
         color: "#1e88e5", 
         recommended: true,
         features: ["Everything in Tier 1", "Advanced LMS (Analytics)", "Full Exam Portal", "2 Student Workshops", "Digital Question Bank"], 
@@ -124,7 +124,7 @@ const pricingPlans = [
     {
         title: "Tier 3: Premium",
         subtitle: "Complete Transformation",
-        priceDesc: "School Discount: 35-45%",
+        // priceDesc: "School Discount: 35-45%",
         color: "#ff9800", 
         features: ["Everything in Tier 2", "Custom-Branded App", "Premium LMS (AI)", "Full Book Fair Setup", "STEM Kits & Lab Support", "Monthly Academic Coordinator", "⭐ SJIS Journal Included"], 
         missing: [] 
