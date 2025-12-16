@@ -2,7 +2,7 @@ import axios from 'axios';
 import useAuth from '../hooks/useAuth'; // if you have one; otherwise set header where you call.
 
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_BASE || 'http://localhost:5000',
+  baseURL: "https://sl-exams.onrender.com",
 });
 
 // attach token if you already do it globally; else keep as-is
