@@ -65,14 +65,12 @@ app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", secrets.token_hex(32)
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", secrets.token_hex(32))
 
 # SQLAlchemy pool settings
-app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-    'pool_recycle': 280,
-    'pool_pre_ping': True,
-    'pool_size': 10,
-    'max_overflow': 20,
-    'pool_timeout': 10
+app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+    "pool_size": 8,
+    "max_overflow": 4,
+    "pool_recycle": 1800,
+    "pool_pre_ping": True,
 }
-
 # Logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
