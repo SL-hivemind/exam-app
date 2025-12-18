@@ -154,41 +154,63 @@ export default function StudentResultsPage() {
                                 {/* Question Header */}
                                 <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
                                     <Typography variant="subtitle1" fontWeight={600} sx={{ width: '85%' }}>
-                                        Q{idx + 1}. {ans.text}
+                                        Q{idx + 1}. {ans.text || "Question text not available"}
                                     </Typography>
                                     <Chip
-                                        label={ans.is_correct ? `${ans.marks_awarded} Marks` : "0 Marks"}
+                                        label={ans.is_correct ? `+${ans.marks_awarded} Marks` : "0 Marks"}
                                         color={ans.is_correct ? "success" : "default"}
                                         size="small"
                                         variant="outlined"
+                                        sx={{ fontWeight: 'bold' }}
                                     />
                                 </Stack>
 
                                 {/* Image (Optional) */}
                                 {ans.image_path && (
                                     <Box sx={{ my: 1 }}>
-                                        <img src={ans.image_path} alt="Question Diagram" style={{ maxWidth: '100%', maxHeight: 200, borderRadius: 8 }} />
+                                        <img
+                                            src={ans.image_path}
+                                            alt="Question Diagram"
+                                            style={{ maxWidth: '100%', maxHeight: 200, borderRadius: 8, border: '1px solid #ddd' }}
+                                        />
                                     </Box>
                                 )}
 
                                 {/* Options Grid */}
                                 <Grid container spacing={2} sx={{ mt: 1 }}>
                                     {['A', 'B', 'C', 'D'].map((optKey) => {
-                                        const optionText = ans[`option_${optKey.toLowerCase()}`]; // Access option_a, option_b...
-                                        const isSelected = ans.answer === optKey;
-                                        const isCorrect = ans.correct_answer === optKey;
+                                        const optionKeyRaw = `option_${optKey.toLowerCase()}`; // option_a, option_b...
+                                        const optionText = ans[optionKeyRaw];
 
-                                        // Determine Color Logic
+                                        // Normalizing logic: ensure we compare uppercase to uppercase
+                                        const studentAnswer = (ans.answer || "").toUpperCase();
+                                        const correctAnswer = (ans.correct_answer || "").toUpperCase();
+                                        const currentOption = optKey.toUpperCase();
+
+                                        const isSelected = studentAnswer === currentOption;
+                                        const isCorrectOption = correctAnswer === currentOption;
+
+                                        // Logic for Colors
+                                        // 1. If this option is the Correct Answer -> ALWAYS GREEN
+                                        // 2. If this option was Selected by student but is WRONG -> RED
+                                        // 3. Otherwise -> Default White/Grey
+
                                         let bgColor = '#fff';
-                                        let borderColor = '#ddd';
+                                        let borderColor = '#e0e0e0';
+                                        let textColor = 'text.primary';
 
-                                        if (isCorrect) {
-                                            bgColor = '#e8f5e9'; // Green background for correct
-                                            borderColor = '#2e7d32';
-                                        } else if (isSelected && !isCorrect) {
-                                            bgColor = '#ffebee'; // Red background for wrong selection
-                                            borderColor = '#d32f2f';
+                                        if (isCorrectOption) {
+                                            bgColor = '#edf7ed'; // Light Green
+                                            borderColor = '#2e7d32'; // Dark Green
+                                            textColor = '#1b5e20';
+                                        } else if (isSelected && !isCorrectOption) {
+                                            bgColor = '#fdeded'; // Light Red
+                                            borderColor = '#d32f2f'; // Dark Red
+                                            textColor = '#c62828';
                                         }
+
+                                        // Border thickness highlights the user's choice or the correct answer
+                                        const borderThickness = (isSelected || isCorrectOption) ? 2 : 1;
 
                                         return (
                                             <Grid item xs={12} sm={6} key={optKey}>
@@ -196,32 +218,37 @@ export default function StudentResultsPage() {
                                                     p: 1.5,
                                                     bgcolor: bgColor,
                                                     borderColor: borderColor,
-                                                    borderWidth: (isSelected || isCorrect) ? 2 : 1,
+                                                    borderWidth: borderThickness,
                                                     display: 'flex',
                                                     alignItems: 'center',
-                                                    position: 'relative'
+                                                    position: 'relative',
+                                                    transition: 'all 0.2s ease'
                                                 }}>
-                                                    <Typography variant="body2" fontWeight={isSelected || isCorrect ? 700 : 400}>
-                                                        <span style={{ fontWeight: 'bold', marginRight: 8 }}>{optKey})</span>
-                                                        {optionText}
+                                                    <Typography variant="body2" sx={{ color: textColor, fontWeight: (isSelected || isCorrectOption) ? 600 : 400, width: '90%' }}>
+                                                        <span style={{ fontWeight: 800, marginRight: 8 }}>{optKey})</span>
+                                                        {optionText || <span style={{ fontStyle: 'italic', color: '#999' }}>Empty Option</span>}
                                                     </Typography>
 
-                                                    {/* Status Indicator Icon */}
-                                                    {isCorrect && <CheckCircleIcon color="success" sx={{ position: 'absolute', right: 8 }} />}
-                                                    {isSelected && !isCorrect && <CancelIcon color="error" sx={{ position: 'absolute', right: 8 }} />}
+                                                    {/* Icons for visual feedback */}
+                                                    {isCorrectOption && (
+                                                        <CheckCircleIcon color="success" sx={{ position: 'absolute', right: 10 }} fontSize="small" />
+                                                    )}
+                                                    {isSelected && !isCorrectOption && (
+                                                        <CancelIcon color="error" sx={{ position: 'absolute', right: 10 }} fontSize="small" />
+                                                    )}
                                                 </Paper>
                                             </Grid>
                                         );
                                     })}
                                 </Grid>
 
-                                {/* Footer Text */}
-                                <Box sx={{ mt: 1, pt: 1, borderTop: '1px dashed #eee', display: 'flex', gap: 2 }}>
-                                    <Typography variant="caption" color="text.secondary">
-                                        Your Answer: <b>{ans.answer || "Skipped"}</b>
+                                {/* Footer Text / Summary */}
+                                <Box sx={{ mt: 1, pt: 1, borderTop: '1px dashed #eee', display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+                                    <Typography variant="caption" sx={{ color: ans.answer ? 'text.secondary' : 'warning.main' }}>
+                                        Your Answer: <b>{ans.answer ? ans.answer.toUpperCase() : "Skipped"}</b>
                                     </Typography>
-                                    <Typography variant="caption" color="primary">
-                                        Correct Answer: <b>{ans.correct_answer}</b>
+                                    <Typography variant="caption" color="primary.main">
+                                        Correct Answer: <b>{ans.correct_answer ? ans.correct_answer.toUpperCase() : "N/A"}</b>
                                     </Typography>
                                 </Box>
 
@@ -229,6 +256,7 @@ export default function StudentResultsPage() {
                         </Paper>
                     ))}
                 </Stack>
+
 
             </Container>
         </Box>

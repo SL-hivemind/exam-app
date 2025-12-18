@@ -1474,32 +1474,50 @@ def student_view_result(current_user, exam_id):
     exam = Exam.query.get_or_404(exam_id)
     if not exam.results_released:
         return jsonify({'message':'results not released yet'}), 403
+
     student = Student.query.filter_by(user_id=current_user.id).first()
     attempt = StudentExamAttempt.query.filter_by(exam_id=exam.id, student_id=student.user_id).first()
+
     if not attempt or not attempt.submitted_time:
         return jsonify({'message':'no attempt found'}), 400
-    answers = []
+
+    answers_data = []
     for a in attempt.answers:
         q = Question.query.get(a.question_id)
-        answers.append({
-            'question_id': q.id,
-    'question_text': q.text,
-    
-    # 1. Fix the attribute name (Model uses .answer, not .selected_option)
-    'answer': a.answer,
-    
-    'marks_awarded': a.marks_awarded,
-    'is_correct': a.is_correct,
-    'marks': q.marks, 
+        
+        # --- LOGIC FIX START ---
+        # Determine the source of the data. 
+        # If repo_question_id exists, fetch data from QuestionRepository.
+        # Otherwise, use the data directly from the Question table.
+        
+        source = q # Default to the Question table
+        if q.repo_question_id:
+            repo_q = QuestionRepository.query.get(q.repo_question_id)
+            if repo_q:
+                source = repo_q
+        
+        # Now we map the fields from 'source' (which is either the repo item or the question itself)
+        answers_data.append({
+            'question_id': q.id, # Keep original ID for reference
+            
+            # Use 'text' to match your frontend expectation
+            'text': source.text,
+            
+            'answer': a.answer,
+            'marks_awarded': a.marks_awarded,
+            'is_correct': a.is_correct,
+            'marks': source.marks, 
 
-    # 2. Add the missing Options & Correct Answer
-    'option_a': q.option_a,
-    'option_b': q.option_b,
-    'option_c': q.option_c,
-    'option_d': q.option_d,
-    'correct_answer': q.correct_answer,
-    'image_path': q.image_path if hasattr(q, 'image_path') else None
+            # Pull options from the determined source
+            'option_a': source.option_a,
+            'option_b': source.option_b,
+            'option_c': source.option_c,
+            'option_d': source.option_d,
+            'correct_answer': source.correct_answer,
+            'image_path': source.image_path if hasattr(source, 'image_path') else None
         })
+        # --- LOGIC FIX END ---
+
     return jsonify({
         'exam': exam.to_dict(),
         'attempt': {
@@ -1507,9 +1525,8 @@ def student_view_result(current_user, exam_id):
             'submitted_time': attempt.submitted_time.isoformat(),
             'score': attempt.score
         },
-        'answers': answers
+        'answers': answers_data
     }), 200
-
 # ------------------------------
 # Uploads and Export
 # ------------------------------
