@@ -2,15 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
     Box, Typography, Paper, Grid, Alert, CircularProgress,
-    Container, Stack, Chip, Divider, LinearProgress, Button
+    Container, Stack, Chip, Button
 } from '@mui/material';
 import {
-    CheckCircle as CorrectIcon,
-    Cancel as WrongIcon,
+    CheckCircle as CorrectIcon, // Fixed Name
+    Cancel as WrongIcon,        // Fixed Name
     EmojiEvents as TrophyIcon,
     AccessTime as TimeIcon,
-    ArrowBack as BackIcon,
-    HelpOutline as UnknownIcon
+    ArrowBack as BackIcon
 } from '@mui/icons-material';
 import api from '../utils/api';
 import useAuth from '../hooks/useAuth';
@@ -68,7 +67,7 @@ export default function StudentResultsPage() {
 
     // Calculate stats
     const correctCount = answers.filter(a => a.is_correct).length;
-    const incorrectCount = answers.filter(a => !a.is_correct && a.answer).length; // Wrong but attempted
+    const incorrectCount = answers.filter(a => !a.is_correct && a.answer).length;
     const skippedCount = answers.filter(a => !a.answer).length;
 
     return (
@@ -89,7 +88,6 @@ export default function StudentResultsPage() {
                             <Typography variant="body1" color="text.secondary" sx={{ mt: 1 }}>
                                 {exam.description || "Exam Results Analysis"}
                             </Typography>
-
                             <Stack direction="row" spacing={3} sx={{ mt: 3 }}>
                                 <Box display="flex" alignItems="center" gap={1}>
                                     <TimeIcon color="action" />
@@ -99,7 +97,6 @@ export default function StudentResultsPage() {
                                 </Box>
                             </Stack>
                         </Grid>
-
                         <Grid item xs={12} md={4}>
                             <Paper
                                 elevation={3}
@@ -176,13 +173,31 @@ export default function StudentResultsPage() {
                                     </Box>
                                 )}
 
-                                {/* Options Grid */}
+                                {/* --- DEBUG SECTION: FORCE DISPLAY OPTIONS --- */}
+                                {/* I placed this BEFORE the fancy grid so you can see raw data first */}
+                                <Box sx={{ mt: 2, p: 2, bgcolor: '#f9f9f9', borderRadius: 2, border: '1px dashed #999' }}>
+                                    <Typography variant="caption" fontWeight="bold" color="textSecondary">DEBUG / RAW DATA VIEW:</Typography>
+                                    <Grid container spacing={1} sx={{ mt: 0.5 }}>
+                                        <Grid item xs={6}><Typography variant="body2">A) {ans.option_a || "Missing"}</Typography></Grid>
+                                        <Grid item xs={6}><Typography variant="body2">B) {ans.option_b || "Missing"}</Typography></Grid>
+                                        <Grid item xs={6}><Typography variant="body2">C) {ans.option_c || "Missing"}</Typography></Grid>
+                                        <Grid item xs={6}><Typography variant="body2">D) {ans.option_d || "Missing"}</Typography></Grid>
+                                    </Grid>
+                                    <Box sx={{ mt: 1, pt: 1, borderTop: '1px solid #ddd' }}>
+                                        <Typography variant="body2" color="error">
+                                            Correct Answer: <b>{ans.correct_answer || "Not Set"}</b>
+                                        </Typography>
+                                    </Box>
+                                </Box>
+                                {/* --- END DEBUG SECTION --- */}
+
+
+                                {/* Standard Options Grid (This uses the icons) */}
                                 <Grid container spacing={2} sx={{ mt: 1 }}>
                                     {['A', 'B', 'C', 'D'].map((optKey) => {
-                                        const optionKeyRaw = `option_${optKey.toLowerCase()}`; // option_a, option_b...
+                                        const optionKeyRaw = `option_${optKey.toLowerCase()}`;
                                         const optionText = ans[optionKeyRaw];
 
-                                        // Normalizing logic: ensure we compare uppercase to uppercase
                                         const studentAnswer = (ans.answer || "").toUpperCase();
                                         const correctAnswer = (ans.correct_answer || "").toUpperCase();
                                         const currentOption = optKey.toUpperCase();
@@ -190,26 +205,20 @@ export default function StudentResultsPage() {
                                         const isSelected = studentAnswer === currentOption;
                                         const isCorrectOption = correctAnswer === currentOption;
 
-                                        // Logic for Colors
-                                        // 1. If this option is the Correct Answer -> ALWAYS GREEN
-                                        // 2. If this option was Selected by student but is WRONG -> RED
-                                        // 3. Otherwise -> Default White/Grey
-
                                         let bgColor = '#fff';
                                         let borderColor = '#e0e0e0';
                                         let textColor = 'text.primary';
 
                                         if (isCorrectOption) {
-                                            bgColor = '#edf7ed'; // Light Green
-                                            borderColor = '#2e7d32'; // Dark Green
+                                            bgColor = '#edf7ed';
+                                            borderColor = '#2e7d32';
                                             textColor = '#1b5e20';
                                         } else if (isSelected && !isCorrectOption) {
-                                            bgColor = '#fdeded'; // Light Red
-                                            borderColor = '#d32f2f'; // Dark Red
+                                            bgColor = '#fdeded';
+                                            borderColor = '#d32f2f';
                                             textColor = '#c62828';
                                         }
 
-                                        // Border thickness highlights the user's choice or the correct answer
                                         const borderThickness = (isSelected || isCorrectOption) ? 2 : 1;
 
                                         return (
@@ -229,12 +238,12 @@ export default function StudentResultsPage() {
                                                         {optionText || <span style={{ fontStyle: 'italic', color: '#999' }}>Empty Option</span>}
                                                     </Typography>
 
-                                                    {/* Icons for visual feedback */}
+                                                    {/* FIXED ICONS USAGE HERE */}
                                                     {isCorrectOption && (
-                                                        <CheckCircleIcon color="success" sx={{ position: 'absolute', right: 10 }} fontSize="small" />
+                                                        <CorrectIcon color="success" sx={{ position: 'absolute', right: 10 }} fontSize="small" />
                                                     )}
                                                     {isSelected && !isCorrectOption && (
-                                                        <CancelIcon color="error" sx={{ position: 'absolute', right: 10 }} fontSize="small" />
+                                                        <WrongIcon color="error" sx={{ position: 'absolute', right: 10 }} fontSize="small" />
                                                     )}
                                                 </Paper>
                                             </Grid>
@@ -256,7 +265,6 @@ export default function StudentResultsPage() {
                         </Paper>
                     ))}
                 </Stack>
-
 
             </Container>
         </Box>
