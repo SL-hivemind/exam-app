@@ -842,7 +842,7 @@ def repository_question_detail(current_user, q_id):
                 setattr(q, field, data.get(field))
         try:
             q.last_edited_by = current_user.id
-            q.last_edited_at = datetime.utcnow()
+            q.last_edited_at = datetime.now()
         except Exception:
             pass
         db.session.commit()
@@ -1482,9 +1482,19 @@ def student_view_result(current_user, exam_id):
     for a in attempt.answers:
         q = Question.query.get(a.question_id)
         answers.append({
-            'question_id': q.id, 'text': q.text,
-            'answer': a.answer, 'is_correct': a.is_correct,
-            'marks_awarded': a.marks_awarded, 'marks': q.marks
+            'question_id': q.id,
+    'question_text': q.text,
+    'selected_option': a.selected_option,
+    'marks_awarded': a.marks_awarded,
+    
+    # ✅ ADD THESE LINES to send options to the frontend
+    'option_a': q.option_a,
+    'option_b': q.option_b,
+    'option_c': q.option_c,
+    'option_d': q.option_d,
+    'correct_answer': q.correct_answer,
+    'image_path': q.image_path if q.image_path else None,
+    'is_correct': a.is_correct
         })
     return jsonify({
         'exam': exam.to_dict(),

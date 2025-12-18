@@ -32,17 +32,15 @@ const ScrollHandler = (props) => {
   return React.cloneElement(children, {
     elevation: trigger ? 4 : 0,
     sx: {
-      // LOGIC: If scrolled OR not on home page -> White Background. 
-      // Otherwise (Top of Home Page) -> Transparent.
-      backgroundColor: trigger || !isHome ? "rgba(255, 255, 255, 0.95)" : "transparent",
-      backdropFilter: trigger || !isHome ? "blur(20px)" : "none",
-      
-      // LOGIC: If scrolled OR not on home page -> Blue Text.
-      // Otherwise -> White Text.
-      color: trigger || !isHome ? "#1a237e" : "white", 
-      
+      // Always white background to ensure visibility
+      backgroundColor: "rgba(255, 255, 255, 0.95)",
+      backdropFilter: "blur(20px)",
+
+      // Always blue text for consistency
+      color: "#1a237e",
+
       transition: "all 0.3s ease",
-      borderBottom: trigger || !isHome ? "1px solid rgba(0,0,0,0.05)" : "none",
+      borderBottom: "1px solid rgba(0,0,0,0.05)",
     },
   });
 };

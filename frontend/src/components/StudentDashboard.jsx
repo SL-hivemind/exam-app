@@ -30,9 +30,11 @@ const upcomingAssessments = [
 const examInstructions = [
   "Attempt all questions within the allotted time. No negative marks.",
   "You must complete the exam within the specified duration.",
-  "If the timer runs out, your exam will be automatically submitted.",
+  "If the timer runs out, your exam will be automatically submitted if you stay on the exam page.",
   "If interrupted (e.g., tab close), log back in immediately to resume.",
-  "Do not switch tabs. Ensure you click 'Submit' to finalize.",
+  "Do not switch tabs. if switched more than 3 times exam submits automatically.",
+  "Do not refresh the page during the exam dont try to change url.",
+  "Ensure you click 'Submit' to finalize.",
   "No re-attempts are allowed."
 ];
 
@@ -330,7 +332,7 @@ export default function StudentDashboard() {
                   Did you know?
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  Exams are auto-submitted when the timer runs out. Ensure you save your answers frequently.
+                  Exams are auto-submitted when the timer runs out when you are attempting. Ensure you save your answers frequently.
                 </Typography>
               </Box>
             </Paper>
