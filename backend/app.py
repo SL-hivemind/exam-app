@@ -1484,17 +1484,21 @@ def student_view_result(current_user, exam_id):
         answers.append({
             'question_id': q.id,
     'question_text': q.text,
-    'selected_option': a.selected_option,
-    'marks_awarded': a.marks_awarded,
     
-    # ✅ ADD THESE LINES to send options to the frontend
+    # 1. Fix the attribute name (Model uses .answer, not .selected_option)
+    'answer': a.answer,
+    
+    'marks_awarded': a.marks_awarded,
+    'is_correct': a.is_correct,
+    'marks': q.marks, 
+
+    # 2. Add the missing Options & Correct Answer
     'option_a': q.option_a,
     'option_b': q.option_b,
     'option_c': q.option_c,
     'option_d': q.option_d,
     'correct_answer': q.correct_answer,
-    'image_path': q.image_path if q.image_path else None,
-    'is_correct': a.is_correct
+    'image_path': q.image_path if hasattr(q, 'image_path') else None
         })
     return jsonify({
         'exam': exam.to_dict(),
