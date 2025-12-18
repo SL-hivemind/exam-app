@@ -1482,33 +1482,33 @@ def student_view_result(current_user, exam_id):
         return jsonify({'message':'no attempt found'}), 400
 
     answers_data = []
+    print(f"--- DEBUGGING EXAM {exam_id} ---") # Check your terminal for this
+    
     for a in attempt.answers:
         q = Question.query.get(a.question_id)
         
-        # --- LOGIC FIX START ---
-        # Determine the source of the data. 
-        # If repo_question_id exists, fetch data from QuestionRepository.
-        # Otherwise, use the data directly from the Question table.
+        # LOGIC: Determine Source
+        source = q 
+        source_type = "Local Table"
         
-        source = q # Default to the Question table
         if q.repo_question_id:
             repo_q = QuestionRepository.query.get(q.repo_question_id)
             if repo_q:
                 source = repo_q
+                source_type = "Repository"
         
-        # Now we map the fields from 'source' (which is either the repo item or the question itself)
+        # DEBUG: Print status of options
+        if not source.option_a:
+            print(f"[WARNING] Question {q.id} has NO options. Source: {source_type}, RepoID: {q.repo_question_id}")
+            
         answers_data.append({
-            'question_id': q.id, # Keep original ID for reference
-            
-            # Use 'text' to match your frontend expectation
-            'text': source.text,
-            
+            'question_id': q.id,
+            # Ensure we fallback to empty string if text is None
+            'text': source.text if source.text else "Text Missing", 
             'answer': a.answer,
             'marks_awarded': a.marks_awarded,
             'is_correct': a.is_correct,
             'marks': source.marks, 
-
-            # Pull options from the determined source
             'option_a': source.option_a,
             'option_b': source.option_b,
             'option_c': source.option_c,
@@ -1516,7 +1516,6 @@ def student_view_result(current_user, exam_id):
             'correct_answer': source.correct_answer,
             'image_path': source.image_path if hasattr(source, 'image_path') else None
         })
-        # --- LOGIC FIX END ---
 
     return jsonify({
         'exam': exam.to_dict(),
