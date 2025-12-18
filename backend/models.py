@@ -161,6 +161,8 @@ class Question(db.Model):
     __tablename__ = 'questions'
     id = db.Column(db.Integer, primary_key=True)
     exam_id = db.Column(db.Integer, db.ForeignKey('exams.id', ondelete='CASCADE'), nullable=False)
+    
+    # Local data columns (used if NOT linked to a repo question)
     text = db.Column(db.Text, nullable=True)
     option_a = db.Column(db.String(500))
     option_b = db.Column(db.String(500))
@@ -170,8 +172,44 @@ class Question(db.Model):
     image_path = db.Column(db.String(255))
     marks = db.Column(db.Integer, nullable=False, default=1)
 
-    repo_question_id = db.Column(db.Integer, db.ForeignKey('question_repository.id'), nullable=True)  # linkage for traceability
+    # Linkage for Live Sync
+    repo_question_id = db.Column(db.Integer, db.ForeignKey('question_repository.id'), nullable=True)
+    
+    # Relationship to fetch the Master Question object
+    repo = db.relationship('QuestionRepository', backref='linked_questions')
 
+    @property
+    def source(self):
+        """
+        MASTER SYNC LOGIC:
+        If this question is linked to the Repository (repo_question_id is not None),
+        we return the Repository object. Otherwise, we return 'self' (local data).
+        """
+        if self.repo_question_id and self.repo:
+            return self.repo
+        return self
+
+    def to_dict(self):
+        """
+        This method automatically pulls data from the correct source.
+        The frontend doesn't need to know if it's from Repo or Local.
+        """
+        src = self.source # Determine source (Repo or Self)
+        
+        return {
+            'id': self.id,
+            'exam_id': self.exam_id,
+            'text': src.text,
+            'option_a': src.option_a,
+            'option_b': src.option_b,
+            'option_c': src.option_c,
+            'option_d': src.option_d,
+            'correct_answer': src.correct_answer,
+            'marks': src.marks,
+            'image_path': src.image_path if hasattr(src, 'image_path') else None,
+            'repo_question_id': self.repo_question_id,
+            'is_global': bool(self.repo_question_id)
+        }
 class ExamStudent(db.Model):
     __tablename__ = 'exam_students'
     id = db.Column(db.Integer, primary_key=True)

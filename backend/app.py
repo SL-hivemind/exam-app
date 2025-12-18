@@ -155,6 +155,25 @@ def to_utc_naive(dt):
     dt = dt.replace(tzinfo=local_tz)
     return dt.astimezone(timezone.utc).replace(tzinfo=None)
 
+def is_admin_exam(exam):
+    """Returns True if the exam belongs to the Platform Admin (Global)."""
+    return exam.school_id is None
+
+def check_restricted_access(exam, current_user, action="edit"):
+    """
+    Blocks School Admins from modifying Global/Admin exams.
+    Returns a Tuple: (allowed_bool, error_response_tuple)
+    """
+    # If user is a School Admin AND the Exam is Global (school_id is None)
+    if current_user.role == 'school_admin' and is_admin_exam(exam):
+        return False, (jsonify({
+            'message': f'Permission Denied: School Admins cannot {action} Global Admin Exams.',
+            'error_code': 'ADMIN_LOCKED'
+        }), 403)
+    return True, None
+
+
+
 # ------------------------------
 # DB init
 # ------------------------------
@@ -996,11 +1015,18 @@ def admin_exam_detail(current_user, exam_id):
         return jsonify({"message": "ok"}), 200
 
     exam = Exam.query.get_or_404(exam_id)
+
+    # GET is allowed for everyone
     if request.method == 'GET':
         assigned = ExamStudent.query.filter_by(exam_id=exam_id).all()
         assigned_users = [a.student_id for a in assigned]
         d = exam.to_dict(); d['assigned_users'] = assigned_users
         return jsonify({'exam': d}), 200
+
+    # --- SECURITY CHECK FOR PUT/DELETE ---
+    allowed, error_response = check_restricted_access(exam, current_user, action="edit/delete")
+    if not allowed:
+        return error_response
 
     if request.method == 'PUT':
         data = request.json or {}
@@ -1012,7 +1038,11 @@ def admin_exam_detail(current_user, exam_id):
             exam.access_end = datetime.fromisoformat(data['access_end']) if data['access_end'] else None
         if 'duration_minutes' in data: exam.duration_minutes = int(data['duration_minutes'])
         if 'total_marks' in data: exam.total_marks = int(data['total_marks'])
-        if 'results_released' in data: exam.results_released = bool(data['results_released'])
+        
+        # Security: School Admins cannot release results for Admin Exams (double check)
+        if 'results_released' in data: 
+            exam.results_released = bool(data['results_released'])
+            
         db.session.commit()
         return jsonify({'message':'exam updated','exam': exam.to_dict()}), 200
 
@@ -1124,19 +1154,52 @@ def admin_exam_question_detail(current_user, exam_id, question_id):
     if request.method == 'OPTIONS':
         return jsonify({"message": "ok"}), 200
 
-    _ = Exam.query.get_or_404(exam_id)
+    exam = Exam.query.get_or_404(exam_id)
     q = Question.query.filter_by(exam_id=exam_id, id=question_id).first_or_404()
 
     if request.method == 'GET':
+        # .to_dict() now uses the new Model logic to pull from Repo automatically!
         return jsonify({'question': q.to_dict()}), 200
+
+    # --- PUT: LIVE SYNC LOGIC ---
     if request.method == 'PUT':
         data = request.json or {}
+        
+        # 1. CHECK IF GLOBAL LINKED
+        if q.repo_question_id:
+            # 2. PERMISSION CHECK
+            if current_user.role == 'school_admin':
+                return jsonify({
+                    'message': 'Restricted: You cannot edit a Global Admin Question.',
+                    'error_code': 'READ_ONLY_CONTENT'
+                }), 403
+            
+            # 3. MASTER SYNC (Admin Only)
+            # Update the REPOSITORY, not the local table
+            repo_q = QuestionRepository.query.get(q.repo_question_id)
+            if repo_q:
+                print(f"SYNC: Admin updating Global Repo Question {repo_q.id}")
+                for field in ['text','option_a','option_b','option_c','option_d','correct_answer','marks','image_path']:
+                    if field in data:
+                        setattr(repo_q, field, data[field])
+                db.session.commit()
+                return jsonify({'message':'Global Repository Question updated (Synced)', 'question': q.to_dict()}), 200
+            
+        # 4. LOCAL UPDATE (Standard behavior for unlinked questions)
         for field in ['text','option_a','option_b','option_c','option_d','correct_answer','marks','image_path']:
             if field in data:
                 setattr(q, field, data[field])
         db.session.commit()
-        return jsonify({'message':'Question updated','question': q.to_dict()}), 200
+        return jsonify({'message':'Local Question updated','question': q.to_dict()}), 200
 
+    # --- DELETE LOGIC ---
+    # School Admins cannot delete questions from Admin Exams
+    if current_user.role == 'school_admin':
+        if is_admin_exam(exam):
+            return jsonify({'message': 'Permission Denied: Cannot delete questions from Admin Exam.'}), 403
+        # Even if exam is their own, if they try to delete a repo-linked question, 
+        # do we allow it? Yes, they are just removing the LINK from their exam.
+        
     db.session.delete(q)
     db.session.commit()
     return jsonify({'message':'Question deleted'}), 200
@@ -1273,6 +1336,10 @@ def clone_exam(current_user, exam_id):
 @role_required('admin', 'school_admin')
 def admin_assign_students(current_user, exam_id):
     exam = Exam.query.get_or_404(exam_id)
+    # --- SECURITY CHECK ---
+    allowed, error_response = check_restricted_access(exam, current_user, action="assign students to")
+    if not allowed:
+        return error_response
     data = request.get_json(silent=True) or {}
     replace = bool(data.get('replace', False))
 
@@ -1482,39 +1549,30 @@ def student_view_result(current_user, exam_id):
         return jsonify({'message':'no attempt found'}), 400
 
     answers_data = []
-    print(f"--- DEBUGGING EXAM {exam_id} ---") # Check your terminal for this
     
     for a in attempt.answers:
         q = Question.query.get(a.question_id)
         
-        # LOGIC: Determine Source
-        source = q 
-        source_type = "Local Table"
+        # Use the Model's smart .source property implicitly
+        # (Assuming you updated models.py as instructed in Step 1)
+        # If you haven't updated models.py, you must keep the manual 'source = ...' logic here.
         
-        if q.repo_question_id:
-            repo_q = QuestionRepository.query.get(q.repo_question_id)
-            if repo_q:
-                source = repo_q
-                source_type = "Repository"
+        # Construct the response using the LIVE data from source
+        src = q.source 
         
-        # DEBUG: Print status of options
-        if not source.option_a:
-            print(f"[WARNING] Question {q.id} has NO options. Source: {source_type}, RepoID: {q.repo_question_id}")
-            
         answers_data.append({
             'question_id': q.id,
-            # Ensure we fallback to empty string if text is None
-            'text': source.text if source.text else "Text Missing", 
+            'text': src.text, 
             'answer': a.answer,
             'marks_awarded': a.marks_awarded,
             'is_correct': a.is_correct,
-            'marks': source.marks, 
-            'option_a': source.option_a,
-            'option_b': source.option_b,
-            'option_c': source.option_c,
-            'option_d': source.option_d,
-            'correct_answer': source.correct_answer,
-            'image_path': source.image_path if hasattr(source, 'image_path') else None
+            'marks': src.marks, 
+            'option_a': src.option_a,
+            'option_b': src.option_b,
+            'option_c': src.option_c,
+            'option_d': src.option_d,
+            'correct_answer': src.correct_answer,
+            'image_path': src.image_path if hasattr(src, 'image_path') else None
         })
 
     return jsonify({
