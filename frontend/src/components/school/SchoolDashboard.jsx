@@ -82,7 +82,7 @@ export default function SchoolDashboard(props) {
       <Toolbar sx={{ bgcolor: '#1a237e', color: 'white' }}>
          <SchoolIcon sx={{ mr: 2 }} />
          <Typography variant="h6" noWrap component="div" sx={{ fontWeight: 700 }}>
-            School Portal
+           {user?.name || user?.username}
          </Typography>
       </Toolbar>
       <Divider />
@@ -154,9 +154,9 @@ export default function SchoolDashboard(props) {
           </Typography>
           
           <Stack direction="row" alignItems="center" spacing={2}>
-            <Typography variant="body2" sx={{ display: { xs: 'none', sm: 'block' } }}>
-              {user?.name || user?.username} (School Admin)
-            </Typography>
+            {/* <Typography variant="body2" sx={{ display: { xs: 'none', sm: 'block' } }}>
+              {user?.name || user?.username} 
+            </Typography> */}
             <Avatar sx={{ bgcolor: 'secondary.main', width: 32, height: 32, fontSize: 14 }}>
               {user?.username?.[0]?.toUpperCase()}
             </Avatar>

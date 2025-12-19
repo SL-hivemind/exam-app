@@ -211,7 +211,13 @@ def login():
 
         if not user or not user.check_password(password):
             return jsonify({'message': 'invalid credentials'}), 401
-
+        school_name = None
+        if user.school_id:
+            sch = School.query.get(user.school_id)
+            if sch:
+                school_name = sch.name
+        profile = {'id': user.id, 'username': user.username, 'role': user.role, 'name': getattr(user, 'name', None), 'specialist_subject': getattr(user, 'specialist_subject', None),'school_id': user.school_id,       # Ensure this is sent
+            'school_name': school_name}
         payload = {
             'sub': str(user.id),
             'role': user.role,
@@ -219,7 +225,7 @@ def login():
             'exp': datetime.now(timezone.utc) + timedelta(hours=6)
         }
         token = jwt.encode(payload, app.config['JWT_SECRET_KEY'], algorithm='HS256')
-        profile = {'id': user.id, 'username': user.username, 'role': user.role, 'name': getattr(user, 'name', None), 'specialist_subject': getattr(user, 'specialist_subject', None)}
+        
         return jsonify({'auth_token': token, 'user': profile}), 200
     except Exception as e:
         return jsonify({'message': 'Login failed', 'detail': str(e)}), 500
@@ -988,7 +994,9 @@ def admin_exams(current_user):
         access_end = data.get('access_end')
         duration = int(data.get('duration_minutes') or data.get('duration') or 60)
         total_marks = int(data.get('total_marks') or 0)
-        school_id = data.get('school_id')
+        school_id_to_use = data.get('school_id') 
+        if current_user.role == 'school_admin':
+            school_id_to_use = current_user.school_id
 
         try:
             ast = datetime.fromisoformat(access_start) if access_start else None
@@ -1004,7 +1012,13 @@ def admin_exams(current_user):
         )
         db.session.add(exam); db.session.commit()
         return jsonify({'message':'exam created','exam': exam.to_dict()}), 201
-
+    query = Exam.query
+    
+    if current_user.role == 'school_admin':
+        # Show: Exams created by THIS school OR Global Admin Exams (school_id is None)
+        query = query.filter(
+            or_(Exam.school_id == current_user.school_id, Exam.school_id == None)
+        )
     exams = Exam.query.order_by(desc(Exam.created_at)).all()
     return jsonify({'exams':[e.to_dict() for e in exams]}), 200
 
