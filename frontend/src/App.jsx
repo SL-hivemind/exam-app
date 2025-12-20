@@ -13,6 +13,7 @@ import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import AppRoutes from './routes/AppRoutes';
 import { AuthProvider } from './context/AuthContext';
+import useAuth from './hooks/useAuth';
 
 const theme = createTheme({
   palette: {
@@ -24,6 +25,7 @@ const theme = createTheme({
 });
 
 export default function App() {
+  const {authToken} = useAuth();
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
     <ThemeProvider theme={theme}>
@@ -35,7 +37,7 @@ export default function App() {
           <Container maxWidth={false} disableGutters sx={{ flex: 1 }}>
             <AppRoutes />
           </Container>
-          <Footer />
+          {!authToken && <Footer />}
         </Box>
       </AuthProvider>
     </ThemeProvider>

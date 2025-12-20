@@ -3,7 +3,8 @@ import {
   Box, Typography, Paper, Button, Alert, Chip, IconButton, Container, Toolbar,
   Stack, List, ListItem, ListItemIcon, ListItemText,
   Dialog, DialogTitle, DialogContent, DialogActions, DialogContentText,
-  Grid, Card, CardContent, CardActions, Divider, Tooltip, Zoom, CircularProgress
+  Grid, Card, CardContent, CardActions, Divider, Tooltip, Zoom, CircularProgress,
+  TablePagination
 } from '@mui/material';
 import {
   Refresh as RefreshIcon,
@@ -39,13 +40,20 @@ const examInstructions = [
 ];
 
 export default function StudentDashboard() {
-  // --- FIX: Destructure 'user' here ---
   const { authToken, user } = useAuth(); 
   const navigate = useNavigate();
+  
+  // --- DATA STATE ---
   const [exams, setExams] = useState([]);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const [startingExamId, setStartingExamId] = useState(null);
   const [isInstructionsOpen, setIsInstructionsOpen] = useState(false);
+
+  // --- PAGINATION STATE ---
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(5);
+  const [totalExams, setTotalExams] = useState(0);
 
   useEffect(() => {
     fetchExams();
@@ -54,7 +62,8 @@ export default function StudentDashboard() {
       setIsInstructionsOpen(true);
       localStorage.setItem('instructionsShown', 'true');
     }
-  }, [authToken]);
+    // eslint-disable-next-line
+  }, [authToken, page, rowsPerPage]);
 
   // --- HELPERS ---
   const isWithinAccessWindow = (exam) => {
@@ -100,10 +109,18 @@ export default function StudentDashboard() {
   };
 
   const fetchExams = async () => {
+    setLoading(true);
     try {
-      const res = await api.get('/student/exams', { headers: { auth_token: authToken } });
+      // Use query params for pagination
+      const res = await api.get(`/student/exams?page=${page + 1}&per_page=${rowsPerPage}`, { 
+          headers: { auth_token: authToken } 
+      });
+      
       const fetchedExams = res.data.exams || [];
+      const totalCount = res.data.total || 0;
 
+      // Optional: Sort the *current page* (Active first)
+      // Note: Ideal sorting happens on backend, but this keeps UX consistent per page
       const sortedExams = fetchedExams.sort((a, b) => {
         const aActive = isExamAvailable(a);
         const bActive = isExamAvailable(b);
@@ -113,10 +130,22 @@ export default function StudentDashboard() {
       });
 
       setExams(sortedExams);
+      setTotalExams(totalCount);
       setError('');
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to fetch exams');
+    } finally {
+        setLoading(false);
     }
+  };
+
+  const handlePageChange = (event, newPage) => {
+    setPage(newPage);
+  };
+
+  const handleRowsPerPageChange = (event) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
   };
 
   const handleStartExam = async (examId) => {
@@ -145,6 +174,7 @@ export default function StudentDashboard() {
 
       <Container maxWidth="lg" sx={{ py: 4 }}>
         
+        {/* DASHBOARD HEADER */}
         <Paper 
           elevation={0}
           sx={{ 
@@ -171,10 +201,10 @@ export default function StudentDashboard() {
 
           <Stack direction="row" spacing={2}>
              <Button 
-                startIcon={<InfoIcon />} 
-                variant="outlined" 
-                onClick={() => setIsInstructionsOpen(true)}
-                sx={{ display: { xs: 'none', sm: 'flex' } }}
+               startIcon={<InfoIcon />} 
+               variant="outlined" 
+               onClick={() => setIsInstructionsOpen(true)}
+               sx={{ display: { xs: 'none', sm: 'flex' } }}
              >
                Rules
              </Button>
@@ -190,113 +220,133 @@ export default function StudentDashboard() {
 
         <Grid container spacing={3}>
           
+          {/* EXAM LIST COLUMN */}
           <Grid item xs={12} md={8}>
-            {exams.length === 0 && !error ? (
+            {loading ? (
+                <Box display="flex" justifyContent="center" py={5}><CircularProgress /></Box>
+            ) : exams.length === 0 && !error ? (
               <Paper sx={{ p: 5, textAlign: 'center', borderRadius: 3, bgcolor: 'white', border: '1px solid #e0e0e0' }}>
                 <AssignmentIcon sx={{ fontSize: 60, color: 'text.disabled', mb: 2 }} />
                 <Typography variant="h6" color="text.secondary">No exams assigned yet.</Typography>
               </Paper>
             ) : (
-              <Grid container spacing={3}>
-                {exams.map((examObj) => {
-                  const exam = examObj.exam;
-                  const status = getExamStatus(examObj);
-                  const active = isExamAvailable(examObj);
+              <Stack spacing={3}>
+                <Grid container spacing={3}>
+                    {exams.map((examObj) => {
+                    const exam = examObj.exam;
+                    const status = getExamStatus(examObj);
+                    const active = isExamAvailable(examObj);
 
-                  return (
-                    <Grid item xs={12} sm={6} key={exam.id}>
-                      <Card 
-                        elevation={0}
-                        sx={{ 
-                          height: '100%', 
-                          display: 'flex', flexDirection: 'column', 
-                          borderRadius: 3,
-                          border: '1px solid #e0e0e0',
-                          overflow: 'hidden',
-                          transition: 'transform 0.2s, box-shadow 0.2s',
-                          '&:hover': { transform: 'translateY(-4px)', boxShadow: 4 }
-                        }}
-                      >
-                        <Box sx={{ bgcolor: status.bg, height: 6, width: '100%' }} />
-                        
-                        <CardContent sx={{ flexGrow: 1, p: 3 }}>
-                          <Stack direction="row" justifyContent="space-between" alignItems="start" mb={2}>
-                            <Chip 
-                              icon={status.icon} 
-                              label={status.label} 
-                              color={status.color} 
-                              size="small" 
-                              sx={{ fontWeight: 'bold' }} 
-                            />
-                            <Typography variant="caption" fontWeight={600} color="text.secondary">
-                              ID: {exam.id}
+                    return (
+                        <Grid item xs={12} sm={6} key={exam.id}>
+                        <Card 
+                            elevation={0}
+                            sx={{ 
+                            height: '100%', 
+                            display: 'flex', flexDirection: 'column', 
+                            borderRadius: 3,
+                            border: '1px solid #e0e0e0',
+                            overflow: 'hidden',
+                            transition: 'transform 0.2s, box-shadow 0.2s',
+                            '&:hover': { transform: 'translateY(-4px)', boxShadow: 4 }
+                            }}
+                        >
+                            <Box sx={{ bgcolor: status.bg, height: 6, width: '100%' }} />
+                            
+                            <CardContent sx={{ flexGrow: 1, p: 3 }}>
+                            <Stack direction="row" justifyContent="space-between" alignItems="start" mb={2}>
+                                <Chip 
+                                icon={status.icon} 
+                                label={status.label} 
+                                color={status.color} 
+                                size="small" 
+                                sx={{ fontWeight: 'bold' }} 
+                                />
+                                <Typography variant="caption" fontWeight={600} color="text.secondary">
+                                ID: {exam.id}
+                                </Typography>
+                            </Stack>
+
+                            <Typography variant="h6" fontWeight={700} gutterBottom lineHeight={1.2}>
+                                {exam.title}
                             </Typography>
-                          </Stack>
+                            
+                            <Divider sx={{ my: 1.5 }} />
 
-                          <Typography variant="h6" fontWeight={700} gutterBottom lineHeight={1.2}>
-                            {exam.title}
-                          </Typography>
-                          
-                          <Divider sx={{ my: 1.5 }} />
+                            <Stack spacing={1}>
+                                <Stack direction="row" alignItems="center" spacing={1}>
+                                <AccessTimeIcon fontSize="small" color="action" />
+                                <Typography variant="body2" color="text.secondary">
+                                    Start: <strong>{formatDateTime(exam.access_start)}</strong>
+                                </Typography>
+                                </Stack>
+                                <Stack direction="row" alignItems="center" spacing={1}>
+                                <TimerIcon fontSize="small" color="action" />
+                                <Typography variant="body2" color="text.secondary">
+                                    Duration: <strong>{exam.duration_minutes} mins</strong>
+                                </Typography>
+                                </Stack>
+                                <Stack direction="row" alignItems="center" spacing={1}>
+                                <AssignmentIcon fontSize="small" color="action" />
+                                <Typography variant="body2" color="text.secondary">
+                                    Total Marks: <strong>{exam.total_marks}</strong>
+                                </Typography>
+                                </Stack>
+                            </Stack>
+                            </CardContent>
 
-                          <Stack spacing={1}>
-                            <Stack direction="row" alignItems="center" spacing={1}>
-                              <AccessTimeIcon fontSize="small" color="action" />
-                              <Typography variant="body2" color="text.secondary">
-                                Start: <strong>{formatDateTime(exam.access_start)}</strong>
-                              </Typography>
-                            </Stack>
-                            <Stack direction="row" alignItems="center" spacing={1}>
-                              <TimerIcon fontSize="small" color="action" />
-                              <Typography variant="body2" color="text.secondary">
-                                Duration: <strong>{exam.duration_minutes} mins</strong>
-                              </Typography>
-                            </Stack>
-                            <Stack direction="row" alignItems="center" spacing={1}>
-                              <AssignmentIcon fontSize="small" color="action" />
-                              <Typography variant="body2" color="text.secondary">
-                                Total Marks: <strong>{exam.total_marks}</strong>
-                              </Typography>
-                            </Stack>
-                          </Stack>
-                        </CardContent>
+                            <CardActions sx={{ p: 2, pt: 0, bgcolor: '#fafafa' }}>
+                            {active ? (
+                                <Button 
+                                fullWidth 
+                                variant="contained" 
+                                color="primary"
+                                size="large"
+                                onClick={() => handleStartExam(exam.id)}
+                                disabled={startingExamId === exam.id}
+                                startIcon={startingExamId === exam.id ? <CircularProgress size={20} color="inherit"/> : <PlayArrowIcon />}
+                                >
+                                {startingExamId === exam.id ? 'Loading...' : 'Start Exam'}
+                                </Button>
+                            ) : examObj.assigned && exam.results_released ? (
+                                <Button 
+                                fullWidth 
+                                variant="outlined" 
+                                color="success"
+                                onClick={() => navigate(`/exam/${exam.id}/results`)}
+                                >
+                                View Results
+                                </Button>
+                            ) : (
+                                <Button fullWidth variant="outlined" disabled>
+                                {status.label}
+                                </Button>
+                            )}
+                            </CardActions>
+                        </Card>
+                        </Grid>
+                    );
+                    })}
+                </Grid>
 
-                        <CardActions sx={{ p: 2, pt: 0, bgcolor: '#fafafa' }}>
-                          {active ? (
-                            <Button 
-                              fullWidth 
-                              variant="contained" 
-                              color="primary"
-                              size="large"
-                              onClick={() => handleStartExam(exam.id)}
-                              disabled={startingExamId === exam.id}
-                              startIcon={startingExamId === exam.id ? <CircularProgress size={20} color="inherit"/> : <PlayArrowIcon />}
-                            >
-                              {startingExamId === exam.id ? 'Loading...' : 'Start Exam'}
-                            </Button>
-                          ) : examObj.assigned && exam.results_released ? (
-                            <Button 
-                              fullWidth 
-                              variant="outlined" 
-                              color="success"
-                              onClick={() => navigate(`/exam/${exam.id}/results`)}
-                            >
-                              View Results
-                            </Button>
-                          ) : (
-                            <Button fullWidth variant="outlined" disabled>
-                              {status.label}
-                            </Button>
-                          )}
-                        </CardActions>
-                      </Card>
-                    </Grid>
-                  );
-                })}
-              </Grid>
+                {/* PAGINATION */}
+                <Paper sx={{ p: 1, display: 'flex', justifyContent: 'center', borderRadius: 2 }}>
+                    <TablePagination
+                        component="div"
+                        count={totalExams}
+                        page={page}
+                        onPageChange={handlePageChange}
+                        rowsPerPage={rowsPerPage}
+                        onRowsPerPageChange={handleRowsPerPageChange}
+                        rowsPerPageOptions={[5, 10, 20]}
+                        labelRowsPerPage="Exams per page:"
+                    />
+                </Paper>
+              </Stack>
             )}
           </Grid>
 
+          {/* SIDEBAR COLUMN */}
           <Grid item xs={12} md={4}>
             <Paper 
               elevation={0} 
@@ -341,6 +391,7 @@ export default function StudentDashboard() {
         </Grid>
       </Container>
 
+      {/* RULES DIALOG */}
       <Dialog
         open={isInstructionsOpen}
         onClose={() => setIsInstructionsOpen(false)}
