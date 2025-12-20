@@ -722,41 +722,60 @@ def repository_questions(current_user):
     if request.method == 'OPTIONS':
         return jsonify({"message": "ok"}), 200
 
-    # GET - allow admin, school_admin, subject_specialist
+    # --- GET: List with Pagination ---
     if request.method == 'GET':
         if current_user.role not in ('admin', 'school_admin', 'subject_specialist'):
             return jsonify({'message': 'forbidden'}), 403
+        
+        # 1. Get Params
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
         cls = request.args.get('class_number')
         subject = request.args.get('subject')
         search = request.args.get('search')
+        
         query = QuestionRepository.query
+        
+        # 2. Apply Filters
         if current_user.role == 'subject_specialist':
             query = query.filter(QuestionRepository.subject.ilike(current_user.specialist_subject))
-        if cls:
+        
+        if cls and cls != 'null' and cls != '':
             query = query.filter(QuestionRepository.class_number == cls)
-        if subject:
+        
+        if subject and subject != 'null' and subject != '':
             query = query.filter(QuestionRepository.subject.ilike(subject))
+            
         if search:
             like = f'%{search}%'
             query = query.filter(or_(
                 QuestionRepository.text.ilike(like),
                 QuestionRepository.option_a.ilike(like),
-                QuestionRepository.option_b.ilike(like),
-                QuestionRepository.option_c.ilike(like),
-                QuestionRepository.option_d.ilike(like),
+                QuestionRepository.correct_answer.ilike(like)
             ))
-        results = query.order_by(desc(QuestionRepository.id)).limit(500).all()
+
+        # 3. Paginate
+        pagination = query.order_by(desc(QuestionRepository.id)).paginate(
+            page=page, per_page=per_page, error_out=False
+        )
+
         out = []
-        for q in results:
+        for q in pagination.items:
             out.append({
-                'id': q.id, 'text': q.text,
+                'id': q.id, 
+                'text': q.text,
                 'option_a': q.option_a, 'option_b': q.option_b,
                 'option_c': q.option_c, 'option_d': q.option_d,
                 'correct_answer': q.correct_answer,
                 'class_number': q.class_number, 'subject': q.subject,
                 'marks': q.marks, 'image_path': q.image_path
             })
-        return jsonify({'questions': out}), 200
+
+        return jsonify({
+            'questions': out,
+            'total': pagination.total, # Crucial for frontend pagination
+            'pages': pagination.pages
+        }), 200
 
     # POST - allow admin and subject_specialist (create new repo question)
     if current_user.role not in ('admin', 'subject_specialist'):
@@ -983,7 +1002,6 @@ def admin_exams(current_user):
     if request.method == 'OPTIONS':
         return jsonify({"message": "ok"}), 200
 
-    # --- POST: Create Exam ---
     if request.method == 'POST':
         data = request.get_json(silent=True) or {}
         title = (data.get('title') or '').strip()
@@ -995,8 +1013,6 @@ def admin_exams(current_user):
         access_end = data.get('access_end')
         duration = int(data.get('duration_minutes') or data.get('duration') or 60)
         total_marks = int(data.get('total_marks') or 0)
-        
-        # Define the correct variable
         school_id_to_use = data.get('school_id') 
         if current_user.role == 'school_admin':
             school_id_to_use = current_user.school_id
@@ -1011,15 +1027,10 @@ def admin_exams(current_user):
             title=title, description=description,
             access_start=ast, access_end=aend,
             duration_minutes=duration, total_marks=total_marks,
-            created_by=current_user.id, 
-            
-            # --- FIX 3: Use the variable defined above ---
-            school_id=school_id_to_use 
+            created_by=current_user.id, school_id=school_id
         )
         db.session.add(exam); db.session.commit()
         return jsonify({'message':'exam created','exam': exam.to_dict()}), 201
-
-    # --- GET: List Exams ---
     query = Exam.query
     
     if current_user.role == 'school_admin':
@@ -1027,10 +1038,7 @@ def admin_exams(current_user):
         query = query.filter(
             or_(Exam.school_id == current_user.school_id, Exam.school_id == None)
         )
-    
-    # --- FIX 4: Use the 'query' variable we just built (not Exam.query again) ---
-    exams = query.order_by(desc(Exam.created_at)).all()
-    
+    exams = Exam.query.order_by(desc(Exam.created_at)).all()
     return jsonify({'exams':[e.to_dict() for e in exams]}), 200
 
 @app.route('/admin/exams/<int:exam_id>', methods=['GET','PUT','DELETE','OPTIONS'])
@@ -1087,23 +1095,60 @@ def admin_exam_questions(current_user, exam_id):
 
     exam = Exam.query.get_or_404(exam_id)
 
-    # --- GET: list questions ---
+    # --- GET: List with Pagination ---
     if request.method == 'GET':
-        questions = Question.query.filter_by(exam_id=exam.id).all()
-        out = [{
-            'id': q.id,
-            'exam_id': q.exam_id,
-            'text': q.text,
-            'option_a': q.option_a,
-            'option_b': q.option_b,
-            'option_c': q.option_c,
-            'option_d': q.option_d,
-            'correct_answer': q.correct_answer,
-            'image_path': q.image_path,
-            'marks': q.marks,
-            'repo_question_id': getattr(q, 'repo_question_id', None),
-        } for q in questions]
-        return jsonify({'questions': out}), 200
+        if current_user.role not in ('admin', 'school_admin', 'subject_specialist'):
+            return jsonify({'message': 'forbidden'}), 403
+        
+        # 1. Get Params
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
+        cls = request.args.get('class_number')
+        subject = request.args.get('subject')
+        search = request.args.get('search')
+        
+        query = QuestionRepository.query
+        
+        # 2. Apply Filters
+        if current_user.role == 'subject_specialist':
+            query = query.filter(QuestionRepository.subject.ilike(current_user.specialist_subject))
+        
+        if cls and cls != 'null' and cls != '':
+            query = query.filter(QuestionRepository.class_number == cls)
+        
+        if subject and subject != 'null' and subject != '':
+            query = query.filter(QuestionRepository.subject.ilike(subject))
+            
+        if search:
+            like = f'%{search}%'
+            query = query.filter(or_(
+                QuestionRepository.text.ilike(like),
+                QuestionRepository.option_a.ilike(like),
+                QuestionRepository.correct_answer.ilike(like)
+            ))
+
+        # 3. Paginate
+        pagination = query.order_by(desc(QuestionRepository.id)).paginate(
+            page=page, per_page=per_page, error_out=False
+        )
+
+        out = []
+        for q in pagination.items:
+            out.append({
+                'id': q.id, 
+                'text': q.text,
+                'option_a': q.option_a, 'option_b': q.option_b,
+                'option_c': q.option_c, 'option_d': q.option_d,
+                'correct_answer': q.correct_answer,
+                'class_number': q.class_number, 'subject': q.subject,
+                'marks': q.marks, 'image_path': q.image_path
+            })
+
+        return jsonify({
+            'questions': out,
+            'total': pagination.total, # Crucial for frontend pagination
+            'pages': pagination.pages
+        }), 200
 
     # --- POST: create (CSV or single JSON) ---
     try:
@@ -1419,17 +1464,40 @@ def student_list_exams(current_user):
     student = Student.query.filter_by(user_id=current_user.id).first()
     if not student:
         return jsonify({'message':'student profile not found'}), 400
-    assigned = ExamStudent.query.filter_by(student_id=student.user_id).join(Exam).order_by(desc(Exam.id)).all()
-    exams = []
-    for a in assigned:
-        e = a.exam
+
+    # 1. Get Pagination Parameters from URL
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 10, type=int)
+
+    # 2. Build Query (Sort by Newest)
+    query = ExamStudent.query.filter_by(student_id=student.user_id)\
+        .join(Exam)\
+        .order_by(desc(Exam.created_at))
+
+    # 3. Apply Pagination
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+
+    exams_data = []
+    for assignment in pagination.items:
+        e = assignment.exam
+        
+        # Check status ONLY for the 10 exams on this page (Efficient)
         attempt = StudentExamAttempt.query.filter_by(exam_id=e.id, student_id=student.user_id).first()
-        exams.append({
+        
+        exams_data.append({
             'exam': e.to_dict(),
             'assigned': True,
-            'attempted': bool(attempt and attempt.submitted_time is not None)
+            'attempted': bool(attempt and attempt.submitted_time is not None),
+            'score': attempt.score if (attempt and attempt.submitted_time) else None
         })
-    return jsonify({'exams': exams}), 200
+
+    # 4. Return Data + Total Count
+    return jsonify({
+        'exams': exams_data,
+        'total': pagination.total, 
+        'pages': pagination.pages,
+        'current_page': page
+    }), 200
 
 @app.get('/student/exams/<int:exam_id>/can_start')
 @role_required('student')

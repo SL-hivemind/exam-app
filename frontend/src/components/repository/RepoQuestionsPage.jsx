@@ -248,7 +248,7 @@ export default function RepoQuestionsPage() {
                 onChange={handleFilterChange}
              >
                 <MenuItem value="">All</MenuItem>
-                {['8','9','10','11','12'].map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+                {['6','7','8','9'].map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
              </TextField>
           </Grid>
           <Grid item xs={6} md={2}>
@@ -262,7 +262,7 @@ export default function RepoQuestionsPage() {
                 onChange={handleFilterChange}
              >
                 <MenuItem value="">All</MenuItem>
-                {['Math','Science','Physics','Biology','Chemistry','English'].map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+                {['Math','Science','upsc','English'].map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
              </TextField>
           </Grid>
           
