@@ -983,6 +983,7 @@ def admin_exams(current_user):
     if request.method == 'OPTIONS':
         return jsonify({"message": "ok"}), 200
 
+    # --- POST: Create Exam ---
     if request.method == 'POST':
         data = request.get_json(silent=True) or {}
         title = (data.get('title') or '').strip()
@@ -994,6 +995,8 @@ def admin_exams(current_user):
         access_end = data.get('access_end')
         duration = int(data.get('duration_minutes') or data.get('duration') or 60)
         total_marks = int(data.get('total_marks') or 0)
+        
+        # Define the correct variable
         school_id_to_use = data.get('school_id') 
         if current_user.role == 'school_admin':
             school_id_to_use = current_user.school_id
@@ -1008,10 +1011,15 @@ def admin_exams(current_user):
             title=title, description=description,
             access_start=ast, access_end=aend,
             duration_minutes=duration, total_marks=total_marks,
-            created_by=current_user.id, school_id=school_id
+            created_by=current_user.id, 
+            
+            # --- FIX 3: Use the variable defined above ---
+            school_id=school_id_to_use 
         )
         db.session.add(exam); db.session.commit()
         return jsonify({'message':'exam created','exam': exam.to_dict()}), 201
+
+    # --- GET: List Exams ---
     query = Exam.query
     
     if current_user.role == 'school_admin':
@@ -1019,7 +1027,10 @@ def admin_exams(current_user):
         query = query.filter(
             or_(Exam.school_id == current_user.school_id, Exam.school_id == None)
         )
-    exams = Exam.query.order_by(desc(Exam.created_at)).all()
+    
+    # --- FIX 4: Use the 'query' variable we just built (not Exam.query again) ---
+    exams = query.order_by(desc(Exam.created_at)).all()
+    
     return jsonify({'exams':[e.to_dict() for e in exams]}), 200
 
 @app.route('/admin/exams/<int:exam_id>', methods=['GET','PUT','DELETE','OPTIONS'])
