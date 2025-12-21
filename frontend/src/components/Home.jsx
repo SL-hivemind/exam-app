@@ -36,11 +36,65 @@ import "slick-carousel/slick/slick-theme.css";
 // --- DATA ---
 
 const thinkletArticles = [
-    { id: 1, title: '2025 Medical Laureates', summary: 'Discoveries regarding regulatory T cells earned the Nobel Prize.', image: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/Noble.png', link: 'https://www.nobelprize.org/' },
-    { id: 2, title: 'Milk Capital: India', summary: 'India stands as the largest milk producer. Anand is the heart.', image: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/dr_kurien_amul.jpg', link: 'https://en.wikipedia.org/wiki/Operation_Flood' },
-    { id: 3, title: 'AI Co-Developer', summary: 'Agentic AI systems are revolutionizing software engineering.', image: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/AiCo.png', link: 'https://openai.com/blog' },
-    { id: 4, title: 'Vasuki indicus', summary: 'Discover a colossal serpent that ruled 47 million years ago.', image: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/Vasuki_Indicus_Thinklet.jpg', link: 'https://www.nature.com/articles/s41598-024-58377-0' },
-    { id: 5, title: 'Quantum Computing', summary: 'The next frontier in computational power and security.', image: 'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?auto=format&fit=crop&w=500&q=80', link: 'https://science.nasa.gov/mission/quantum-technologies/' },
+    // --- Existing Items ---
+    { 
+        id: 1, 
+        title: '2025 Medical Laureates', 
+        summary: 'Discoveries regarding regulatory T cells earned the Nobel Prize.', 
+        image: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/Noble.png', 
+        link: 'https://www.nobelprize.org/' 
+    },
+    { 
+        id: 2, 
+        title: 'Milk Capital: India', 
+        summary: 'India stands as the largest milk producer. Anand is the heart.', 
+        image: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/dr_kurien_amul.jpg', 
+        link: 'https://en.wikipedia.org/wiki/Operation_Flood' 
+    },
+    { 
+        id: 3, 
+        title: 'AI Co-Developer', 
+        summary: 'Agentic AI systems are revolutionizing software engineering.', 
+        image: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/AiCo.png', 
+        link: 'https://openai.com/blog' 
+    },
+    { 
+        id: 4, 
+        title: 'Vasuki indicus', 
+        summary: 'Discover a colossal serpent that ruled 47 million years ago.', 
+        image: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/Vasuki_Indicus_Thinklet.jpg', 
+        link: 'https://www.nature.com/articles/s41598-024-58377-0' 
+    },
+
+    // --- New Items ---
+    { 
+        id: 5, 
+        title: 'Himalayan Discovery', 
+        summary: 'Scientists identify a new catfish species, Exostoma senticosum, in China.', 
+        image: 'https://images.unsplash.com/photo-1544552866-d3ed42536cfd?auto=format&fit=crop&q=80&w=800', // Representative River/Nature Image
+        link: 'https://www.ndtv.com/science/new-catfish-species-discovered-in-southwest-chinas-himalayan-region-9812357' 
+    },
+    { 
+        id: 6, 
+        title: 'Semiconductor Success', 
+        summary: 'A Student-Professor duo turns a PhD thesis into a ₹15 Cr semiconductor venture.', 
+        image: 'https://images.unsplash.com/photo-1555664424-778a69032334?auto=format&fit=crop&q=80&w=800', // Representative Chip Image
+        link: 'https://startuppedia.in/smbs/meet-the-student-professor-duo-who-turned-a-phd-thesis-into-a-15-cr-make-in-india-semiconductor-venture-that-supplies-to-iits-govt-labs-10901223' 
+    },
+    { 
+        id: 7, 
+        title: 'Nature: Science 2025', 
+        summary: 'Key scientific developments and research highlights shaping the year.', 
+        image: 'https://images.unsplash.com/photo-1532094349884-543bc11b234d?auto=format&fit=crop&q=80&w=800', // Representative Science/Lab Image
+        link: 'https://www.nature.com/articles/d41586-025-03711-3' 
+    },
+    { 
+        id: 8, 
+        title: 'Singapore: The City-State', 
+        summary: 'Understanding the unique status of the only city in Asia that is also a country.', 
+        image: 'https://images.unsplash.com/photo-1565967511849-76a60a516170?auto=format&fit=crop&q=80&w=800', // Singapore Skyline
+        link: 'https://www.indiatoday.in/amp/education-today/gk-current-affairs/story/which-is-the-only-city-in-aisa-that-is-also-a-country-2813262-2025-11-04' 
+    }
 ];
 
 const suggestedBooks = [
@@ -54,51 +108,119 @@ const suggestedBooks = [
   },
   { 
       id: 2, 
-      title: 'The Alchemist', 
-      author: 'Paulo Coelho', 
-      cover: 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&w=500&q=80',
-      moral: "When you want something, all the universe conspires in helping you to achieve it.",
-      summary: "This enchanting novel tells the story of Santiago, an Andalusian shepherd boy who yearns to travel in search of a worldly treasure. His quest leads him to riches far different—and far more satisfying—than he ever imagined. Santiago's journey teaches us about the essential wisdom of listening to our hearts, of recognizing opportunity and learning to read the omens strewn along life's path, and, above all, following our dreams."
+      title: 'Sapiens: A Brief History of Humankind', 
+      author: 'Yuval Noah Harari', 
+      cover: 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?auto=format&fit=crop&w=500&q=80', // Representative: History/Evolution
+      moral: "Understanding our past is the only way to shape a better future.",
+      summary: "This ground-breaking narrative explores the history of our species, Homo sapiens, from the Stone Age to the Silicon Age. Harari takes us on a journey through the Cognitive Revolution, the Agricultural Revolution, and the Scientific Revolution, explaining how biology and history have defined us. It challenges everything we thought we knew about being human: our thoughts, our actions, our power, and our future. It forces the reader to confront the reality that while we have mastered the world around us, we have yet to master ourselves. It is a must-read for understanding why society functions the way it does today."
   },
   { 
       id: 3, 
+      title: 'The Palace of Illusions', 
+      author: 'Chitra Banerjee Divakaruni', 
+      cover: 'https://images.unsplash.com/photo-1629196914375-f7e48f477b6d?auto=format&fit=crop&w=500&q=80', // Representative: Royal/Mythology
+      moral: "Destiny is powerful, but how we react to it defines our character.",
+      summary: "A reimagining of the world-famous Indian epic, the Mahabharata, told from the perspective of Panchaali (Draupadi). While the original epic focuses on the wars and the men who fought them, this novel brings to light the life of a woman living in a patriarchal world. It weaves a tale of magic, destiny, and the struggle for identity. Through Panchaali's voice, we experience the complexities of friendship, marriage, and war. It teaches us that even in the midst of divine prophecies and great battles, human emotions—pride, love, and regret—remain the true drivers of history."
+  },
+  { 
+      id: 4, 
+      title: 'The Hobbit', 
+      author: 'J.R.R. Tolkien', 
+      cover: 'https://images.unsplash.com/photo-1618666012174-83b441c0bc76?auto=format&fit=crop&w=500&q=80', // Representative: Fantasy/Adventure
+      moral: "Even the smallest person can change the course of the future.",
+      summary: "Bilbo Baggins is a hobbit who enjoys a comfortable, unambitious life, rarely traveling further than the pantry of his hobbit-hole. But his contentment is disturbed when the wizard Gandalf and a company of thirteen dwarves arrive on his doorstep to whisk him away on an unexpected journey. They seek to raid the treasure hoard of Smaug the Magnificent, a large and very dangerous dragon. This classic fantasy tale is not just about dragons and magic; it is a story about finding courage in the most unlikely places and stepping out of your comfort zone to discover who you really are."
+  },
+  { 
+      id: 5, 
+      title: 'Man’s Search for Meaning', 
+      author: 'Viktor E. Frankl', 
+      cover: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=500&q=80', // Representative: Solitude/Reflection
+      moral: "He who has a why to live can bear almost any how.",
+      summary: "Based on Viktor Frankl's horrific experiences in Nazi concentration camps, this book argues that the primary human drive is not pleasure but the pursuit of what we find meaningful. Frankl introduces 'logotherapy,' a theory that suggests our primary drive in life is not pleasure, as Freud maintained, but the discovery and pursuit of what we personally find meaningful. It is a profound exploration of resilience, suggesting that we cannot avoid suffering, but we can choose how to cope with it, find meaning in it, and move forward with renewed purpose. It is a life-changing book on self-awareness."
+  },
+  { 
+      id: 6, 
+      title: 'The Adventures of Sherlock Holmes', 
+      author: 'Arthur Conan Doyle', 
+      cover: 'https://images.unsplash.com/photo-1476275466078-4007374efbbe?auto=format&fit=crop&w=500&q=80', // Representative: Mystery/Dark
+      moral: "Data! Data! Data! I can't make bricks without clay.",
+      summary: "This collection of twelve short stories introduces the world to the brilliant and eccentric detective Sherlock Holmes and his loyal friend Dr. Watson. Through pure observation and deductive reasoning, Holmes solves mysteries that baffle the police and the public alike. From 'A Scandal in Bohemia' to 'The Adventure of the Speckled Band', these stories are not just thrillers; they are a masterclass in critical thinking and attention to detail. Reading this sharpens the mind, teaching the reader to look beyond the obvious and question assumptions, proving that logic is the ultimate tool for solving life's puzzles."
+  },
+  { 
+      id: 7, 
       title: 'Atomic Habits', 
       author: 'James Clear', 
       cover: 'https://images.unsplash.com/photo-1589829085413-56de8ae18c73?auto=format&fit=crop&w=500&q=80',
       moral: "Tiny changes, remarkable results.",
-      summary: "James Clear reveals practical strategies that will teach you exactly how to form good habits, break bad ones, and master the tiny behaviors that lead to remarkable results. If you're having trouble changing your habits, the problem isn't you. The problem is your system. Bad habits repeat themselves again and again not because you don't want to change, but because you have the wrong system for change. This book gives you a proven system to reach new heights."
+      summary: "James Clear reveals practical strategies that will teach you exactly how to form good habits, break bad ones, and master the tiny behaviors that lead to remarkable results. If you're having trouble changing your habits, the problem isn't you. The problem is your system. Bad habits repeat themselves again and again not because you don't want to change, but because you have the wrong system for change. This book gives you a proven system to reach new heights, showing how 1% improvements every day compound into massive success over time."
   },
+  { 
+      id: 8, 
+      title: 'The Alchemist', 
+      author: 'Paulo Coelho', 
+      cover: 'https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=500&q=80',
+      moral: "When you want something, all the universe conspires in helping you to achieve it.",
+      summary: "This enchanting novel tells the story of Santiago, an Andalusian shepherd boy who yearns to travel in search of a worldly treasure. His quest leads him to riches far different—and far more satisfying—than he ever imagined. Santiago's journey teaches us about the essential wisdom of listening to our hearts, of recognizing opportunity and learning to read the omens strewn along life's path, and, above all, following our dreams. It is a simple yet powerful fable about finding one's destiny and understanding that the journey itself is often the reward."
+  }
 ];
 
 const publicationStacks = [
     {
         id: 'pre',
         category: 'Baby Steps (Pre-Primary)',
-        color: '#FFAB91', 
+        color: '#FFAB91', // Soft Orange
         books: [
-            { title: 'Tiny Steps Math', desc: 'Interactive basics', cover: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/wingsoffire.jpg' },
-            { title: 'Alpha Fun', desc: 'Learning alphabets', cover: '' },
-            { title: 'World Around Us', desc: 'EVS for kids', cover: '' },
+            { title: 'English Fun', desc: 'Alphabet basics', cover: 'https://sl-exams-images.s3.ap-south-2.amazonaws.com/BS-Eng.png' },
+            { title: 'Number Joy', desc: 'Counting & logic', cover: 'https://sl-exams-images.s3.ap-south-2.amazonaws.com/BS_2.png' },
+            { title: 'World Around Us', desc: 'EVS & Activities', cover: 'https://sl-exams-images.s3.ap-south-2.amazonaws.com/BS-3.png' },
         ]
     },
     {
         id: 'primary',
         category: 'Little Leaps (Primary)',
-        color: '#81D4FA', 
+        color: '#81D4FA', // Light Blue
         books: [
-            { title: 'Science Explorer', desc: 'Curiosity driven', cover: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/serpents_revenge.jpg' },
-            { title: 'Math Magic', desc: 'Foundation logic', cover: '' },
-            { title: 'Social Life', desc: 'Community basics', cover: '' },
+            { title: 'Math Magic', desc: 'Foundation logic', cover: 'https://sl-exams-images.s3.ap-south-2.amazonaws.com/LL-Math.png' },
+            { title: 'Science Explorer', desc: 'Curiosity driven', cover: 'https://sl-exams-images.s3.ap-south-2.amazonaws.com/LL-Science.png' },
+            { title: 'Social Life', desc: 'Community basics', cover: 'https://sl-exams-images.s3.ap-south-2.amazonaws.com/LL_Social.png' },
+            { title: 'General Knowledge', desc: 'World trivia', cover: 'https://sl-exams-images.s3.ap-south-2.amazonaws.com/LL-GK.png' },
         ]
     },
     {
-        id: 'secondary',
-        category: 'ROM (Competitive)',
-        color: '#CE93D8', 
+        id: 'highschool',
+        category: 'High School (6-10)',
+        color: '#A5D6A7', // Soft Green
         books: [
-            { title: 'IIT Foundation', desc: 'Physics & Math', cover: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/Indias_biggest_coverup.jpg' },
-            { title: 'NEET Biology', desc: 'Masterclass', cover: '' },
-            { title: 'UPSC Inclusion', desc: 'General Studies', cover: '' },
+            { title: 'English Literature', desc: 'Grammar & Prose', cover: 'https://sl-exams-images.s3.ap-south-2.amazonaws.com/English.png' },
+            { title: 'Mathematics', desc: 'Advanced concepts', cover: 'https://sl-exams-images.s3.ap-south-2.amazonaws.com/Maths.png' },
+            { title: 'General Science', desc: 'Physics, Chem, Bio', cover: 'https://sl-exams-images.s3.ap-south-2.amazonaws.com/Science.png' },
+        ]
+    },
+    {
+        id: 'rom',
+        category: 'ROM (Competitive)',
+        color: '#CE93D8', // Light Purple
+        books: [
+            { title: 'Competitive Math', desc: 'Problem solving', cover: 'https://sl-exams-images.s3.ap-south-2.amazonaws.com/ROM-Maths.png' },
+            { title: 'Physics Concepts', desc: 'IIT Foundation', cover: 'https://sl-exams-images.s3.ap-south-2.amazonaws.com/ROM-Physics.png' },
+            { title: 'Biology Master', desc: 'NEET Foundation', cover: 'https://sl-exams-images.s3.ap-south-2.amazonaws.com/ROM-Bio.png' },
+        ]
+    },
+    {
+        id: 'upsc',
+        category: 'UPSC Preparation',
+        color: '#FFCC80', // Gold/Orange
+        books: [
+            { title: 'Geography', desc: 'World & Indian', cover: 'https://sl-exams-images.s3.ap-south-2.amazonaws.com/UPSC-Geo-Cover.png' },
+            { title: 'History', desc: 'Ancient to Modern', cover: 'https://sl-exams-images.s3.ap-south-2.amazonaws.com/UPSC-History-Cover.png' },
+            { title: 'Economics', desc: 'Indian Economy', cover: 'https://sl-exams-images.s3.ap-south-2.amazonaws.com/UPSC-Economics-Cover.png' },
+        ]
+    },
+    {   id: 'our books',
+        category: 'Our Books',
+        color: '#90CAF9', // Light Blue
+        books: [
+            { title: 'Life of Student', desc: 'A Tale of 4our Students', cover: 'https://sl-exams-images.s3.ap-south-2.amazonaws.com/Life+of+Student.png' },
         ]
     }
 ];
@@ -107,7 +229,6 @@ const pricingPlans = [
     {
         title: "Tier 1: Essential",
         subtitle: "Academic Package",
-        // priceDesc: "School Discount: 70-75%",
         color: "#4db6ac", 
         features: ["Printed Book Set (Full Year)", "Basic LMS & Exam Portal", "Digital Worksheets", "Mobile App (Basic)", "Offline Monthly Exams"], 
         missing: ["STEM Activities", "Lab Setup", "Book Fair Setup", "SJIS (Not included)"] 
@@ -115,7 +236,6 @@ const pricingPlans = [
     {
         title: "Tier 2: Comprehensive",
         subtitle: "Most Opted by Schools",
-        // priceDesc: "School Discount: 60-65%",
         color: "#1e88e5", 
         recommended: true,
         features: ["Everything in Tier 1", "Advanced LMS (Analytics)", "Full Exam Portal", "2 Student Workshops", "Digital Question Bank"], 
@@ -124,7 +244,6 @@ const pricingPlans = [
     {
         title: "Tier 3: Premium",
         subtitle: "Complete Transformation",
-        // priceDesc: "School Discount: 35-45%",
         color: "#ff9800", 
         features: ["Everything in Tier 2", "Custom-Branded App", "Premium LMS (AI)", "Full Book Fair Setup", "STEM Kits & Lab Support", "Monthly Academic Coordinator", "⭐ SJIS Journal Included"], 
         missing: [] 
@@ -171,7 +290,6 @@ export default function Home() {
         <Container maxWidth="xl">
            <FadeInSection>
               <Box textAlign="center">
-                  <Chip label="Admissions Open 2025-26" color="warning" sx={{ mb: 4, fontWeight: 'bold', px: 2 }} />
                   <Box sx={{ mb: 4, display: 'flex', justifyContent: 'center' }}>
                     <AnimatedText 
                         type="rotate"
@@ -298,7 +416,6 @@ export default function Home() {
                                     <Box sx={{ p: 4, bgcolor: plan.recommended ? 'rgba(0,0,0,0.02)' : 'white' }}>
                                         <Typography variant="h5" fontWeight={800} sx={{ color: plan.color }}>{plan.title}</Typography>
                                         <Typography variant="subtitle1" fontWeight={600} gutterBottom>{plan.subtitle}</Typography>
-                                        <Chip label={plan.priceDesc} size="small" sx={{ mt: 1, bgcolor: plan.color, color: 'white', fontWeight: 'bold' }} />
                                         <Divider sx={{ my: 3 }} />
                                         <List dense>
                                             {plan.features.map((feat, i) => (
