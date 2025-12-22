@@ -173,9 +173,9 @@ export default function StudentResultsPage() {
                                     </Box>
                                 )}
 
-                                {/* --- DEBUG SECTION: FORCE DISPLAY OPTIONS --- */}
+                                {/* --- DEBUG SECTION: FORCE DISPLAY OPTIONS --- */} 
                                 {/* I placed this BEFORE the fancy grid so you can see raw data first */}
-                                <Box sx={{ mt: 2, p: 2, bgcolor: '#f9f9f9', borderRadius: 2, border: '1px dashed #999' }}>
+                                {/* <Box sx={{ mt: 2, p: 2, bgcolor: '#f9f9f9', borderRadius: 2, border: '1px dashed #999' }}>
                                     <Typography variant="caption" fontWeight="bold" color="textSecondary">DEBUG / RAW DATA VIEW:</Typography>
                                     <Grid container spacing={1} sx={{ mt: 0.5 }}>
                                         <Grid item xs={6}><Typography variant="body2">A) {ans.option_a || "Missing"}</Typography></Grid>
@@ -188,8 +188,8 @@ export default function StudentResultsPage() {
                                             Correct Answer: <b>{ans.correct_answer || "Not Set"}</b>
                                         </Typography>
                                     </Box>
-                                </Box>
-                                {/* --- END DEBUG SECTION --- */}
+                                </Box> */}
+                                {/* --- END DEBUG SECTION ---
 
 
                                 {/* Standard Options Grid (This uses the icons) */}
