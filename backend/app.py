@@ -1100,70 +1100,22 @@ def admin_exam_detail(current_user, exam_id):
 @app.route('/admin/exams/<int:exam_id>/questions', methods=['GET', 'POST', 'OPTIONS'])
 @role_required('admin', 'school_admin')
 def admin_exam_questions(current_user, exam_id):
-    # --- Preflight ---
     if request.method == 'OPTIONS':
         return '', 200
 
     exam = Exam.query.get_or_404(exam_id)
 
-    # --- GET: List with Pagination ---
+    # --- GET: List Questions for THIS Exam Only ---
     if request.method == 'GET':
-        if current_user.role not in ('admin', 'school_admin', 'subject_specialist'):
-            return jsonify({'message': 'forbidden'}), 403
+        # FIX: Query the 'Question' table, filtered by THIS exam_id
+        questions = Question.query.filter_by(exam_id=exam_id).all()
         
-        # 1. Get Params
-        page = request.args.get('page', 1, type=int)
-        per_page = request.args.get('per_page', 20, type=int)
-        cls = request.args.get('class_number')
-        subject = request.args.get('subject')
-        search = request.args.get('search')
-        
-        query = QuestionRepository.query
-        
-        # 2. Apply Filters
-        if current_user.role == 'subject_specialist':
-            query = query.filter(QuestionRepository.subject.ilike(current_user.specialist_subject))
-        
-        if cls and cls != 'null' and cls != '':
-            query = query.filter(QuestionRepository.class_number == cls)
-        
-        if subject and subject != 'null' and subject != '':
-            query = query.filter(QuestionRepository.subject.ilike(subject))
-            
-        if search:
-            like = f'%{search}%'
-            query = query.filter(or_(
-                QuestionRepository.text.ilike(like),
-                QuestionRepository.option_a.ilike(like),
-                QuestionRepository.correct_answer.ilike(like)
-            ))
+        # Use the to_dict() method which handles the Live Sync automatically
+        return jsonify({'questions': [q.to_dict() for q in questions]}), 200
 
-        # 3. Paginate
-        pagination = query.order_by(desc(QuestionRepository.id)).paginate(
-            page=page, per_page=per_page, error_out=False
-        )
-
-        out = []
-        for q in pagination.items:
-            out.append({
-                'id': q.id, 
-                'text': q.text,
-                'option_a': q.option_a, 'option_b': q.option_b,
-                'option_c': q.option_c, 'option_d': q.option_d,
-                'correct_answer': q.correct_answer,
-                'class_number': q.class_number, 'subject': q.subject,
-                'marks': q.marks, 'image_path': q.image_path
-            })
-
-        return jsonify({
-            'questions': out,
-            'total': pagination.total, # Crucial for frontend pagination
-            'pages': pagination.pages
-        }), 200
-
-    # --- POST: create (CSV or single JSON) ---
-    try:
-        # Branch 1: CSV upload
+    # --- POST: Add New Question ---
+    if request.method == 'POST':
+        # Branch 1: CSV Upload
         if 'file' in request.files:
             csv_file = request.files['file']
             if not csv_file or csv_file.filename == '':
@@ -1172,16 +1124,40 @@ def admin_exam_questions(current_user, exam_id):
                 return jsonify({'message': 'Upload a CSV file (.csv)'}), 400
 
             csv_path = save_csv_file(csv_file)
-            with db.session.begin_nested():
+            try:
+                # Assuming import_questions_csv is defined in utils.files
                 count = import_questions_csv(csv_path, exam_id, uploaded_images_map={})
-            db.session.commit()
-            return jsonify({'message': f'Imported {count} questions'}), 201
+                return jsonify({'message': f'Imported {count} questions'}), 201
+            except Exception as e:
+                return jsonify({'message': 'Import failed', 'detail': str(e)}), 500
 
-        # Branch 2: JSON body (single question)
+        # Branch 2: JSON Body (Single Question)
         data = request.get_json(silent=True) or {}
+        
+        # Option A: Pick Existing from Repo
+        if 'repo_question_id' in data:
+            repo_id = data['repo_question_id']
+            # Prevent duplicates
+            exists = Question.query.filter_by(exam_id=exam.id, repo_question_id=repo_id).first()
+            if exists:
+                return jsonify({'message':'Question already in exam'}), 400
+            
+            repo_q = QuestionRepository.query.get(repo_id)
+            if not repo_q:
+                return jsonify({'message':'Repository question not found'}), 404
+                
+            q = Question(
+                exam_id=exam.id,
+                repo_question_id=repo_q.id,
+                marks=repo_q.marks # Copy default marks
+            )
+            db.session.add(q)
+            db.session.commit()
+            return jsonify({'message': 'Question linked', 'question': q.to_dict()}), 201
+
+        # Option B: Create Manual Question
         text = (data.get('text') or '').strip()
         if not text:
-            # Explicit error so we don't fall through
             return jsonify({'message': 'Question text is required'}), 400
 
         q = Question(
@@ -1195,38 +1171,14 @@ def admin_exam_questions(current_user, exam_id):
             marks=int(data.get('marks') or 1),
             image_path=data.get('image_path'),
         )
-        # Optional linkage to repository question for traceability
-        if 'repo_question_id' in data:
-            try:
-                q.repo_question_id = int(data['repo_question_id'])
-            except (TypeError, ValueError):
-                pass
-
         db.session.add(q)
         db.session.commit()
 
-        # Return explicit JSON (don’t rely on model method)
         return jsonify({
             'message': 'Question created',
-            'question': {
-                'id': q.id,
-                'exam_id': q.exam_id,
-                'text': q.text,
-                'option_a': q.option_a,
-                'option_b': q.option_b,
-                'option_c': q.option_c,
-                'option_d': q.option_d,
-                'correct_answer': q.correct_answer,
-                'image_path': q.image_path,
-                'marks': q.marks,
-                'repo_question_id': getattr(q, 'repo_question_id', None),
-            }
+            'question': q.to_dict()
         }), 201
 
-    except Exception as e:
-        db.session.rollback()
-        app.logger.exception("Create question failed")
-        return jsonify({'message': 'Failed to create question', 'detail': str(e)}), 500
 
 
 @app.route('/admin/exams/<int:exam_id>/questions/<int:question_id>', methods=['GET','PUT','DELETE','OPTIONS'])
