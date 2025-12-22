@@ -1574,15 +1574,52 @@ def student_start_exam(current_user, exam_id):
 def student_get_exam_questions(current_user, exam_id):
     student = Student.query.filter_by(user_id=current_user.id).first()
     exam = Exam.query.get_or_404(exam_id)
+    
+    # 1. Check Assignment
     if not ExamStudent.query.filter_by(exam_id=exam.id, student_id=student.user_id).first():
         return jsonify({'message':'not assigned to exam'}), 403
+
+    # 2. Fetch Questions
     questions = Question.query.filter_by(exam_id=exam.id).all()
-    questions_data = [{
-        'id': q.id, 'text': q.text,
-        'option_a': q.option_a, 'option_b': q.option_b,
-        'option_c': q.option_c, 'option_d': q.option_d,
-        'marks': q.marks, 'image_path': q.image_path
-    } for q in questions]
+    
+    questions_data = []
+    
+    for q in questions:
+        # --- LIVE SYNC LOGIC ---
+        # Start with local data (default)
+        final_text = q.text
+        final_opt_a = q.option_a
+        final_opt_b = q.option_b
+        final_opt_c = q.option_c
+        final_opt_d = q.option_d
+        final_marks = q.marks
+        final_image = q.image_path
+
+        # Check if this question is linked to the Repository
+        if q.repo_question_id:
+            repo_q = QuestionRepository.query.get(q.repo_question_id)
+            # If the repo question exists, OVERWRITE local data with Repo data
+            if repo_q:
+                final_text = repo_q.text
+                final_opt_a = repo_q.option_a
+                final_opt_b = repo_q.option_b
+                final_opt_c = repo_q.option_c
+                final_opt_d = repo_q.option_d
+                final_marks = repo_q.marks
+                final_image = repo_q.image_path
+        
+        # Add the resolved data to the list
+        questions_data.append({
+            'id': q.id,
+            'text': final_text,
+            'option_a': final_opt_a,
+            'option_b': final_opt_b,
+            'option_c': final_opt_c,
+            'option_d': final_opt_d,
+            'marks': final_marks,
+            'image_path': final_image
+        })
+
     return jsonify({'questions': questions_data}), 200
 
 @app.post('/student/exams/<int:exam_id>/submit')
