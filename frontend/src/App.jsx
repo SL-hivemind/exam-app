@@ -37,7 +37,7 @@ export default function App() {
           <Container maxWidth={false} disableGutters sx={{ flex: 1 }}>
             <AppRoutes />
           </Container>
-          {authToken && <Footer />}
+          {!authToken && <Footer />}
         </Box>
       </AuthProvider>
     </ThemeProvider>
