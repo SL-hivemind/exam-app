@@ -11,6 +11,8 @@ from flask_cors import CORS
 from dotenv import load_dotenv
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy import desc, or_
+from flask import make_response  # Make sure to import this
+
 
 import jwt
 import traceback
@@ -172,6 +174,18 @@ def check_restricted_access(exam, current_user, action="edit"):
         }), 403)
     return True, None
 
+
+def no_cache(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # run the route function first
+        resp = make_response(f(*args, **kwargs))
+        # then attach the "kill cache" headers
+        resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        resp.headers["Pragma"] = "no-cache"
+        resp.headers["Expires"] = "0"
+        return resp
+    return decorated_function
 
 
 # ------------------------------
@@ -1464,6 +1478,7 @@ def student_list_exams(current_user):
 
 @app.get('/student/exams/<int:exam_id>/can_start')
 @role_required('student')
+@no_cache
 def student_can_start(current_user, exam_id):
     student = Student.query.filter_by(user_id=current_user.id).first()
     exam = Exam.query.get_or_404(exam_id)
@@ -1490,6 +1505,7 @@ def student_can_start(current_user, exam_id):
 
 @app.post('/student/exams/<int:exam_id>/start')
 @role_required('student')
+@no_cache
 def student_start_exam(current_user, exam_id):
     student = Student.query.filter_by(user_id=current_user.id).first()
     exam = Exam.query.get_or_404(exam_id)
@@ -1523,6 +1539,7 @@ def student_start_exam(current_user, exam_id):
 
 @app.get('/student/exams/<int:exam_id>/questions')
 @role_required('student')
+@no_cache
 def student_get_exam_questions(current_user, exam_id):
     student = Student.query.filter_by(user_id=current_user.id).first()
     exam = Exam.query.get_or_404(exam_id)
@@ -1576,6 +1593,7 @@ def student_get_exam_questions(current_user, exam_id):
 
 @app.post('/student/exams/<int:exam_id>/submit')
 @role_required('student')
+@no_cache
 def student_submit_exam(current_user, exam_id):
     student = Student.query.filter_by(user_id=current_user.id).first()
     exam = Exam.query.get_or_404(exam_id)
@@ -1630,6 +1648,7 @@ def student_submit_exam(current_user, exam_id):
 
 @app.get('/student/exams/<int:exam_id>/result')
 @role_required('student')
+@no_cache
 def student_view_result(current_user, exam_id):
     exam = Exam.query.get_or_404(exam_id)
     if not exam.results_released:
