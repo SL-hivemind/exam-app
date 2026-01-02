@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Slider from "react-slick";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
@@ -6,7 +6,7 @@ import {
   Box, Typography, Button, Grid, Container, Card, CardContent, CardMedia,
   CardActions, Paper, Stack, Dialog, DialogTitle, DialogContent, IconButton,
   Chip, Avatar, List, ListItem, ListItemText, useTheme, useMediaQuery, ListItemIcon,
-  Divider
+  Divider, DialogActions
 } from "@mui/material";
 
 // Icons
@@ -274,6 +274,17 @@ export default function Home() {
   const navigate = useNavigate();
   const [openThinklet, setOpenThinklet] = useState(null);
   const [openBook, setOpenBook] = useState(null); // STATE FOR BOOK MODAL
+  const [openNewYearPopup, setOpenNewYearPopup] = useState(false);
+
+useEffect(() => {
+    // Open the popup after a short delay (e.g., 1 second) for a smooth entrance after site loads
+    const timer = setTimeout(() => {
+      setOpenNewYearPopup(true);
+    }, 1000);
+
+    // Cleanup the timer if the component unmounts
+    return () => clearTimeout(timer);
+  }, []);
 
   const carouselSettings = {
     dots: true, infinite: true, speed: 500, slidesToShow: 3, slidesToScroll: 1,
@@ -549,6 +560,58 @@ export default function Home() {
             </DialogContent>
           </>
         )}
+      </Dialog>
+
+
+      <Dialog
+        open={openNewYearPopup}
+        onClose={() => setOpenNewYearPopup(false)}
+        maxWidth="md"
+        scroll="body" // Ensures the whole poster is scrollable on small screens if needed
+        PaperProps={{
+          sx: {
+            borderRadius: 4,
+            overflow: 'hidden', // Ensures the image corners match the border radius
+            bgcolor: 'transparent',
+            boxShadow: 'none', // cleaner look for a poster
+            m: 2 // margin on mobile
+          }
+        }}
+        // Optional: Adds a blur effect to the background behind the pop-up
+        sx={{ '& .MuiBackdrop-root': { backdropFilter: 'blur(5px)' } }}
+      >
+        <DialogContent sx={{ p: 0 }}>
+          <Box
+            component="img"
+            src="https://sl-exams-images.s3.ap-south-2.amazonaws.com/NEWYEAR+POSTER.png"
+            alt="New Year Wish Poster for Students"
+            sx={{
+              width: '100%',
+              height: 'auto',
+              display: 'block',
+            }}
+          />
+        </DialogContent>
+        <DialogActions sx={{ justifyContent: 'center', p: 3, bgcolor: '#ffffff' }}>
+          <Button
+            variant="contained"
+            size="large"
+            onClick={() => setOpenNewYearPopup(false)}
+            sx={{
+              borderRadius: 20,
+              px: 5,
+              py: 1.5,
+              fontWeight: 'bold',
+              fontSize: '1.1rem',
+              // Using an orange color to match the poster's theme, you can change this to 'primary.main'
+              bgcolor: '#FF9800',
+              '&:hover': { bgcolor: '#e68a00' },
+              boxShadow: 3
+            }}
+          >
+            Thank You
+          </Button>
+        </DialogActions>
       </Dialog>
 
     </Box>
