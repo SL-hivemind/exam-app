@@ -517,7 +517,7 @@ useEffect(() => {
               </Box>
               <Box>
                 <Stack direction="row" spacing={2}>
-                  <Button variant="contained" color="info" size="large" href="mailto:Saradapublications18@gmail.com">Submit Manuscript</Button>
+                  <Button variant="contained" color="info" size="large" href="mailto:editor.sjis@e2eindia.org">Submit Manuscript</Button>
                   <Button variant="outlined" color="info" size="large" onClick={() => window.open('https://journal.e2eindia.org/', '_blank')}>Know More</Button>
                 </Stack>
               </Box>

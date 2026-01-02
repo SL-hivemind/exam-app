@@ -1,6 +1,6 @@
 // src/components/Footer.jsx
 import React, { useState } from "react";
-import { 
+import {
   Box, Typography, Link, Container, Grid, IconButton, Stack,
   Dialog, DialogTitle, DialogContent, DialogActions, Button, Divider
 } from "@mui/material";
@@ -39,7 +39,7 @@ export default function Footer() {
               <Typography variant="body2" sx={{ lineHeight: 1.8, maxWidth: 300 }}>
                 A unit of Saaradaa Learknowations. We are dedicated to revolutionizing education through secure assessments, high-quality publications, and comprehensive school support services.
               </Typography>
-              
+
               <Box sx={{ mt: 3, display: 'flex', gap: 1 }}>
                 <IconButton href="https://x.com/saradapubl" target="_blank" sx={{ color: 'white', bgcolor: 'rgba(255,255,255,0.1)' }}><XIcon /></IconButton>
                 <IconButton href="https://www.linkedin.com/company/sarada-publications" target="_blank" sx={{ color: 'white', bgcolor: 'rgba(255,255,255,0.1)' }}><LinkedInIcon /></IconButton>
@@ -53,9 +53,9 @@ export default function Footer() {
                 Platform
               </Typography>
               <Stack spacing={1.5}>
-                <Link href="#" color="inherit" underline="hover" onClick={(e) => { e.preventDefault(); document.getElementById('services')?.scrollIntoView({behavior:'smooth'})}}>Services</Link>
-                <Link href="#" color="inherit" underline="hover" onClick={(e) => { e.preventDefault(); document.getElementById('exams')?.scrollIntoView({behavior:'smooth'})}}>Exams</Link>
-                <Link href="#" color="inherit" underline="hover" onClick={(e) => { e.preventDefault(); document.getElementById('publications')?.scrollIntoView({behavior:'smooth'})}}>Publications</Link>
+                <Link href="#" color="inherit" underline="hover" onClick={(e) => { e.preventDefault(); document.getElementById('services')?.scrollIntoView({ behavior: 'smooth' }) }}>Services</Link>
+                <Link href="#" color="inherit" underline="hover" onClick={(e) => { e.preventDefault(); document.getElementById('exams')?.scrollIntoView({ behavior: 'smooth' }) }}>Exams</Link>
+                <Link href="#" color="inherit" underline="hover" onClick={(e) => { e.preventDefault(); document.getElementById('publications')?.scrollIntoView({ behavior: 'smooth' }) }}>Publications</Link>
                 <Link href="/login" color="inherit" underline="hover">Student Login</Link>
                 <Link href="/register" color="inherit" underline="hover">Register School</Link>
               </Stack>
@@ -69,7 +69,7 @@ export default function Footer() {
               <Stack spacing={1.5}>
                 <Link href="https://e2eindia.org" target="_blank" color="inherit" underline="hover">E2E India</Link>
                 <Link href="https://journal.e2eindia.org/" target="_blank" color="inherit" underline="hover">Scientific Journals</Link>
-                <Link component="button" variant="body2" onClick={() => setOpenAbout(true)} color="inherit" underline="hover" sx={{ textAlign:'left' }}>
+                <Link component="button" variant="body2" onClick={() => setOpenAbout(true)} color="inherit" underline="hover" sx={{ textAlign: 'left' }}>
                   About Us
                 </Link>
                 <Link href="mailto:Saradapublications18@gmail.com" color="inherit" underline="hover">
@@ -87,7 +87,8 @@ export default function Footer() {
                 Hyderabad, Telangana, India
               </Typography>
               <Typography variant="body2" paragraph>
-                <strong>Email:</strong> support@slexams.com<br/>
+                <strong>Email:</strong>
+                directorops@e2eindia.org<br />
                 <strong>Phone:</strong> 040 45150531
               </Typography>
               <Button variant="outlined" color="inherit" size="small" href="mailto:Saradapublications18@gmail.com">
