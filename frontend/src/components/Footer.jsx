@@ -44,6 +44,8 @@ export default function Footer() {
                 <IconButton href="https://x.com/saradapubl" target="_blank" sx={{ color: 'white', bgcolor: 'rgba(255,255,255,0.1)' }}><XIcon /></IconButton>
                 <IconButton href="https://www.linkedin.com/company/sarada-publications" target="_blank" sx={{ color: 'white', bgcolor: 'rgba(255,255,255,0.1)' }}><LinkedInIcon /></IconButton>
                 <IconButton href="https://www.instagram.com/saradapublications" target="_blank" sx={{ color: 'white', bgcolor: 'rgba(255,255,255,0.1)' }}><InstagramIcon /></IconButton>
+                <IconButton href="https://in.pinterest.com/infosaradapublications/" target="_blank" sx={{ color: 'white', bgcolor: 'rgba(255,255,255,0.1)' }}><PinterestIcon /></IconButton>
+                <IconButton href="https://www.youtube.com/@SaradaPublications-v1l" target="_blank" sx={{ color: 'white', bgcolor: 'rgba(255,255,255,0.1)' }}><YouTubeIcon /></IconButton>
               </Box>
             </Grid>
 
@@ -91,7 +93,7 @@ export default function Footer() {
                 directorops@e2eindia.org<br />
                 <strong>Phone:</strong> 040 45150531
               </Typography>
-              <Button variant="outlined" color="inherit" size="small" href="mailto:Saradapublications18@gmail.com">
+              <Button variant="outlined" color="inherit" size="small" href="mailto:directorops@e2eindia.org">
                 Send Message
               </Button>
             </Grid>
