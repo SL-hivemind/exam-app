@@ -44,13 +44,7 @@ const thinkletArticles = [
     image: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/Noble.png',
     link: 'https://www.nobelprize.org/'
   },
-  {
-    id: 2,
-    title: 'Milk Capital: India',
-    summary: 'India stands as the largest milk producer. Anand is the heart.',
-    image: 'https://sl-exams-uploads-2025.s3.ap-south-1.amazonaws.com/Home/dr_kurien_amul.jpg',
-    link: 'https://en.wikipedia.org/wiki/Operation_Flood'
-  },
+  
   {
     id: 3,
     title: 'AI Co-Developer',
@@ -305,7 +299,7 @@ export default function Home() {
                 A comprehensive ecosystem for Schools, Aspirants, and Educators. From advanced lab setups to secure competitive exams.
               </Typography>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3} justifyContent="center">
-                <Button variant="contained" size="large" sx={{ px: 6, py: 1.8, fontSize: '1.2rem', borderRadius: 10 }} onClick={() => navigate('/register')}>Get Started</Button>
+                <Button variant="contained" size="large" sx={{ px: 6, py: 1.8, fontSize: '1.2rem', borderRadius: 10 }} onClick={() => navigate('/login')}>Get Started</Button>
                 <Button variant="outlined" size="large" sx={{ px: 6, py: 1.8, fontSize: '1.2rem', borderRadius: 10, borderWidth: 2 }} onClick={() => document.getElementById('plans').scrollIntoView({ behavior: 'smooth' })}>View Plans</Button>
               </Stack>
             </Box>
