@@ -915,96 +915,142 @@ def repository_question_detail(current_user, q_id):
         db.session.commit()
         return jsonify({'message':'deleted'}), 200
     
-@app.route('/admin/repository/questions/bulk', methods=['PUT', 'OPTIONS']) # <--- CHANGED
+@app.route('/admin/repository/questions/bulk', methods=['PUT', 'OPTIONS'])
 @token_required
 def bulk_update_questions(current_user):
-    # 1. Handle Preflight (CORS Check)
+    # 1. Handle CORS Preflight
     if request.method == 'OPTIONS':
         return jsonify({'message': 'ok'}), 200
 
-    # 2. Security Check
+    # 2. Security Check: Only Admin and Subject Specialists allowed
     if current_user.role not in ('admin', 'subject_specialist'):
         return jsonify({'message': 'forbidden'}), 403
 
-    # 3. Main Logic
+    # 3. Data Validation
     data = request.json or [] 
+    if not isinstance(data, list):
+        return jsonify({'message': 'Invalid data format, expected a list'}), 400
+
     updated_count = 0
+    log_entries = [] # List to collect audit logs for batch insertion
     
     try:
+        # Optimization: Fetch all questions in one query if the list is large
+        # For now, we stay consistent with your structure using .get()
         for item in data:
             q_id = item.get('id')
+            if not q_id:
+                continue
+                
             q = QuestionRepository.query.get(q_id)
-            
             if not q:
                 continue
 
-            # Security: If Specialist, ensure they own the subject
+            # 4. Role-Based Access Control (RBAC)
+            # Specialists can ONLY edit questions within their assigned subject
             if current_user.role == 'subject_specialist':
-                if not q.subject or q.subject.lower() != (current_user.specialist_subject or '').lower():
+                user_subject = (current_user.specialist_subject or '').lower()
+                question_subject = (q.subject or '').lower()
+                if question_subject != user_subject:
                     continue 
 
-            # Track changes for Audit Log
+            # 5. Track Changes for the Audit Log
             changes = []
             
-            def check_change(obj, field, new_val):
+            def check_and_apply(obj, field, incoming_val):
+                if incoming_val is None:
+                    return # Skip if the field wasn't sent in the request
+                
                 old_val = getattr(obj, field)
-                # Convert to string for safe comparison
-                if str(old_val) != str(new_val):
-                    setattr(obj, field, new_val)
-                    changes.append(f"{field}: {old_val} -> {new_val}")
+                # Convert to string for a reliable comparison (e.g., handles int vs str)
+                if str(old_val) != str(incoming_val):
+                    setattr(obj, field, incoming_val)
+                    changes.append(f"{field}: {old_val} -> {incoming_val}")
 
-            check_change(q, 'text', item.get('text'))
-            check_change(q, 'option_a', item.get('option_a'))
-            check_change(q, 'option_b', item.get('option_b'))
-            check_change(q, 'option_c', item.get('option_c'))
-            check_change(q, 'option_d', item.get('option_d'))
-            check_change(q, 'correct_answer', item.get('correct_answer'))
-            check_change(q, 'marks', int(item.get('marks') or 1))
-            check_change(q, 'class_number', item.get('class_number'))
+            # Apply updates to allowed fields
+            check_and_apply(q, 'text', item.get('text'))
+            check_and_apply(q, 'option_a', item.get('option_a'))
+            check_and_apply(q, 'option_b', item.get('option_b'))
+            check_and_apply(q, 'option_c', item.get('option_c'))
+            check_and_apply(q, 'option_d', item.get('option_d'))
+            check_and_apply(q, 'correct_answer', item.get('correct_answer'))
+            check_and_apply(q, 'class_number', item.get('class_number'))
             
-            # If changes occurred, save and log
+            # Special handling for numeric marks
+            if 'marks' in item:
+                check_and_apply(q, 'marks', int(item.get('marks') or 1))
+
+            # 6. If changes occurred, prepare the log entry
             if changes:
-                # Create Log Entry
-                log = QuestionAuditLog(
+                log_entries.append(QuestionAuditLog(
                     user_id=current_user.id,
                     action='UPDATE',
                     question_id=q.id,
                     details="; ".join(changes)
-                )
-                db.session.add(log)
+                ))
                 updated_count += 1
 
-        db.session.commit()
-        return jsonify({'message': f'Successfully updated {updated_count} questions'}), 200
+        # 7. High-Performance Commit
+        if updated_count > 0:
+            # Batch save all log entries in one go instead of inside the loop
+            db.session.bulk_save_objects(log_entries)
+            db.session.commit()
+            return jsonify({'message': f'Successfully updated {updated_count} questions'}), 200
+        
+        return jsonify({'message': 'No changes detected'}), 200
 
     except Exception as e:
         db.session.rollback()
-        # Print error to terminal for debugging
-        print(f"Bulk Update Error: {str(e)}")
-        return jsonify({'message': 'Bulk update failed', 'detail': str(e)}), 500
-@app.get('/admin/audit-logs')
+        logger.error(f"Bulk Update Failed: {str(e)}") # Log the error for you
+        return jsonify({'message': 'Bulk update failed', 'detail': 'Internal Server Error'}), 500
+
+@app.route('/admin/audit-logs', methods=['GET']) # Changed to .route for consistency
 @token_required
 def get_audit_logs(current_user):
     if current_user.role not in ('admin', 'subject_specialist'):
         return jsonify({'message': 'forbidden'}), 403
     
-    query = QuestionAuditLog.query
+    # 1. Start Query
+    # Joined load 'user' to avoid N+1 query problem when getting usernames
+    query = db.session.query(QuestionAuditLog).join(User)
     
-    # Specialists only see their own history
+    # 2. Apply Role-Based Filtering
     if current_user.role == 'subject_specialist':
-        query = query.filter_by(user_id=current_user.id)
-        
-    logs = query.order_by(desc(QuestionAuditLog.timestamp)).limit(100).all()
-    
-    return jsonify({'logs': [{
-        'id': l.id,
-        'action': l.action,
-        'question_id': l.question_id,
-        'details': l.details,
-        'timestamp': l.timestamp.isoformat(),
-        'username': l.user.username
-    } for l in logs]}), 200
+        query = query.filter(QuestionAuditLog.user_id == current_user.id)
+    else:
+        # Admins can filter by a specific specialist if provided
+        user_id_filter = request.args.get('user_id', type=int)
+        if user_id_filter:
+            query = query.filter(QuestionAuditLog.user_id == user_id_filter)
 
+    # 3. Apply Content Filtering
+    q_id_filter = request.args.get('question_id', type=int)
+    if q_id_filter:
+        query = query.filter(QuestionAuditLog.question_id == q_id_filter)
+
+    # 4. Apply Date Filtering (Crucial for Bulk Update reviews)
+    start_date = request.args.get('start_date') # Format: YYYY-MM-DD
+    if start_date:
+        query = query.filter(QuestionAuditLog.timestamp >= datetime.fromisoformat(start_date))
+
+    # 5. Execute with Pagination (Limit 100 is good, but pagination is better for production)
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 50, type=int)
+    
+    pagination = query.order_by(desc(QuestionAuditLog.timestamp)).paginate(page=page, per_page=per_page)
+    
+    return jsonify({
+        'logs': [{
+            'id': l.id,
+            'action': l.action,
+            'question_id': l.question_id,
+            'details': l.details,
+            'timestamp': l.timestamp.isoformat(),
+            'username': l.user.username
+        } for l in pagination.items],
+        'total_pages': pagination.pages,
+        'current_page': pagination.page
+    }), 200
 
 
 # ------------------------------
