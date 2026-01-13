@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import api from '../../utils/api';
 import useAuth from '../../hooks/useAuth';
@@ -12,7 +12,7 @@ import {
   CloudUpload as CloudUploadIcon,
   Add as AddIcon,
   Search as SearchIcon,
-  GridOn as GridOnIcon,
+  GridOn as GridOnIcon, 
   History as HistoryIcon,
   Refresh as RefreshIcon
 } from '@mui/icons-material';
@@ -31,8 +31,8 @@ export default function RepoQuestionsPage() {
   const [questions, setQuestions] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
-
-  // Sync state with URL on initial load
+  
+  // --- PERSISTENT STATE (Synced with URL) ---
   const [page, setPage] = useState(parseInt(query.get('page') || '0', 10));
   const [rowsPerPage, setRowsPerPage] = useState(parseInt(query.get('per_page') || '10', 10));
   const [filters, setFilters] = useState({
@@ -54,7 +54,7 @@ export default function RepoQuestionsPage() {
   };
   const basePath = getBasePath();
 
-  // Updated URL Helper
+  // URL Sync Helper
   const updateURL = useCallback((newFilters, newPage, newRows) => {
     const params = new URLSearchParams();
     if (examId) params.set('examId', examId);
@@ -67,7 +67,7 @@ export default function RepoQuestionsPage() {
   }, [navigate, examId]);
 
   const fetchRepo = useCallback(async () => {
-    // Optimization: Don't fetch if the user hasn't selected required filters yet
+    // Only fetch if a filter is active to keep RDS performance high
     if (!filters.class_number && !filters.subject && !filters.search) return;
 
     setLoading(true);
@@ -76,8 +76,8 @@ export default function RepoQuestionsPage() {
         page: page + 1,
         per_page: rowsPerPage,
         search: filters.search,
-        class_number: filters.class_number,
-        subject: filters.subject
+        class_number: filters.class_number === 'All' ? '' : filters.class_number,
+        subject: filters.subject === 'All' ? '' : filters.subject
       });
 
       const res = await api.get(`/admin/repository/questions?${params.toString()}`);
@@ -95,6 +95,11 @@ export default function RepoQuestionsPage() {
   }, [fetchRepo]);
 
   // --- HANDLERS ---
+  const handlePageChange = (event, newPage) => {
+    setPage(newPage);
+    updateURL(filters, newPage, rowsPerPage);
+  };
+
   const handleRowsPerPageChange = (event) => {
     const nextRows = parseInt(event.target.value, 10);
     setRowsPerPage(nextRows);
@@ -110,9 +115,24 @@ export default function RepoQuestionsPage() {
     updateURL(nextFilters, 0, rowsPerPage);
   };
 
-  const handlePageChange = (event, newPage) => {
-    setPage(newPage);
-    updateURL(filters, newPage, rowsPerPage);
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      setLoading(true);
+      const res = await api.post('/admin/repository/questions/import', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      alert(res.data.message);
+      fetchRepo();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Upload failed');
+    } finally {
+      setLoading(false);
+      e.target.value = null;
+    }
   };
 
   const toggleSelect = (id) => {
@@ -145,18 +165,41 @@ export default function RepoQuestionsPage() {
     }
   };
 
+  const handleEditNavigate = (qid) => {
+    if (isAdmin) navigate(`/admin/repository/questions/${qid}/edit`);
+    else if (isSubject) navigate(`/specialist/repository/questions/${qid}/edit`);
+    else navigate(`${basePath}/repository/questions/${qid}/edit`);
+  };
+
   return (
     <Box sx={{ p: 3, bgcolor: '#f5f7fa', minHeight: '100vh' }}>
-      {/* HEADER */}
+      {/* RESTORED HEADER WITH BULK UPLOAD & EDITOR */}
       <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems="center" mb={4} spacing={2}>
         <Box>
           <Typography variant="h4" fontWeight={700} color="primary.main">Question Repository</Typography>
-          <Typography variant="body2" color="text.secondary">Central bank for all exams.</Typography>
+          <Typography variant="body2" color="text.secondary">Central bank of questions for all exams.</Typography>
         </Box>
+
         {(isAdmin || isSubject) && (
           <Stack direction="row" spacing={2}>
+            {/* RESTORED CSV UPLOAD */}
+            <Button variant="outlined" component="label" startIcon={<CloudUploadIcon />} sx={{ bgcolor: 'white' }}>
+              Upload CSV
+              <input type="file" hidden accept=".csv" onChange={handleFileUpload} />
+            </Button>
+
             <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate(`${basePath}/repository/questions/new`)}>
               Add Question
+            </Button>
+
+            {/* RESTORED BULK EDITOR */}
+            <Button variant="outlined" startIcon={<GridOnIcon />} onClick={() => navigate(`${basePath}/repository/bulk-edit`)}>
+              Bulk Editor
+            </Button>
+
+            {/* RESTORED LOGS */}
+            <Button variant="text" startIcon={<HistoryIcon />} onClick={() => navigate(isSubject ? '/specialist/activity-log' : '/admin/activity-log')}>
+              Logs
             </Button>
           </Stack>
         )}
@@ -167,26 +210,26 @@ export default function RepoQuestionsPage() {
         <Grid container alignItems="center" spacing={2}>
           <Grid item xs={12} md={4}>
             <TextField
-              fullWidth size="small" name="search" placeholder="Search..."
+              fullWidth size="small" name="search" placeholder="Search text, options or ID..."
               value={filters.search} onChange={handleFilterChange}
-              InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon color="action" /></InputAdornment> }}
+              InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon color="action"/></InputAdornment> }}
             />
           </Grid>
           <Grid item xs={6} md={2}>
-            <TextField select fullWidth size="small" label="Class" name="class_number" value={filters.class_number} onChange={handleFilterChange}>
-              <MenuItem value="">Select Class</MenuItem>
-              {['6', '7', '8', '9', '10'].map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
-            </TextField>
+             <TextField select fullWidth size="small" label="Class" name="class_number" value={filters.class_number} onChange={handleFilterChange}>
+                <MenuItem value="">All</MenuItem>
+                {['6','7','8','9','10'].map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+             </TextField>
           </Grid>
           <Grid item xs={6} md={2}>
-            <TextField select fullWidth size="small" label="Subject" name="subject" value={filters.subject} onChange={handleFilterChange}>
-              <MenuItem value="">Select Subject</MenuItem>
-              {['Math', 'Science', 'English', 'UPSC'].map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
-            </TextField>
+             <TextField select fullWidth size="small" label="Subject" name="subject" value={filters.subject} onChange={handleFilterChange}>
+                <MenuItem value="">All</MenuItem>
+                {['Math','Science','upsc','English'].map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+             </TextField>
           </Grid>
           <Grid item xs={12} md={4} display="flex" justifyContent="flex-end" gap={1}>
-            <Button variant="outlined" startIcon={<RefreshIcon />} onClick={fetchRepo}>Refresh</Button>
-            {examId && (
+             <Button variant="outlined" startIcon={<RefreshIcon/>} onClick={fetchRepo}>Refresh</Button>
+             {examId && (
               <Button variant="contained" color="secondary" onClick={handlePick} disabled={selected.size === 0}>
                 Add Selected ({selected.size})
               </Button>
@@ -195,12 +238,12 @@ export default function RepoQuestionsPage() {
         </Grid>
       </Paper>
 
-      {/* CONDITIONAL CONTENT */}
+      {/* CONDITIONAL RENDERING: LOADING OR EMPTY STATE */}
       {(!filters.class_number && !filters.subject && !filters.search) ? (
         <Paper sx={{ p: 5, textAlign: 'center', bgcolor: '#fffde7', border: '1px dashed #fbc02d' }}>
           <GridOnIcon sx={{ fontSize: 40, color: '#fbc02d', mb: 2 }} />
-          <Typography variant="h6">Please use filters to search questions</Typography>
-          <Typography variant="body2" color="text.secondary">Choose a Class, Subject, or type a search term to begin.</Typography>
+          <Typography variant="h6">Please select a Class and Subject</Typography>
+          <Typography variant="body2" color="text.secondary">Choose filters above to view repository questions.</Typography>
         </Paper>
       ) : (
         <Stack spacing={2}>
@@ -209,46 +252,60 @@ export default function RepoQuestionsPage() {
           ) : (
             <>
               {questions.map(q => (
-                <Paper key={q.id} elevation={1} sx={{ p: 2, borderRadius: 2, borderLeft: selected.has(q.id) ? '4px solid #9c27b0' : '4px solid transparent' }}>
+                <Paper key={q.id} elevation={1} sx={{ p: 2, borderRadius: 2, borderLeft: '4px solid', borderColor: selected.has(q.id) ? 'secondary.main' : 'transparent', transition: '0.2s', '&:hover': { boxShadow: 3 } }}>
                   <Box display="flex" alignItems="flex-start" gap={2}>
                     {examId && <Checkbox checked={selected.has(q.id)} onChange={() => toggleSelect(q.id)} color="secondary" />}
                     <Box flexGrow={1}>
                       <Stack direction="row" spacing={1} mb={1}>
-                        <Chip label={`ID: ${q.id}`} size="small" color="primary" variant="outlined" />
-                        <Chip label={q.subject} size="small" variant="outlined" />
-                        <Chip label={`Class ${q.class_number}`} size="small" variant="outlined" />
+                        <Chip label={`ID: ${q.id}`} size="small" sx={{ bgcolor: '#e3f2fd', color: '#1565c0', fontWeight: 'bold' }} />
+                        {q.subject && <Chip label={q.subject} size="small" variant="outlined" />}
+                        {q.class_number && <Chip label={`Class ${q.class_number}`} size="small" variant="outlined" />}
+                        {q.marks && <Chip label={`${q.marks} Marks`} size="small" variant="outlined" />}
                       </Stack>
                       <Typography variant="subtitle1" fontWeight={500}>{q.text}</Typography>
-                      <Grid container spacing={1} sx={{ mt: 1 }}>
-                        {['a', 'b', 'c', 'd'].map(opt => (
-                          <Grid item xs={6} md={3} key={opt}>
-                            <Typography variant="body2"><strong>{opt.toUpperCase()}:</strong> {q[`option_${opt}`]}</Typography>
+                      <Grid container spacing={1}>
+                        {['a', 'b', 'c', 'd'].map((opt) => q[`option_${opt}`] && (
+                          <Grid item xs={12} sm={6} md={3} key={opt}>
+                            <Typography variant="body2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center' }}>
+                              <Box component="span" sx={{ fontWeight: 'bold', mr: 1, textTransform: 'uppercase' }}>{opt}:</Box>
+                              {q[`option_${opt}`]}
+                            </Typography>
                           </Grid>
                         ))}
                       </Grid>
-                      <Typography variant="caption" sx={{ color: 'success.main', fontWeight: 'bold', mt: 1, display: 'block' }}>
-                        Correct: {q.correct_answer}
-                      </Typography>
+                      <Typography variant="caption" sx={{ display: 'block', mt: 1, color: 'success.main', fontWeight: 'bold' }}>Correct: {q.correct_answer}</Typography>
                     </Box>
-                    <Stack>
-                      <IconButton size="small" onClick={() => navigate(`${basePath}/repository/questions/${q.id}/edit`)} color="primary"><EditIcon /></IconButton>
-                      <IconButton size="small" color="error" onClick={() => handleDelete(q.id)}><DeleteIcon /></IconButton>
-                    </Stack>
+                    <Box display="flex" flexDirection="column">
+                      {(isAdmin || isSubject) && (
+                        <IconButton size="small" onClick={() => handleEditNavigate(q.id)} color="primary"><EditIcon /></IconButton>
+                      )}
+                      {isAdmin && (
+                        <IconButton size="small" color="error" onClick={() => handleDelete(q.id)}><DeleteIcon /></IconButton>
+                      )}
+                    </Box>
                   </Box>
                 </Paper>
               ))}
-              {questions.length === 0 && <Typography textAlign="center" py={5}>No questions found.</Typography>}
+              {questions.length === 0 && (
+                <Box textAlign="center" py={5}><Typography color="text.secondary">No questions found.</Typography></Box>
+              )}
             </>
           )}
         </Stack>
       )}
 
       {/* PAGINATION */}
-      <TablePagination
-        component={Paper} sx={{ mt: 3 }}
-        count={total} page={page} onPageChange={handlePageChange}
-        rowsPerPage={rowsPerPage} onRowsPerPageChange={handleRowsPerPageChange}
-      />
+      <Paper sx={{ mt: 3, p: 1, display: 'flex', justifyContent: 'center' }}>
+        <TablePagination
+          component="div"
+          count={total}
+          page={page}
+          onPageChange={handlePageChange}
+          rowsPerPage={rowsPerPage}
+          onRowsPerPageChange={handleRowsPerPageChange}
+          rowsPerPageOptions={[5, 10, 20, 50]}
+        />
+      </Paper>
     </Box>
   );
 }
