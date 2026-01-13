@@ -18,7 +18,8 @@ import {
 } from '@mui/icons-material';
 
 function useQuery() {
-  return new URLSearchParams(useLocation().search);
+  const { search } = useLocation();
+  return useMemo(() => new URLSearchParams(search), [search]);
 }
 
 export default function RepoQuestionsPage() {
@@ -43,6 +44,7 @@ export default function RepoQuestionsPage() {
 
   const [selected, setSelected] = useState(new Set());
 
+  // Role Checks
   const isAdmin = user?.role === 'admin';
   const isSubject = user?.role === 'subject_specialist';
 
@@ -173,32 +175,55 @@ export default function RepoQuestionsPage() {
 
   return (
     <Box sx={{ p: 3, bgcolor: '#f5f7fa', minHeight: '100vh' }}>
-      {/* RESTORED HEADER WITH BULK UPLOAD & EDITOR */}
+      
+      {/* HEADER SECTION */}
       <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems="center" mb={4} spacing={2}>
         <Box>
-          <Typography variant="h4" fontWeight={700} color="primary.main">Question Repository</Typography>
-          <Typography variant="body2" color="text.secondary">Central bank of questions for all exams.</Typography>
+          <Typography variant="h4" fontWeight={700} color="primary.main">
+            Question Repository
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Central bank of questions for all exams.
+          </Typography>
         </Box>
 
+        {/* BUTTONS: Only visible to Admin and Specialist */}
         {(isAdmin || isSubject) && (
           <Stack direction="row" spacing={2}>
-            {/* RESTORED CSV UPLOAD */}
-            <Button variant="outlined" component="label" startIcon={<CloudUploadIcon />} sx={{ bgcolor: 'white' }}>
+            <Button
+              variant="outlined"
+              component="label"
+              startIcon={<CloudUploadIcon />}
+              sx={{ bgcolor: 'white', textTransform: 'none' }}
+            >
               Upload CSV
               <input type="file" hidden accept=".csv" onChange={handleFileUpload} />
             </Button>
 
-            <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate(`${basePath}/repository/questions/new`)}>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              sx={{ textTransform: 'none' }}
+              onClick={() => navigate(`${basePath}/repository/questions/new`)}
+            >
               Add Question
             </Button>
 
-            {/* RESTORED BULK EDITOR */}
-            <Button variant="outlined" startIcon={<GridOnIcon />} onClick={() => navigate(`${basePath}/repository/bulk-edit`)}>
+            <Button
+              variant="outlined"
+              startIcon={<GridOnIcon />}
+              sx={{ bgcolor: 'white', textTransform: 'none' }}
+              onClick={() => navigate(`${basePath}/repository/bulk-edit`)}
+            >
               Bulk Editor
             </Button>
 
-            {/* RESTORED LOGS */}
-            <Button variant="text" startIcon={<HistoryIcon />} onClick={() => navigate(isSubject ? '/specialist/activity-log' : '/admin/activity-log')}>
+            <Button
+              variant="text"
+              startIcon={<HistoryIcon />}
+              sx={{ textTransform: 'none' }}
+              onClick={() => navigate(isSubject ? '/specialist/activity-log' : '/admin/activity-log')}
+            >
               Logs
             </Button>
           </Stack>
@@ -228,9 +253,17 @@ export default function RepoQuestionsPage() {
              </TextField>
           </Grid>
           <Grid item xs={12} md={4} display="flex" justifyContent="flex-end" gap={1}>
-             <Button variant="outlined" startIcon={<RefreshIcon/>} onClick={fetchRepo}>Refresh</Button>
+             <Button variant="outlined" startIcon={<RefreshIcon/>} onClick={fetchRepo} sx={{ textTransform: 'none' }}>
+                Refresh
+             </Button>
              {examId && (
-              <Button variant="contained" color="secondary" onClick={handlePick} disabled={selected.size === 0}>
+              <Button
+                variant="contained"
+                color="secondary"
+                sx={{ textTransform: 'none' }}
+                onClick={handlePick}
+                disabled={selected.size === 0}
+              >
                 Add Selected ({selected.size})
               </Button>
             )}
@@ -238,23 +271,42 @@ export default function RepoQuestionsPage() {
         </Grid>
       </Paper>
 
-      {/* CONDITIONAL RENDERING: LOADING OR EMPTY STATE */}
+      {/* CONTENT AREA */}
       {(!filters.class_number && !filters.subject && !filters.search) ? (
-        <Paper sx={{ p: 5, textAlign: 'center', bgcolor: '#fffde7', border: '1px dashed #fbc02d' }}>
-          <GridOnIcon sx={{ fontSize: 40, color: '#fbc02d', mb: 2 }} />
-          <Typography variant="h6">Please select a Class and Subject</Typography>
-          <Typography variant="body2" color="text.secondary">Choose filters above to view repository questions.</Typography>
+        <Paper sx={{ p: 10, textAlign: 'center', bgcolor: '#fffde7', border: '1px dashed #fbc02d', borderRadius: 4 }}>
+          <GridOnIcon sx={{ fontSize: 60, color: '#fbc02d', mb: 2 }} />
+          <Typography variant="h5" color="text.primary" gutterBottom>
+            Select a Class and Subject
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            Use the filters above to browse the Question Repository.
+          </Typography>
         </Paper>
       ) : (
         <Stack spacing={2}>
           {loading ? (
-            <Box display="flex" justifyContent="center" py={5}><CircularProgress /></Box>
+            <Box display="flex" justifyContent="center" py={10}><CircularProgress /></Box>
           ) : (
             <>
               {questions.map(q => (
-                <Paper key={q.id} elevation={1} sx={{ p: 2, borderRadius: 2, borderLeft: '4px solid', borderColor: selected.has(q.id) ? 'secondary.main' : 'transparent', transition: '0.2s', '&:hover': { boxShadow: 3 } }}>
+                <Paper 
+                  key={q.id} 
+                  elevation={1} 
+                  sx={{ 
+                    p: 2, borderRadius: 3, 
+                    borderLeft: '5px solid', 
+                    borderColor: selected.has(q.id) ? 'secondary.main' : 'transparent',
+                    transition: '0.3s'
+                  }}
+                >
                   <Box display="flex" alignItems="flex-start" gap={2}>
-                    {examId && <Checkbox checked={selected.has(q.id)} onChange={() => toggleSelect(q.id)} color="secondary" />}
+                    {examId && (
+                      <Checkbox 
+                        checked={selected.has(q.id)} 
+                        onChange={() => toggleSelect(q.id)} 
+                        color="secondary" 
+                      />
+                    )}
                     <Box flexGrow={1}>
                       <Stack direction="row" spacing={1} mb={1}>
                         <Chip label={`ID: ${q.id}`} size="small" sx={{ bgcolor: '#e3f2fd', color: '#1565c0', fontWeight: 'bold' }} />
@@ -262,40 +314,44 @@ export default function RepoQuestionsPage() {
                         {q.class_number && <Chip label={`Class ${q.class_number}`} size="small" variant="outlined" />}
                         {q.marks && <Chip label={`${q.marks} Marks`} size="small" variant="outlined" />}
                       </Stack>
-                      <Typography variant="subtitle1" fontWeight={500}>{q.text}</Typography>
-                      <Grid container spacing={1}>
+                      <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1 }}>{q.text}</Typography>
+                      <Grid container spacing={2}>
                         {['a', 'b', 'c', 'd'].map((opt) => q[`option_${opt}`] && (
                           <Grid item xs={12} sm={6} md={3} key={opt}>
-                            <Typography variant="body2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center' }}>
-                              <Box component="span" sx={{ fontWeight: 'bold', mr: 1, textTransform: 'uppercase' }}>{opt}:</Box>
+                            <Typography variant="body2" color="text.secondary">
+                              <Box component="span" sx={{ fontWeight: 'bold', mr: 1 }}>{opt.toUpperCase()}:</Box>
                               {q[`option_${opt}`]}
                             </Typography>
                           </Grid>
                         ))}
                       </Grid>
-                      <Typography variant="caption" sx={{ display: 'block', mt: 1, color: 'success.main', fontWeight: 'bold' }}>Correct: {q.correct_answer}</Typography>
+                      <Typography variant="caption" sx={{ display: 'block', mt: 1.5, color: 'success.main', fontWeight: 800 }}>
+                        CORRECT ANSWER: {q.correct_answer.toUpperCase()}
+                      </Typography>
                     </Box>
-                    <Box display="flex" flexDirection="column">
+                    <Stack>
                       {(isAdmin || isSubject) && (
                         <IconButton size="small" onClick={() => handleEditNavigate(q.id)} color="primary"><EditIcon /></IconButton>
                       )}
                       {isAdmin && (
                         <IconButton size="small" color="error" onClick={() => handleDelete(q.id)}><DeleteIcon /></IconButton>
                       )}
-                    </Box>
+                    </Stack>
                   </Box>
                 </Paper>
               ))}
               {questions.length === 0 && (
-                <Box textAlign="center" py={5}><Typography color="text.secondary">No questions found.</Typography></Box>
+                <Box textAlign="center" py={10}>
+                  <Typography color="text.secondary">No questions found for this criteria.</Typography>
+                </Box>
               )}
             </>
           )}
         </Stack>
       )}
 
-      {/* PAGINATION */}
-      <Paper sx={{ mt: 3, p: 1, display: 'flex', justifyContent: 'center' }}>
+      {/* PAGINATION SECTION */}
+      <Paper sx={{ mt: 4, p: 1, display: 'flex', justifyContent: 'center', borderRadius: 2 }}>
         <TablePagination
           component="div"
           count={total}
