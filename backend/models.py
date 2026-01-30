@@ -10,31 +10,45 @@ bcrypt = Bcrypt()
 
 # -------------------- UTILS: ID GENERATION --------------------
 
-def generate_short_id(class_num, subject, chapter):
+from sqlalchemy import func
+import re
+
+from sqlalchemy import func
+import re
+
+def generate_short_id(class_num, subject, chapter, exclude_id=None):
     """
-    Generates a hierarchical, scannable ID: 10-MAT-CAL-INT-0001
+    Generates a monotonic scoped ID.
+    NEVER reuses numbers.
     """
+
     def abbreviate(text):
         if not text or str(text).strip() == "":
             return "GEN"
-        # Remove small stop words and special characters
         clean = re.sub(r'\b(the|a|an|of|and|in|to|on|for|with)\b', '', str(text), flags=re.IGNORECASE)
         clean = re.sub(r'[^a-zA-Z0-9]', '', clean)
-        # Take the first 3 characters and uppercase them
-        return clean[:3].upper() if len(clean) >= 3 else clean.upper().ljust(3, 'X')
+        return clean[:3].upper().ljust(3, 'X')
 
     c_code = str(class_num).zfill(2) if class_num else "00"
     s_code = abbreviate(subject)
     ch_code = abbreviate(chapter)
-    # Calculate the XXXX based on existing questions in this specific chapter
-    # We count how many questions already have this prefix
-    prefix = f"{c_code}-{s_code}-{ch_code}-"
-    existing_count = QuestionRepository.query.filter(
-        QuestionRepository.custom_id.like(f"{prefix}%")
-    ).count()
 
-    # The new serial is existing_count + 1
-    new_serial = str(existing_count + 1).zfill(4)
+    prefix = f"{c_code}-{s_code}-{ch_code}-"
+
+    query = db.session.query(func.max(QuestionRepository.custom_id)).filter(
+        QuestionRepository.class_number == class_num,
+        QuestionRepository.subject == subject,
+        QuestionRepository.chapter == chapter
+    )
+
+    # 🔑 EXCLUDE CURRENT ROW ON UPDATE
+    if exclude_id:
+        query = query.filter(QuestionRepository.id != exclude_id)
+
+    last_id = query.scalar()
+
+    last_num = int(last_id.split("-")[-1]) if last_id else 0
+    new_serial = str(last_num + 1).zfill(4)
 
     return f"{prefix}{new_serial}"
 
@@ -298,15 +312,18 @@ def auto_gen_id(mapper, connection, target):
 
 @event.listens_for(QuestionRepository, 'before_update')
 def update_id_on_scope_change(mapper, connection, target):
-    """Recalculates ID only if the question is moved to a new Chapter/Subject/Class"""
     state = db.inspect(target)
-    
-    # Check history to see if the defining fields were modified
-    attr_changed = (
-        state.attrs.chapter.history.has_changes() or 
-        state.attrs.subject.history.has_changes() or 
+
+    scope_changed = (
+        state.attrs.chapter.history.has_changes() or
+        state.attrs.subject.history.has_changes() or
         state.attrs.class_number.history.has_changes()
     )
-    
-    if attr_changed:
-        target.custom_id = generate_short_id(target.class_number, target.subject, target.chapter)
+
+    if scope_changed:
+        target.custom_id = generate_short_id(
+            target.class_number,
+            target.subject,
+            target.chapter,
+            exclude_id=target.id   # 🔑 THIS LINE FIXES YOUR ERROR
+        )
