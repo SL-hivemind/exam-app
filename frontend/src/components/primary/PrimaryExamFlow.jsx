@@ -1,302 +1,404 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from "react";
 import {
-  Box, Paper, Typography, TextField, Button, Alert,
-  IconButton, InputAdornment, Stack, Grid, Card, Toolbar
-} from '@mui/material';
-import Visibility from '@mui/icons-material/Visibility';
-import VisibilityOff from '@mui/icons-material/VisibilityOff';
-import { useNavigate, Link as RouterLink } from 'react-router-dom';
-import api from '../../utils/api';
-import useAuth from '../../hooks/useAuth';
+  Box,
+  Paper,
+  Typography,
+  Button,
+  TextField,
+  Grid
+} from "@mui/material";
+import { useNavigate } from "react-router-dom";
 
-export default function Login() {
+/* ---------------- QUESTIONS ---------------- */
+
+const QUESTIONS = {
+  1: [
+    {
+      type: "tap",
+      q: "Tap the RED fruit ",
+      options: [
+        { e: "🍌", c: "yellow" },
+        { e: "🍎", c: "red" },
+        { e: "🍇", c: "green" },
+        { e: "🍊", c: "orange" }
+      ],
+      ans: "red"
+    },
+    {
+      type: "count",
+      q: "How many dogs are there? ",
+      display: "🐶 🐶 🐶",
+      options: [2, 3, 4],
+      ans: 3
+    },
+    {
+      type: "match",
+      q: "Match the animal with its sound 🎵",
+      left: ["🐶", "🐱", "🐮", "🐔"],
+      right: ["BARK", "MEOW", "MOO", "CLUCK"],
+      pairs: {
+        "🐶": "BARK",
+        "🐱": "MEOW",
+        "🐮": "MOO",
+        "🐔": "CLUCK"
+      }
+    },
+    {
+      type: "tap",
+      q: "Tap the BIG animal ",
+      options: [
+        { e: "🐭", v: "small" },
+        { e: "🐘", v: "big" },
+        { e: "🐱", v: "small" }
+      ],
+      ans: "big"
+    },
+    {
+      type: "count",
+      q: "How many apples are there? ",
+      display: "🍎 🍎 🍎 🍎",
+      options: [3, 4, 5],
+      ans: 4
+    },
+    {
+      type: "match",
+      q: "Match fruit with color 🎨",
+      left: ["🍎", "🍌", "🍇", "🍊"],
+      right: ["RED", "YELLOW", "GREEN", "ORANGE"],
+      pairs: {
+        "🍎": "RED",
+        "🍌": "YELLOW",
+        "🍇": "GREEN",
+        "🍊": "ORANGE"
+      }
+    },
+    {
+      type: "tap",
+      q: "Tap the STAR ",
+      options: ["⭐", "🔺", "🔵", "🍎"],
+      ans: "⭐"
+    },
+    {
+      type: "count",
+      q: "How many cats are there? ",
+      display: "🐱 🐱",
+      options: [1, 2, 3],
+      ans: 2
+    },
+    {
+      type: "tap",
+      q: "Tap the YELLOW fruit ",
+      options: [
+        { e: "🍎", c: "red" },
+        { e: "🍌", c: "yellow" },
+        { e: "🍇", c: "green" }
+      ],
+      ans: "yellow"
+    },
+    {
+      type: "tap",
+      q: "Tap the CIRCLE ",
+      options: ["⬛", "🔺", "🔵", "⭐"],
+      ans: "🔵"
+    }
+  ]
+};
+
+[2,3,4,5].forEach(c => (QUESTIONS[c] = QUESTIONS[1]));
+
+/* ---------------- COMPONENT ---------------- */
+
+export default function PrimaryExamFlow() {
   const navigate = useNavigate();
-  const { user, login } = useAuth();
-  
-  const [identifier, setIdentifier] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const quotes = [
-    { text: "Education is the most powerful weapon which you can use to change the world.", author: "Nelson Mandela" },
-    { text: "The beautiful thing about learning is that no one can take it away from you.", author: "B.B. King" },
-    { text: "The only time you truly fail, is when you decided to giveup.", author: "Virat Kohli" },
-    { text: "Success is the sum of small efforts, repeated day in and day out.", author: "Robert Collier" }
-  ];
+  const [step, setStep] = useState("start");
+  const [cls, setCls] = useState(null);
+  const [name, setName] = useState("");
+  const [index, setIndex] = useState(0);
+  const [score, setScore] = useState(0);
 
-  const [currentQuote, setCurrentQuote] = useState(0);
+  const [selectedLeft, setSelectedLeft] = useState(null);
+  const [matched, setMatched] = useState({});
+  const [shake, setShake] = useState(false);
 
-  useEffect(() => {
-    if (user) {
-      if (user.role === 'subject_specialist') navigate('/specialist/repository/questions', { replace: true });
-      else if (user.role === 'admin') navigate('/admin/exams', { replace: true });
-      else if (user.role === 'school_admin') navigate('/school', { replace: true });
-      else if (user.role === 'student') navigate('/student', { replace: true });
-    }
-  }, [user, navigate]);
+  const questions = cls ? QUESTIONS[cls] : [];
+  const q = questions[index];
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentQuote((prev) => (prev + 1) % quotes.length);
-    }, 5000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    if (!identifier || !password) {
-      setError('Username and Password are required.');
-      return;
-    }
-    setIsSubmitting(true);
-
-    try {
-      const response = await api.post('/login', {
-        username: identifier,
-        password: password,
-      });
-
-      const token = response.data.auth_token || response.data.token;
-      const userData = response.data.user;
-
-      if (!token || !userData) throw new Error('Invalid server response');
-
-      login(userData, token);
-
-    } catch (err) {
-      console.error(err);
-      setError(err.response?.data?.message || 'Login failed.');
-      setIsSubmitting(false);
-    }
+  const next = () => {
+    setMatched({});
+    setSelectedLeft(null);
+    if (index === questions.length - 1) setStep("result");
+    else setIndex(i => i + 1);
   };
 
+  const wrong = () => {
+    setShake(true);
+    setTimeout(() => {
+      setShake(false);
+      setMatched({});
+      setSelectedLeft(null);
+    }, 350);
+  };
+
+  const handleTap = (opt) => {
+  let correct =
+    typeof opt === "string"
+      ? opt === q.ans
+      : opt.c === q.ans || opt.v === q.ans;
+
+  if (correct) {
+    setScore(s => s + 1);
+    setTimeout(next, 300);
+  } else {
+    wrong();
+  }
+};
+
+
+  const handleCount = (num) => {
+  if (num === q.ans) {
+    setScore(s => s + 1);
+    setTimeout(next, 300);
+  } else {
+    wrong();
+  }
+};
+
+
+ const handleMatch = (right) => {
+  if (!selectedLeft) return;
+
+  if (q.pairs[selectedLeft] === right) {
+    const updated = { ...matched, [selectedLeft]: true };
+    setMatched(updated);
+    setSelectedLeft(null);
+
+    if (Object.keys(updated).length === q.left.length) {
+      setScore(s => s + 1);
+      setTimeout(next, 400);
+    }
+  } else {
+    wrong();
+  }
+};
+
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#f5f5f5' }}>
-      {/* 1. Navbar Spacer: Prevents content from hiding behind fixed Navbar */}
-      <Toolbar /> 
+    <Box sx={{
+      minHeight:"100vh",
+      background:"linear-gradient(120deg,#f472b6,#60a5fa,#34d399)",
+      backgroundSize:"300% 300%",
+      animation:"bgMove 10s ease infinite",
+      display:"flex",
+      alignItems:"center",
+      justifyContent:"center",
+      px:2,
+      "@keyframes bgMove":{
+        "0%":{backgroundPosition:"0% 50%"},
+        "50%":{backgroundPosition:"100% 50%"},
+        "100%":{backgroundPosition:"0% 50%"}
+      }
+    }}>
+      <Paper sx={{
+        width:"100%",
+        maxWidth:900,
+        p:5,
+        borderRadius:"32px",
+        background:"linear-gradient(180deg,#fff7ed,#ecfeff)",
+        boxShadow:"0 30px 60px rgba(0,0,0,0.3)",
+        animation: shake ? "shake .3s" : "none",
+        "@keyframes shake":{
+          "0%":{transform:"translateX(0)"},
+          "25%":{transform:"translateX(-6px)"},
+          "50%":{transform:"translateX(6px)"},
+          "75%":{transform:"translateX(-6px)"},
+          "100%":{transform:"translateX(0)"}
+        }
+      }}>
 
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          p: 2,
-          minHeight: 'calc(100vh - 64px)', // Subtract toolbar height
-        }}
-      >
-        <Card
-          elevation={6}
-          sx={{
-            width: '100%',
-            maxWidth: '1100px',
-            minHeight: '600px',
-            borderRadius: 4,
-            overflow: 'hidden',
-            display: 'flex',
-            flexDirection: 'column'
-          }}
-        >
-          {/* Grid Container */}
-          <Grid container sx={{ flexGrow: 1 }}>
-            
-            {/* MOBILE OPTIMIZATION:
-               On 'xs' (mobile), the Form comes first (order 1).
-               On 'md' (desktop), the Form comes second (order 2).
-            */}
-            
-            {/* RIGHT SIDE: Login Form */}
-            <Grid
-              item
-              xs={12}
-              md={6}
-              sx={{
-                order: { xs: 1, md: 2 }, // Show first on mobile, second on desktop
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'center',
-                alignItems: 'center',
-                p: { xs: 4, md: 6 },
-                bgcolor: 'white',
-              }}
-            >
-              <Box component="form" onSubmit={handleSubmit} sx={{ width: '100%', maxWidth: '400px' }}>
-                <Stack spacing={1} mb={4} textAlign="center">
-                  <Typography variant="h4" fontWeight={800} color="primary">
-                    Sign In
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Enter your credentials to access your dashboard.
-                  </Typography>
-                </Stack>
+        {/* START */}
+        {step==="start" && (
+          <>
+            <Typography variant="h3" fontWeight={900} mb={1}>
+              🎈 Fun Kids Exam 🎈
+            </Typography>
+            <Typography mb={3}>Let’s play and learn together 🧠✨</Typography>
 
-                {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
-
-                <TextField
-                  label="Username / Student ID"
-                  fullWidth
-                  margin="normal"
-                  value={identifier}
-                  onChange={(e) => setIdentifier(e.target.value)}
-                  required
-                  autoFocus
-                  variant="outlined"
-                  InputProps={{ sx: { borderRadius: 2 } }}
-                />
-                
-                <TextField
-                  label="Password"
-                  type={showPassword ? 'text' : 'password'}
-                  fullWidth
-                  margin="normal"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  variant="outlined"
-                  InputProps={{
-                    sx: { borderRadius: 2 },
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <IconButton onClick={() => setShowPassword(!showPassword)} edge="end">
-                          {showPassword ? <VisibilityOff /> : <Visibility />}
-                        </IconButton>
-                      </InputAdornment>
-                    ),
-                  }}
-                />
-
-                <Button
-                  type="submit"
-                  variant="contained"
-                  size="large"
-                  fullWidth
-                  disabled={isSubmitting}
-                  sx={{
-                    mt: 4, mb: 3, height: 50, borderRadius: 2,
-                    fontWeight: 700, fontSize: '1rem', textTransform: 'none',
-                    boxShadow: '0 4px 12px rgba(25, 118, 210, 0.3)'
-                  }}
-                >
-                  {isSubmitting ? 'Signing In...' : 'Sign In'}
-                </Button>
-
-                <Stack direction="row" justifyContent="center">
-                  <Typography variant="body2" color="text.secondary">
-                    Don't have an account?{' '}
-                    <RouterLink to="/register" style={{ textDecoration: 'none', color: '#1976d2', fontWeight: 600 }}>
-                      Register here
-                    </RouterLink>
-                  </Typography>
-                </Stack>
-              </Box>
-
-              <Paper
-  sx={{
-    mt: 3,
-    mx: "auto",
-    maxWidth: 420,
-    p: 3.5,
-    borderRadius: 4,
-    textAlign: "center",
-    background: "linear-gradient(135deg,#fde68a,#a7f3d0)",
-    boxShadow: "0 12px 30px rgba(0,0,0,0.15)",
-    border: "1px solid rgba(255,255,255,0.6)"
-  }}
->
-  <Typography
-    variant="h6"
-    fontWeight={900}
-    sx={{ letterSpacing: "-0.02em" }}
-  >
-    🎈 Primary Practice
-  </Typography>
-
-  <Typography
-    variant="body2"
-    sx={{ color: "rgba(0,0,0,0.7)", mt: 0.5, mb: 2.5 }}
-  >
-    Fun exams for Classes 1–5  
-    <br />
-    <strong>No login required</strong>
-  </Typography>
-
-  <Button
-    variant="contained"
-    color="secondary"
-    sx={{
-      borderRadius: 4,
-      px: 4,
-      py: 1.2,
-      fontWeight: 800,
-      textTransform: "none",
-      boxShadow: "0 6px 14px rgba(0,0,0,0.25)"
-    }}
-    onClick={() => navigate("/primary")}
-  >
-    🚀 Start Primary Exam
-  </Button>
-</Paper>
-
+            <Grid container spacing={2} justifyContent="center" mb={3}>
+              {[1,2,3,4,5].map(c=>(
+                <Grid item key={c}>
+                  <Button
+                    variant={cls===c?"contained":"outlined"}
+                    onClick={()=>setCls(c)}
+                    sx={{ borderRadius:3, px:3, fontWeight:700 }}
+                  >
+                    Class {c}
+                  </Button>
+                </Grid>
+              ))}
             </Grid>
 
-            {/* LEFT SIDE: Inspirational Quotes */}
-            <Grid
-              item
-              xs={12}
-              md={6}
-              sx={{
-                order: { xs: 2, md: 1 }, // Show second on mobile, first on desktop
-                background: 'linear-gradient(135deg, #1976d2 0%, #0d47a1 100%)',
-                color: 'white',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'center',
-                alignItems: 'center',
-                p: 4,
-                textAlign: 'center',
-                position: 'relative',
-                minHeight: { xs: '300px', md: 'auto' } // Ensure height on mobile
-              }}
+            <TextField
+              label="Your Name 😊"
+              fullWidth
+              value={name}
+              onChange={e=>setName(e.target.value)}
+              sx={{ mb:3 }}
+            />
+
+            <Button
+              size="large"
+              variant="contained"
+              disabled={!cls || !name}
+              sx={{ px:6, borderRadius:4, fontWeight:800 }}
+              onClick={()=>setStep("exam")}
             >
-              <Box sx={{ position: 'absolute', top: -50, left: -50, width: 150, height: 150, borderRadius: '50%', bgcolor: 'rgba(255,255,255,0.1)' }} />
-              
-              <Typography variant="h3" fontWeight={700} gutterBottom sx={{ zIndex: 1 }}>
-                Welcome Back
-              </Typography>
-              <Typography variant="h6" sx={{ mb: 6, opacity: 0.9, zIndex: 1 }}>
-                Continue your learning journey
-              </Typography>
+              🚀 Start Playing
+            </Button>
+          </>
+        )}
 
-              <Box sx={{ maxWidth: '400px', minHeight: '120px', zIndex: 1 }}>
-                <Typography variant="h6" fontStyle="italic" sx={{ mb: 2, fontWeight: 300 }}>
-                  "{quotes[currentQuote].text}"
-                </Typography>
-                <Typography variant="subtitle2" sx={{ opacity: 0.8, fontWeight: 600 }}>
-                  — {quotes[currentQuote].author}
-                </Typography>
-              </Box>
+        {/* EXAM */}
+        {step==="exam" && (
+          <>
+            <Typography fontWeight={700} mb={1}>
+              Question {index+1} / {questions.length}
+            </Typography>
 
-              <Box sx={{ mt: 4, display: 'flex', gap: 1, zIndex: 1 }}>
-                {quotes.map((_, index) => (
-                  <Box
-                    key={index}
-                    sx={{
-                      width: 8, height: 8, borderRadius: '50%',
-                      backgroundColor: currentQuote === index ? 'white' : 'rgba(255,255,255,0.4)',
-                      cursor: 'pointer', transition: 'all 0.3s ease'
-                    }}
-                    onClick={() => setCurrentQuote(index)}
-                  />
+            <Typography variant="h4" fontWeight={900} mb={4}>
+              {q.q}
+            </Typography>
+
+            {q.type==="count" && (
+              <>
+                <Typography fontSize={48} mb={3}>{q.display}</Typography>
+                <Grid container spacing={3} justifyContent="center">
+                  {q.options.map(n=>(
+                    <Grid item key={n}>
+                      <Box
+                        onClick={()=>handleCount(n)}
+                        sx={{
+                          width:100,
+                          height:100,
+                          borderRadius:"50%",
+                          display:"flex",
+                          alignItems:"center",
+                          justifyContent:"center",
+                          fontSize:36,
+                          fontWeight:900,
+                          bgcolor:"#fff",
+                          cursor:"pointer",
+                          "&:hover":{ transform:"scale(1.15)", bgcolor:"#fef3c7" }
+                        }}
+                      >
+                        {n}
+                      </Box>
+                    </Grid>
+                  ))}
+                </Grid>
+              </>
+            )}
+
+            {q.type==="tap" && (
+              <Grid container spacing={3} justifyContent="center">
+                {q.options.map((o,i)=>(
+                  <Grid item xs={6} sm={3} key={i}>
+                    <Box
+                      onClick={()=>handleTap(o)}
+                      sx={{
+                        height:130,
+                        fontSize:64,
+                        display:"flex",
+                        alignItems:"center",
+                        justifyContent:"center",
+                        bgcolor:"#fff",
+                        borderRadius:4,
+                        cursor:"pointer",
+                        "&:hover":{ transform:"scale(1.15)", bgcolor:"#ecfeff" }
+                      }}
+                    >
+                      {typeof o==="string"?o:o.e}
+                    </Box>
+                  </Grid>
                 ))}
-              </Box>
-            </Grid>
+              </Grid>
+            )}
 
-          </Grid>
-        </Card>
-        
-      </Box>
+            {q.type==="match" && (
+              <Grid container spacing={4} justifyContent="center">
+                <Grid item xs={12} md={5}>
+                  {q.left.map(l=>(
+                    <Box
+                      key={l}
+                      onClick={()=>setSelectedLeft(l)}
+                      sx={{
+                        p:2,
+                        mb:2,
+                        fontSize:48,
+                        textAlign:"center",
+                        borderRadius:3,
+                        cursor:"pointer",
+                        bgcolor: matched[l]
+                          ? "#bbf7d0"
+                          : selectedLeft===l
+                          ? "#fde68a"
+                          : "#fff"
+                      }}
+                    >
+                      {l}
+                    </Box>
+                  ))}
+                </Grid>
+                <Grid item xs={12} md={5}>
+                  {q.right.map(r=>(
+                    <Box
+                      key={r}
+                      onClick={()=>handleMatch(r)}
+                      sx={{
+                        p:2,
+                        mb:2,
+                        textAlign:"center",
+                        fontWeight:900,
+                        borderRadius:3,
+                        cursor:"pointer",
+                        bgcolor:"#fff",
+                        "&:hover":{ bgcolor:"#f0fdfa" }
+                      }}
+                    >
+                      {r}
+                    </Box>
+                  ))}
+                </Grid>
+              </Grid>
+            )}
+          </>
+        )}
+
+        {/* RESULT */}
+        {step==="result" && (
+          <>
+            <Typography variant="h3" fontWeight={900} mb={2}>
+              🎉 Great Job {name}! 🎉
+            </Typography>
+            <Typography variant="h4" mb={2}>
+              ⭐ {score} / {questions.length} ⭐
+            </Typography>
+            <Typography fontSize={22} mb={4}>
+              🐶🍎⭐ You did amazing!  
+              <br />
+              Come back soon to play again 🎈🎈🎈
+            </Typography>
+            <Button
+              size="large"
+              variant="contained"
+              sx={{ px:6, borderRadius:4 }}
+              onClick={()=>navigate("/")}
+            >
+              🏠 Go Home
+            </Button>
+          </>
+        )}
+
+      </Paper>
     </Box>
   );
 }
