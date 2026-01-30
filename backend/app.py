@@ -67,9 +67,7 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", secrets.token_hex(32))
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", secrets.token_hex(32))
 
-print("AWS_REGION:", os.getenv("AWS_REGION"))
-print("BUCKET:", os.getenv("S3_BUCKET_NAME"))
-print("KEY SET:", bool(os.getenv("AWS_ACCESS_KEY_ID")))
+
 
 # SQLAlchemy pool settings
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {

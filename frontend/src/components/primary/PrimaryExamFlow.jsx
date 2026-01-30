@@ -12,7 +12,7 @@ import useAuth from '../hooks/useAuth';
 export default function Login() {
   const navigate = useNavigate();
   const { user, login } = useAuth();
-
+  
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -75,9 +75,8 @@ export default function Login() {
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: '#f5f5f5' }}>
-
       {/* 1. Navbar Spacer: Prevents content from hiding behind fixed Navbar */}
-      <Toolbar />
+      <Toolbar /> 
 
       <Box
         sx={{
@@ -102,12 +101,12 @@ export default function Login() {
         >
           {/* Grid Container */}
           <Grid container sx={{ flexGrow: 1 }}>
-
+            
             {/* MOBILE OPTIMIZATION:
                On 'xs' (mobile), the Form comes first (order 1).
                On 'md' (desktop), the Form comes second (order 2).
             */}
-
+            
             {/* RIGHT SIDE: Login Form */}
             <Grid
               item
@@ -146,7 +145,7 @@ export default function Login() {
                   variant="outlined"
                   InputProps={{ sx: { borderRadius: 2 } }}
                 />
-
+                
                 <TextField
                   label="Password"
                   type={showPassword ? 'text' : 'password'}
@@ -194,34 +193,51 @@ export default function Login() {
               </Box>
 
               <Paper
-                sx={{
-                  mt: 3,
-                  mx: "auto",
-                  maxWidth: 420,
-                  p: 3.5,
-                  borderRadius: 4,
-                  textAlign: "center",
-                  background: "linear-gradient(135deg,#fde68a,#a7f3d0)",
-                  boxShadow: "0 12px 30px rgba(0,0,0,0.15)",
-                  border: "1px solid rgba(255,255,255,0.6)"
-                }}
-              >
-                <Button
-                  variant="contained"
-                  color="secondary"
-                  sx={{
-                    borderRadius: 4,
-                    px: 4,
-                    py: 1.2,
-                    fontWeight: 800,
-                    textTransform: "none",
-                    boxShadow: "0 6px 14px rgba(0,0,0,0.25)"
-                  }}
-                  onClick={() => navigate("/primary")}
-                >
-                  🚀 Start Primary Exam
-                </Button>
-              </Paper>
+  sx={{
+    mt: 3,
+    mx: "auto",
+    maxWidth: 420,
+    p: 3.5,
+    borderRadius: 4,
+    textAlign: "center",
+    background: "linear-gradient(135deg,#fde68a,#a7f3d0)",
+    boxShadow: "0 12px 30px rgba(0,0,0,0.15)",
+    border: "1px solid rgba(255,255,255,0.6)"
+  }}
+>
+  <Typography
+    variant="h6"
+    fontWeight={900}
+    sx={{ letterSpacing: "-0.02em" }}
+  >
+    🎈 Primary Practice
+  </Typography>
+
+  <Typography
+    variant="body2"
+    sx={{ color: "rgba(0,0,0,0.7)", mt: 0.5, mb: 2.5 }}
+  >
+    Fun exams for Classes 1–5  
+    <br />
+    <strong>No login required</strong>
+  </Typography>
+
+  <Button
+    variant="contained"
+    color="secondary"
+    sx={{
+      borderRadius: 4,
+      px: 4,
+      py: 1.2,
+      fontWeight: 800,
+      textTransform: "none",
+      boxShadow: "0 6px 14px rgba(0,0,0,0.25)"
+    }}
+    onClick={() => navigate("/primary")}
+  >
+    🚀 Start Primary Exam
+  </Button>
+</Paper>
 
             </Grid>
 
@@ -245,7 +261,7 @@ export default function Login() {
               }}
             >
               <Box sx={{ position: 'absolute', top: -50, left: -50, width: 150, height: 150, borderRadius: '50%', bgcolor: 'rgba(255,255,255,0.1)' }} />
-
+              
               <Typography variant="h3" fontWeight={700} gutterBottom sx={{ zIndex: 1 }}>
                 Welcome Back
               </Typography>
@@ -279,6 +295,7 @@ export default function Login() {
 
           </Grid>
         </Card>
+        
       </Box>
     </Box>
   );

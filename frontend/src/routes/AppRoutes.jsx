@@ -20,6 +20,7 @@ import StudentResultsPage from "../components/StudentResultsPage";
 import BulkEditQuestions from "../components/repository/BulkEditQuestions";
 import SpecialistActivityLog from "../components/subject/SpecialistActivityLog";
 import StudentDashboard from "../components/StudentDashboard";
+import PrimaryExamFlow from "../components/PrimaryExamFlow";
 
 // Auth
 import Login from "../components/Login";
@@ -98,6 +99,8 @@ export default function AppRoutes() {
             <StudentResultsPage />
           </ProtectedRoute>
       } />
+
+      <Route path="/primary"element={<PrimaryExamFlow />}/>
 
       {/* --- FALLBACKS --- */}
       <Route path="/" element={<Home />} />
