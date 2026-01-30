@@ -11,6 +11,7 @@ from flask_cors import CORS
 from dotenv import load_dotenv
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy import desc, or_
+from sqlalchemy import func, Integer
 from flask import make_response  # Make sure to import this
 
 
@@ -22,7 +23,7 @@ from models import (
     User, School, Student,
     Exam, Question, ExamStudent,
     StudentExamAttempt, StudentAnswer,
-    QuestionRepository,QuestionAuditLog,   # <- must exist in your models.py
+    QuestionRepository,QuestionAuditLog,generate_short_id   # <- must exist in your models.py
 )
 
 from utils.files import (
@@ -743,10 +744,10 @@ def repository_questions(current_user):
         
         # 1. Get Params
         page = request.args.get('page', 1, type=int)
-        per_page = request.args.get('per_page', 20, type=int)
+        per_page = request.args.get('per_page', 20, type=int) # Default to 10 to match DataGrid
         cls = request.args.get('class_number')
         subject = request.args.get('subject')
-        search = request.args.get('search')
+        search = request.args.get('search', '').strip()
         
         query = QuestionRepository.query
         
@@ -754,43 +755,47 @@ def repository_questions(current_user):
         if current_user.role == 'subject_specialist':
             query = query.filter(QuestionRepository.subject.ilike(current_user.specialist_subject))
         
-        if cls and cls != 'null' and cls != '':
+        if cls and cls not in ('null', ''):
             query = query.filter(QuestionRepository.class_number == cls)
         
-        if subject and subject != 'null' and subject != '':
+        if subject and subject not in ('null', ''):
             query = query.filter(QuestionRepository.subject.ilike(subject))
             
         if search:
             like = f'%{search}%'
+            # UPDATED: Search includes custom_id
             query = query.filter(or_(
                 QuestionRepository.text.ilike(like),
-                QuestionRepository.option_a.ilike(like),
-                QuestionRepository.correct_answer.ilike(like)
+                QuestionRepository.custom_id.ilike(like), # <--- Search by Code
+                QuestionRepository.option_a.ilike(like)
             ))
+        if ":" in search and search.count('-') >= 2:
+    # Example logic for range search: 10-MAT-TRI-0001:0010
+            prefix, range_part = search.rsplit('-', 1)
+            start_str, end_str = range_part.split(':')
+    
+    # This finds all questions in that range
+            query = query.filter(
+                QuestionRepository.custom_id.like(f"{prefix}-%"),
+                QuestionRepository.custom_id >= f"{prefix}-{start_str.zfill(4)}",
+                QuestionRepository.custom_id <= f"{prefix}-{end_str.zfill(4)}"
+    )
 
-        # 3. Paginate
+        # 3. Paginate (Correctly order by ID descending)
         pagination = query.order_by(desc(QuestionRepository.id)).paginate(
             page=page, per_page=per_page, error_out=False
         )
 
-        out = []
-        for q in pagination.items:
-            out.append({
-                'id': q.id, 
-                'text': q.text,
-                'option_a': q.option_a, 'option_b': q.option_b,
-                'option_c': q.option_c, 'option_d': q.option_d,
-                'correct_answer': q.correct_answer,
-                'class_number': q.class_number, 'subject': q.subject,
-                'marks': q.marks, 'image_path': q.image_path
-            })
-
+        # 4. Return ONLY the items for the current page
         return jsonify({
-            'questions': out,
-            'total': pagination.total, # Crucial for frontend pagination
-            'pages': pagination.pages
+            'questions': [q.to_dict() for q in pagination.items], # Use pagination.items
+            'total': pagination.total,
+            'pages': pagination.pages,
+            'current_page': pagination.page
         }), 200
-
+    
+    
+    
     # POST - allow admin and subject_specialist (create new repo question)
     if current_user.role not in ('admin', 'subject_specialist'):
         return jsonify({'message':'forbidden'}), 403
@@ -975,7 +980,7 @@ def bulk_update_questions(current_user):
                 updated_count += 1
 
         db.session.commit()
-        return jsonify({'message': f'Successfully updated {updated_count} questions'}), 200
+        return jsonify({'message': f'Successfully updated {updated_count} questions','status': 'success'}), 200
 
     except Exception as e:
         db.session.rollback()
@@ -1004,6 +1009,7 @@ def get_audit_logs(current_user):
         'timestamp': l.timestamp.isoformat(),
         'username': l.user.username
     } for l in logs]}), 200
+
 
 
 
@@ -1053,18 +1059,78 @@ def admin_exams(current_user):
         return jsonify({'message':'exam created','exam': exam.to_dict()}), 201
 
     # --- GET: List Exams ---
-    query = Exam.query
+    if request.method == 'GET':
+        query = Exam.query
     
-    if current_user.role == 'school_admin':
-        # Show: Exams created by THIS school OR Global Admin Exams (school_id is None)
+        if current_user.role == 'school_admin':
+        # 1. Exams created by this school
+        # 2. Global exams (school_id is None) BUT ONLY if one of their students is assigned to it
+            school_id = current_user.school_id
+        
+        # Filter: (Own Exams) OR (Global Exams assigned to my students)
+            query = query.join(ExamStudent, isouter=True).join(Student, ExamStudent.student_id == Student.user_id, isouter=True).filter(
+            or_(
+                Exam.school_id == school_id,
+                Student.school_id == school_id
+            )
+        ).distinct()
+    
+        exams = query.order_by(desc(Exam.created_at)).all()
+        return jsonify({'exams': [e.to_dict() for e in exams]}), 200
+
+@app.route('/admin/exams/fetch-repo-ids', methods=['GET'])
+@token_required
+def fetch_repo_ids_for_exam(current_user):
+    cls = request.args.get('class_number')
+    subject = request.args.get('subject')
+    chapter = request.args.get('chapter')
+    start_num = request.args.get('start', type=int)
+    end_num = request.args.get('end', type=int)
+
+    query = QuestionRepository.query
+    if cls: query = query.filter(QuestionRepository.class_number == cls)
+    if subject: query = query.filter(QuestionRepository.subject.ilike(subject))
+    if chapter: query = query.filter(QuestionRepository.chapter.ilike(chapter))
+
+    if start_num is not None and end_num is not None:
         query = query.filter(
-            or_(Exam.school_id == current_user.school_id, Exam.school_id == None)
+            func.cast(func.right(QuestionRepository.custom_id, 4), Integer).between(start_num, end_num)
         )
+
+    ids = [q.id for q in query.with_entities(QuestionRepository.id).all()]
+    return jsonify({"ids": ids}), 200
+
+@app.route('/admin/exams/<int:exam_id>/bulk-add', methods=['POST'])
+@token_required
+def bulk_add_to_exam(current_user, exam_id):
+    data = request.get_json()
+    question_ids = data.get('question_ids', [])
     
-    # --- FIX 2: Use the 'query' variable we just built (not Exam.query) ---
-    exams = query.order_by(desc(Exam.created_at)).all()
-    
-    return jsonify({'exams':[e.to_dict() for e in exams]}), 200
+    exam = Exam.query.get_or_404(exam_id)
+
+    # 1. Fetch the actual questions from the Repository
+    repo_questions = QuestionRepository.query.filter(QuestionRepository.id.in_(question_ids)).all()
+
+    # 2. Duplicate them into the Exam Questions table
+    for repo_q in repo_questions:
+        # Check if it's already in the exam to avoid duplicates
+        exists = Question.query.filter_by(exam_id=exam_id, text=repo_q.text).first()
+        if not exists:
+            new_exam_q = Question(
+                exam_id=exam_id,
+                text=repo_q.text,
+                option_a=repo_q.option_a,
+                option_b=repo_q.option_b,
+                option_c=repo_q.option_c,
+                option_d=repo_q.option_d,
+                correct_answer=repo_q.correct_answer,
+                marks=repo_q.marks,
+                image_path=repo_q.image_path
+            )
+            db.session.add(new_exam_q)
+        
+    db.session.commit()
+    return jsonify({"message": f"Successfully added {len(question_ids)} questions"}), 200
 
 @app.route('/admin/exams/<int:exam_id>', methods=['GET','PUT','DELETE','OPTIONS'])
 @role_required('admin', 'school_admin')
@@ -1282,21 +1348,32 @@ def pick_repo_questions(current_user, exam_id):
         created += 1
     db.session.commit()
     return jsonify({'message': f'{created} questions added from repository'}), 201
+
 @app.route('/admin/exams/<int:exam_id>/attempts', methods=['GET', 'OPTIONS'])
 @role_required('admin', 'school_admin')
 def get_exam_attempts_list(current_user, exam_id):
     if request.method == 'OPTIONS':
         return jsonify({'message': 'ok'}), 200
 
-    # Fetch all assigned students
-    assignments = db.session.query(ExamStudent, Student, User)\
+    # Base query for assignments
+    query = db.session.query(ExamStudent, Student, User)\
         .join(Student, ExamStudent.student_id == Student.user_id)\
         .join(User, Student.user_id == User.id)\
-        .filter(ExamStudent.exam_id == exam_id).all()
+        .filter(ExamStudent.exam_id == exam_id)
 
-    # Fetch all actual attempts
-    attempts = StudentExamAttempt.query.filter_by(exam_id=exam_id).all()
-    # Map attempt by user_id for O(1) lookup
+    # --- SCOPE LOCK: Filter assignments by School ID if not Super Admin ---
+    if current_user.role == 'school_admin':
+        query = query.filter(Student.school_id == current_user.school_id)
+
+    assignments = query.all()
+
+    # Fetch attempts only for students relevant to this school (to save performance)
+    student_ids = [a[1].user_id for a in assignments]
+    attempts = StudentExamAttempt.query.filter(
+        StudentExamAttempt.exam_id == exam_id,
+        StudentExamAttempt.student_id.in_(student_ids)
+    ).all()
+    
     attempt_map = {a.student_id: a for a in attempts}
 
     result = []
@@ -1313,11 +1390,11 @@ def get_exam_attempts_list(current_user, exam_id):
                 status = "Completed"
                 score = att.score
             else:
-                status = "Discontinued" # or "In Progress"
+                status = "Discontinued"
 
         result.append({
             "user_id": student.user_id,
-            "student_id": student.student_id, # The text ID (SCH-10-01)
+            "student_id": student.student_id,
             "name": student.name,
             "status": status,
             "score": score,
@@ -1325,7 +1402,6 @@ def get_exam_attempts_list(current_user, exam_id):
         })
 
     return jsonify({"students": result}), 200
-
 
 # 2. RESET ATTEMPT (The "Re-attempt" Button)
 @app.delete('/admin/exams/<int:exam_id>/attempts/<int:user_id>')
@@ -1383,41 +1459,117 @@ def clone_exam(current_user, exam_id):
 @role_required('admin', 'school_admin')
 def admin_assign_students(current_user, exam_id):
     exam = Exam.query.get_or_404(exam_id)
+
     # --- SECURITY CHECK ---
-    allowed, error_response = check_restricted_access(exam, current_user, action="assign students to")
+    allowed, error_response = check_restricted_access(
+        exam, current_user, action="assign students to"
+    )
     if not allowed:
         return error_response
+
     data = request.get_json(silent=True) or {}
     replace = bool(data.get('replace', False))
 
     try:
+        # =====================================================
+        # 1️⃣ SINGLE STUDENT ASSIGN (HIGHEST PRIORITY)
+        # =====================================================
+        if data.get("student_id"):
+            student = Student.query.filter_by(
+                student_id=data["student_id"]
+            ).first()
+
+            if not student:
+                return jsonify({"message": "Student not found"}), 404
+
+            # school_admin safety
+            if (
+                current_user.role == "school_admin"
+                and student.school_id != current_user.school_id
+            ):
+                return jsonify({"message": "Unauthorized student"}), 403
+
+            exists = ExamStudent.query.filter_by(
+                exam_id=exam.id,
+                student_id=student.user_id
+            ).first()
+
+            if exists:
+                return jsonify({"message": "Student already assigned"}), 200
+
+            db.session.add(
+                ExamStudent(
+                    exam_id=exam.id,
+                    student_id=student.user_id
+                )
+            )
+            db.session.commit()
+
+            return jsonify(
+                {"message": "Student assigned successfully"}
+            ), 200
+
+        # =====================================================
+        # 2️⃣ BULK ASSIGN (SCHOOL / CLASS)
+        # =====================================================
+
         if replace:
-            ExamStudent.query.filter_by(exam_id=exam.id).delete(synchronize_session=False)
+            del_query = ExamStudent.query.filter_by(exam_id=exam.id)
+            if current_user.role == "school_admin":
+                del_query = del_query.join(Student).filter(
+                    Student.school_id == current_user.school_id
+                )
+            del_query.delete(synchronize_session=False)
 
         students_query = Student.query
-        if data.get('school_id'):
-            students_query = students_query.filter_by(school_id=data['school_id'])
-        if data.get('class_number'):
-            students_query = students_query.filter_by(class_number=data['class_number'])
+
+        # scope lock
+        if current_user.role == "school_admin":
+            students_query = students_query.filter_by(
+                school_id=current_user.school_id
+            )
+        else:
+            if data.get("school_id"):
+                students_query = students_query.filter_by(
+                    school_id=data["school_id"]
+                )
+
+        if data.get("class_number"):
+            students_query = students_query.filter_by(
+                class_number=data["class_number"]
+            )
 
         students_to_assign = students_query.all()
 
-        existing_rows = db.session.query(ExamStudent.student_id).filter_by(exam_id=exam.id).all()
-        already = {sid for (sid,) in existing_rows} if existing_rows and isinstance(existing_rows[0], tuple) else {r.student_id for r in existing_rows}
+        existing_rows = db.session.query(
+            ExamStudent.student_id
+        ).filter_by(exam_id=exam.id).all()
+        already = {sid[0] for sid in existing_rows}
 
         new_count = 0
         for stu in students_to_assign:
             if stu.user_id not in already:
-                db.session.add(ExamStudent(exam_id=exam.id, student_id=stu.user_id))
+                db.session.add(
+                    ExamStudent(
+                        exam_id=exam.id,
+                        student_id=stu.user_id
+                    )
+                )
                 new_count += 1
 
         db.session.commit()
-        return jsonify({'message': f'Assignment complete. Added {new_count} new students.'}), 200
+
+        return jsonify({
+            "message": f"Assignment complete. Added {new_count} new students."
+        }), 200
 
     except Exception as e:
         db.session.rollback()
         app.logger.exception("admin_assign_students failed")
-        return jsonify({'message': 'Assignment failed', 'detail': str(e)}), 500
+        return jsonify({
+            "message": "Assignment failed",
+            "detail": str(e)
+        }), 500
 
 @app.get('/admin/exams/<int:exam_id>/students')
 @role_required('admin', 'school_admin')
@@ -1431,6 +1583,8 @@ def get_assigned_students(current_user, exam_id):
         'student_id': s.student_id
     } for s in assigned_students]
     return jsonify(student_list), 200
+
+    
 
 # ------------------------------
 # STUDENT FLOW
@@ -1696,6 +1850,68 @@ def student_view_result(current_user, exam_id):
         },
         'answers': answers_data
     }), 200
+
+@app.route('/api/metadata/repository', methods=['GET'])
+@token_required
+def get_repository_metadata(current_user):
+    """Returns unique subjects, classes, chapters, and topics based on user scope."""
+    query = db.session.query(
+        QuestionRepository.subject,
+        QuestionRepository.class_number,
+        QuestionRepository.chapter,
+        QuestionRepository.topic
+    )
+
+    # Allow school_admin to see all metadata like admin for filtering purposes
+    if current_user.role == 'subject_specialist':
+        query = query.filter(QuestionRepository.subject.ilike(current_user.specialist_subject))
+
+    results = query.distinct().all()
+
+    # Organize data into unique lists
+    metadata = {
+        "subjects": sorted(list(set(r[0] for r in results if r[0]))),
+        "classes": sorted(list(set(r[1] for r in results if r[1])), key=lambda x: str(x)),
+        "chapters": sorted(list(set(r[2] for r in results if r[2]))),
+        "topics": sorted(list(set(r[3] for r in results if r[3])))
+    }
+
+    return jsonify(metadata), 200
+
+@app.route('/student/analysis/<int:user_id>', methods=['GET'])
+@token_required
+def student_performance_analysis(current_user, user_id):
+    # Security: Students can only see their own, Admins see any
+    if current_user.role == 'student' and current_user.id != user_id:
+        return jsonify({"message": "Forbidden"}), 403
+
+    # Join Answers with Questions to get Chapter/Topic context
+    performance_data = db.session.query(
+        QuestionRepository.subject,
+        QuestionRepository.chapter,
+        QuestionRepository.topic,
+        StudentAnswer.is_correct,
+        QuestionRepository.marks
+    ).join(Question, Question.repo_question_id == QuestionRepository.id)\
+     .join(StudentAnswer, StudentAnswer.question_id == Question.id)\
+     .join(StudentExamAttempt, StudentAnswer.attempt_id == StudentExamAttempt.id)\
+     .filter(StudentExamAttempt.student_id == user_id).all()
+
+    analysis = {}
+    for sub, chap, top, is_correct, marks in performance_data:
+        key = chap or "General"
+        if key not in analysis:
+            analysis[key] = {"correct": 0, "total": 0, "subject": sub}
+        
+        analysis[key]["total"] += marks
+        if is_correct:
+            analysis[key]["correct"] += marks
+
+    # Calculate percentages
+    for key in analysis:
+        analysis[key]["percentage"] = round((analysis[key]["correct"] / analysis[key]["total"]) * 100, 2)
+
+    return jsonify(analysis), 200
 # ------------------------------
 # Uploads and Export
 # ------------------------------
@@ -1728,6 +1944,7 @@ def admin_export_student_attempts(current_user):
         tb = traceback.format_exc()
         app.logger.error("Export failed: %s\n%s", str(e), tb)
         return jsonify({'message': 'Export failed', 'detail': str(e), 'trace': tb}), 500
+
 
 # ------------------------------
 # Run

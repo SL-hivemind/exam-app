@@ -1,84 +1,92 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import api from '../../utils/api';
 import useAuth from '../../hooks/useAuth';
+import FilterSidebar from '../ui/FilterSidebar';
+
 import {
-  Button, Checkbox, Box, Typography, IconButton, Paper, Stack, TextField,
-  Grid, Chip, CircularProgress, MenuItem, InputAdornment, TablePagination
+  Button, Checkbox, Box, Typography, IconButton, Paper, Stack,
+  Grid, Chip, CircularProgress, TablePagination,
+  Snackbar, Alert, Dialog, DialogTitle, DialogContent, DialogActions,
+  Drawer, Divider
 } from '@mui/material';
+
 import {
   Edit as EditIcon,
-  Delete as DeleteIcon,
   CloudUpload as CloudUploadIcon,
   Add as AddIcon,
-  Search as SearchIcon,
-  GridOn as GridOnIcon, 
-  History as HistoryIcon,
-  Refresh as RefreshIcon
+  GridOn as GridOnIcon,
+  LibraryAdd as LibraryAddIcon,
+  ArrowBack as ArrowBackIcon,
+  Close as CloseIcon,
+  Delete as DeleteIcon
 } from '@mui/icons-material';
-
-function useQuery() {
-  return new URLSearchParams(useLocation().search);
-}
 
 export default function RepoQuestionsPage() {
   const { user } = useAuth();
-  const query = useQuery();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const query = new URLSearchParams(location.search);
   const examId = query.get('examId');
 
-  // --- DATA STATE ---
+  /* ---------------- ROLE FLAGS ---------------- */
+  const isAdmin = user?.role === 'admin';
+  const isSubject = user?.role === 'subject_specialist';
+  const isSchoolAdmin = user?.role === 'school_admin';
+
+  const canEditRepo = isAdmin || isSubject;
+  const canAddRepo = isAdmin;
+  const canBulkEdit = isAdmin || isSubject;
+  const canPickExam = isAdmin || isSchoolAdmin;
+
+  const basePath =
+    isSchoolAdmin ? '/school' :
+    isSubject ? '/specialist' :
+    '/admin';
+
+  /* ---------------- FILTER STATE (URL PERSISTED) ---------------- */
+  const [filters, setFilters] = useState({
+    search: query.get('search') || '',
+    class_number: query.get('class_number') || '',
+    subject: query.get('subject') || '',
+    chapter: query.get('chapter') || '',
+    topic: query.get('topic') || ''
+  });
+
+  useEffect(() => {
+    const params = new URLSearchParams(filters);
+    if (examId) params.set('examId', examId);
+    navigate({ search: params.toString() }, { replace: true });
+  }, [filters, examId, navigate]);
+
+  /* ---------------- DATA STATE ---------------- */
   const [questions, setQuestions] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
-  
-  // --- PAGINATION STATE ---
-  const [page, setPage] = useState(0); // MUI is 0-indexed
+  const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
-  // --- FILTER STATE ---
-  const [filters, setFilters] = useState({
-    search: '',
-    class_number: '',
-    subject: ''
-  });
+  /* ---------------- SELECTION (EXAM ONLY) ---------------- */
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [selectedMap, setSelectedMap] = useState({});
+  const [reviewOpen, setReviewOpen] = useState(false);
 
-  // --- SELECTION STATE ---
-  const [selected, setSelected] = useState(new Set());
+  /* ---------------- ACTION STATE ---------------- */
+  const [busy, setBusy] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [snack, setSnack] = useState({ open: false, severity: 'success', message: '' });
 
-  const isAdmin = user?.role === 'admin';
-  const isSubject = user?.role === 'subject_specialist';
-
-  // Base Path Helper
-  const getBasePath = () => {
-    if (user?.role === 'admin') return '/admin';
-    if (user?.role === 'school_admin') return '/school';
-    if (user?.role === 'subject_specialist') return '/specialist';
-    return '';
-  };
-  const basePath = getBasePath();
-
-  // Fetch when Page, Rows, or Filters change
-  useEffect(() => {
-    fetchRepo();
-    // eslint-disable-next-line
-  }, [page, rowsPerPage, filters]);
-
-  async function fetchRepo() {
+  /* ---------------- FETCH ---------------- */
+  const fetchRepo = useCallback(async () => {
     setLoading(true);
     try {
-      // 1. Prepare Query Params
       const params = new URLSearchParams({
-        page: page + 1, // Backend expects 1-based
+        page: page + 1,
         per_page: rowsPerPage,
-        search: filters.search,
-        class_number: filters.class_number === 'All' ? '' : filters.class_number,
-        subject: filters.subject === 'All' ? '' : filters.subject
+        ...filters
       });
-
-      // 2. Call API
-      const res = await api.get(`/admin/repository/questions?${params.toString()}`);
-      
+      const res = await api.get(`/admin/repository/questions?${params}`);
       setQuestions(res.data.questions || []);
       setTotal(res.data.total || 0);
     } catch (err) {
@@ -86,301 +94,279 @@ export default function RepoQuestionsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [page, rowsPerPage, filters]);
 
-  // --- HANDLERS ---
+  useEffect(() => {
+    fetchRepo();
+  }, [fetchRepo]);
 
-  const handlePageChange = (event, newPage) => {
-    setPage(newPage);
-  };
+  /* ---------------- SELECTION LOGIC ---------------- */
+  const pageIds = questions.map(q => q.id);
+  const allSelectedOnPage =
+    pageIds.length > 0 && pageIds.every(id => selectedIds.has(id));
 
-  const handleRowsPerPageChange = (event) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  };
+  const toggleSelect = (q) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      const mapCopy = { ...selectedMap };
 
-  const handleFilterChange = (e) => {
-    const { name, value } = e.target;
-    setFilters(prev => ({ ...prev, [name]: value }));
-    setPage(0); // Reset to first page on filter change
-  };
+      if (next.has(q.id)) {
+        next.delete(q.id);
+        delete mapCopy[q.id];
+      } else {
+        next.add(q.id);
+        mapCopy[q.id] = q;
+      }
 
-  const handleFileUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const formData = new FormData();
-    formData.append('file', file);
-
-    try {
-      setLoading(true);
-      const res = await api.post('/admin/repository/questions/import', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      alert(res.data.message);
-      fetchRepo();
-    } catch (err) {
-      console.error(err);
-      alert(err.response?.data?.message || 'Upload failed');
-    } finally {
-      setLoading(false);
-      e.target.value = null;
-    }
-  };
-
-  const toggleSelect = (id) => {
-    setSelected(prev => {
-      const s = new Set(prev);
-      if (s.has(id)) s.delete(id); else s.add(id);
-      return s;
+      setSelectedMap(mapCopy);
+      return next;
     });
   };
 
-  const handlePick = async () => {
-    if (!examId) return;
-    const repoIds = Array.from(selected);
-    if (repoIds.length === 0) return alert('Choose at least one question');
+  const toggleSelectPage = () => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      const mapCopy = { ...selectedMap };
+
+      if (allSelectedOnPage) {
+        questions.forEach(q => {
+          next.delete(q.id);
+          delete mapCopy[q.id];
+        });
+      } else {
+        questions.forEach(q => {
+          next.add(q.id);
+          mapCopy[q.id] = q;
+        });
+      }
+
+      setSelectedMap(mapCopy);
+      return next;
+    });
+  };
+
+  /* ---------------- ADD TO EXAM ---------------- */
+  const handleAddToExam = () => {
+    if (selectedIds.size >= 50) setConfirmOpen(true);
+    else confirmAdd();
+  };
+
+  const confirmAdd = async () => {
+    setConfirmOpen(false);
+    setBusy(true);
     try {
-      await api.post(`/admin/exams/${examId}/questions/pick`, { repository_ids: repoIds });
-      alert(`Added ${repoIds.length} questions`);
-      navigate(`${basePath}/exams/${examId}`);
-    } catch (err) {
-      console.error(err);
-      alert('Pick failed');
+      await api.post(`/admin/exams/${examId}/questions/pick`, {
+        repository_ids: Array.from(selectedIds)
+      });
+      setSnack({
+        open: true,
+        severity: 'success',
+        message: `${selectedIds.size} questions added to exam`
+      });
+      setSelectedIds(new Set());
+      setSelectedMap({});
+    } catch {
+      setSnack({
+        open: true,
+        severity: 'error',
+        message: 'Failed to add questions to exam'
+      });
+    } finally {
+      setBusy(false);
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Delete repository question?')) return;
-    try {
-      await api.delete(`/admin/repository/questions/${id}`);
-      // Refresh data
-      fetchRepo();
-      // Remove from selection if deleted
-      if (selected.has(id)) toggleSelect(id);
-    } catch (err) {
-      console.error(err);
-      alert('Delete failed');
-    }
-  };
-
-  const handleEditNavigate = (qid) => {
-    if (isAdmin) navigate(`/admin/repository/questions/${qid}/edit`);
-    else if (isSubject) navigate(`/specialist/repository/questions/${qid}/edit`);
-    else navigate(`${basePath}/repository/questions/${qid}/edit`);
-  };
-
+  /* ---------------- RENDER ---------------- */
   return (
-    <Box sx={{ p: 3, bgcolor: '#f5f7fa', minHeight: '100vh' }}>
+    <Box sx={{ display: 'flex', height: 'calc(100vh - 64px)', overflow: 'hidden' }}>
+      <FilterSidebar
+        filters={filters}
+        onFilterChange={setFilters}
+        onReset={() => setFilters({ search: '', class_number: '', subject: '', chapter: '', topic: '' })}
+      />
 
-      {/* HEADER */}
-      <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems="center" mb={4} spacing={2}>
-        <Box>
-          <Typography variant="h4" fontWeight={700} color="primary.main">
-            Question Repository
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Central bank of questions for all exams.
-          </Typography>
-        </Box>
+      <Box sx={{ flexGrow: 1, p: 3, overflowY: 'auto', bgcolor: '#f5f7fa' }}>
+        <Stack direction="row" justifyContent="space-between" mb={3}>
+          <Box>
+            <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(-1)} sx={{ mb: 1 }}>
+              Back
+            </Button>
+            <Typography variant="h4" fontWeight={700}>Question Repository</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Total Questions Found: {total}
+            </Typography>
+          </Box>
 
-        {(isAdmin || isSubject) && (
-          <Stack direction="row" spacing={2}>
-            <Button
-              variant="outlined"
-              component="label"
-              startIcon={<CloudUploadIcon />}
-              sx={{ bgcolor: 'white' }}
-            >
-              Upload CSV
-              <input type="file" hidden accept=".csv" onChange={handleFileUpload} />
-            </Button>
-
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => navigate(`${basePath}/repository/questions/new`)}
-            >
-              Add Question
-            </Button>
-            <Button
-              variant="outlined"
-              startIcon={<GridOnIcon />}
-              onClick={() => navigate(`${basePath}/repository/bulk-edit`)}
-            >
-              Bulk Editor
-            </Button>
-            <Button
-              variant="text"
-              startIcon={<HistoryIcon />}
-              onClick={() => navigate(isSubject ? '/specialist/activity-log' : '/admin/activity-log')}
-            >
-              Logs
-            </Button>
-          </Stack>
-        )}
-      </Stack>
-
-      {/* FILTER BAR */}
-      <Paper elevation={0} sx={{ p: 2, mb: 3, borderRadius: 2, border: '1px solid #e0e0e0' }}>
-        <Grid container alignItems="center" spacing={2}>
-          <Grid item xs={12} md={4}>
-            <TextField
-              fullWidth
-              size="small"
-              name="search"
-              placeholder="Search text, options or ID..."
-              value={filters.search}
-              onChange={handleFilterChange}
-              InputProps={{
-                startAdornment: <InputAdornment position="start"><SearchIcon color="action"/></InputAdornment>
-              }}
-            />
-          </Grid>
-          <Grid item xs={6} md={2}>
-             <TextField
-                select
-                fullWidth
-                size="small"
-                label="Class"
-                name="class_number"
-                value={filters.class_number}
-                onChange={handleFilterChange}
-             >
-                <MenuItem value="">All</MenuItem>
-                {['6','7','8','9'].map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
-             </TextField>
-          </Grid>
-          <Grid item xs={6} md={2}>
-             <TextField
-                select
-                fullWidth
-                size="small"
-                label="Subject"
-                name="subject"
-                value={filters.subject}
-                onChange={handleFilterChange}
-             >
-                <MenuItem value="">All</MenuItem>
-                {['Math','Science','upsc','English'].map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
-             </TextField>
-          </Grid>
-          
-          <Grid item xs={12} md={4} display="flex" justifyContent="flex-end" gap={1}>
-             <Button variant="outlined" startIcon={<RefreshIcon/>} onClick={fetchRepo}>
-                 Refresh
-             </Button>
-             {examId && (
-              <Button
-                variant="contained"
-                color="secondary"
-                onClick={handlePick}
-                disabled={selected.size === 0}
-              >
-                Add Selected ({selected.size})
+          <Stack direction="row" spacing={1}>
+            {canPickExam && examId && questions.length > 0 && (
+              <Button variant="outlined" size="small" onClick={toggleSelectPage}>
+                {allSelectedOnPage ? 'Unselect Page' : 'Select Page'}
               </Button>
             )}
-          </Grid>
-        </Grid>
-      </Paper>
 
-      {/* LOADING STATE */}
-      {loading && (
-        <Box display="flex" justifyContent="center" py={5}>
-          <CircularProgress />
-        </Box>
-      )}
-
-      {/* QUESTION LIST */}
-      <Stack spacing={2}>
-        {!loading && questions.map(q => (
-          <Paper
-            key={q.id}
-            elevation={1}
-            sx={{
-              p: 2,
-              borderRadius: 2,
-              borderLeft: '4px solid',
-              borderColor: selected.has(q.id) ? 'secondary.main' : 'transparent',
-              transition: '0.2s',
-              '&:hover': { boxShadow: 3 }
-            }}
-          >
-            <Box display="flex" alignItems="flex-start" gap={2}>
-              {examId && (
-                <Checkbox
-                  checked={selected.has(q.id)}
-                  onChange={() => toggleSelect(q.id)}
+            {canPickExam && examId && selectedIds.size > 0 && (
+              <>
+                <Button variant="outlined" onClick={() => setReviewOpen(true)}>
+                  Review ({selectedIds.size})
+                </Button>
+                <Button
+                  variant="contained"
                   color="secondary"
-                />
-              )}
+                  startIcon={<LibraryAddIcon />}
+                  disabled={busy}
+                  onClick={handleAddToExam}
+                >
+                  Add to Exam
+                </Button>
+              </>
+            )}
 
-              <Box flexGrow={1}>
-                <Stack direction="row" spacing={1} mb={1}>
-                  <Chip label={`ID: ${q.id}`} size="small" sx={{ bgcolor: '#e3f2fd', color: '#1565c0', fontWeight: 'bold' }} />
-                  {q.subject && <Chip label={q.subject} size="small" variant="outlined" />}
-                  {q.class_number && <Chip label={`Class ${q.class_number}`} size="small" variant="outlined" />}
-                  {q.marks && <Chip label={`${q.marks} Marks`} size="small" variant="outlined" />}
-                </Stack>
+            {canAddRepo && (
+              <Button variant="outlined" component="label" startIcon={<CloudUploadIcon />}>
+                Upload CSV <input type="file" hidden accept=".csv" />
+              </Button>
+            )}
 
-                <Typography variant="subtitle1" fontWeight={500} gutterBottom>
-                  {q.text}
-                </Typography>
+            {canAddRepo && (
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => navigate(`${basePath}/repository/questions/new${location.search}`)}
+              >
+                Add Question
+              </Button>
+            )}
 
-                <Grid container spacing={1}>
-                  {['a', 'b', 'c', 'd'].map((opt) => (
-                    q[`option_${opt}`] && (
-                      <Grid item xs={12} sm={6} md={3} key={opt}>
-                        <Typography variant="body2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center' }}>
-                          <Box component="span" sx={{ fontWeight: 'bold', mr: 1, textTransform: 'uppercase' }}>{opt}:</Box>
-                          {q[`option_${opt}`]}
-                        </Typography>
-                      </Grid>
-                    )
-                  ))}
-                </Grid>
+            {canBulkEdit && (
+              <Button
+                variant="outlined"
+                startIcon={<GridOnIcon />}
+                onClick={() =>
+                  navigate(`${isSubject ? '/specialist' : '/admin'}/repository/bulk-edit${location.search}`)
+                }
+              >
+                Bulk Editor
+              </Button>
+            )}
+          </Stack>
+        </Stack>
 
-                <Typography variant="caption" sx={{ display: 'block', mt: 1, color: 'success.main', fontWeight: 'bold' }}>
-                  Correct Answer: {q.correct_answer}
-                </Typography>
-              </Box>
+        {loading ? (
+          <Box display="flex" justifyContent="center" py={10}><CircularProgress /></Box>
+        ) : (
+          <Stack spacing={2}>
+            {questions.map(q => (
+              <Paper key={q.id} sx={{ p: 2, borderRadius: 2 }}>
+                <Box display="flex" gap={2}>
+                  {canPickExam && examId && (
+                    <Checkbox
+                      checked={selectedIds.has(q.id)}
+                      onChange={() => toggleSelect(q)}
+                      color="secondary"
+                    />
+                  )}
 
-              <Box display="flex" flexDirection="column">
-                {(isAdmin || isSubject) && (
-                  <IconButton size="small" onClick={() => handleEditNavigate(q.id)} color="primary">
-                    <EditIcon />
-                  </IconButton>
-                )}
-                {isAdmin && (
-                  <IconButton size="small" color="error" onClick={() => handleDelete(q.id)}>
-                    <DeleteIcon />
-                  </IconButton>
-                )}
-              </Box>
-            </Box>
-          </Paper>
-        ))}
+                  <Box flexGrow={1}>
+                    <Stack direction="row" spacing={1} mb={1}>
+                      <Chip label={`ID: ${q.custom_id}`} size="small" color="primary" variant="outlined" />
+                      <Chip label={q.subject} size="small" />
+                      <Chip label={`Class ${q.class_number}`} size="small" />
+                    </Stack>
+                    <Typography variant="subtitle1">{q.text}</Typography>
+                    <Typography variant="caption" color="success.main" fontWeight="bold">
+                      Ans: {q.correct_answer}
+                    </Typography>
+                  </Box>
 
-        {!loading && questions.length === 0 && (
-          <Box textAlign="center" py={5}>
-            <Typography color="text.secondary">No questions found matching your filters.</Typography>
-          </Box>
+                  {canEditRepo && (
+                    <IconButton
+                      color="primary"
+                      onClick={() =>
+                        navigate(`${basePath}/repository/questions/${q.id}/edit${location.search}`)
+                      }
+                    >
+                      <EditIcon />
+                    </IconButton>
+                  )}
+                </Box>
+              </Paper>
+            ))}
+          </Stack>
         )}
-      </Stack>
 
-      {/* PAGINATION CONTROL */}
-      <Paper sx={{ mt: 3, p: 1, display: 'flex', justifyContent: 'center' }}>
         <TablePagination
           component="div"
-          count={total}             // Total items from backend
-          page={page}               // Current page (0-based)
-          onPageChange={handlePageChange}
-          rowsPerPage={rowsPerPage} // Items per page
-          onRowsPerPageChange={handleRowsPerPageChange}
-          rowsPerPageOptions={[5, 10, 20, 50]}
-          labelRowsPerPage="Questions per page:"
+          count={total}
+          page={page}
+          onPageChange={(e, p) => setPage(p)}
+          rowsPerPage={rowsPerPage}
+          onRowsPerPageChange={(e) => {
+            setRowsPerPage(parseInt(e.target.value, 10));
+            setPage(0);
+          }}
         />
-      </Paper>
+      </Box>
+
+      {/* REVIEW DRAWER */}
+      {canPickExam && (
+        <Drawer anchor="right" open={reviewOpen} onClose={() => setReviewOpen(false)}>
+          <Box sx={{ width: 480, p: 3 }}>
+            <Stack direction="row" justifyContent="space-between" mb={2}>
+              <Typography variant="h6" fontWeight={700}>Review Selected Questions</Typography>
+              <IconButton onClick={() => setReviewOpen(false)}><CloseIcon /></IconButton>
+            </Stack>
+
+            <Stack spacing={2}>
+              {Object.values(selectedMap).map((q, i) => (
+                <Paper key={q.id} sx={{ p: 2 }}>
+                  <Stack direction="row" justifyContent="space-between">
+                    <Typography fontWeight={600}>{i + 1}. {q.text}</Typography>
+                    <IconButton color="error" onClick={() => toggleSelect(q)}>
+                      <DeleteIcon />
+                    </IconButton>
+                  </Stack>
+
+                  <Grid container spacing={1} mt={1}>
+                    {['option_a', 'option_b', 'option_c', 'option_d'].map(opt => (
+                      <Grid item xs={6} key={opt}>
+                        <Typography variant="body2">
+                          {opt.slice(-1).toUpperCase()}) {q[opt]}
+                        </Typography>
+                      </Grid>
+                    ))}
+                  </Grid>
+
+                  <Chip label={`Answer: ${q.correct_answer}`} size="small" color="success" sx={{ mt: 1 }} />
+                </Paper>
+              ))}
+            </Stack>
+
+            <Divider sx={{ my: 2 }} />
+
+            <Button fullWidth variant="contained" color="secondary" onClick={handleAddToExam}>
+              Confirm & Add to Exam
+            </Button>
+          </Box>
+        </Drawer>
+      )}
+
+      {/* CONFIRMATION */}
+      <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)}>
+        <DialogTitle>Confirm Bulk Add</DialogTitle>
+        <DialogContent>
+          <Typography>
+            You are about to add <strong>{selectedIds.size}</strong> questions to this exam.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmOpen(false)}>Cancel</Button>
+          <Button variant="contained" color="secondary" onClick={confirmAdd}>Confirm</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Snackbar open={snack.open} autoHideDuration={4000} onClose={() => setSnack({ ...snack, open: false })}>
+        <Alert severity={snack.severity}>{snack.message}</Alert>
+      </Snackbar>
     </Box>
   );
 }

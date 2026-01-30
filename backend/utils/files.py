@@ -353,15 +353,22 @@ def export_student_attempts_to_excel(exam_id=None):
     Returns the BytesIO stream.
     """
     import logging
+    from io import BytesIO
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, Alignment
+    from sqlalchemy import desc
+
     logger = logging.getLogger(__name__)
 
     try:
-        from io import BytesIO
         wb = Workbook()
         ws = wb.active
         ws.title = "Student Exam Attempts"
 
-        headers = ["Student ID", "Student Name", "School", "Exam Title", "Start Time", "Submitted Time", "Score", "Status"]
+        headers = [
+            "Rank", "Student ID", "Student Name", "School",
+            "Exam Title", "Score", "Percentage", "Status"
+        ]
         ws.append(headers)
 
         # Style headers
@@ -370,97 +377,98 @@ def export_student_attempts_to_excel(exam_id=None):
             cell.font = Font(bold=True)
             cell.alignment = Alignment(horizontal="center")
 
-        # Query attempts - use simpler query to avoid join issues
         logger.info(f"Starting export for exam_id: {exam_id}")
+
         if exam_id:
-            attempts = StudentExamAttempt.query.filter_by(exam_id=exam_id).all()
+            attempts = (
+                StudentExamAttempt.query
+                .filter_by(exam_id=exam_id)
+                .order_by(desc(StudentExamAttempt.score))
+                .all()
+            )
         else:
-            attempts = StudentExamAttempt.query.all()
+            attempts = (
+                StudentExamAttempt.query
+                .order_by(desc(StudentExamAttempt.score))
+                .all()
+            )
 
         logger.info(f"Found {len(attempts)} attempts to export")
 
-        for attempt in attempts:
+        # ✅ Loop MUST be inside try
+        for idx, attempt in enumerate(attempts, start=1):
             try:
-                # Fetch student and exam separately
-                student = Student.query.filter_by(user_id=attempt.student_id).first()
+                student = Student.query.filter_by(
+                    user_id=attempt.student_id
+                ).first()
+
                 exam = Exam.query.get(attempt.exam_id)
 
-                # Get school name safely
-                school_name = "N/A"
-                if student and student.school:
-                    school_name = student.school.name
-                elif student and student.school_id:
-                    school = School.query.get(student.school_id)
-                    if school:
-                        school_name = school.name
+                score = attempt.score or 0
+                total = exam.total_marks if exam and exam.total_marks > 0 else 1
+                percentage = f"{(score / total) * 100:.2f}%"
 
-                student_name = student.name if student else "N/A"
-                student_id = student.student_id if student else f"User_{attempt.student_id}"
-                exam_title = exam.title if exam else f"Exam_{attempt.exam_id}"
+                row = [
+                    idx,  # Rank
+                    student.student_id if student else "N/A",
+                    student.name if student else "N/A",
+                    student.school.name if student and student.school else "N/A",
+                    exam.title if exam else "N/A",
+                    score,
+                    percentage,
+                    "Completed" if attempt.submitted_time else "Discontinued"
+                ]
 
-                start_time = attempt.start_time.isoformat() if attempt.start_time else ""
-                submitted_time = attempt.submitted_time.isoformat() if attempt.submitted_time else ""
-                score = attempt.score if attempt.score is not None else ""
-                status = "Completed" if attempt.submitted_time else "Discontinued"
-
-                row = [student_id, student_name, school_name, exam_title, start_time, submitted_time, score, status]
                 ws.append(row)
+
             except Exception as e:
-                logger.error(f"Error processing attempt {attempt.id}: {str(e)}", exc_info=True)
-                continue
+                logger.error(
+                    f"Error processing attempt {attempt.id}: {str(e)}",
+                    exc_info=True
+                )
+                continue  # safely skip this attempt
 
         # Auto-adjust column widths
         for col in ws.columns:
             max_length = 0
-            column = col[0].column_letter
+            column_letter = col[0].column_letter
             for cell in col:
-                try:
-                    if len(str(cell.value)) > max_length:
-                        max_length = len(str(cell.value))
-                except:
-                    pass
-            adjusted_width = (max_length + 2)
-            ws.column_dimensions[column].width = adjusted_width
+                if cell.value:
+                    max_length = max(max_length, len(str(cell.value)))
+            ws.column_dimensions[column_letter].width = max_length + 2
 
-        # Save to a BytesIO stream and return
         output = BytesIO()
         wb.save(output)
         output.seek(0)
+
         logger.info("Export completed successfully")
         return output
 
     except Exception as e:
-        logger.error(f"Error in export_student_attempts_to_excel: {str(e)}", exc_info=True)
+        logger.error(
+            f"Error in export_student_attempts_to_excel: {str(e)}",
+            exc_info=True
+        )
         raise
+
 def import_repository_csv(path, current_user_id):
     """
     Import questions into the QuestionRepository from a CSV file.
-    Now supports 'image_path' column.
+    Includes logic to support Scoped ID generation by flushing each record.
     """
     count = 0
-    # Use utf-8-sig to handle Excel CSVs (removes BOM)
     with open(path, newline="", encoding="utf-8-sig") as fh:
         reader = csv.DictReader(fh)
         
-        # Clean headers (strip spaces, lowercase)
+        # Clean headers
         reader.fieldnames = [h.strip().lower() if h else '' for h in reader.fieldnames]
 
         for row in reader:
             text = row.get('text', '').strip()
-            
-            # Skip empty rows
             if not text:
                 continue
             
-            # 1. Logic to determine Subject
             row_subject = row.get('subject')
-            # Note: In app.py we usually pass the user object to check permissions, 
-            # but here we just passed the ID. Ideally, the 'app.py' should filter 
-            # or override this before saving if strict subject control is needed.
-            # For now, we accept what is in the CSV.
-
-            # 2. Logic to get Image URL from CSV
-            # Supports columns named: 'image', 'image_path', or 'image_url'
             image_url = row.get('image') or row.get('image_path') or row.get('image_url')
 
             q = QuestionRepository(
@@ -473,13 +481,29 @@ def import_repository_csv(path, current_user_id):
                 marks=int(row.get('marks') or 1),
                 subject=row_subject,
                 class_number=row.get('class') or row.get('class_number'),
-                
-                # ✅ FIX: Map the image path here
+                chapter=row.get('chapter'), # Ensure chapter is pulled from CSV
+                topic=row.get('topic'),     # Topic is still saved even if not in ID
                 image_path=image_url,
-                
                 created_by=current_user_id
             )
+            
             db.session.add(q)
+            
+            # --- CRITICAL ADDITION ---
+            # Flush pushes the record to the DB transaction without committing.
+            # This allows the 'count()' in generate_short_id to see this record
+            # so the NEXT question in the loop gets 0002, 0003, etc.
+            db.session.flush() 
+            
             count += 1
             
     return count
+
+@files_bp.route("/admin/migrate_ids", methods=["POST"])
+def migrate_ids():
+    questions = QuestionRepository.query.all()
+    for q in questions:
+        q.custom_id = generate_short_id(q.class_number, q.subject, q.chapter, q.id)
+    
+    db.session.commit()
+    return jsonify({"message": f"Successfully updated {len(questions)} Question IDs"}), 200

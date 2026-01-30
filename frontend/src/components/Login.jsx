@@ -22,7 +22,7 @@ export default function Login() {
   const quotes = [
     { text: "Education is the most powerful weapon which you can use to change the world.", author: "Nelson Mandela" },
     { text: "The beautiful thing about learning is that no one can take it away from you.", author: "B.B. King" },
-    { text: "Study is not just about passing exams; it's about gaining knowledge that lasts a lifetime.", author: "Anonymous" },
+    { text: "The only time you truly fail, is when you decided to giveup.", author: "Virat Kohli" },
     { text: "Success is the sum of small efforts, repeated day in and day out.", author: "Robert Collier" }
   ];
 
