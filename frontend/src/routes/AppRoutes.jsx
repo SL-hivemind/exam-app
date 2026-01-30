@@ -20,7 +20,7 @@ import StudentResultsPage from "../components/StudentResultsPage";
 import BulkEditQuestions from "../components/repository/BulkEditQuestions";
 import SpecialistActivityLog from "../components/subject/SpecialistActivityLog";
 import StudentDashboard from "../components/StudentDashboard";
-import PrimaryExamFlow from "../components/PrimaryExamFlow";
+import PrimaryExamFlow from "../components/primary/PrimaryExamFlow";
 
 // Auth
 import Login from "../components/Login";
