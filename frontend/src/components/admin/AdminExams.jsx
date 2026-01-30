@@ -21,6 +21,7 @@ import {
   Stack,
   Chip,
   InputAdornment,
+  Zoom,
   Divider,
 } from "@mui/material";
 import {
@@ -29,7 +30,9 @@ import {
   Visibility as ViewIcon,
   Quiz as QuizIcon,
   Event as EventIcon,
-  Timer as TimerIcon
+  Schedule as ScheduleIcon,
+  InfoOutlined as InfoIcon,
+  TimerOutlined as TimerIcon
 } from "@mui/icons-material";
 import api from "../../utils/api";
 import useAuth from "../../hooks/useAuth";
@@ -58,6 +61,8 @@ export default function AdminExams() {
   const [accessEnd, setAccessEnd] = useState("");
 
   const [schoolId, setSchoolId] = useState("");
+  const [errors, setErrors] = useState({});
+
 
   // ui
   const [busy, setBusy] = useState(false);
@@ -119,40 +124,66 @@ export default function AdminExams() {
     }
   };
 
+  const validateExamForm = () => {
+    const newErrors = {};
+
+    if (!title.trim()) {
+      newErrors.title = "Exam title is required";
+    }
+
+    if (!duration || duration < 1) {
+      newErrors.duration = "Duration must be at least 1 minute";
+    }
+
+    if (accessStart && accessEnd) {
+      if (new Date(accessEnd) <= new Date(accessStart)) {
+        newErrors.accessEnd = "End time must be after start time";
+      }
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
 
   async function handleManualCreate() {
-    if (!title.trim()) {
-      setSnack({ open: true, severity: "warning", message: "Title is required" });
-      return;
-    }
+    if (!validateExamForm()) return;
+
     try {
       setBusy(true);
       const payload = {
         title: title.trim(),
         description,
-        duration_minutes: parseInt(duration, 10) || 60,
+        duration_minutes: Number(duration),
         access_start: accessStart || null,
         access_end: accessEnd || null,
-        school_id: schoolId || null,
       };
 
       const res = await api.post("/admin/exams", payload);
-      setSnack({ open: true, severity: "success", message: "Exam created successfully" });
+
+      setSnack({
+        open: true,
+        severity: "success",
+        message: "Exam created successfully",
+      });
+
       closeCreate();
       fetchExams();
 
-      const newExam = res.data.exam;
-      if (newExam && newExam.id) {
-        navigate(`${basePath}/exams/${newExam.id}`);
+      if (res.data?.exam?.id) {
+        navigate(`${basePath}/exams/${res.data.exam.id}`);
       }
     } catch (err) {
-      console.error(err);
-      setSnack({ open: true, severity: "error", message: "Failed to create exam" });
+      setSnack({
+        open: true,
+        severity: "error",
+        message: "Failed to create exam",
+      });
     } finally {
       setBusy(false);
     }
   }
+
 
 
 
@@ -265,69 +296,141 @@ export default function AdminExams() {
         </Table>
       </Paper>
 
-      {/* CREATE EXAM DIALOG */}
-      <Dialog open={openCreate} onClose={closeCreate} fullWidth maxWidth="md" PaperProps={{ sx: { borderRadius: 2 } }}>
-        <DialogTitle sx={{ bgcolor: 'primary.main', color: 'white' }}>
-          <Typography variant="h6">Create New Exam</Typography>
+      <Dialog
+        open={openCreate}
+        onClose={closeCreate}
+        fullWidth
+        maxWidth="md"
+        PaperProps={{
+          sx: {
+            borderRadius: '8px', // Professional standard
+            boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+          }
+        }}
+      >
+        <DialogTitle sx={{ px: 4, pt: 3, pb: 2 }}>
+          <Typography variant="h5" fontWeight={700} letterSpacing="-0.02em">
+            Create Exam
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Fill in the details below to initialize a new assessment.
+          </Typography>
         </DialogTitle>
-        <DialogContent sx={{ p: 4 }}>
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={8}>
-              <TextField label="Exam Title" value={title} onChange={(e) => setTitle(e.target.value)} fullWidth required />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField label="Duration (minutes)" value={duration} onChange={(e) => setDuration(e.target.value)} type="number" fullWidth />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField label="Description / Instructions" value={description} onChange={(e) => setDescription(e.target.value)} fullWidth multiline rows={3} />
-            </Grid>
 
-            <Grid item xs={12}><Divider textAlign="left"><Typography variant="caption">Scheduling (Optional)</Typography></Divider></Grid>
+        <Divider />
 
-            {/* --- NEW CALENDAR PICKERS --- */}
-            <Grid item xs={6}>
-              <TextField
-                label="Access Start Time"
-                type="datetime-local"
-                value={accessStart}
-                onChange={(e) => setAccessStart(e.target.value)}
-                fullWidth
-                inputProps={{
-                  min: new Date().toISOString().slice(0, 16),
-                }}
-              />
-            </Grid>
+        <DialogContent sx={{ px: 4, py: 3 }}>
+          <Stack spacing={4}>
 
-            <Grid item xs={6}>
-              <TextField
-                label="Access End Time"
-                type="datetime-local"
-                value={accessEnd}
-                onChange={(e) => setAccessEnd(e.target.value)}
-                fullWidth
-                inputProps={{
-                  min: accessStart || new Date().toISOString().slice(0, 16),
-                }}
-              />
-            </Grid>
+            {/* SECTION: GENERAL INFO */}
+            <Box>
+              <Stack direction="row" spacing={1} alignItems="center" mb={2.5}>
+                <Box sx={{ width: 3, height: 16, bgcolor: 'primary.main', borderRadius: 1 }} />
+                <Typography variant="overline" fontWeight={700} color="text.secondary" sx={{ letterSpacing: '0.1em' }}>
+                  General Details
+                </Typography>
+              </Stack>
 
-            {/* ---------------------------- */}
-
-            {!isSchoolAdmin && (
-              <Grid item xs={12} md={6}>
-                <TextField label="Assign School ID" value={schoolId} onChange={(e) => setSchoolId(e.target.value)} fullWidth />
+              <Grid container spacing={2.5}>
+                <Grid item xs={12} md={8}>
+                  <TextField
+                    label="Exam Title"
+                    fullWidth
+                    variant="outlined"
+                    placeholder="Internal Exam Title"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    error={!!errors.title}
+                    helperText={errors.title}
+                  />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextField
+                    label="Duration"
+                    type="number"
+                    fullWidth
+                    value={duration}
+                    onChange={(e) => setDuration(e.target.value)}
+                    InputProps={{
+                      endAdornment: <InputAdornment position="end">min</InputAdornment>,
+                    }}
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    label="Description"
+                    fullWidth
+                    multiline
+                    rows={2}
+                    placeholder="Additional instructions for students..."
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                  />
+                </Grid>
               </Grid>
-            )}
-          </Grid>
+            </Box>
+
+            {/* SECTION: SCHEDULING */}
+            <Box>
+              <Stack direction="row" spacing={1} alignItems="center" mb={2.5}>
+                <Box sx={{ width: 3, height: 16, bgcolor: 'primary.main', borderRadius: 1 }} />
+                <Typography variant="overline" fontWeight={700} color="text.secondary" sx={{ letterSpacing: '0.1em' }}>
+                  Exam Schedule
+                </Typography>
+              </Stack>
+
+              <Grid container spacing={2.5}>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    label="Start Date & Time"
+                    type="datetime-local"
+                    fullWidth
+                    value={accessStart || ""}
+                    onChange={(e) => setAccessStart(e.target.value)}
+                    InputLabelProps={{ shrink: true }}
+                  />
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    label="End Date & Time"
+                    type="datetime-local"
+                    fullWidth
+                    value={accessEnd || ""}
+                    onChange={(e) => setAccessEnd(e.target.value)}
+                    InputLabelProps={{ shrink: true }}
+                    error={!!errors.accessEnd}
+                    helperText={errors.accessEnd}
+                  />
+                </Grid>
+              </Grid>
+            </Box>
+
+          </Stack>
         </DialogContent>
-        <DialogActions sx={{ p: 2, bgcolor: '#f8f9fa' }}>
-          <Button onClick={closeCreate} disabled={busy} color="inherit">Cancel</Button>
-          <Button variant="contained" onClick={handleManualCreate} disabled={busy}>
-            {busy ? <CircularProgress size={18} color="inherit" /> : "Create Exam"}
+
+        <DialogActions sx={{ px: 4, py: 3, borderTop: '1px solid #f0f0f0' }}>
+          <Button
+            onClick={closeCreate}
+            sx={{ color: 'text.secondary', fontWeight: 500 }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            disableElevation
+            onClick={handleManualCreate}
+            disabled={busy}
+            sx={{
+              px: 4,
+              borderRadius: '6px',
+              fontWeight: 600,
+              textTransform: 'none'
+            }}
+          >
+            {busy ? <CircularProgress size={20} color="inherit" /> : "Save Exam"}
           </Button>
         </DialogActions>
       </Dialog>
-
       <Snackbar open={snack.open} autoHideDuration={4000} onClose={() => setSnack((s) => ({ ...s, open: false }))}>
         <Alert severity={snack.severity} onClose={() => setSnack((s) => ({ ...s, open: false }))}>{snack.message}</Alert>
       </Snackbar>
