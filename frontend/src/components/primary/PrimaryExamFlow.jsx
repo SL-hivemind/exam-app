@@ -6,8 +6,8 @@ import {
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
-import api from '../utils/api';
-import useAuth from '../hooks/useAuth';
+import api from '../../utils/api';
+import useAuth from '../../hooks/useAuth';
 
 export default function Login() {
   const navigate = useNavigate();
