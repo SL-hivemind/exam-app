@@ -193,36 +193,6 @@ export default function Login() {
                 </Stack>
               </Box>
 
-              <Paper
-                sx={{
-                  mt: 3,
-                  mx: "auto",
-                  maxWidth: 420,
-                  p: 3.5,
-                  borderRadius: 4,
-                  textAlign: "center",
-                  background: "linear-gradient(135deg,#fde68a,#a7f3d0)",
-                  boxShadow: "0 12px 30px rgba(0,0,0,0.15)",
-                  border: "1px solid rgba(255,255,255,0.6)"
-                }}
-              >
-                <Button
-                  variant="contained"
-                  color="secondary"
-                  sx={{
-                    borderRadius: 4,
-                    px: 4,
-                    py: 1.2,
-                    fontWeight: 800,
-                    textTransform: "none",
-                    boxShadow: "0 6px 14px rgba(0,0,0,0.25)"
-                  }}
-                  onClick={() => navigate("/primary")}
-                >
-                  🚀 Start Primary Exam
-                </Button>
-              </Paper>
-
             </Grid>
 
             {/* LEFT SIDE: Inspirational Quotes */}

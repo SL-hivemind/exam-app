@@ -377,12 +377,21 @@ export default function AdminStudents() {
 
             <Grid container spacing={2}>
                 <Grid item xs={6}>
-                    <TextField
-                        label="Class"
-                        fullWidth
-                        value={current.class_number}
-                        onChange={(e) => setCurrent({ ...current, class_number: e.target.value })}
-                    />
+                    <FormControl fullWidth>
+                        <InputLabel>Class</InputLabel>
+                        <Select
+                            value={current.class_number || ""}
+                            label="Class"
+                            onChange={(e) => setCurrent({ ...current, class_number: e.target.value })}
+                        >
+                            <MenuItem value=""><em>None</em></MenuItem>
+                            <MenuItem value="6">6</MenuItem>
+                            <MenuItem value="7">7</MenuItem>
+                            <MenuItem value="8">8</MenuItem>
+                            <MenuItem value="9">9</MenuItem>
+                            <MenuItem value="10">10</MenuItem>
+                        </Select>
+                    </FormControl>
                 </Grid>
                 <Grid item xs={6}>
                     <TextField

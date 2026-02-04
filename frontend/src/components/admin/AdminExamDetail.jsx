@@ -519,7 +519,23 @@ export default function AdminExamDetail() {
               </FormControl>
 
             </Grid>
-            <Grid item xs={12}><TextField label="Class (Optional)" value={assignClass} onChange={(e) => setAssignClass(e.target.value)} fullWidth /></Grid>
+            <Grid item xs={12}>
+                <FormControl fullWidth>
+                    <InputLabel>Class (Optional)</InputLabel>
+                    <Select
+                        value={assignClass || ""}
+                        label="Class (Optional)"
+                        onChange={(e) => setAssignClass(e.target.value)}
+                    >
+                        <MenuItem value=""><em>All Classes</em></MenuItem>
+                        <MenuItem value="6">6</MenuItem>
+                        <MenuItem value="7">7</MenuItem>
+                        <MenuItem value="8">8</MenuItem>
+                        <MenuItem value="9">9</MenuItem>
+                        <MenuItem value="10">10</MenuItem>
+                    </Select>
+                </FormControl>
+            </Grid>
             <Grid item xs={12}><TextField label="Single Student ID (Optional)" value={assignStudentId} onChange={(e) => setAssignStudentId(e.target.value)} fullWidth /></Grid>
           </Grid>
         </DialogContent>
