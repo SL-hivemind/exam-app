@@ -346,7 +346,7 @@ export default function AdminStudents() {
 
             {!isEdit && (
               <TextField
-                label="Password (Optional)"
+                label="Password "
                 type="password"
                 fullWidth
                 value={current.password}

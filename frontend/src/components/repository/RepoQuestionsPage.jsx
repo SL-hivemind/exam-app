@@ -42,8 +42,8 @@ export default function RepoQuestionsPage() {
 
   const basePath =
     isSchoolAdmin ? '/school' :
-    isSubject ? '/specialist' :
-    '/admin';
+      isSubject ? '/specialist' :
+        '/admin';
 
   /* ---------------- FILTER STATE (URL PERSISTED) ---------------- */
   const [filters, setFilters] = useState({
@@ -145,6 +145,43 @@ export default function RepoQuestionsPage() {
     });
   };
 
+
+  const handleCsvUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append("file", file); // MUST be "file"
+
+    try {
+      setBusy(true);
+
+      const res = await api.post(
+        "/admin/repository/questions/import",
+        formData,
+        { headers: { "Content-Type": "multipart/form-data" } }
+      );
+
+      setSnack({
+        open: true,
+        severity: "success",
+        message: res.data?.message || "Import successful"
+      });
+
+      fetchRepo(); // refresh list
+    } catch (err) {
+      setSnack({
+        open: true,
+        severity: "error",
+        message: err.response?.data?.message || "Import failed"
+      });
+    } finally {
+      setBusy(false);
+      e.target.value = ""; // allow re-upload of same file
+    }
+  };
+
+
   /* ---------------- ADD TO EXAM ---------------- */
   const handleAddToExam = () => {
     if (selectedIds.size >= 50) setConfirmOpen(true);
@@ -222,9 +259,21 @@ export default function RepoQuestionsPage() {
             )}
 
             {canAddRepo && (
-              <Button variant="outlined" component="label" startIcon={<CloudUploadIcon />}>
-                Upload CSV <input type="file" hidden accept=".csv" />
+              <Button
+                variant="outlined"
+                component="label"
+                startIcon={<CloudUploadIcon />}
+                disabled={busy}
+              >
+                Upload CSV
+                <input
+                  type="file"
+                  hidden
+                  accept=".csv"
+                  onChange={handleCsvUpload}
+                />
               </Button>
+
             )}
 
             {canAddRepo && (

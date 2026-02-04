@@ -816,6 +816,8 @@ def route_import_repository_csv(current_user):
 
         # B. Call the logic in utils/files.py
         count = import_repository_csv(csv_path, current_user.id)
+        print(f"Importing CSV: {csv_path}")
+
 
         # C. Commit changes
         db.session.commit()
