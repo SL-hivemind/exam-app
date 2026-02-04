@@ -791,7 +791,6 @@ def repository_questions(current_user):
 @app.route('/admin/repository/questions/import', methods=['POST', 'OPTIONS'])
 @token_required
 def route_import_repository_csv(current_user):
-
     if request.method == 'OPTIONS':
         return jsonify({'message': 'ok'}), 200
 
@@ -799,46 +798,39 @@ def route_import_repository_csv(current_user):
         return jsonify({'message': 'forbidden'}), 403
 
     if 'file' not in request.files:
-        return jsonify({'message': 'No file part'}), 400
+        return jsonify({'message': 'No file uploaded'}), 400
 
     file = request.files['file']
-    if file.filename == '':
+    if not file.filename:
         return jsonify({'message': 'No selected file'}), 400
 
     if not allowed_file(file.filename, ALLOWED_CSV):
-        return jsonify({'message': 'File must be a CSV'}), 400
+        return jsonify({'message': 'Only CSV files allowed'}), 400
 
     try:
-        # A. Save file
         csv_path = save_csv_file(file)
 
-        # B. Import
-        result = import_repository_csv(csv_path, current_user.id)
-        inserted = result['inserted']
-        skipped = result['skipped']
+        count = import_repository_csv(csv_path, current_user.id)
 
-        # C. Commit
         db.session.commit()
 
-        # D. Cleanup
         try:
             os.remove(csv_path)
         except:
             pass
 
-        # ✅ CLEAR, FRIENDLY RESPONSE
         return jsonify({
-            "message": "Import completed",
-            "inserted": inserted,
-            "skipped": skipped
+            "message": f"Successfully imported {count} questions"
         }), 201
 
     except Exception as e:
         db.session.rollback()
+        app.logger.exception("Repository CSV import failed")
         return jsonify({
             "message": "Import failed",
             "detail": str(e)
         }), 500
+
 
 @app.route('/admin/repository/questions/<int:q_id>', methods=['GET','PUT','DELETE','OPTIONS'])
 @token_required

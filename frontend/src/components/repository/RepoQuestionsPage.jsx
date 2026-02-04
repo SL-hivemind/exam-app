@@ -146,12 +146,12 @@ export default function RepoQuestionsPage() {
   };
 
 
-  const handleCsvUpload = async (e) => {
-    const file = e.target.files?.[0];
+  const handleRepoCsvUpload = async (e) => {
+    const file = e.target.files[0];
     if (!file) return;
 
     const formData = new FormData();
-    formData.append("file", file); // MUST be "file"
+    formData.append("file", file);
 
     try {
       setBusy(true);
@@ -165,19 +165,23 @@ export default function RepoQuestionsPage() {
       setSnack({
         open: true,
         severity: "success",
-        message: res.data?.message || "Import successful"
+        message: res.data.message || "Import completed successfully"
       });
 
       fetchRepo(); // refresh list
+
     } catch (err) {
       setSnack({
         open: true,
         severity: "error",
-        message: err.response?.data?.message || "Import failed"
+        message:
+          err.response?.data?.message ||
+          err.response?.data?.detail ||
+          "Import failed"
       });
     } finally {
       setBusy(false);
-      e.target.value = ""; // allow re-upload of same file
+      e.target.value = ""; // 🔑 REQUIRED to allow re-uploading same file
     }
   };
 
@@ -265,12 +269,12 @@ export default function RepoQuestionsPage() {
                 startIcon={<CloudUploadIcon />}
                 disabled={busy}
               >
-                Upload CSV
+                {busy ? "Uploading..." : "Upload CSV"}
                 <input
                   type="file"
                   hidden
                   accept=".csv"
-                  onChange={handleCsvUpload}
+                  onChange={handleRepoCsvUpload}
                 />
               </Button>
 
