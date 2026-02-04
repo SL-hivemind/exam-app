@@ -20,12 +20,12 @@ export default function AdminStudents() {
   const [students, setStudents] = useState([]);
   const [schools, setSchools] = useState([]);
   const [loading, setLoading] = useState(false);
-  
+
   // --- FILTERS & PAGINATION ---
   const [search, setSearch] = useState("");
   const [selectedSchoolFilter, setSelectedSchoolFilter] = useState("");
   const [classFilter, setClassFilter] = useState("");
-  const [page, setPage] = useState(0); 
+  const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [totalItems, setTotalItems] = useState(0);
 
@@ -36,7 +36,7 @@ export default function AdminStudents() {
     id: null, password: "", email: "", mobile_number: "",
     school_id: "", name: "", class_number: "", number: ""
   });
-  
+
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -59,23 +59,23 @@ export default function AdminStudents() {
   const fetchStudents = useCallback(async () => {
     try {
       setLoading(true);
-      
+
       const params = new URLSearchParams();
       params.append('page', page + 1);
       params.append('per_page', rowsPerPage);
-      
+
       if (debouncedSearch) params.append('search', debouncedSearch);
-      
+
       // If Super Admin, use the dropdown value. 
       // If School Admin, backend handles it automatically.
       if (isSuperAdmin && selectedSchoolFilter) {
-          params.append('school_id', selectedSchoolFilter);
+        params.append('school_id', selectedSchoolFilter);
       }
-      
+
       if (debouncedClass) params.append('class_number', debouncedClass);
 
       const res = await api.get(`/admin/students?${params.toString()}`);
-      
+
       setStudents(res.data.students || []);
       setTotalItems(res.data.total_items || 0);
 
@@ -102,7 +102,7 @@ export default function AdminStudents() {
 
   useEffect(() => {
     if (isSuperAdmin) {
-        fetchSchools();
+      fetchSchools();
     }
   }, [isSuperAdmin]);
 
@@ -121,7 +121,7 @@ export default function AdminStudents() {
       email: student.email || "",
       mobile_number: student.mobile_number || "",
       // FIX: If School Admin, Auto-fill their school ID (backend will validate)
-      school_id: student.school_id || (isSuperAdmin ? "" : user.school_id) || "", 
+      school_id: student.school_id || (isSuperAdmin ? "" : user.school_id) || "",
       name: student.name || "",
       class_number: student.class_number || "",
       number: student.number || ""
@@ -139,22 +139,22 @@ export default function AdminStudents() {
     // FIX: If School Admin, use their ID if current.school_id is empty
     const finalSchoolId = isSuperAdmin ? current.school_id : (user.school_id || current.school_id);
 
-    if (!current.name || !finalSchoolId || !current.number) {
-      setError("Name, School, and Roll Number are required");
+    if (!current.name || !finalSchoolId) {
+      setError("Name and School are required");
       return;
     }
 
     try {
       const data = {
-        password: current.password || undefined,
-        email: current.email || null,
-        mobile_number: current.mobile_number || null,
-        role: "student",
         name: current.name,
         school_id: finalSchoolId,
         class_number: current.class_number || null,
-        number: current.number
+        email: current.email || null,
+        mobile_number: current.mobile_number || null,
+        ...(current.password ? { password: current.password } : {}),
+        ...(current.number ? { number: current.number } : {})
       };
+
 
       if (isEdit) {
         await api.put(`/admin/students/${current.id}`, data);
@@ -196,27 +196,27 @@ export default function AdminStudents() {
     } catch (err) {
       setError(err.response?.data?.message || "Import failed");
     } finally {
-        setLoading(false);
+      setLoading(false);
     }
   };
 
   return (
     <Box sx={{ p: 3, bgcolor: '#f5f7fa', minHeight: '100vh' }}>
-      
+
       {/* HEADER */}
       <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems="center" mb={3} spacing={2}>
         <Box>
-            <Typography variant="h4" fontWeight={700} color="primary.main">Students</Typography>
-            <Typography variant="body2" color="text.secondary">Manage student accounts and enrollments.</Typography>
+          <Typography variant="h4" fontWeight={700} color="primary.main">Students</Typography>
+          <Typography variant="body2" color="text.secondary">Manage student accounts and enrollments.</Typography>
         </Box>
         <Stack direction="row" spacing={2}>
-            <Button variant="outlined" component="label" startIcon={<UploadFileIcon />}>
-                Import CSV
-                <input type="file" accept=".csv" hidden onChange={handleCsvUpload} />
-            </Button>
-            <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpen()}>
-                Add Student
-            </Button>
+          <Button variant="outlined" component="label" startIcon={<UploadFileIcon />}>
+            Import CSV
+            <input type="file" accept=".csv" hidden onChange={handleCsvUpload} />
+          </Button>
+          <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpen()}>
+            Add Student
+          </Button>
         </Stack>
       </Stack>
 
@@ -227,51 +227,51 @@ export default function AdminStudents() {
       {/* FILTERS */}
       <Paper elevation={0} sx={{ p: 2, mb: 3, borderRadius: 2, border: '1px solid #e0e0e0' }}>
         <Grid container spacing={2} alignItems="center">
-            
-            <Grid item xs={12} md={4}>
-                <TextField
-                    fullWidth
-                    size="small"
-                    placeholder="Search Name / Username..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    InputProps={{
-                        startAdornment: <InputAdornment position="start"><SearchIcon color="action" /></InputAdornment>
-                    }}
-                />
-            </Grid>
-            
-            {/* Show School Filter ONLY to Super Admin */}
-            {isSuperAdmin && (
-                <Grid item xs={12} md={4}>
-                    <FormControl fullWidth size="small">
-                        <InputLabel>Filter by School</InputLabel>
-                        <Select
-                            value={selectedSchoolFilter}
-                            label="Filter by School"
-                            onChange={(e) => setSelectedSchoolFilter(e.target.value)}
-                            startAdornment={<InputAdornment position="start"><FilterListIcon fontSize="small" /></InputAdornment>}
-                        >
-                            <MenuItem value=""><em>All Schools</em></MenuItem>
-                            {schools.map(s => <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>)}
-                        </Select>
-                    </FormControl>
-                </Grid>
-            )}
 
+          <Grid item xs={12} md={4}>
+            <TextField
+              fullWidth
+              size="small"
+              placeholder="Search Name / Username..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              InputProps={{
+                startAdornment: <InputAdornment position="start"><SearchIcon color="action" /></InputAdornment>
+              }}
+            />
+          </Grid>
+
+          {/* Show School Filter ONLY to Super Admin */}
+          {isSuperAdmin && (
             <Grid item xs={12} md={4}>
-                <TextField
-                    fullWidth
-                    size="small"
-                    label="Filter by Class"
-                    placeholder="e.g. 10"
-                    value={classFilter}
-                    onChange={(e) => setClassFilter(e.target.value)}
-                    InputProps={{
-                        startAdornment: <InputAdornment position="start"><ClassIcon fontSize="small" color="action" /></InputAdornment>
-                    }}
-                />
+              <FormControl fullWidth size="small">
+                <InputLabel>Filter by School</InputLabel>
+                <Select
+                  value={selectedSchoolFilter}
+                  label="Filter by School"
+                  onChange={(e) => setSelectedSchoolFilter(e.target.value)}
+                  startAdornment={<InputAdornment position="start"><FilterListIcon fontSize="small" /></InputAdornment>}
+                >
+                  <MenuItem value=""><em>All Schools</em></MenuItem>
+                  {schools.map(s => <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>)}
+                </Select>
+              </FormControl>
             </Grid>
+          )}
+
+          <Grid item xs={12} md={4}>
+            <TextField
+              fullWidth
+              size="small"
+              label="Filter by Class"
+              placeholder="e.g. 10"
+              value={classFilter}
+              onChange={(e) => setClassFilter(e.target.value)}
+              InputProps={{
+                startAdornment: <InputAdornment position="start"><ClassIcon fontSize="small" color="action" /></InputAdornment>
+              }}
+            />
+          </Grid>
 
         </Grid>
       </Paper>
@@ -290,44 +290,44 @@ export default function AdminStudents() {
           </TableHead>
           <TableBody>
             {loading ? (
-                <TableRow><TableCell colSpan={5} align="center"><CircularProgress sx={{ my: 2 }} /></TableCell></TableRow>
+              <TableRow><TableCell colSpan={5} align="center"><CircularProgress sx={{ my: 2 }} /></TableCell></TableRow>
             ) : sortedStudents.length === 0 ? (
-                <TableRow><TableCell colSpan={5} align="center">No students found matching filters.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={5} align="center">No students found matching filters.</TableCell></TableRow>
             ) : (
-                sortedStudents.map((s) => (
+              sortedStudents.map((s) => (
                 <TableRow key={s.id} hover>
-                    <TableCell>
-                        <Typography variant="subtitle2" fontWeight={600}>{s.name}</Typography>
-                        <Chip label={s.student_id || "No ID"} size="small" sx={{ mt: 0.5, bgcolor: '#e3f2fd', fontWeight: 'bold', color: '#1565c0' }} />
-                    </TableCell>
-                    <TableCell>{s.mobile_number || "—"}</TableCell>
-                    <TableCell>
-                        <Stack direction="row" spacing={1}>
-                            <Chip label={s.school_name || "N/A"} size="small" variant="outlined" />
-                            {s.class_number && <Chip label={`Class ${s.class_number}`} size="small" color="secondary" variant="outlined" />}
-                        </Stack>
-                    </TableCell>
-                    <TableCell>{s.username}</TableCell>
-                    <TableCell align="right">
-                        <IconButton size="small" onClick={() => handleOpen(s)} color="primary"><EditIcon /></IconButton>
-                        <IconButton size="small" onClick={() => handleDelete(s.id)} color="error"><DeleteIcon /></IconButton>
-                    </TableCell>
+                  <TableCell>
+                    <Typography variant="subtitle2" fontWeight={600}>{s.name}</Typography>
+                    <Chip label={s.student_id || "No ID"} size="small" sx={{ mt: 0.5, bgcolor: '#e3f2fd', fontWeight: 'bold', color: '#1565c0' }} />
+                  </TableCell>
+                  <TableCell>{s.mobile_number || "—"}</TableCell>
+                  <TableCell>
+                    <Stack direction="row" spacing={1}>
+                      <Chip label={s.school_name || "N/A"} size="small" variant="outlined" />
+                      {s.class_number && <Chip label={`Class ${s.class_number}`} size="small" color="secondary" variant="outlined" />}
+                    </Stack>
+                  </TableCell>
+                  <TableCell>{s.username}</TableCell>
+                  <TableCell align="right">
+                    <IconButton size="small" onClick={() => handleOpen(s)} color="primary"><EditIcon /></IconButton>
+                    <IconButton size="small" onClick={() => handleDelete(s.id)} color="error"><DeleteIcon /></IconButton>
+                  </TableCell>
                 </TableRow>
-                ))
+              ))
             )}
           </TableBody>
         </Table>
-        
+
         <TablePagination
-            component="div"
-            count={totalItems}
-            page={page}
-            onPageChange={(e, newPage) => setPage(newPage)}
-            rowsPerPage={rowsPerPage}
-            onRowsPerPageChange={(e) => {
-                setRowsPerPage(parseInt(e.target.value, 10));
-                setPage(0);
-            }}
+          component="div"
+          count={totalItems}
+          page={page}
+          onPageChange={(e, newPage) => setPage(newPage)}
+          rowsPerPage={rowsPerPage}
+          onRowsPerPageChange={(e) => {
+            setRowsPerPage(parseInt(e.target.value, 10));
+            setPage(0);
+          }}
         />
       </Paper>
 
@@ -336,76 +336,79 @@ export default function AdminStudents() {
         <DialogTitle>{isEdit ? "Edit Student" : "Register Student"}</DialogTitle>
         <DialogContent dividers>
           <Stack spacing={2} sx={{ mt: 1 }}>
-            
+
             <TextField
-                label="Full Name"
-                fullWidth
-                value={current.name}
-                onChange={(e) => setCurrent({ ...current, name: e.target.value })}
+              label="Full Name"
+              fullWidth
+              value={current.name}
+              onChange={(e) => setCurrent({ ...current, name: e.target.value })}
             />
 
             {!isEdit && (
-                <TextField
-                    label="Password"
-                    type="password"
-                    fullWidth
-                    value={current.password}
-                    onChange={(e) => setCurrent({ ...current, password: e.target.value })}
-                    helperText="Default password will be generated if left blank."
-                />
+              <TextField
+                label="Password (Optional)"
+                type="password"
+                fullWidth
+                value={current.password}
+                onChange={(e) =>
+                  setCurrent({ ...current, password: e.target.value })
+                }
+                helperText="Leave blank to auto-generate a secure password"
+              />
             )}
+
 
             {/* FIX: Only show School Dropdown if Super Admin. 
                 If School Admin, we auto-assign their school ID in handleSave. 
             */}
             {isSuperAdmin && (
-                <FormControl fullWidth>
-                    <InputLabel>School</InputLabel>
-                    <Select
-                        native
-                        label="School"
-                        value={current.school_id}
-                        onChange={(e) => setCurrent({ ...current, school_id: e.target.value })}
-                    >
-                        <option value="">Select School</option>
-                        {schools.map((s) => (
-                            <option key={s.id} value={s.id}>{s.name} ({s.code})</option>
-                        ))}
-                    </Select>
-                </FormControl>
+              <FormControl fullWidth>
+                <InputLabel>School</InputLabel>
+                <Select
+                  native
+                  label="School"
+                  value={current.school_id}
+                  onChange={(e) => setCurrent({ ...current, school_id: e.target.value })}
+                >
+                  <option value="">Select School</option>
+                  {schools.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name} ({s.code})</option>
+                  ))}
+                </Select>
+              </FormControl>
             )}
 
             <Grid container spacing={2}>
-                <Grid item xs={6}>
-                    <FormControl fullWidth>
-                        <InputLabel>Class</InputLabel>
-                        <Select
-                            value={current.class_number || ""}
-                            label="Class"
-                            onChange={(e) => setCurrent({ ...current, class_number: e.target.value })}
-                        >
-                            <MenuItem value="6">6</MenuItem>
-                            <MenuItem value="7">7</MenuItem>
-                            <MenuItem value="8">8</MenuItem>
-                            <MenuItem value="9">9</MenuItem>
-                            <MenuItem value="10">10</MenuItem>
-                        </Select>
-                    </FormControl>
-                </Grid>
+              <Grid item xs={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Class</InputLabel>
+                  <Select
+                    value={current.class_number || ""}
+                    label="Class"
+                    onChange={(e) => setCurrent({ ...current, class_number: e.target.value })}
+                  >
+                    <MenuItem value="6">6</MenuItem>
+                    <MenuItem value="7">7</MenuItem>
+                    <MenuItem value="8">8</MenuItem>
+                    <MenuItem value="9">9</MenuItem>
+                    <MenuItem value="10">10</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
             </Grid>
 
             <TextField
-                label="Mobile Number (Optional)"
-                fullWidth
-                value={current.mobile_number}
-                onChange={(e) => setCurrent({ ...current, mobile_number: e.target.value })}
+              label="Mobile Number (Optional)"
+              fullWidth
+              value={current.mobile_number}
+              onChange={(e) => setCurrent({ ...current, mobile_number: e.target.value })}
             />
-            
+
             <TextField
-                label="Email (Optional)"
-                fullWidth
-                value={current.email}
-                onChange={(e) => setCurrent({ ...current, email: e.target.value })}
+              label="Email (Optional)"
+              fullWidth
+              value={current.email}
+              onChange={(e) => setCurrent({ ...current, email: e.target.value })}
             />
 
           </Stack>
