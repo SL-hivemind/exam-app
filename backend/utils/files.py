@@ -8,6 +8,7 @@ from sqlalchemy.exc import IntegrityError
 from models import db, School, User, Student, Question, Exam, StudentExamAttempt, QuestionRepository
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment
+from models import db, QuestionRepository, generate_short_id
 
 files_bp = Blueprint("files", __name__)
 
@@ -420,22 +421,42 @@ def export_student_attempts_to_excel(exam_id=None):
 def import_repository_csv(path, current_user_id):
     """
     Import questions into the QuestionRepository from a CSV file.
-    Includes logic to support Scoped ID generation by flushing each record.
+    Skips duplicates safely and generates monotonic scoped IDs.
     """
     count = 0
+
     with open(path, newline="", encoding="utf-8-sig") as fh:
         reader = csv.DictReader(fh)
-        
-        # Clean headers
+
+        # Normalize headers
         reader.fieldnames = [h.strip().lower() if h else '' for h in reader.fieldnames]
 
         for row in reader:
-            text = row.get('text', '').strip()
+            text = (row.get('text') or '').strip()
             if not text:
                 continue
-            
-            row_subject = row.get('subject')
-            image_url = row.get('image') or row.get('image_path') or row.get('image_url')
+
+            subject = (row.get('subject') or '').strip()
+            class_number = row.get('class') or row.get('class_number')
+            chapter = (row.get('chapter') or '').strip()
+
+            # 🔒 DUPLICATE SAFETY CHECK (NEW)
+            exists = QuestionRepository.query.filter_by(
+                text=text,
+                subject=subject,
+                class_number=class_number,
+                chapter=chapter
+            ).first()
+
+            if exists:
+                # Skip duplicate silently
+                continue
+
+            image_url = (
+                row.get('image')
+                or row.get('image_path')
+                or row.get('image_url')
+            )
 
             q = QuestionRepository(
                 text=text,
@@ -445,31 +466,26 @@ def import_repository_csv(path, current_user_id):
                 option_d=row.get('option_d'),
                 correct_answer=row.get('correct_answer'),
                 marks=int(row.get('marks') or 1),
-                subject=row_subject,
-                class_number=row.get('class') or row.get('class_number'),
-                chapter=row.get('chapter'), # Ensure chapter is pulled from CSV
-                topic=row.get('topic'),     # Topic is still saved even if not in ID
+                subject=subject,
+                class_number=class_number,
+                chapter=chapter,
+                topic=row.get('topic'),
                 image_path=image_url,
                 created_by=current_user_id
             )
-            
-            db.session.add(q)
-            
-            # --- CRITICAL ADDITION ---
-            # Flush pushes the record to the DB transaction without committing.
-            # This allows the 'count()' in generate_short_id to see this record
-            # so the NEXT question in the loop gets 0002, 0003, etc.
-            db.session.flush() 
-            
-            count += 1
-            
-    return count
 
-@files_bp.route("/admin/migrate_ids", methods=["POST"])
-def migrate_ids():
-    questions = QuestionRepository.query.all()
-    for q in questions:
-        q.custom_id = generate_short_id(q.class_number, q.subject, q.chapter, q.id)
-    
-    db.session.commit()
-    return jsonify({"message": f"Successfully updated {len(questions)} Question IDs"}), 200
+            # 🔑 Generate scoped monotonic ID
+            q.custom_id = generate_short_id(
+                q.class_number,
+                q.subject,
+                q.chapter
+            )
+
+            db.session.add(q)
+
+            # 🔑 Flush so next row sees updated max()
+            db.session.flush()
+
+            count += 1
+
+    return count

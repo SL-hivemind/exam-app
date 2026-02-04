@@ -2,7 +2,7 @@
 from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
 from datetime import datetime
-from sqlalchemy import event
+from sqlalchemy import Integer, event
 import re
 
 db = SQLAlchemy()
@@ -35,22 +35,24 @@ def generate_short_id(class_num, subject, chapter, exclude_id=None):
 
     prefix = f"{c_code}-{s_code}-{ch_code}-"
 
-    query = db.session.query(func.max(QuestionRepository.custom_id)).filter(
+    query = db.session.query(
+        func.max(
+            func.cast(func.right(QuestionRepository.custom_id, 4), Integer)
+        )
+    ).filter(
         QuestionRepository.class_number == class_num,
         QuestionRepository.subject == subject,
         QuestionRepository.chapter == chapter
     )
 
-    # 🔑 EXCLUDE CURRENT ROW ON UPDATE
     if exclude_id:
         query = query.filter(QuestionRepository.id != exclude_id)
 
-    last_id = query.scalar()
-
-    last_num = int(last_id.split("-")[-1]) if last_id else 0
+    last_num = query.scalar() or 0
     new_serial = str(last_num + 1).zfill(4)
 
     return f"{prefix}{new_serial}"
+
 
 # -------------------- USERS --------------------
 class User(db.Model):
