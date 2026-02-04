@@ -419,16 +419,10 @@ def export_student_attempts_to_excel(exam_id=None):
         raise
 
 def import_repository_csv(path, current_user_id):
-    """
-    Import questions into the QuestionRepository from a CSV file.
-    Skips duplicates safely and generates monotonic scoped IDs.
-    """
     count = 0
 
     with open(path, newline="", encoding="utf-8-sig") as fh:
         reader = csv.DictReader(fh)
-
-        # Normalize headers
         reader.fieldnames = [h.strip().lower() if h else '' for h in reader.fieldnames]
 
         for row in reader:
@@ -438,25 +432,16 @@ def import_repository_csv(path, current_user_id):
 
             subject = (row.get('subject') or '').strip()
             class_number = row.get('class') or row.get('class_number')
-            chapter = (row.get('chapter') or '').strip()
+            chapter = (row.get('chapter') or '').strip() or None
 
-            # 🔒 DUPLICATE SAFETY CHECK (NEW)
-            exists = QuestionRepository.query.filter_by(
+            # 🔒 Skip true duplicates
+            if QuestionRepository.query.filter_by(
                 text=text,
                 subject=subject,
                 class_number=class_number,
                 chapter=chapter
-            ).first()
-
-            if exists:
-                # Skip duplicate silently
+            ).first():
                 continue
-
-            image_url = (
-                row.get('image')
-                or row.get('image_path')
-                or row.get('image_url')
-            )
 
             q = QuestionRepository(
                 text=text,
@@ -470,11 +455,10 @@ def import_repository_csv(path, current_user_id):
                 class_number=class_number,
                 chapter=chapter,
                 topic=row.get('topic'),
-                image_path=image_url,
+                image_path=row.get('image') or row.get('image_path'),
                 created_by=current_user_id
             )
 
-            # 🔑 Generate scoped monotonic ID
             q.custom_id = generate_short_id(
                 q.class_number,
                 q.subject,
@@ -482,10 +466,7 @@ def import_repository_csv(path, current_user_id):
             )
 
             db.session.add(q)
-
-            # 🔑 Flush so next row sees updated max()
             db.session.flush()
-
             count += 1
 
     return count

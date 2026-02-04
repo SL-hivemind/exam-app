@@ -25,7 +25,12 @@ def generate_short_id(class_num, subject, chapter, exclude_id=None):
     def abbreviate(text):
         if not text or str(text).strip() == "":
             return "GEN"
-        clean = re.sub(r'\b(the|a|an|of|and|in|to|on|for|with)\b', '', str(text), flags=re.IGNORECASE)
+        clean = re.sub(
+            r'\b(the|a|an|of|and|in|to|on|for|with)\b',
+            '',
+            str(text),
+            flags=re.IGNORECASE
+        )
         clean = re.sub(r'[^a-zA-Z0-9]', '', clean)
         return clean[:3].upper().ljust(3, 'X')
 
@@ -35,24 +40,22 @@ def generate_short_id(class_num, subject, chapter, exclude_id=None):
 
     prefix = f"{c_code}-{s_code}-{ch_code}-"
 
+    # 🔑 CORRECT QUERY: USE custom_id PREFIX
     query = db.session.query(
-        func.max(
-            func.cast(func.right(QuestionRepository.custom_id, 4), Integer)
-        )
+        func.max(QuestionRepository.custom_id)
     ).filter(
-        QuestionRepository.class_number == class_num,
-        QuestionRepository.subject == subject,
-        QuestionRepository.chapter == chapter
+        QuestionRepository.custom_id.like(f"{prefix}%")
     )
 
     if exclude_id:
         query = query.filter(QuestionRepository.id != exclude_id)
 
-    last_num = query.scalar() or 0
+    last_id = query.scalar()
+
+    last_num = int(last_id.split("-")[-1]) if last_id else 0
     new_serial = str(last_num + 1).zfill(4)
 
     return f"{prefix}{new_serial}"
-
 
 # -------------------- USERS --------------------
 class User(db.Model):
