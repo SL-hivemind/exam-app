@@ -449,60 +449,67 @@ def get_last_serial(class_number, subject, chapter):
 
 def import_repository_csv(path, current_user_id):
     count = 0
-    serial_cache = {}
+    skipped = 0
 
     with open(path, newline="", encoding="utf-8-sig") as fh:
         reader = csv.DictReader(fh)
         reader.fieldnames = [h.strip().lower() if h else '' for h in reader.fieldnames]
 
         for row in reader:
-            text = (row.get('text') or '').strip()
+            text = (row.get("text") or "").strip()
             if not text:
                 continue
 
-            class_number = row.get('class') or row.get('class_number')
-            subject = row.get('subject')
-            chapter = row.get('chapter') or 'GEN'
-            image_url = row.get('image') or row.get('image_path')
+            class_number = row.get("class") or row.get("class_number")
+            subject = row.get("subject")
+            chapter = row.get("chapter") or "GEN"
+            image_url = row.get("image") or row.get("image_path") or row.get("image_url")
 
-            scope = (class_number, subject, chapter)
+            # 🔒 CRITICAL: prevent premature autoflush
+            with db.session.no_autoflush:
 
-            # 🔑 Initialize serial ONCE per scope
-            if scope not in serial_cache:
-                serial_cache[scope] = get_last_serial(*scope)
+                # ✅ DUPLICATE GUARD (text-based)
+                exists = QuestionRepository.query.filter_by(
+                    text=text,
+                    class_number=class_number,
+                    subject=subject,
+                    chapter=chapter
+                ).first()
 
-            serial_cache[scope] += 1
-            serial = str(serial_cache[scope]).zfill(4)
+                if exists:
+                    skipped += 1
+                    continue
 
-            custom_id = (
-                f"{str(class_number).zfill(2)}-"
-                f"{abbrev(subject)}-"
-                f"{abbrev(chapter)}-"
-                f"{serial}"
-            )
+                q = QuestionRepository(
+                    text=text,
+                    option_a=row.get("option_a"),
+                    option_b=row.get("option_b"),
+                    option_c=row.get("option_c"),
+                    option_d=row.get("option_d"),
+                    correct_answer=row.get("correct_answer"),
+                    marks=int(row.get("marks") or 1),
+                    subject=subject,
+                    class_number=class_number,
+                    chapter=chapter,
+                    topic=row.get("topic"),
+                    image_path=image_url,
+                    created_by=current_user_id
+                )
 
-            q = QuestionRepository(
-                custom_id=custom_id,
-                text=text,
-                option_a=row.get('option_a'),
-                option_b=row.get('option_b'),
-                option_c=row.get('option_c'),
-                option_d=row.get('option_d'),
-                correct_answer=row.get('correct_answer'),
-                marks=int(row.get('marks') or 1),
-                subject=subject,
-                class_number=class_number,
-                chapter=chapter,
-                topic=row.get('topic'),
-                image_path=image_url,
-                created_by=current_user_id
-            )
+                # ✅ SAFE ID generation (monotonic)
+                q.custom_id = generate_short_id(
+                    q.class_number,
+                    q.subject,
+                    q.chapter
+                )
 
-            db.session.add(q)
-            count += 1
+                db.session.add(q)
+                db.session.flush()   # now safe
 
-        # ONE commit → short lock window
-        db.session.commit()
+                count += 1
 
-    return count
+    return {
+        "inserted": count,
+        "skipped": skipped
+    }
 

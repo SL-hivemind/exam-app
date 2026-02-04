@@ -791,49 +791,54 @@ def repository_questions(current_user):
 @app.route('/admin/repository/questions/import', methods=['POST', 'OPTIONS'])
 @token_required
 def route_import_repository_csv(current_user):
-    # Preflight check
+
     if request.method == 'OPTIONS':
         return jsonify({'message': 'ok'}), 200
 
-    # Permission check
     if current_user.role not in ('admin', 'subject_specialist', 'school_admin'):
         return jsonify({'message': 'forbidden'}), 403
 
-    # File check
     if 'file' not in request.files:
         return jsonify({'message': 'No file part'}), 400
-    
+
     file = request.files['file']
     if file.filename == '':
         return jsonify({'message': 'No selected file'}), 400
-    
+
     if not allowed_file(file.filename, ALLOWED_CSV):
         return jsonify({'message': 'File must be a CSV'}), 400
 
     try:
-        # A. Save file temporarily
+        # A. Save file
         csv_path = save_csv_file(file)
 
-        # B. Call the logic in utils/files.py
-        count = import_repository_csv(csv_path, current_user.id)
-        print(f"Importing CSV: {csv_path}")
+        # B. Import
+        result = import_repository_csv(csv_path, current_user.id)
+        inserted = result['inserted']
+        skipped = result['skipped']
 
-
-        # C. Commit changes
+        # C. Commit
         db.session.commit()
 
-        # D. Clean up (Optional: remove the temp csv file to save space)
+        # D. Cleanup
         try:
             os.remove(csv_path)
         except:
             pass
 
-        return jsonify({'message': f'Successfully imported {count} questions'}), 201
+        # ✅ CLEAR, FRIENDLY RESPONSE
+        return jsonify({
+            "message": "Import completed",
+            "inserted": inserted,
+            "skipped": skipped
+        }), 201
 
     except Exception as e:
         db.session.rollback()
-        print(f"Import Error: {e}")
-        return jsonify({'message': 'Import failed', 'detail': str(e)}), 500
+        return jsonify({
+            "message": "Import failed",
+            "detail": str(e)
+        }), 500
 
 @app.route('/admin/repository/questions/<int:q_id>', methods=['GET','PUT','DELETE','OPTIONS'])
 @token_required
