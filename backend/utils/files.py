@@ -418,8 +418,37 @@ def export_student_attempts_to_excel(exam_id=None):
         )
         raise
 
+def abbrev(text):
+    if not text:
+        return "GEN"
+    clean = re.sub(r'\b(the|a|an|of|and|in|to|on|for|with)\b', '', str(text), flags=re.IGNORECASE)
+    clean = re.sub(r'[^a-zA-Z0-9]', '', clean)
+    return clean[:3].upper().ljust(3, 'X')
+
+
+def get_last_serial(class_number, subject, chapter):
+    """
+    Fetch last used serial for (class, subject, chapter) ONCE.
+    Bulk-safe.
+    """
+    prefix = f"{str(class_number).zfill(2)}-{abbrev(subject)}-{abbrev(chapter)}-"
+
+    last = (
+        db.session.query(QuestionRepository.custom_id)
+        .filter(QuestionRepository.custom_id.like(f"{prefix}%"))
+        .order_by(QuestionRepository.custom_id.desc())
+        .first()
+    )
+
+    if not last:
+        return 0
+
+    return int(last[0].split("-")[-1])
+
+
 def import_repository_csv(path, current_user_id):
     count = 0
+    serial_cache = {}
 
     with open(path, newline="", encoding="utf-8-sig") as fh:
         reader = csv.DictReader(fh)
@@ -430,20 +459,29 @@ def import_repository_csv(path, current_user_id):
             if not text:
                 continue
 
-            subject = (row.get('subject') or '').strip()
             class_number = row.get('class') or row.get('class_number')
-            chapter = (row.get('chapter') or '').strip() or None
+            subject = row.get('subject')
+            chapter = row.get('chapter') or 'GEN'
+            image_url = row.get('image') or row.get('image_path')
 
-            # 🔒 Skip true duplicates
-            if QuestionRepository.query.filter_by(
-                text=text,
-                subject=subject,
-                class_number=class_number,
-                chapter=chapter
-            ).first():
-                continue
+            scope = (class_number, subject, chapter)
+
+            # 🔑 Initialize serial ONCE per scope
+            if scope not in serial_cache:
+                serial_cache[scope] = get_last_serial(*scope)
+
+            serial_cache[scope] += 1
+            serial = str(serial_cache[scope]).zfill(4)
+
+            custom_id = (
+                f"{str(class_number).zfill(2)}-"
+                f"{abbrev(subject)}-"
+                f"{abbrev(chapter)}-"
+                f"{serial}"
+            )
 
             q = QuestionRepository(
+                custom_id=custom_id,
                 text=text,
                 option_a=row.get('option_a'),
                 option_b=row.get('option_b'),
@@ -455,18 +493,15 @@ def import_repository_csv(path, current_user_id):
                 class_number=class_number,
                 chapter=chapter,
                 topic=row.get('topic'),
-                image_path=row.get('image') or row.get('image_path'),
+                image_path=image_url,
                 created_by=current_user_id
             )
 
-            q.custom_id = generate_short_id(
-                q.class_number,
-                q.subject,
-                q.chapter
-            )
-
             db.session.add(q)
-            db.session.flush()
             count += 1
 
+        # ONE commit → short lock window
+        db.session.commit()
+
     return count
+
