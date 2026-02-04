@@ -304,11 +304,10 @@ def register_student():
     username = data.get('username')
     password = data.get('password')
     school_code = data.get('school_code') or data.get('school_id')
-    number = data.get('number')
     name = data.get('name') or username
     class_number = data.get('class_number') or data.get('class')
 
-    if not username or not password or not school_code or not number:
+    if not username or not password or not school_code :
         return jsonify({'message': 'username, password, school_code (or school_id), and number are required'}), 400
 
     if User.query.filter_by(username=username).first():
@@ -331,14 +330,13 @@ def register_student():
             db.session.flush()
 
             student = Student(
-                user_id=user.id,
-                name=name,
-                class_number=class_number,
-                number=str(number),
-                school_id=school.id
+               user_id=user.id,
+               name=name,
+               class_number=class_number,
+               school_id=school.id
             )
             student.school = school
-            student.generate_student_id()
+            student.generate_student_id_auto()
             db.session.add(student)
             db.session.flush()
 
@@ -504,8 +502,7 @@ def admin_students_create(current_user):
     try:
         name = (data.get("name") or "").strip()
         school_id = data.get("school_id")
-        number = (data.get("number") or "").strip()
-        if not name or not school_id or not number:
+        if not name or not school_id :
             return jsonify({"message": "name, school_id and number are required"}), 400
 
         if current_user.role == "school_admin":
@@ -522,24 +519,22 @@ def admin_students_create(current_user):
         if not sch:
             return jsonify({"message": "school not found"}), 404
 
-        if not username:
-            num3 = f"{int(number):03d}"
-            username = f"{sch.code}-{num3}" if not class_number else f"{sch.code}-{class_number}-{num3}"
-
         u = User(
-            username=username, role="student",
+            username="temp", role="student",
             email=email, mobile_number=mobile_number, name=name
         )
-        u.set_password(password or username)
+        u.set_password(password or "student@123")
         db.session.add(u)
         db.session.flush()
 
         stu = Student(
-            user_id=u.id, name=name, school_id=int(school_id),
-            class_number=class_number or None, number=number
+            user_id=u.id,
+            name=name,
+            school_id=int(school_id),
+            class_number=class_number or None
         )
         stu.school = sch
-        stu.generate_student_id()
+        stu.generate_student_id_auto()
         db.session.add(stu)
         db.session.commit()
 
@@ -582,7 +577,6 @@ def admin_student_detail(current_user, user_id):
             'mobile_number': user.mobile_number,
             'name': student.name,
             'class_number': student.class_number,
-            'number': student.number,
             'school_id': student.school_id,
             'student_id': student.student_id,
         }), 200
@@ -612,8 +606,6 @@ def admin_student_detail(current_user, user_id):
             # Track inputs that may affect the student_id
             old_school_id = student.school_id
             old_class = student.class_number
-            old_number = student.number
-
             # Preserve school if not provided
             new_school_id = data.get('school_id', student.school_id)
             if new_school_id != student.school_id:
@@ -627,50 +619,21 @@ def admin_student_detail(current_user, user_id):
                 student.class_number = (data.get('class_number') or None)
                 changed = True
 
-            if 'number' in data:
-                student.number = str(data.get('number'))
-                changed = True
-
             # If student_id is provided explicitly, validate uniqueness and apply it
-            explicit_student_id = data.get('student_id')
-            if explicit_student_id:
-                # Check uniqueness against other records
-                exists = Student.query.filter(
-                    Student.student_id == explicit_student_id,
+            if student.school_id != old_school_id or student.class_number != old_class:
+                student.generate_student_id_auto()
+
+                clash = Student.query.filter(
+                    Student.student_id == student.student_id,
                     Student.user_id != student.user_id
                 ).first()
-                if exists:
-                    return jsonify({'message': 'student_id already exists'}), 409
+                if clash:
+                    return jsonify({
+                        'message': 'student_id already exists for this school/class'
+                    }), 409
 
-                # Apply and sync username
-                student.student_id = explicit_student_id
-                user.username = explicit_student_id
+                user.username = student.student_id
                 changed = True
-            else:
-                # No explicit student_id; if any of the components changed, regenerate
-                if (student.school_id != old_school_id) or \
-                   (student.class_number != old_class) or \
-                   (student.number != old_number):
-                    # Need School on relationship for generator
-                    if not student.school:
-                        student.school = School.query.get(student.school_id)
-
-                    # Generate the new ID
-                    student.generate_student_id()
-
-                    # Uniqueness check
-                    clash = Student.query.filter(
-                        Student.student_id == student.student_id,
-                        Student.user_id != student.user_id
-                    ).first()
-                    if clash:
-                        return jsonify({
-                            'message': 'student_id already exists for this combination (school/class/number)'
-                        }), 409
-
-                    # Sync username with student_id (your convention)
-                    user.username = student.student_id
-                    changed = True
 
             if changed:
                 db.session.commit()
@@ -688,7 +651,6 @@ def admin_student_detail(current_user, user_id):
                     'student_id': student.student_id,
                     'name': student.name,
                     'class_number': student.class_number,
-                    'number': student.number,
                     'school_id': student.school_id
                 }
             }), 200

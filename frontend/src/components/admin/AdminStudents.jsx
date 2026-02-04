@@ -384,7 +384,6 @@ export default function AdminStudents() {
                             label="Class"
                             onChange={(e) => setCurrent({ ...current, class_number: e.target.value })}
                         >
-                            <MenuItem value=""><em>None</em></MenuItem>
                             <MenuItem value="6">6</MenuItem>
                             <MenuItem value="7">7</MenuItem>
                             <MenuItem value="8">8</MenuItem>
@@ -393,18 +392,10 @@ export default function AdminStudents() {
                         </Select>
                     </FormControl>
                 </Grid>
-                <Grid item xs={6}>
-                    <TextField
-                        label="Roll Number"
-                        fullWidth
-                        value={current.number}
-                        onChange={(e) => setCurrent({ ...current, number: e.target.value })}
-                    />
-                </Grid>
             </Grid>
 
             <TextField
-                label="Mobile Number"
+                label="Mobile Number (Optional)"
                 fullWidth
                 value={current.mobile_number}
                 onChange={(e) => setCurrent({ ...current, mobile_number: e.target.value })}

@@ -121,15 +121,25 @@ class Student(db.Model):
     school_id = db.Column(db.Integer, db.ForeignKey('schools.id'), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    def generate_student_id(self):
-        sc = (self.school.code if self.school else None)
-        if not sc:
+    def generate_student_id_auto(self):
+        if not self.school or not self.school.code:
             raise ValueError("school code required")
-        num = f"{int(self.number):03d}"
-        if self.class_number and str(self.class_number).strip() != "":
-            self.student_id = f"{sc}-{self.class_number}-{num}"
+
+        q = Student.query.filter_by(
+            school_id=self.school_id,
+            class_number=self.class_number
+        )
+
+        seq = q.count() + 1
+        seq4 = f"{seq:04d}"
+
+        if self.class_number:
+           self.student_id = f"{self.school.code}-{self.class_number}-{seq4}"
         else:
-            self.student_id = f"{sc}-{num}"
+           self.student_id = f"{self.school.code}-{seq4}"
+
+    # Optional compatibility
+        self.number = seq4
 
     def to_dict(self):
         return {

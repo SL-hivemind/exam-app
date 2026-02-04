@@ -163,155 +163,121 @@ def upload_exam_image(exam_id):
 
 # ---------------- STUDENT CSV IMPORT ---------------- #
 
-
-def import_students_csv(path, fix_existing=False, has_header=True):
+def import_students_csv(path, fix_existing=False):
     """
-    Import or fix student data from CSV.
-
-    CSV columns expected:
-      - username (optional) -> pre-generated student ID
-      - number (required)
-      - name (required)
-      - school_code (required)
-      - class_number / class (optional)
-      - email (optional)
-      - password (optional)
-
-    fix_existing: if True, will attempt to fix existing students with NULL student_id or school_id.
-
-    Returns list of created or updated student dicts.
+    Import students from CSV.
+    - Does NOT modify existing student_id
+    - Auto-generates student_id ONLY for new students
     """
-    created_or_fixed = []
 
-    # Fix existing students first if flag is set
+    created = []
+
+    # -------------------------------
+    # OPTIONAL: Fix existing students
+    # -------------------------------
     if fix_existing:
-        students = Student.query.filter((Student.student_id == None) | (Student.school_id == None)).all()
+        students = Student.query.filter(
+            (Student.student_id == None) | (Student.school_id == None)
+        ).all()
+
         for s in students:
-            # Try to find school by username prefix
             if not s.school_id and s.student_id:
-                school_code = s.student_id.split('-')[0]
+                school_code = s.student_id.split("-")[0]
                 school = School.query.filter_by(code=school_code).first()
                 if school:
                     s.school_id = school.id
                     s.school = school
 
-            # Generate student_id if missing
             if not s.student_id:
+                if not s.school and s.school_id:
+                    s.school = School.query.get(s.school_id)
                 s.generate_student_id()
 
-            # Update username in User table
             user = User.query.get(s.user_id)
             if user and user.username != s.student_id:
                 user.username = s.student_id
 
-            created_or_fixed.append({
+            created.append({
                 "user_id": s.user_id,
                 "student_id": s.student_id,
                 "fixed": True
             })
+
         db.session.commit()
 
-    # Now handle new CSV import
+    # -------------------------------
+    # NEW STUDENT CSV IMPORT
+    # -------------------------------
     with open(path, newline="", encoding="utf-8-sig") as fh:
         reader = csv.DictReader(fh)
-        fieldnames = set(reader.fieldnames or [])
 
-        required = {'name', 'school_code'}
-        if not required.issubset(fieldnames):
-            raise ValueError(f"CSV must contain headers: {required}")
-        if 'number' not in fieldnames and 'username' not in fieldnames:
-            raise ValueError("CSV must contain either 'number' or 'username' header")
+        required = {"name", "school_code"}
+        if not required.issubset(reader.fieldnames or []):
+            raise ValueError("CSV must contain: name, school_code")
 
         for row in reader:
-            name = row.get('name', '').strip()
-            school_code = (row.get("school_code") or row.get("code") or "").strip()
-            number = str(row.get('number') or '').strip()
-            username = row.get('username', '').strip() if 'username' in row else None
-            class_ = row.get('class_number') or row.get('class')
-            email = row.get('email') or None
-            password = row.get('password') or None
+            name = (row.get("name") or "").strip()
+            school_code = (row.get("school_code") or "").strip()
+            class_number = row.get("class_number") or row.get("class")
+            email = row.get("email") or None
+            password = row.get("password") or None
+            number = str(row.get("number") or "").strip()
+            username = (row.get("username") or "").strip()
 
-            if not number and not username:
-                raise ValueError(f"Student number or username required for: {name}")
+            if not name or not school_code:
+                continue
 
             school = School.query.filter_by(code=school_code).first()
             if not school:
-                raise ValueError(f"school_code not found: {school_code}")
+                raise ValueError(f"School not found: {school_code}")
 
-            # Create User
-            temp_pw = password or secrets.token_hex(6)
-            user = User(username="__tmp__", password_hash="__tmp__", role='student', email=email)
-            user.set_password(temp_pw)
+            # -------------------------------
+            # Create USER (TEMP)
+            # -------------------------------
+            temp_password = password or secrets.token_hex(6)
+
+            user = User(
+                username="__tmp__",
+                role="student",
+                email=email
+            )
+            user.set_password(temp_password)
             db.session.add(user)
-            try:
-                db.session.flush()  # ensures user.id exists
-            except IntegrityError as e:
-                db.session.rollback()
-                raise ValueError(f"Duplicate user or student detected for student: {name}, error: {str(e)}")
+            db.session.flush()
 
-            # Create Student with school_id
+            # -------------------------------
+            # Create STUDENT
+            # -------------------------------
             student = Student(
                 user_id=user.id,
                 name=name,
-                class_number=class_,
-                number=number,
+                class_number=class_number,
+                number=number or None,
                 school_id=school.id
             )
-
-            # Explicitly load school relationship before generating student_id
             student.school = school
-            # Generate student_id based on school.code
-            student.generate_student_id()
-            db.session.add(student)
-            try:
-                db.session.flush()  # ensures student.student_id is in DB
-            except IntegrityError as e:
-                db.session.rollback()
-                raise ValueError(f"Duplicate student_id detected for student: {name}, error: {str(e)}")
 
-            # Update username to match student_id
+            # Auto-generate ONLY if missing
+            if not username:
+                student.generate_student_id_auto()
+            else:
+                student.student_id = username
+
+            db.session.add(student)
+            db.session.flush()
+
+            # Sync username
             user.username = student.student_id
             db.session.add(user)
 
-            created_or_fixed.append({
+            created.append({
                 "student_id": student.student_id,
                 "user_id": user.id,
-                "password": temp_pw if not password else password
+                "password": temp_password if not password else password
             })
 
     db.session.commit()
-    return created_or_fixed
-
-
-def fix_existing_students():
-    created_or_fixed = []
-
-    students = Student.query.filter((Student.student_id==None) | (Student.school_id==None)).all()
-    for s in students:
-        if not s.school_id and s.student_id:
-            school_code = s.student_id.split('-')[0]
-            school = School.query.filter_by(code=school_code).first()
-            if school:
-                s.school_id = school.id
-                s.school = school
-
-        if not s.student_id:
-            # Load school if school_id is set
-            if s.school_id and not s.school:
-                s.school = School.query.get(s.school_id)
-            s.generate_student_id()
-
-        user = User.query.get(s.user_id)
-        if user and user.username != s.student_id:
-            user.username = s.student_id
-
-        created_or_fixed.append({
-            "user_id": s.user_id,
-            "student_id": s.student_id,
-            "fixed": True
-        })
-    db.session.commit()
-    return created_or_fixed
+    return created
 
 
 def import_questions_csv(path, exam_id, uploaded_images_map=None):
