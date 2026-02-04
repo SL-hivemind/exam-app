@@ -2,6 +2,7 @@ import os
 import csv
 import secrets
 import boto3
+import re
 from flask import Blueprint, request, jsonify
 from werkzeug.utils import secure_filename
 from sqlalchemy.exc import IntegrityError
