@@ -321,15 +321,58 @@ export default function RepoQuestionsPage() {
 
                   <Box flexGrow={1}>
                     <Stack direction="row" spacing={1} mb={1}>
-                      <Chip label={`ID: ${q.custom_id}`} size="small" color="primary" variant="outlined" />
-                      <Chip label={q.subject} size="small" />
-                      <Chip label={`Class ${q.class_number}`} size="small" />
+                      <Chip
+                        label={`ID: ${q.custom_id}`}
+                        size="small"
+                        color="primary"
+                        variant="outlined"
+                      />
+                      {q.subject && <Chip label={q.subject} size="small" />}
+                      {q.class_number && (
+                        <Chip label={`Class ${q.class_number}`} size="small" />
+                      )}
                     </Stack>
-                    <Typography variant="subtitle1">{q.text}</Typography>
-                    <Typography variant="caption" color="success.main" fontWeight="bold">
+
+                    {/* Question text */}
+                    <Typography variant="subtitle1" fontWeight={600}>
+                      {q.text}
+                    </Typography>
+
+                    {/* Options */}
+                    <Grid container spacing={1} mt={1}>
+                      {q.option_a && (
+                        <Grid item xs={6}>
+                          <Typography variant="body2">A) {q.option_a}</Typography>
+                        </Grid>
+                      )}
+                      {q.option_b && (
+                        <Grid item xs={6}>
+                          <Typography variant="body2">B) {q.option_b}</Typography>
+                        </Grid>
+                      )}
+                      {q.option_c && (
+                        <Grid item xs={6}>
+                          <Typography variant="body2">C) {q.option_c}</Typography>
+                        </Grid>
+                      )}
+                      {q.option_d && (
+                        <Grid item xs={6}>
+                          <Typography variant="body2">D) {q.option_d}</Typography>
+                        </Grid>
+                      )}
+                    </Grid>
+
+                    {/* Answer */}
+                    <Typography
+                      variant="caption"
+                      color="success.main"
+                      fontWeight="bold"
+                      sx={{ mt: 1, display: 'block' }}
+                    >
                       Ans: {q.correct_answer}
                     </Typography>
                   </Box>
+
 
                   {canEditRepo && (
                     <IconButton
