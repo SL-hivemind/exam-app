@@ -33,8 +33,8 @@ export default function RepoQuestionEditPage() {
 
   const basePath =
     user?.role === 'admin' ? '/admin' :
-    user?.role === 'school_admin' ? '/school' :
-    user?.role === 'subject_specialist' ? '/specialist' : '';
+      user?.role === 'school_admin' ? '/school' :
+        user?.role === 'subject_specialist' ? '/specialist' : '';
 
   useEffect(() => {
     const load = async () => {
@@ -148,10 +148,25 @@ export default function RepoQuestionEditPage() {
             </Typography>
             <Grid container spacing={2}>
               <Grid item xs={4}>
-                <TextField label="Class" value={q.class_number || ''} fullWidth />
-              </Grid>
-              <Grid item xs={4}>
-                <TextField label="Subject" value={q.subject || ''} fullWidth disabled={isSubject} />
+                <TextField
+                  label="Class"
+                  value={q.class_number || ''}
+                  fullWidth
+                  disabled={!isNewMode}              // 🔒 edit mode locked
+                  onChange={(e) =>
+                    isNewMode && setQ({ ...q, class_number: e.target.value })
+                  }
+                />
+
+                <TextField
+                  label="Subject"
+                  value={q.subject || ''}
+                  fullWidth
+                  disabled={!isNewMode || isSubject} // 🔒 edit mode locked
+                  onChange={(e) =>
+                    isNewMode && setQ({ ...q, subject: e.target.value })
+                  }
+                />
               </Grid>
               <Grid item xs={4}>
                 <TextField
