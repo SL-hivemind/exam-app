@@ -72,7 +72,7 @@ export default function RepoQuestionEditPage() {
   const validate = () => {
     const e = {};
     if (!q.text?.trim()) e.text = 'Question text is required';
-    if (!q.chapter) e.chapter = 'Chapter is required';
+    // if (!q.chapter) e.chapter = 'Chapter is required';
     if (!q.correct_answer) e.correct_answer = 'Select correct answer';
     if (!q.marks || q.marks < 1) e.marks = 'Marks must be at least 1';
     setErrors(e);
