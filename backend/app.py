@@ -810,7 +810,7 @@ def route_import_repository_csv(current_user):
     try:
         csv_path = save_csv_file(file)
 
-        count = import_repository_csv(csv_path, current_user.id)
+        result = import_repository_csv(csv_path, current_user.id)
 
         db.session.commit()
 
@@ -820,7 +820,9 @@ def route_import_repository_csv(current_user):
             pass
 
         return jsonify({
-            "message": f"Successfully imported {count} questions"
+            "message": f"Successfully imported {result['inserted']} questions",
+            "inserted": result["inserted"],
+            "skipped": result["skipped"]
         }), 201
 
     except Exception as e:

@@ -6,6 +6,7 @@ import re
 from flask import Blueprint, request, jsonify
 from werkzeug.utils import secure_filename
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy import func
 from models import db, School, User, Student, Question, Exam, StudentExamAttempt, QuestionRepository
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment
@@ -447,50 +448,70 @@ def get_last_serial(class_number, subject, chapter):
     return int(last[0].split("-")[-1])
 
 
+def _norm_key_part(value, fallback=None, lower=False):
+    if value is None:
+        value = fallback
+    value = (value or "").strip()
+    if not value and fallback is not None:
+        value = str(fallback).strip()
+    if lower:
+        value = value.lower()
+    return value
+
+
 def import_repository_csv(path, current_user_id):
     count = 0
     skipped = 0
+    seen_rows = set()
 
     with open(path, newline="", encoding="utf-8-sig") as fh:
         reader = csv.DictReader(fh)
         reader.fieldnames = [h.strip().lower() if h else '' for h in reader.fieldnames]
 
         for row in reader:
-            text = (row.get("text") or "").strip()
-            if not text:
+            raw_text = (row.get("text") or "").strip()
+            text_key = _norm_key_part(raw_text, lower=True)
+            if not text_key:
                 continue
 
-            class_number = row.get("class") or row.get("class_number")
-            subject = row.get("subject")
-            chapter = row.get("chapter") or "GEN"
+            class_number = _norm_key_part(row.get("class") or row.get("class_number"))
+            subject_key = _norm_key_part(row.get("subject"), lower=True)
+            chapter_key = _norm_key_part(row.get("chapter"), fallback="GEN", lower=True)
             image_url = row.get("image") or row.get("image_path") or row.get("image_url")
+            duplicate_key = (text_key, class_number, subject_key, chapter_key)
+
+            if duplicate_key in seen_rows:
+                skipped += 1
+                continue
 
             # 🔒 CRITICAL: prevent premature autoflush
             with db.session.no_autoflush:
 
                 # ✅ DUPLICATE GUARD (text-based)
-                exists = QuestionRepository.query.filter_by(
-                    text=text,
-                    class_number=class_number,
-                    subject=subject,
-                    chapter=chapter
-                ).first()
+                exists = (
+                    QuestionRepository.query
+                    .filter(func.lower(func.trim(QuestionRepository.text)) == text_key)
+                    .filter(func.trim(QuestionRepository.class_number) == class_number)
+                    .filter(func.lower(func.trim(QuestionRepository.subject)) == subject_key)
+                    .filter(func.lower(func.trim(QuestionRepository.chapter)) == chapter_key)
+                    .first()
+                )
 
                 if exists:
                     skipped += 1
                     continue
 
                 q = QuestionRepository(
-                    text=text,
+                    text=raw_text,
                     option_a=row.get("option_a"),
                     option_b=row.get("option_b"),
                     option_c=row.get("option_c"),
                     option_d=row.get("option_d"),
                     correct_answer=row.get("correct_answer"),
                     marks=int(row.get("marks") or 1),
-                    subject=subject,
+                    subject=(row.get("subject") or "").strip(),
                     class_number=class_number,
-                    chapter=chapter,
+                    chapter=(row.get("chapter") or "GEN").strip() or "GEN",
                     topic=row.get("topic"),
                     image_path=image_url,
                     created_by=current_user_id
@@ -505,6 +526,7 @@ def import_repository_csv(path, current_user_id):
 
                 db.session.add(q)
                 db.session.flush()   # now safe
+                seen_rows.add(duplicate_key)
 
                 count += 1
 
