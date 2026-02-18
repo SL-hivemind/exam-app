@@ -477,8 +477,23 @@ def import_repository_csv(path, current_user_id):
             class_number = _norm_key_part(row.get("class") or row.get("class_number"))
             subject_key = _norm_key_part(row.get("subject"), lower=True)
             chapter_key = _norm_key_part(row.get("chapter"), fallback="GEN", lower=True)
+            option_a_key = _norm_key_part(row.get("option_a"), lower=True)
+            option_b_key = _norm_key_part(row.get("option_b"), lower=True)
+            option_c_key = _norm_key_part(row.get("option_c"), lower=True)
+            option_d_key = _norm_key_part(row.get("option_d"), lower=True)
+            correct_answer_key = _norm_key_part(row.get("correct_answer"), lower=True)
             image_url = row.get("image") or row.get("image_path") or row.get("image_url")
-            duplicate_key = (text_key, class_number, subject_key, chapter_key)
+            duplicate_key = (
+                text_key,
+                class_number,
+                subject_key,
+                chapter_key,
+                option_a_key,
+                option_b_key,
+                option_c_key,
+                option_d_key,
+                correct_answer_key
+            )
 
             if duplicate_key in seen_rows:
                 skipped += 1
@@ -501,12 +516,32 @@ def import_repository_csv(path, current_user_id):
                 db_chapter = func.lower(
                     func.coalesce(func.nullif(func.trim(QuestionRepository.chapter), ''), 'gen')
                 )
+                db_option_a = func.lower(
+                    func.coalesce(func.nullif(func.trim(QuestionRepository.option_a), ''), '')
+                )
+                db_option_b = func.lower(
+                    func.coalesce(func.nullif(func.trim(QuestionRepository.option_b), ''), '')
+                )
+                db_option_c = func.lower(
+                    func.coalesce(func.nullif(func.trim(QuestionRepository.option_c), ''), '')
+                )
+                db_option_d = func.lower(
+                    func.coalesce(func.nullif(func.trim(QuestionRepository.option_d), ''), '')
+                )
+                db_correct_answer = func.lower(
+                    func.coalesce(func.nullif(func.trim(QuestionRepository.correct_answer), ''), '')
+                )
                 exists = (
                     QuestionRepository.query
                     .filter(db_text == text_key)
                     .filter(db_class == class_number)
                     .filter(db_subject == subject_key)
                     .filter(db_chapter == chapter_key)
+                    .filter(db_option_a == option_a_key)
+                    .filter(db_option_b == option_b_key)
+                    .filter(db_option_c == option_c_key)
+                    .filter(db_option_d == option_d_key)
+                    .filter(db_correct_answer == correct_answer_key)
                     .first()
                 )
 

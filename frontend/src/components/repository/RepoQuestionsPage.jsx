@@ -161,11 +161,17 @@ export default function RepoQuestionsPage() {
         formData,
         { headers: { "Content-Type": "multipart/form-data" } }
       );
+      const inserted = Number(res.data?.inserted ?? 0);
+      const skipped = Number(res.data?.skipped ?? 0);
+      const successMessage =
+        Number.isFinite(inserted) && Number.isFinite(skipped)
+          ? `Imported ${inserted} questions, skipped ${skipped} duplicates`
+          : (res.data?.message || "Import completed successfully");
 
       setSnack({
         open: true,
         severity: "success",
-        message: res.data.message || "Import completed successfully"
+        message: successMessage
       });
 
       fetchRepo(); // refresh list
