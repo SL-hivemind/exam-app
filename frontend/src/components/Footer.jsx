@@ -91,7 +91,7 @@ export default function Footer() {
               <Typography variant="body2" paragraph>
                 <strong>Email:</strong>
                 directorops@e2eindia.org<br />
-                <strong>Phone:</strong> 040 45150531
+                <strong>Phone:</strong> 040 45632683
               </Typography>
               <Button variant="outlined" color="inherit" size="small" href="mailto:directorops@e2eindia.org">
                 Send Message

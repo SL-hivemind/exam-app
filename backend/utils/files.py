@@ -488,12 +488,25 @@ def import_repository_csv(path, current_user_id):
             with db.session.no_autoflush:
 
                 # ✅ DUPLICATE GUARD (text-based)
+                db_text = func.lower(
+                    func.coalesce(func.nullif(func.trim(QuestionRepository.text), ''), '')
+                )
+                db_class = func.coalesce(
+                    func.nullif(func.trim(QuestionRepository.class_number), ''),
+                    ''
+                )
+                db_subject = func.lower(
+                    func.coalesce(func.nullif(func.trim(QuestionRepository.subject), ''), '')
+                )
+                db_chapter = func.lower(
+                    func.coalesce(func.nullif(func.trim(QuestionRepository.chapter), ''), 'gen')
+                )
                 exists = (
                     QuestionRepository.query
-                    .filter(func.lower(func.trim(QuestionRepository.text)) == text_key)
-                    .filter(func.trim(QuestionRepository.class_number) == class_number)
-                    .filter(func.lower(func.trim(QuestionRepository.subject)) == subject_key)
-                    .filter(func.lower(func.trim(QuestionRepository.chapter)) == chapter_key)
+                    .filter(db_text == text_key)
+                    .filter(db_class == class_number)
+                    .filter(db_subject == subject_key)
+                    .filter(db_chapter == chapter_key)
                     .first()
                 )
 
