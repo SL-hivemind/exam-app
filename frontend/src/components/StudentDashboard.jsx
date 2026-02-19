@@ -10,6 +10,8 @@ import {
   Refresh as RefreshIcon,
   EventNote as EventNoteIcon,
   Info as InfoIcon,
+  Insights as InsightsIcon,
+  TrendingUp as TrendingUpIcon,
   Timer as TimerIcon,
   AccessTime as AccessTimeIcon,
   Assignment as AssignmentIcon,
@@ -167,6 +169,11 @@ export default function StudentDashboard() {
     }
   };
 
+  const attemptedCount = exams.filter((e) => e.attempted).length;
+  const releasedCount = exams.filter((e) => e.attempted && e.exam?.results_released).length;
+  const pendingCount = exams.filter((e) => e.attempted && !e.exam?.results_released).length;
+  const activeNowCount = exams.filter((e) => isExamAvailable(e)).length;
+
   return (
     <Box sx={{ width: '100%', minHeight: '100vh', bgcolor: '#f5f7fa' }}>
       
@@ -200,12 +207,6 @@ export default function StudentDashboard() {
           </Box>
 
           <Stack direction="row" spacing={2}>
-             <Button
-               variant="outlined"
-               onClick={() => navigate("/student/analysis")}
-             >
-               Analysis
-             </Button>
              <Button 
                startIcon={<InfoIcon />} 
                variant="outlined" 
@@ -363,6 +364,54 @@ export default function StudentDashboard() {
                 position: 'sticky', top: 90 
               }}
             >
+              <Paper
+                elevation={0}
+                sx={{
+                  p: 2,
+                  mb: 3,
+                  borderRadius: 2.5,
+                  color: '#fff',
+                  background: 'linear-gradient(120deg, #1f3b73 0%, #1f6ed4 55%, #50a3ff 100%)'
+                }}
+              >
+                <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ opacity: 0.9 }}>Analysis Hub</Typography>
+                    <Typography variant="h6" fontWeight={800}>Your Progress</Typography>
+                  </Box>
+                  <InsightsIcon />
+                </Stack>
+
+                <Grid container spacing={1} sx={{ mt: 1.5, mb: 1 }}>
+                  <Grid item xs={6}>
+                    <Typography variant="caption" sx={{ opacity: 0.85 }}>Attempted</Typography>
+                    <Typography variant="h6" fontWeight={700}>{attemptedCount}</Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="caption" sx={{ opacity: 0.85 }}>Results</Typography>
+                    <Typography variant="h6" fontWeight={700}>{releasedCount}</Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="caption" sx={{ opacity: 0.85 }}>Pending</Typography>
+                    <Typography variant="h6" fontWeight={700}>{pendingCount}</Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="caption" sx={{ opacity: 0.85 }}>Active Now</Typography>
+                    <Typography variant="h6" fontWeight={700}>{activeNowCount}</Typography>
+                  </Grid>
+                </Grid>
+
+                <Button
+                  variant="contained"
+                  fullWidth
+                  startIcon={<TrendingUpIcon />}
+                  onClick={() => navigate("/student/analysis")}
+                  sx={{ bgcolor: '#fff', color: '#1f3b73', '&:hover': { bgcolor: '#edf4ff' } }}
+                >
+                  Open Analysis Dashboard
+                </Button>
+              </Paper>
+
               <Typography variant="h6" fontWeight={700} gutterBottom display="flex" alignItems="center">
                 <EventNoteIcon sx={{ mr: 1, color: 'primary.main' }} /> 
                 Upcoming
