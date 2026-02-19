@@ -10,6 +10,7 @@ import {
   Alert,
   CircularProgress,
   Button,
+  TableContainer,
   Table,
   TableHead,
   TableRow,
@@ -74,6 +75,7 @@ export default function StudentAnalysisPage() {
   if (!data) return null;
 
   const { summary, timeline, chapter_breakdown, exam_wise, improvement_needed, strengths } = data;
+  const chapterChartData = (chapter_breakdown || []).slice(0, 12);
 
   return (
     <Box sx={{ p: 3, bgcolor: "#f5f7fa", minHeight: "100vh" }}>
@@ -92,13 +94,13 @@ export default function StudentAnalysisPage() {
       </Grid>
 
       <Grid container spacing={3}>
-        <Grid item xs={12} md={7}>
-          <Paper sx={{ p: 2, height: 360 }}>
+        <Grid item xs={12}>
+          <Paper sx={{ p: { xs: 2, md: 3 }, height: { xs: 360, md: 430 } }}>
             <Typography variant="subtitle1" fontWeight={700} gutterBottom>Score Trend</Typography>
             <ResponsiveContainer width="100%" height="90%">
               <LineChart data={timeline || []}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="label" />
+                <XAxis dataKey="label" minTickGap={24} />
                 <YAxis domain={[0, 100]} />
                 <Tooltip />
                 <Legend />
@@ -108,14 +110,24 @@ export default function StudentAnalysisPage() {
           </Paper>
         </Grid>
 
-        <Grid item xs={12} md={5}>
-          <Paper sx={{ p: 2, height: 360 }}>
+        <Grid item xs={12}>
+          <Paper sx={{ p: { xs: 2, md: 3 }, height: { xs: 420, md: 520 } }}>
             <Typography variant="subtitle1" fontWeight={700} gutterBottom>Chapter Accuracy</Typography>
             <ResponsiveContainer width="100%" height="90%">
-              <BarChart data={(chapter_breakdown || []).slice(0, 8)}>
+              <BarChart
+                data={chapterChartData}
+                layout="vertical"
+                margin={{ top: 10, right: 20, bottom: 10, left: 20 }}
+              >
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="chapter" hide />
-                <YAxis domain={[0, 100]} />
+                <XAxis type="number" domain={[0, 100]} />
+                <YAxis
+                  type="category"
+                  dataKey="chapter"
+                  width={150}
+                  tick={{ fontSize: 12 }}
+                  interval={0}
+                />
                 <Tooltip />
                 <Bar dataKey="percentage" fill="#2e7d32" />
               </BarChart>
@@ -156,30 +168,32 @@ export default function StudentAnalysisPage() {
         <Grid item xs={12}>
           <Paper sx={{ p: 2 }}>
             <Typography variant="subtitle1" fontWeight={700} gutterBottom>Exam-wise Performance</Typography>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Exam</TableCell>
-                  <TableCell>Submitted</TableCell>
-                  <TableCell>Score</TableCell>
-                  <TableCell>Percent</TableCell>
-                  <TableCell>Percentile</TableCell>
-                  <TableCell>Rank</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {(exam_wise || []).map((e) => (
-                  <TableRow key={e.exam_id + String(e.submitted_time)}>
-                    <TableCell>{e.exam_title}</TableCell>
-                    <TableCell>{e.submitted_time ? new Date(e.submitted_time).toLocaleString() : "-"}</TableCell>
-                    <TableCell>{`${e.score ?? 0}/${e.total_marks ?? 0}`}</TableCell>
-                    <TableCell>{e.percentage ?? 0}%</TableCell>
-                    <TableCell>{e.percentile ?? 0}</TableCell>
-                    <TableCell>{e.rank && e.participants ? `${e.rank}/${e.participants}` : "-"}</TableCell>
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Exam</TableCell>
+                    <TableCell>Submitted</TableCell>
+                    <TableCell>Score</TableCell>
+                    <TableCell>Percent</TableCell>
+                    <TableCell>Percentile</TableCell>
+                    <TableCell>Rank</TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHead>
+                <TableBody>
+                  {(exam_wise || []).map((e) => (
+                    <TableRow key={e.exam_id + String(e.submitted_time)}>
+                      <TableCell>{e.exam_title}</TableCell>
+                      <TableCell>{e.submitted_time ? new Date(e.submitted_time).toLocaleString() : "-"}</TableCell>
+                      <TableCell>{`${e.score ?? 0}/${e.total_marks ?? 0}`}</TableCell>
+                      <TableCell>{e.percentage ?? 0}%</TableCell>
+                      <TableCell>{e.percentile ?? 0}</TableCell>
+                      <TableCell>{e.rank && e.participants ? `${e.rank}/${e.participants}` : "-"}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
           </Paper>
         </Grid>
       </Grid>
