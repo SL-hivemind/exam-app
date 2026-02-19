@@ -58,7 +58,7 @@ export default function StudentAnalysisPage() {
 
   if (loading) {
     return (
-      <Box sx={{ minHeight: "100vh", display: "flex", justifyContent: "center", alignItems: "center" }}>
+      <Box sx={{ minHeight: "100vh",  justifyContent: "center", alignItems: "center" }}>
         <CircularProgress />
       </Box>
     );
