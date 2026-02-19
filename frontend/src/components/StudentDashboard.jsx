@@ -200,6 +200,12 @@ export default function StudentDashboard() {
           </Box>
 
           <Stack direction="row" spacing={2}>
+             <Button
+               variant="outlined"
+               onClick={() => navigate("/student/analysis")}
+             >
+               Analysis
+             </Button>
              <Button 
                startIcon={<InfoIcon />} 
                variant="outlined" 

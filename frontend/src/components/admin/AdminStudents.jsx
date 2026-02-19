@@ -12,6 +12,7 @@ import UploadFileIcon from "@mui/icons-material/UploadFile";
 import SearchIcon from "@mui/icons-material/Search";
 import FilterListIcon from "@mui/icons-material/FilterList";
 import ClassIcon from "@mui/icons-material/Class";
+import VisibilityIcon from "@mui/icons-material/Visibility";
 import api from "../../utils/api";
 import useAuth from "../../hooks/useAuth";
 
@@ -39,6 +40,10 @@ export default function AdminStudents() {
 
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [attemptsOpen, setAttemptsOpen] = useState(false);
+  const [attemptsLoading, setAttemptsLoading] = useState(false);
+  const [attemptsData, setAttemptsData] = useState(null);
+  const [selectedStudent, setSelectedStudent] = useState(null);
 
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [debouncedClass, setDebouncedClass] = useState("");
@@ -200,6 +205,21 @@ export default function AdminStudents() {
     }
   };
 
+  const handleViewAttempts = async (student) => {
+    setSelectedStudent(student);
+    setAttemptsOpen(true);
+    setAttemptsLoading(true);
+    setAttemptsData(null);
+    try {
+      const res = await api.get(`/admin/students/${student.id}/attempts`);
+      setAttemptsData(res.data);
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to fetch attempts");
+    } finally {
+      setAttemptsLoading(false);
+    }
+  };
+
   return (
     <Box sx={{ p: 3, bgcolor: '#f5f7fa', minHeight: '100vh' }}>
 
@@ -309,6 +329,9 @@ export default function AdminStudents() {
                   </TableCell>
                   <TableCell>{s.username}</TableCell>
                   <TableCell align="right">
+                    <IconButton size="small" onClick={() => handleViewAttempts(s)} color="info" title="View Attempts">
+                      <VisibilityIcon />
+                    </IconButton>
                     <IconButton size="small" onClick={() => handleOpen(s)} color="primary"><EditIcon /></IconButton>
                     <IconButton size="small" onClick={() => handleDelete(s.id)} color="error"><DeleteIcon /></IconButton>
                   </TableCell>
@@ -330,6 +353,67 @@ export default function AdminStudents() {
           }}
         />
       </Paper>
+
+      <Dialog
+        open={attemptsOpen}
+        onClose={() => setAttemptsOpen(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          Student Attempts: {selectedStudent?.name || ""}
+        </DialogTitle>
+        <DialogContent dividers>
+          {attemptsLoading ? (
+            <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : !attemptsData ? (
+            <Typography variant="body2" color="text.secondary">No data available.</Typography>
+          ) : (
+            <Stack spacing={2}>
+              <Stack direction="row" spacing={1} flexWrap="wrap">
+                <Chip label={`Attempts: ${attemptsData.summary?.attempted_exams ?? 0}`} color="primary" />
+                <Chip label={`Avg %: ${attemptsData.summary?.average_percentage ?? 0}`} variant="outlined" />
+                <Chip label={`Best %: ${attemptsData.summary?.best_percentage ?? 0}`} variant="outlined" />
+              </Stack>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Exam</TableCell>
+                    <TableCell>Submitted</TableCell>
+                    <TableCell>Score</TableCell>
+                    <TableCell>Percent</TableCell>
+                    <TableCell>Percentile</TableCell>
+                    <TableCell>Rank</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {(attemptsData.attempts || []).length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} align="center">No attempts found.</TableCell>
+                    </TableRow>
+                  ) : (
+                    (attemptsData.attempts || []).map((a) => (
+                      <TableRow key={a.attempt_id}>
+                        <TableCell>{a.exam_title}</TableCell>
+                        <TableCell>{a.submitted_time ? new Date(a.submitted_time).toLocaleString() : "-"}</TableCell>
+                        <TableCell>{`${a.score ?? 0} / ${a.total_marks ?? 0}`}</TableCell>
+                        <TableCell>{a.percentage ?? 0}%</TableCell>
+                        <TableCell>{a.percentile ?? 0}</TableCell>
+                        <TableCell>{a.rank && a.participants ? `${a.rank}/${a.participants}` : "-"}</TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setAttemptsOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
 
       {/* DIALOG FORM */}
       <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>

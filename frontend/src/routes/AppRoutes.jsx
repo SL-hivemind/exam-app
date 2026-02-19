@@ -21,6 +21,7 @@ import BulkEditQuestions from "../components/repository/BulkEditQuestions";
 import SpecialistActivityLog from "../components/subject/SpecialistActivityLog";
 import StudentDashboard from "../components/StudentDashboard";
 import PrimaryExamFlow from "../components/primary/PrimaryExamFlow";
+import StudentAnalysisPage from "../components/StudentAnalysisPage";
 
 // Auth
 import Login from "../components/Login";
@@ -81,6 +82,12 @@ export default function AppRoutes() {
       </Route>
 
       {/* --- 4. STUDENT DASHBOARD --- */}
+      <Route path="/student/analysis" element={
+          <ProtectedRoute roles={["student"]}>
+            <StudentAnalysisPage />
+          </ProtectedRoute>
+      } />
+
       <Route path="/student/*" element={
           <ProtectedRoute roles={["student"]}>
             <StudentDashboard />
