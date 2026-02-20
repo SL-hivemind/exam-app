@@ -5,8 +5,8 @@ import {
     Container, Stack, Chip, Button
 } from '@mui/material';
 import {
-    CheckCircle as CorrectIcon, // Fixed Name
-    Cancel as WrongIcon,        // Fixed Name
+    CheckCircle as CorrectIcon,
+    Cancel as WrongIcon,
     EmojiEvents as TrophyIcon,
     AccessTime as TimeIcon,
     ArrowBack as BackIcon
@@ -25,6 +25,7 @@ export default function StudentResultsPage() {
 
     useEffect(() => {
         fetchResults();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [examId, authToken]);
 
     const fetchResults = async () => {
@@ -63,45 +64,67 @@ export default function StudentResultsPage() {
     if (!results) return null;
 
     const { exam, attempt, answers } = results;
-    const percentage = Math.round((attempt.score / exam.total_marks) * 100) || 0;
+    const totalQuestions = answers.length;
+    const score = attempt.score || 0;
+    const totalMarks = exam.total_marks || 0;
+    const percentage = totalMarks > 0 ? Math.round((score / totalMarks) * 100) : 0;
 
-    // Calculate stats
-    const correctCount = answers.filter(a => a.is_correct).length;
-    const incorrectCount = answers.filter(a => !a.is_correct && a.answer).length;
-    const skippedCount = answers.filter(a => !a.answer).length;
+    const correctCount = answers.filter((a) => a.is_correct).length;
+    const incorrectCount = answers.filter((a) => !a.is_correct && a.answer).length;
+    const skippedCount = answers.filter((a) => !a.answer).length;
+    const attemptedCount = correctCount + incorrectCount;
+
+    const accuracy = attemptedCount > 0 ? Math.round((correctCount / attemptedCount) * 100) : 0;
+    const attemptRate = totalQuestions > 0 ? Math.round((attemptedCount / totalQuestions) * 100) : 0;
+    const marksLost = Math.max(totalMarks - score, 0);
+
+    const started = attempt.start_time ? new Date(attempt.start_time) : null;
+    const submitted = attempt.submitted_time ? new Date(attempt.submitted_time) : null;
+    const durationMins = started && submitted
+        ? Math.max(Math.round((submitted.getTime() - started.getTime()) / 60000), 0)
+        : null;
+
+    const insights = [];
+    if (accuracy >= 80) insights.push('Great accuracy. Keep this approach for similar exams.');
+    else if (accuracy >= 60) insights.push('Accuracy is decent. Focus on reducing avoidable mistakes.');
+    else insights.push('Accuracy is low for attempted questions. Revise concepts before the next test.');
+
+    if (skippedCount > 0) insights.push(`You skipped ${skippedCount} question(s). Try time-boxing each question.`);
+    if (marksLost > 0) insights.push(`You left ${marksLost} mark(s) on the table in this exam.`);
+    if (attemptRate === 100) insights.push('Good attempt coverage. You tried all questions.');
 
     return (
         <Box sx={{ bgcolor: '#f5f7fa', minHeight: '100vh', py: 4 }}>
             <Container maxWidth="lg">
-
-                {/* HEADER */}
                 <Button startIcon={<BackIcon />} onClick={() => navigate('/student')} sx={{ mb: 2 }}>
                     Back to Dashboard
                 </Button>
 
-                <Paper elevation={0} sx={{ p: 4, borderRadius: 3, mb: 4, bgcolor: '#fff', border: '1px solid #eee' }}>
+                <Paper elevation={0} sx={{ p: 4, borderRadius: 3, mb: 3, bgcolor: '#fff', border: '1px solid #eee' }}>
                     <Grid container spacing={4} alignItems="center">
                         <Grid item xs={12} md={8}>
                             <Typography variant="h4" fontWeight={800} color="primary.main">
                                 {exam.title}
                             </Typography>
                             <Typography variant="body1" color="text.secondary" sx={{ mt: 1 }}>
-                                {exam.description || "Exam Results Analysis"}
+                                {exam.description || 'Exam Result'}
                             </Typography>
                             <Stack direction="row" spacing={3} sx={{ mt: 3 }}>
                                 <Box display="flex" alignItems="center" gap={1}>
                                     <TimeIcon color="action" />
                                     <Typography variant="body2">
-                                        Submitted: {new Date(attempt.submitted_time).toLocaleString()}
+                                        Submitted: {submitted ? submitted.toLocaleString() : 'N/A'}
                                     </Typography>
                                 </Box>
                             </Stack>
                         </Grid>
                         <Grid item xs={12} md={4}>
                             <Paper
-                                elevation={3}
+                                elevation={2}
                                 sx={{
-                                    p: 3, borderRadius: 3, textAlign: 'center',
+                                    p: 3,
+                                    borderRadius: 3,
+                                    textAlign: 'center',
                                     bgcolor: percentage >= 70 ? '#e8f5e9' : percentage >= 40 ? '#fff3e0' : '#ffebee',
                                     border: '1px solid',
                                     borderColor: percentage >= 70 ? '#c8e6c9' : percentage >= 40 ? '#ffe0b2' : '#ffcdd2'
@@ -109,7 +132,7 @@ export default function StudentResultsPage() {
                             >
                                 <TrophyIcon sx={{ fontSize: 40, color: percentage >= 70 ? 'success.main' : 'warning.main', mb: 1 }} />
                                 <Typography variant="h3" fontWeight={800}>
-                                    {attempt.score} <span style={{ fontSize: '1.5rem', opacity: 0.6 }}>/ {exam.total_marks}</span>
+                                    {score} <span style={{ fontSize: '1.5rem', opacity: 0.6 }}>/ {totalMarks}</span>
                                 </Typography>
                                 <Typography variant="subtitle1" fontWeight={600}>
                                     {percentage}% Score
@@ -119,50 +142,63 @@ export default function StudentResultsPage() {
                     </Grid>
                 </Paper>
 
-                {/* PERFORMANCE SUMMARY */}
-                <Grid container spacing={3} sx={{ mb: 4 }}>
-                    <Grid item xs={12} sm={4}>
-                        <Paper sx={{ p: 3, borderRadius: 2, borderLeft: '5px solid #2e7d32' }}>
-                            <Typography color="text.secondary" variant="subtitle2">Correct Answers</Typography>
-                            <Typography variant="h4" fontWeight={700} color="success.main">{correctCount}</Typography>
+                <Grid container spacing={2} sx={{ mb: 3 }}>
+                    <Grid item xs={12} sm={6} md={3}>
+                        <Paper sx={{ p: 2.5, borderRadius: 2, borderLeft: '5px solid #2e7d32' }}>
+                            <Typography color="text.secondary" variant="subtitle2">Accuracy (Attempted)</Typography>
+                            <Typography variant="h4" fontWeight={700} color="success.main">{accuracy}%</Typography>
                         </Paper>
                     </Grid>
-                    <Grid item xs={12} sm={4}>
-                        <Paper sx={{ p: 3, borderRadius: 2, borderLeft: '5px solid #d32f2f' }}>
-                            <Typography color="text.secondary" variant="subtitle2">Incorrect Answers</Typography>
-                            <Typography variant="h4" fontWeight={700} color="error.main">{incorrectCount}</Typography>
+                    <Grid item xs={12} sm={6} md={3}>
+                        <Paper sx={{ p: 2.5, borderRadius: 2, borderLeft: '5px solid #0288d1' }}>
+                            <Typography color="text.secondary" variant="subtitle2">Attempt Rate</Typography>
+                            <Typography variant="h4" fontWeight={700} color="info.main">{attemptRate}%</Typography>
                         </Paper>
                     </Grid>
-                    <Grid item xs={12} sm={4}>
-                        <Paper sx={{ p: 3, borderRadius: 2, borderLeft: '5px solid #ed6c02' }}>
-                            <Typography color="text.secondary" variant="subtitle2">Skipped / Unanswered</Typography>
+                    <Grid item xs={12} sm={6} md={3}>
+                        <Paper sx={{ p: 2.5, borderRadius: 2, borderLeft: '5px solid #ed6c02' }}>
+                            <Typography color="text.secondary" variant="subtitle2">Skipped</Typography>
                             <Typography variant="h4" fontWeight={700} color="warning.main">{skippedCount}</Typography>
+                        </Paper>
+                    </Grid>
+                    <Grid item xs={12} sm={6} md={3}>
+                        <Paper sx={{ p: 2.5, borderRadius: 2, borderLeft: '5px solid #6d4c41' }}>
+                            <Typography color="text.secondary" variant="subtitle2">Time Used</Typography>
+                            <Typography variant="h4" fontWeight={700} color="text.primary">{durationMins !== null ? `${durationMins}m` : 'N/A'}</Typography>
                         </Paper>
                     </Grid>
                 </Grid>
 
-                {/* DETAILED QUESTION LIST */}
+                <Paper sx={{ p: 3, borderRadius: 2, mb: 4, border: '1px solid #eee' }}>
+                    <Typography variant="h6" fontWeight={700} sx={{ mb: 1 }}>Exam Insights</Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                        This analysis is only for this exam attempt.
+                    </Typography>
+                    <Stack spacing={1.25}>
+                        {insights.map((line, idx) => (
+                            <Typography key={idx} variant="body2">- {line}</Typography>
+                        ))}
+                    </Stack>
+                </Paper>
+
                 <Typography variant="h5" fontWeight={700} sx={{ mb: 2 }}>Question Analysis</Typography>
                 <Stack spacing={2}>
                     {answers.map((ans, idx) => (
                         <Paper key={idx} sx={{ p: 3, borderRadius: 2, border: '1px solid #eee' }}>
                             <Stack spacing={2}>
-
-                                {/* Question Header */}
                                 <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
                                     <Typography variant="subtitle1" fontWeight={600} sx={{ width: '85%' }}>
-                                        Q{idx + 1}. {ans.text || "Question text not available"}
+                                        Q{idx + 1}. {ans.text || 'Question text not available'}
                                     </Typography>
                                     <Chip
-                                        label={ans.is_correct ? `+${ans.marks_awarded} Marks` : "0 Marks"}
-                                        color={ans.is_correct ? "success" : "default"}
+                                        label={ans.is_correct ? `+${ans.marks_awarded} Marks` : '0 Marks'}
+                                        color={ans.is_correct ? 'success' : 'default'}
                                         size="small"
                                         variant="outlined"
                                         sx={{ fontWeight: 'bold' }}
                                     />
                                 </Stack>
 
-                                {/* Image (Optional) */}
                                 {ans.image_path && (
                                     <Box sx={{ my: 1 }}>
                                         <img
@@ -173,33 +209,13 @@ export default function StudentResultsPage() {
                                     </Box>
                                 )}
 
-                                {/* --- DEBUG SECTION: FORCE DISPLAY OPTIONS --- */} 
-                                {/* I placed this BEFORE the fancy grid so you can see raw data first */}
-                                {/* <Box sx={{ mt: 2, p: 2, bgcolor: '#f9f9f9', borderRadius: 2, border: '1px dashed #999' }}>
-                                    <Typography variant="caption" fontWeight="bold" color="textSecondary">DEBUG / RAW DATA VIEW:</Typography>
-                                    <Grid container spacing={1} sx={{ mt: 0.5 }}>
-                                        <Grid item xs={6}><Typography variant="body2">A) {ans.option_a || "Missing"}</Typography></Grid>
-                                        <Grid item xs={6}><Typography variant="body2">B) {ans.option_b || "Missing"}</Typography></Grid>
-                                        <Grid item xs={6}><Typography variant="body2">C) {ans.option_c || "Missing"}</Typography></Grid>
-                                        <Grid item xs={6}><Typography variant="body2">D) {ans.option_d || "Missing"}</Typography></Grid>
-                                    </Grid>
-                                    <Box sx={{ mt: 1, pt: 1, borderTop: '1px solid #ddd' }}>
-                                        <Typography variant="body2" color="error">
-                                            Correct Answer: <b>{ans.correct_answer || "Not Set"}</b>
-                                        </Typography>
-                                    </Box>
-                                </Box> */}
-                                {/* --- END DEBUG SECTION ---
-
-
-                                {/* Standard Options Grid (This uses the icons) */}
                                 <Grid container spacing={2} sx={{ mt: 1 }}>
                                     {['A', 'B', 'C', 'D'].map((optKey) => {
                                         const optionKeyRaw = `option_${optKey.toLowerCase()}`;
                                         const optionText = ans[optionKeyRaw];
 
-                                        const studentAnswer = (ans.answer || "").toUpperCase();
-                                        const correctAnswer = (ans.correct_answer || "").toUpperCase();
+                                        const studentAnswer = (ans.answer || '').toUpperCase();
+                                        const correctAnswer = (ans.correct_answer || '').toUpperCase();
                                         const currentOption = optKey.toUpperCase();
 
                                         const isSelected = studentAnswer === currentOption;
@@ -238,7 +254,6 @@ export default function StudentResultsPage() {
                                                         {optionText || <span style={{ fontStyle: 'italic', color: '#999' }}>Empty Option</span>}
                                                     </Typography>
 
-                                                    {/* FIXED ICONS USAGE HERE */}
                                                     {isCorrectOption && (
                                                         <CorrectIcon color="success" sx={{ position: 'absolute', right: 10 }} fontSize="small" />
                                                     )}
@@ -251,21 +266,18 @@ export default function StudentResultsPage() {
                                     })}
                                 </Grid>
 
-                                {/* Footer Text / Summary */}
                                 <Box sx={{ mt: 1, pt: 1, borderTop: '1px dashed #eee', display: 'flex', gap: 3, flexWrap: 'wrap' }}>
                                     <Typography variant="caption" sx={{ color: ans.answer ? 'text.secondary' : 'warning.main' }}>
-                                        Your Answer: <b>{ans.answer ? ans.answer.toUpperCase() : "Skipped"}</b>
+                                        Your Answer: <b>{ans.answer ? ans.answer.toUpperCase() : 'Skipped'}</b>
                                     </Typography>
                                     <Typography variant="caption" color="primary.main">
-                                        Correct Answer: <b>{ans.correct_answer ? ans.correct_answer.toUpperCase() : "N/A"}</b>
+                                        Correct Answer: <b>{ans.correct_answer ? ans.correct_answer.toUpperCase() : 'N/A'}</b>
                                     </Typography>
                                 </Box>
-
                             </Stack>
                         </Paper>
                     ))}
                 </Stack>
-
             </Container>
         </Box>
     );
