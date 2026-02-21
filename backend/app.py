@@ -974,9 +974,16 @@ def admin_exam_questions(current_user, exam_id):
             try:
                 # Assuming import_questions_csv is defined in utils.files
                 count = import_questions_csv(csv_path, exam_id, uploaded_images_map={})
+                db.session.commit()
                 return jsonify({'message': f'Imported {count} questions'}), 201
             except Exception as e:
+                db.session.rollback()
                 return jsonify({'message': 'Import failed', 'detail': str(e)}), 500
+            finally:
+                try:
+                    os.remove(csv_path)
+                except Exception:
+                    pass
 
         # Branch 2: JSON Body (Single Question)
         data = request.get_json(silent=True) or {}
