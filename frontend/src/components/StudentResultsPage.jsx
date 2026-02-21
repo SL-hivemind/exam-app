@@ -13,6 +13,19 @@ import {
 } from '@mui/icons-material';
 import api from '../utils/api';
 import useAuth from '../hooks/useAuth';
+import {
+    ResponsiveContainer,
+    PieChart,
+    Pie,
+    Cell,
+    Tooltip,
+    Legend,
+    BarChart,
+    Bar,
+    XAxis,
+    YAxis,
+    CartesianGrid
+} from 'recharts';
 
 export default function StudentResultsPage() {
     const { examId } = useParams();
@@ -83,6 +96,27 @@ export default function StudentResultsPage() {
     const durationMins = started && submitted
         ? Math.max(Math.round((submitted.getTime() - started.getTime()) / 60000), 0)
         : null;
+
+    const correctnessData = [
+        { name: 'Correct', value: correctCount, color: '#2e7d32' },
+        { name: 'Incorrect', value: incorrectCount, color: '#d32f2f' },
+        { name: 'Skipped', value: skippedCount, color: '#ed6c02' },
+    ];
+
+    const subjectMap = {};
+    answers.forEach((a) => {
+        const key = (a.subject || 'General').trim() || 'General';
+        if (!subjectMap[key]) {
+            subjectMap[key] = { subject: key, total: 0, earned: 0 };
+        }
+        subjectMap[key].total += Number(a.marks || 0);
+        subjectMap[key].earned += Number(a.marks_awarded || 0);
+    });
+    const subjectData = Object.values(subjectMap).map((s) => ({
+        ...s,
+        percentage: s.total > 0 ? Math.round((s.earned / s.total) * 100) : 0
+    }));
+    const hasMultipleSubjects = subjectData.length > 1;
 
     const insights = [];
     if (accuracy >= 80) insights.push('Great accuracy. Keep this approach for similar exams.');
@@ -180,6 +214,55 @@ export default function StudentResultsPage() {
                         ))}
                     </Stack>
                 </Paper>
+
+                <Grid container spacing={3} sx={{ mb: 4 }}>
+                    <Grid item xs={12} md={hasMultipleSubjects ? 5 : 12}>
+                        <Paper sx={{ p: 2.5, borderRadius: 2, border: '1px solid #eee', height: 340 }}>
+                            <Typography variant="h6" fontWeight={700} sx={{ mb: 1 }}>
+                                Performance Split
+                            </Typography>
+                            <ResponsiveContainer width="100%" height="88%">
+                                <PieChart>
+                                    <Pie
+                                        data={correctnessData}
+                                        dataKey="value"
+                                        nameKey="name"
+                                        cx="50%"
+                                        cy="50%"
+                                        outerRadius={95}
+                                        label
+                                    >
+                                        {correctnessData.map((entry) => (
+                                            <Cell key={entry.name} fill={entry.color} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip />
+                                    <Legend />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        </Paper>
+                    </Grid>
+
+                    {hasMultipleSubjects && (
+                        <Grid item xs={12} md={7}>
+                            <Paper sx={{ p: 2.5, borderRadius: 2, border: '1px solid #eee', height: 340 }}>
+                                <Typography variant="h6" fontWeight={700} sx={{ mb: 1 }}>
+                                    Subject-wise Score %
+                                </Typography>
+                                <ResponsiveContainer width="100%" height="88%">
+                                    <BarChart data={subjectData} margin={{ left: 10, right: 10 }}>
+                                        <CartesianGrid strokeDasharray="3 3" />
+                                        <XAxis dataKey="subject" />
+                                        <YAxis domain={[0, 100]} />
+                                        <Tooltip />
+                                        <Legend />
+                                        <Bar dataKey="percentage" fill="#1976d2" name="Score %" />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </Paper>
+                        </Grid>
+                    )}
+                </Grid>
 
                 <Typography variant="h5" fontWeight={700} sx={{ mb: 2 }}>Question Analysis</Typography>
                 <Stack spacing={2}>

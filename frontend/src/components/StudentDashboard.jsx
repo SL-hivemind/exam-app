@@ -207,11 +207,21 @@ export default function StudentDashboard() {
           </Box>
 
           <Stack direction="row" spacing={2}>
+             <Button
+               startIcon={<TrendingUpIcon />}
+               variant="contained"
+               onClick={() => navigate("/student/analysis")}
+               sx={{
+                 bgcolor: '#1f6ed4',
+                 '&:hover': { bgcolor: '#155bb4' }
+               }}
+             >
+               Analysis
+             </Button>
              <Button 
                startIcon={<InfoIcon />} 
                variant="outlined" 
                onClick={() => setIsInstructionsOpen(true)}
-               sx={{ display: { xs: 'none', sm: 'flex' } }}
              >
                Rules
              </Button>
