@@ -81,8 +81,6 @@ def register_student_routes(
         already_submitted = bool(attempt and attempt.submitted_time)
         if access_end and now > access_end:
             within_window = False
-        if exam.results_released:
-            within_window = False
         return (
             jsonify(
                 {
