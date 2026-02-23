@@ -81,6 +81,8 @@ export default function StudentResultsPage() {
     const score = attempt.score || 0;
     const totalMarks = exam.total_marks || 0;
     const percentage = totalMarks > 0 ? Math.round((score / totalMarks) * 100) : 0;
+    const rank = attempt.rank;
+    const participants = attempt.participants;
 
     const correctCount = answers.filter((a) => a.is_correct).length;
     const incorrectCount = answers.filter((a) => !a.is_correct && a.answer).length;
@@ -104,19 +106,38 @@ export default function StudentResultsPage() {
     ];
 
     const subjectMap = {};
+    const chapterMap = {};
+    const hasSubjectOrChapter = answers.some((a) => (a.subject && String(a.subject).trim()) || (a.chapter && String(a.chapter).trim()));
+
     answers.forEach((a) => {
-        const key = (a.subject || 'General').trim() || 'General';
-        if (!subjectMap[key]) {
-            subjectMap[key] = { subject: key, total: 0, earned: 0 };
+        const subjectKey = (a.subject || 'General').trim() || 'General';
+        if (!subjectMap[subjectKey]) {
+            subjectMap[subjectKey] = { subject: subjectKey, total: 0, earned: 0 };
         }
-        subjectMap[key].total += Number(a.marks || 0);
-        subjectMap[key].earned += Number(a.marks_awarded || 0);
+        subjectMap[subjectKey].total += Number(a.marks || 0);
+        subjectMap[subjectKey].earned += Number(a.marks_awarded || 0);
+
+        const chapterKey = (a.chapter || 'General').trim() || 'General';
+        if (!chapterMap[chapterKey]) {
+            chapterMap[chapterKey] = { chapter: chapterKey, total: 0, earned: 0 };
+        }
+        chapterMap[chapterKey].total += Number(a.marks || 0);
+        chapterMap[chapterKey].earned += Number(a.marks_awarded || 0);
     });
+
     const subjectData = Object.values(subjectMap).map((s) => ({
         ...s,
         percentage: s.total > 0 ? Math.round((s.earned / s.total) * 100) : 0
     }));
-    const hasMultipleSubjects = subjectData.length > 1;
+    const chapterData = Object.values(chapterMap)
+        .map((c) => ({
+            ...c,
+            percentage: c.total > 0 ? Math.round((c.earned / c.total) * 100) : 0
+        }))
+        .sort((a, b) => a.percentage - b.percentage);
+
+    const hasSubjectBreakdown = hasSubjectOrChapter && subjectData.some((s) => s.subject !== 'General');
+    const hasChapterBreakdown = hasSubjectOrChapter && chapterData.some((c) => c.chapter !== 'General');
 
     const insights = [];
     if (accuracy >= 80) insights.push('Great accuracy. Keep this approach for similar exams.');
@@ -150,6 +171,13 @@ export default function StudentResultsPage() {
                                         Submitted: {submitted ? submitted.toLocaleString() : 'N/A'}
                                     </Typography>
                                 </Box>
+                                {rank && participants ? (
+                                    <Chip
+                                        color="primary"
+                                        variant="outlined"
+                                        label={`Rank: ${rank} / ${participants}`}
+                                    />
+                                ) : null}
                             </Stack>
                         </Grid>
                         <Grid item xs={12} md={4}>
@@ -216,7 +244,7 @@ export default function StudentResultsPage() {
                 </Paper>
 
                 <Grid container spacing={3} sx={{ mb: 4 }}>
-                    <Grid item xs={12} md={hasMultipleSubjects ? 5 : 12}>
+                    <Grid item xs={12} md={(hasSubjectBreakdown || hasChapterBreakdown) ? 5 : 12}>
                         <Paper sx={{ p: 2.5, borderRadius: 2, border: '1px solid #eee', height: 340 }}>
                             <Typography variant="h6" fontWeight={700} sx={{ mb: 1 }}>
                                 Performance Split
@@ -243,16 +271,16 @@ export default function StudentResultsPage() {
                         </Paper>
                     </Grid>
 
-                    {hasMultipleSubjects && (
+                    {(hasSubjectBreakdown || hasChapterBreakdown) && (
                         <Grid item xs={12} md={7}>
                             <Paper sx={{ p: 2.5, borderRadius: 2, border: '1px solid #eee', height: 340 }}>
                                 <Typography variant="h6" fontWeight={700} sx={{ mb: 1 }}>
-                                    Subject-wise Score %
+                                    {hasSubjectBreakdown ? 'Subject-wise Score %' : 'Chapter-wise Score %'}
                                 </Typography>
                                 <ResponsiveContainer width="100%" height="88%">
-                                    <BarChart data={subjectData} margin={{ left: 10, right: 10 }}>
+                                    <BarChart data={hasSubjectBreakdown ? subjectData : chapterData} margin={{ left: 10, right: 10 }}>
                                         <CartesianGrid strokeDasharray="3 3" />
-                                        <XAxis dataKey="subject" />
+                                        <XAxis dataKey={hasSubjectBreakdown ? 'subject' : 'chapter'} />
                                         <YAxis domain={[0, 100]} />
                                         <Tooltip />
                                         <Legend />
@@ -263,6 +291,30 @@ export default function StudentResultsPage() {
                         </Grid>
                     )}
                 </Grid>
+
+                {!hasSubjectOrChapter && (
+                    <Alert severity="info" sx={{ mb: 4 }}>
+                        Subject/chapter metadata is not available for these questions, so showing normal exam analysis.
+                    </Alert>
+                )}
+
+                {hasChapterBreakdown && (
+                    <Paper sx={{ p: 2.5, borderRadius: 2, mb: 4, border: '1px solid #eee' }}>
+                        <Typography variant="h6" fontWeight={700} sx={{ mb: 1 }}>
+                            Chapter-wise Score %
+                        </Typography>
+                        <ResponsiveContainer width="100%" height={300}>
+                            <BarChart data={chapterData.slice(0, 12)} layout="vertical" margin={{ left: 20, right: 10 }}>
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis type="number" domain={[0, 100]} />
+                                <YAxis type="category" dataKey="chapter" width={150} interval={0} />
+                                <Tooltip />
+                                <Legend />
+                                <Bar dataKey="percentage" fill="#2e7d32" name="Score %" />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </Paper>
+                )}
 
                 <Typography variant="h5" fontWeight={700} sx={{ mb: 2 }}>Question Analysis</Typography>
                 <Stack spacing={2}>

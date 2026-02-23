@@ -270,6 +270,17 @@ def register_student_routes(
         if not attempt or not attempt.submitted_time:
             return jsonify({'message': 'no attempt found'}), 400
 
+        peer_scores = [
+            score
+            for (score,) in db.session.query(StudentExamAttempt.score)
+            .filter(StudentExamAttempt.exam_id == exam.id)
+            .filter(StudentExamAttempt.submitted_time.isnot(None))
+            .filter(StudentExamAttempt.score.isnot(None))
+            .all()
+        ]
+        higher_scores = sum(1 for score in peer_scores if score > (attempt.score or 0))
+        rank = higher_scores + 1 if peer_scores else None
+
         answers_data = []
         for answer in attempt.answers:
             question = Question.query.get(answer.question_id)
@@ -302,6 +313,8 @@ def register_student_routes(
                         'start_time': attempt.start_time.isoformat(),
                         'submitted_time': attempt.submitted_time.isoformat(),
                         'score': attempt.score,
+                        'rank': rank,
+                        'participants': len(peer_scores),
                     },
                     'answers': answers_data,
                 }

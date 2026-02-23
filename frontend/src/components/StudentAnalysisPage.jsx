@@ -11,6 +11,11 @@ import {
   CircularProgress,
   Button,
   Divider,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Toolbar,
   TableContainer,
   Table,
   TableHead,
@@ -28,6 +33,9 @@ import {
   ResponsiveContainer,
   BarChart,
   Bar,
+  PieChart,
+  Pie,
+  Cell,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -46,6 +54,7 @@ export default function StudentAnalysisPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [data, setData] = useState(null);
+  const [lastX, setLastX] = useState("5");
 
   useEffect(() => {
     const fetchAnalysis = async () => {
@@ -80,12 +89,39 @@ export default function StudentAnalysisPage() {
 
   if (!data) return null;
 
-  const { summary, timeline, chapter_breakdown, exam_wise, improvement_needed, strengths } = data;
+  const { chapter_breakdown, exam_wise, improvement_needed, strengths } = data;
+  const allExamWise = exam_wise || [];
+  const filteredExamWise = lastX === "all" ? allExamWise : allExamWise.slice(-Number(lastX));
+  const filteredTimeline = filteredExamWise.map((e) => ({
+    label: e.submitted_time ? new Date(e.submitted_time).toLocaleDateString("en-US", { day: "2-digit", month: "short" }) : "-",
+    percentage: e.percentage || 0,
+    exam_title: e.exam_title
+  }));
+  const filteredAttempted = filteredExamWise.length;
+  const filteredAvgPct = filteredAttempted
+    ? Math.round(filteredExamWise.reduce((acc, e) => acc + (e.percentage || 0), 0) / filteredAttempted)
+    : 0;
+  const filteredValidPercentiles = filteredExamWise.filter((e) => e.percentile !== null && e.percentile !== undefined);
+  const filteredAvgPercentile = filteredValidPercentiles.length
+    ? Math.round(filteredValidPercentiles.reduce((acc, e) => acc + (e.percentile || 0), 0) / filteredValidPercentiles.length)
+    : 0;
+  const filteredTrendDelta = filteredAttempted >= 2
+    ? Math.round((filteredExamWise[filteredAttempted - 1].percentage || 0) - (filteredExamWise[filteredAttempted - 2].percentage || 0))
+    : 0;
+  const filteredTrendPositive = filteredTrendDelta >= 0;
+  const pieEarned = filteredExamWise.reduce((acc, e) => acc + Number(e.score || 0), 0);
+  const pieTotal = filteredExamWise.reduce((acc, e) => acc + Number(e.total_marks || 0), 0);
+  const pieRemaining = Math.max(pieTotal - pieEarned, 0);
+  const marksPieData = [
+    { name: "Earned", value: pieEarned, color: "#2e7d32" },
+    { name: "Remaining", value: pieRemaining, color: "#d32f2f" }
+  ];
   const chapterChartData = (chapter_breakdown || []).slice(0, 12);
-  const trendPositive = (summary?.trend_delta || 0) >= 0;
+  const trendPositive = filteredTrendPositive;
 
   return (
     <Box sx={{ p: { xs: 2, md: 3 }, bgcolor: "#eef2f8", minHeight: "100vh" }}>
+      <Toolbar />
       <Paper
         sx={{
           p: { xs: 2, md: 3 },
@@ -102,14 +138,30 @@ export default function StudentAnalysisPage() {
               Track trend, percentile, strengths, and improvement areas.
             </Typography>
           </Box>
-          <Button
-            startIcon={<ArrowBackIcon />}
-            onClick={() => navigate("/student")}
-            variant="contained"
-            sx={{ bgcolor: "#fff", color: "#1f3b73", "&:hover": { bgcolor: "#f2f6ff" } }}
-          >
-            Back to Exams
-          </Button>
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} alignItems={{ xs: "stretch", sm: "center" }}>
+            <FormControl size="small" sx={{ minWidth: 160, bgcolor: "#fff", borderRadius: 1 }}>
+              <InputLabel id="last-x-label">Window</InputLabel>
+              <Select
+                labelId="last-x-label"
+                label="Window"
+                value={lastX}
+                onChange={(e) => setLastX(e.target.value)}
+              >
+                <MenuItem value="3">Last 3 Exams</MenuItem>
+                <MenuItem value="5">Last 5 Exams</MenuItem>
+                <MenuItem value="10">Last 10 Exams</MenuItem>
+                <MenuItem value="all">All Exams</MenuItem>
+              </Select>
+            </FormControl>
+            <Button
+              startIcon={<ArrowBackIcon />}
+              onClick={() => navigate("/student")}
+              variant="contained"
+              sx={{ bgcolor: "#fff", color: "#1f3b73", "&:hover": { bgcolor: "#f2f6ff" } }}
+            >
+              Back to Exams
+            </Button>
+          </Stack>
         </Stack>
       </Paper>
 
@@ -120,7 +172,7 @@ export default function StudentAnalysisPage() {
               <Typography variant="caption" color="text.secondary">Exams Attempted</Typography>
               <SchoolIcon color="primary" fontSize="small" />
             </Stack>
-            <Typography variant="h4" fontWeight={800}>{summary?.attempted_exams || 0}</Typography>
+            <Typography variant="h4" fontWeight={800}>{filteredAttempted}</Typography>
           </Paper>
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
@@ -129,7 +181,7 @@ export default function StudentAnalysisPage() {
               <Typography variant="caption" color="text.secondary">Average Score</Typography>
               <TrendingUpIcon sx={{ color: "#2e7d32" }} fontSize="small" />
             </Stack>
-            <Typography variant="h4" fontWeight={800}>{summary?.average_percentage || 0}%</Typography>
+            <Typography variant="h4" fontWeight={800}>{filteredAvgPct}%</Typography>
           </Paper>
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
@@ -138,7 +190,7 @@ export default function StudentAnalysisPage() {
               <Typography variant="caption" color="text.secondary">Avg Percentile</Typography>
               <InsightsIcon sx={{ color: "#ed6c02" }} fontSize="small" />
             </Stack>
-            <Typography variant="h4" fontWeight={800}>{summary?.average_percentile || 0}</Typography>
+            <Typography variant="h4" fontWeight={800}>{filteredAvgPercentile}</Typography>
           </Paper>
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
@@ -147,27 +199,27 @@ export default function StudentAnalysisPage() {
               <Typography variant="caption" color="text.secondary">Trend</Typography>
               <Chip
                 size="small"
-                label={summary?.trend || "steady"}
+                label={filteredAttempted < 2 ? "steady" : trendPositive ? "improving" : "declining"}
                 color={trendPositive ? "success" : "error"}
                 variant="outlined"
               />
             </Stack>
             <Typography variant="h4" fontWeight={800}>
-              {trendPositive ? "+" : ""}{summary?.trend_delta || 0}
+              {trendPositive ? "+" : ""}{filteredTrendDelta}
             </Typography>
           </Paper>
         </Grid>
       </Grid>
 
       <Grid container spacing={3}>
-        <Grid item xs={12} lg={8}>
+        <Grid item xs={12} lg={7}>
           <Paper sx={{ p: { xs: 2, md: 3 }, borderRadius: 3, height: { xs: 360, md: 430 } }}>
             <Typography variant="h6" fontWeight={700} gutterBottom>Score Trend</Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-              Progress across submitted exams (percentage-wise).
+              Progress across selected exam window.
             </Typography>
             <ResponsiveContainer width="100%" height="90%">
-              <LineChart data={timeline || []}>
+              <LineChart data={filteredTimeline}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="label" minTickGap={24} />
                 <YAxis domain={[0, 100]} />
@@ -179,7 +231,23 @@ export default function StudentAnalysisPage() {
           </Paper>
         </Grid>
 
-        <Grid item xs={12} lg={4}>
+        <Grid item xs={12} lg={5}>
+          <Paper sx={{ p: 2.5, borderRadius: 3, mb: 2, height: { xs: 320, md: 430 } }}>
+            <Typography variant="subtitle1" fontWeight={700}>Marks Distribution</Typography>
+            <Typography variant="caption" color="text.secondary">For selected exam window</Typography>
+            <ResponsiveContainer width="100%" height="88%">
+              <PieChart>
+                <Pie data={marksPieData} dataKey="value" nameKey="name" outerRadius={100} label>
+                  {marksPieData.map((entry) => (
+                    <Cell key={entry.name} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </Paper>
+
           <Paper sx={{ p: 2.5, borderRadius: 3, mb: 2 }}>
             <Typography variant="subtitle1" fontWeight={700}>Improvement Needed</Typography>
             <Typography variant="caption" color="text.secondary">Lowest-scoring chapters</Typography>
@@ -255,7 +323,7 @@ export default function StudentAnalysisPage() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {(exam_wise || []).map((e) => (
+                  {filteredExamWise.map((e) => (
                     <TableRow key={e.exam_id + String(e.submitted_time)}>
                       <TableCell>{e.exam_title}</TableCell>
                       <TableCell>{e.submitted_time ? new Date(e.submitted_time).toLocaleString() : "-"}</TableCell>
