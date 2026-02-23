@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
     Box, Typography, Paper, Grid, Alert, CircularProgress,
-    Container, Stack, Chip, Button, LinearProgress, Tooltip as MuiTooltip
+    Container, Stack, Chip, Button, LinearProgress, Tooltip as MuiTooltip, useTheme, useMediaQuery
 } from '@mui/material';
 import {
     CheckCircle as CorrectIcon,
@@ -31,6 +31,8 @@ export default function StudentResultsPage() {
     const { examId } = useParams();
     const { authToken } = useAuth();
     const navigate = useNavigate();
+    const theme = useTheme();
+    const isMdDown = useMediaQuery(theme.breakpoints.down('md'));
 
     const [results, setResults] = useState(null);
     const [error, setError] = useState('');
@@ -160,13 +162,13 @@ export default function StudentResultsPage() {
     if (weakChapters.length > 0) insights.push(`Focus chapters: ${weakChapters.map((c) => `${c.chapter} (${c.percentage}%)`).join(', ')}.`);
 
     return (
-        <Box sx={{ bgcolor: '#f5f7fa', minHeight: '100vh', py: 4 }}>
-            <Container maxWidth="lg">
+        <Box sx={{ bgcolor: '#f5f7fa', minHeight: '100vh', py: { xs: 2, md: 4 } }}>
+            <Container maxWidth="xl">
                 <Button startIcon={<BackIcon />} onClick={() => navigate('/student')} sx={{ mb: 2 }}>
                     Back to Dashboard
                 </Button>
 
-                <Paper elevation={0} sx={{ p: 4, borderRadius: 3, mb: 3, bgcolor: '#fff', border: '1px solid #eee' }}>
+                <Paper elevation={0} sx={{ p: { xs: 2, md: 4 }, borderRadius: 3, mb: 3, bgcolor: '#fff', border: '1px solid #eee' }}>
                     <Grid container spacing={4} alignItems="center">
                         <Grid item xs={12} md={8}>
                             <Typography variant="h4" fontWeight={800} color="primary.main">
@@ -175,7 +177,7 @@ export default function StudentResultsPage() {
                             <Typography variant="body1" color="text.secondary" sx={{ mt: 1 }}>
                                 {exam.description || 'Exam Result'}
                             </Typography>
-                            <Stack direction="row" spacing={3} sx={{ mt: 3 }}>
+                            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ mt: 3 }} alignItems={{ xs: 'flex-start', sm: 'center' }}>
                                 <Box display="flex" alignItems="center" gap={1}>
                                     <TimeIcon color="action" />
                                     <Typography variant="body2">
@@ -287,7 +289,7 @@ export default function StudentResultsPage() {
                                         ))}
                                     </Pie>
                                     <Tooltip />
-                                    <Legend />
+                                    {!isMdDown && <Legend />}
                                 </PieChart>
                             </ResponsiveContainer>
                         </Paper>
@@ -313,10 +315,10 @@ export default function StudentResultsPage() {
                                 <ResponsiveContainer width="100%" height="84%">
                                     <BarChart data={hasSubjectBreakdown ? subjectData : chapterData} margin={{ left: 10, right: 10 }}>
                                         <CartesianGrid strokeDasharray="3 3" />
-                                        <XAxis dataKey={hasSubjectBreakdown ? 'subject' : 'chapter'} />
+                                        <XAxis dataKey={hasSubjectBreakdown ? 'subject' : 'chapter'} minTickGap={isMdDown ? 8 : 20} />
                                         <YAxis domain={[0, 100]} />
                                         <Tooltip />
-                                        <Legend />
+                                        {!isMdDown && <Legend />}
                                         <Bar dataKey="percentage" fill="#1976d2" name="Score %" />
                                     </BarChart>
                                 </ResponsiveContainer>
@@ -387,9 +389,9 @@ export default function StudentResultsPage() {
                             <BarChart data={chapterData.slice(0, 12)} layout="vertical" margin={{ left: 20, right: 10 }}>
                                 <CartesianGrid strokeDasharray="3 3" />
                                 <XAxis type="number" domain={[0, 100]} />
-                                <YAxis type="category" dataKey="chapter" width={170} interval={0} />
+                                <YAxis type="category" dataKey="chapter" width={isMdDown ? 120 : 170} interval={0} tick={{ fontSize: isMdDown ? 10 : 12 }} />
                                 <Tooltip />
-                                <Legend />
+                                {!isMdDown && <Legend />}
                                 <Bar dataKey="percentage" fill="#2e7d32" name="Score %" />
                             </BarChart>
                         </ResponsiveContainer>
@@ -401,8 +403,8 @@ export default function StudentResultsPage() {
                     {answers.map((ans, idx) => (
                         <Paper key={idx} sx={{ p: 3, borderRadius: 2, border: '1px solid #eee' }}>
                             <Stack spacing={2}>
-                                <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-                                    <Typography variant="subtitle1" fontWeight={600} sx={{ width: '85%' }}>
+                                <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'flex-start' }} spacing={1}>
+                                    <Typography variant="subtitle1" fontWeight={600} sx={{ width: '100%' }}>
                                         Q{idx + 1}. {ans.text || 'Question text not available'}
                                     </Typography>
                                     <Chip
@@ -410,7 +412,7 @@ export default function StudentResultsPage() {
                                         color={ans.is_correct ? 'success' : 'default'}
                                         size="small"
                                         variant="outlined"
-                                        sx={{ fontWeight: 'bold' }}
+                                        sx={{ fontWeight: 'bold', alignSelf: { xs: 'flex-start', sm: 'center' } }}
                                     />
                                 </Stack>
 
@@ -464,7 +466,7 @@ export default function StudentResultsPage() {
                                                     alignItems: 'flex-start',
                                                     position: 'relative',
                                                     transition: 'all 0.2s ease',
-                                                    minHeight: 62
+                                                    minHeight: { xs: 72, sm: 62 }
                                                 }}>
                                                     <Typography variant="body2" sx={{ color: textColor, fontWeight: (isSelected || isCorrectOption) ? 600 : 400, width: '100%', pr: 0.5 }}>
                                                         <span style={{ fontWeight: 800, marginRight: 8 }}>{optKey})</span>

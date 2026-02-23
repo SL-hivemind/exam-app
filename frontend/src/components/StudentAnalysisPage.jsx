@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Box,
+  Container,
   Typography,
   Paper,
   Grid,
@@ -21,7 +22,9 @@ import {
   TableHead,
   TableRow,
   TableCell,
-  TableBody
+  TableBody,
+  useTheme,
+  useMediaQuery
 } from "@mui/material";
 import {
   ArrowBack as ArrowBackIcon,
@@ -50,6 +53,8 @@ import useAuth from "../hooks/useAuth";
 export default function StudentAnalysisPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isMdDown = useMediaQuery(theme.breakpoints.down("md"));
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -121,8 +126,9 @@ export default function StudentAnalysisPage() {
   const trendPositive = filteredTrendPositive;
 
   return (
-    <Box sx={{ p: { xs: 2, md: 3 }, bgcolor: "#eef2f8", minHeight: "100vh" }}>
+    <Box sx={{ p: { xs: 1.5, md: 2.5 }, bgcolor: "#eef2f8", minHeight: "100vh" }}>
       <Toolbar />
+      <Container maxWidth="xl" sx={{ px: { xs: 0.5, md: 2 } }}>
       <Paper
         sx={{
           p: { xs: 2, md: 3 },
@@ -213,7 +219,7 @@ export default function StudentAnalysisPage() {
       </Grid>
 
       <Grid container spacing={3}>
-        <Grid item xs={12} lg={7}>
+        <Grid item xs={12} lg={8}>
           <Paper sx={{ p: { xs: 2, md: 3 }, borderRadius: 3, border: "1px solid #d9e2f1", boxShadow: '0 10px 28px rgba(16,24,40,0.06)', height: { xs: 360, md: 430 } }}>
             <Typography variant="h6" fontWeight={700} gutterBottom>Score Trend</Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
@@ -222,18 +228,18 @@ export default function StudentAnalysisPage() {
             <ResponsiveContainer width="100%" height="90%">
               <LineChart data={filteredTimeline}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="label" minTickGap={24} />
+                <XAxis dataKey="label" minTickGap={isMdDown ? 12 : 24} />
                 <YAxis domain={[0, 100]} />
                 <Tooltip />
-                <Legend verticalAlign="top" height={28} />
+                {!isMdDown && <Legend verticalAlign="top" height={28} />}
                 <Line type="monotone" dataKey="percentage" stroke="#1976d2" strokeWidth={2} />
               </LineChart>
             </ResponsiveContainer>
           </Paper>
         </Grid>
 
-        <Grid item xs={12} lg={5}>
-          <Paper sx={{ p: 2.5, borderRadius: 3, border: "1px solid #d9e2f1", boxShadow: '0 10px 28px rgba(16,24,40,0.06)', mb: 2, height: { xs: 320, md: 430 } }}>
+        <Grid item xs={12} lg={4}>
+          <Paper sx={{ p: 2.5, borderRadius: 3, border: "1px solid #d9e2f1", boxShadow: '0 10px 28px rgba(16,24,40,0.06)', height: { xs: 320, md: 430 } }}>
             <Typography variant="subtitle1" fontWeight={700}>Marks Distribution</Typography>
             <Typography variant="caption" color="text.secondary">For selected exam window</Typography>
             <ResponsiveContainer width="100%" height="88%">
@@ -244,12 +250,14 @@ export default function StudentAnalysisPage() {
                   ))}
                 </Pie>
                 <Tooltip />
-                <Legend />
+                {!isMdDown && <Legend />}
               </PieChart>
             </ResponsiveContainer>
           </Paper>
+        </Grid>
 
-          <Paper sx={{ p: 2.5, borderRadius: 3, border: "1px solid #d9e2f1", boxShadow: '0 8px 24px rgba(16,24,40,0.05)', mb: 2 }}>
+        <Grid item xs={12} md={6}>
+          <Paper sx={{ p: 2.5, borderRadius: 3, border: "1px solid #d9e2f1", boxShadow: '0 8px 24px rgba(16,24,40,0.05)', height: '100%' }}>
             <Typography variant="subtitle1" fontWeight={700}>Improvement Needed</Typography>
             <Typography variant="caption" color="text.secondary">Lowest-scoring chapters</Typography>
             <Divider sx={{ my: 1.5 }} />
@@ -263,8 +271,10 @@ export default function StudentAnalysisPage() {
               </Stack>
             )}
           </Paper>
+        </Grid>
 
-          <Paper sx={{ p: 2.5, borderRadius: 3, border: "1px solid #d9e2f1", boxShadow: '0 8px 24px rgba(16,24,40,0.05)' }}>
+        <Grid item xs={12} md={6}>
+          <Paper sx={{ p: 2.5, borderRadius: 3, border: "1px solid #d9e2f1", boxShadow: '0 8px 24px rgba(16,24,40,0.05)', height: '100%' }}>
             <Typography variant="subtitle1" fontWeight={700}>Strength Zones</Typography>
             <Typography variant="caption" color="text.secondary">Top-performing chapters</Typography>
             <Divider sx={{ my: 1.5 }} />
@@ -280,7 +290,7 @@ export default function StudentAnalysisPage() {
           </Paper>
         </Grid>
 
-        <Grid item xs={12}>
+        <Grid item xs={12} lg={subjectChartData.length > 0 ? 7 : 12}>
           <Paper sx={{ p: { xs: 2, md: 3 }, borderRadius: 3, border: "1px solid #d9e2f1", boxShadow: '0 10px 28px rgba(16,24,40,0.06)', height: { xs: 420, md: 520 } }}>
             <Typography variant="h6" fontWeight={700} gutterBottom>Chapter Accuracy</Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
@@ -297,8 +307,8 @@ export default function StudentAnalysisPage() {
                 <YAxis
                   type="category"
                   dataKey="chapter"
-                  width={150}
-                  tick={{ fontSize: 12 }}
+                  width={isMdDown ? 100 : 150}
+                  tick={{ fontSize: isMdDown ? 10 : 12 }}
                   interval={0}
                 />
                 <Tooltip />
@@ -309,8 +319,8 @@ export default function StudentAnalysisPage() {
         </Grid>
 
         {subjectChartData.length > 0 && (
-          <Grid item xs={12}>
-            <Paper sx={{ p: { xs: 2, md: 3 }, borderRadius: 3, border: "1px solid #d9e2f1", boxShadow: '0 10px 28px rgba(16,24,40,0.06)', height: { xs: 360, md: 420 } }}>
+          <Grid item xs={12} lg={5}>
+            <Paper sx={{ p: { xs: 2, md: 3 }, borderRadius: 3, border: "1px solid #d9e2f1", boxShadow: '0 10px 28px rgba(16,24,40,0.06)', height: { xs: 360, md: 520 } }}>
               <Typography variant="h6" fontWeight={700} gutterBottom>Subject Accuracy</Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
                 Subject-wise earned marks percentage.
@@ -318,10 +328,10 @@ export default function StudentAnalysisPage() {
               <ResponsiveContainer width="100%" height="88%">
                 <BarChart data={subjectChartData} margin={{ top: 6, right: 20, left: 10, bottom: 6 }}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="subject" minTickGap={24} />
+                  <XAxis dataKey="subject" minTickGap={isMdDown ? 10 : 24} />
                   <YAxis domain={[0, 100]} />
                   <Tooltip />
-                  <Legend />
+                  {!isMdDown && <Legend />}
                   <Bar dataKey="percentage" fill="#1f6ed4" name="Score %" radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -333,7 +343,7 @@ export default function StudentAnalysisPage() {
           <Paper sx={{ p: 2.5, borderRadius: 3, border: "1px solid #d9e2f1", boxShadow: '0 10px 28px rgba(16,24,40,0.06)' }}>
             <Typography variant="h6" fontWeight={700} gutterBottom>Exam-wise Performance</Typography>
             <TableContainer sx={{ maxHeight: 420 }}>
-              <Table size="small">
+              <Table size={isMdDown ? "small" : "medium"} stickyHeader>
                 <TableHead>
                   <TableRow>
                     <TableCell sx={{ position: 'sticky', top: 0, bgcolor: '#f7f9fc', zIndex: 1 }}>Exam</TableCell>
@@ -365,6 +375,7 @@ export default function StudentAnalysisPage() {
           </Paper>
         </Grid>
       </Grid>
+      </Container>
     </Box>
   );
 }
