@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
     Box, Typography, Paper, Grid, Alert, CircularProgress,
-    Container, Stack, Chip, Button
+    Container, Stack, Chip, Button, LinearProgress, Tooltip as MuiTooltip
 } from '@mui/material';
 import {
     CheckCircle as CorrectIcon,
@@ -138,6 +138,14 @@ export default function StudentResultsPage() {
 
     const hasSubjectBreakdown = hasSubjectOrChapter && subjectData.some((s) => s.subject !== 'General');
     const hasChapterBreakdown = hasSubjectOrChapter && chapterData.some((c) => c.chapter !== 'General');
+    const subjectInsights = hasSubjectBreakdown
+        ? [...subjectData]
+            .filter((s) => s.subject !== 'General')
+            .sort((a, b) => b.percentage - a.percentage)
+        : [];
+    const topSubject = subjectInsights[0];
+    const weakSubject = subjectInsights[subjectInsights.length - 1];
+    const weakChapters = chapterData.filter((c) => c.chapter !== 'General').slice(0, 2);
 
     const insights = [];
     if (accuracy >= 80) insights.push('Great accuracy. Keep this approach for similar exams.');
@@ -147,6 +155,9 @@ export default function StudentResultsPage() {
     if (skippedCount > 0) insights.push(`You skipped ${skippedCount} question(s). Try time-boxing each question.`);
     if (marksLost > 0) insights.push(`You left ${marksLost} mark(s) on the table in this exam.`);
     if (attemptRate === 100) insights.push('Good attempt coverage. You tried all questions.');
+    if (topSubject) insights.push(`Strongest subject: ${topSubject.subject} (${topSubject.percentage}%).`);
+    if (weakSubject && weakSubject.subject !== topSubject?.subject) insights.push(`Needs improvement: ${weakSubject.subject} (${weakSubject.percentage}%).`);
+    if (weakChapters.length > 0) insights.push(`Focus chapters: ${weakChapters.map((c) => `${c.chapter} (${c.percentage}%)`).join(', ')}.`);
 
     return (
         <Box sx={{ bgcolor: '#f5f7fa', minHeight: '100vh', py: 4 }}>
@@ -245,11 +256,22 @@ export default function StudentResultsPage() {
 
                 <Grid container spacing={3} sx={{ mb: 4 }}>
                     <Grid item xs={12} md={(hasSubjectBreakdown || hasChapterBreakdown) ? 5 : 12}>
-                        <Paper sx={{ p: 2.5, borderRadius: 2, border: '1px solid #eee', height: 340 }}>
+                        <Paper
+                            elevation={0}
+                            sx={{
+                                p: 2.5,
+                                borderRadius: 3,
+                                border: '1px solid #dfe5ef',
+                                height: 360,
+                                bgcolor: '#fff',
+                                boxShadow: '0 8px 24px rgba(16,24,40,0.05)'
+                            }}
+                        >
                             <Typography variant="h6" fontWeight={700} sx={{ mb: 1 }}>
                                 Performance Split
                             </Typography>
-                            <ResponsiveContainer width="100%" height="88%">
+                            <Typography variant="caption" color="text.secondary">Correct vs incorrect vs skipped distribution</Typography>
+                            <ResponsiveContainer width="100%" height="84%">
                                 <PieChart>
                                     <Pie
                                         data={correctnessData}
@@ -273,11 +295,22 @@ export default function StudentResultsPage() {
 
                     {(hasSubjectBreakdown || hasChapterBreakdown) && (
                         <Grid item xs={12} md={7}>
-                            <Paper sx={{ p: 2.5, borderRadius: 2, border: '1px solid #eee', height: 340 }}>
+                            <Paper
+                                elevation={0}
+                                sx={{
+                                    p: 2.5,
+                                    borderRadius: 3,
+                                    border: '1px solid #dfe5ef',
+                                    height: 360,
+                                    bgcolor: '#fff',
+                                    boxShadow: '0 8px 24px rgba(16,24,40,0.05)'
+                                }}
+                            >
                                 <Typography variant="h6" fontWeight={700} sx={{ mb: 1 }}>
                                     {hasSubjectBreakdown ? 'Subject-wise Score %' : 'Chapter-wise Score %'}
                                 </Typography>
-                                <ResponsiveContainer width="100%" height="88%">
+                                <Typography variant="caption" color="text.secondary">Performance by topic group</Typography>
+                                <ResponsiveContainer width="100%" height="84%">
                                     <BarChart data={hasSubjectBreakdown ? subjectData : chapterData} margin={{ left: 10, right: 10 }}>
                                         <CartesianGrid strokeDasharray="3 3" />
                                         <XAxis dataKey={hasSubjectBreakdown ? 'subject' : 'chapter'} />
@@ -298,8 +331,55 @@ export default function StudentResultsPage() {
                     </Alert>
                 )}
 
+                {hasSubjectBreakdown && (
+                    <Paper
+                        elevation={0}
+                        sx={{
+                            p: 2.5,
+                            borderRadius: 3,
+                            mb: 4,
+                            border: '1px solid #dfe5ef',
+                            boxShadow: '0 8px 24px rgba(16,24,40,0.05)'
+                        }}
+                    >
+                        <Typography variant="h6" fontWeight={700} sx={{ mb: 2 }}>
+                            Subject Insights
+                        </Typography>
+                        <Grid container spacing={2}>
+                            {subjectInsights.map((s) => (
+                                <Grid item xs={12} md={6} key={s.subject}>
+                                    <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+                                        <Stack direction="row" justifyContent="space-between" sx={{ mb: 0.7 }}>
+                                            <Typography variant="body2" fontWeight={600}>{s.subject}</Typography>
+                                            <Typography variant="body2" fontWeight={700}>{s.percentage}%</Typography>
+                                        </Stack>
+                                        <LinearProgress
+                                            variant="determinate"
+                                            value={s.percentage}
+                                            sx={{ height: 8, borderRadius: 10 }}
+                                            color={s.percentage >= 70 ? 'success' : s.percentage >= 50 ? 'warning' : 'error'}
+                                        />
+                                        <Typography variant="caption" color="text.secondary">
+                                            {s.earned}/{s.total} marks
+                                        </Typography>
+                                    </Paper>
+                                </Grid>
+                            ))}
+                        </Grid>
+                    </Paper>
+                )}
+
                 {hasChapterBreakdown && (
-                    <Paper sx={{ p: 2.5, borderRadius: 2, mb: 4, border: '1px solid #eee' }}>
+                    <Paper
+                        elevation={0}
+                        sx={{
+                            p: 2.5,
+                            borderRadius: 3,
+                            mb: 4,
+                            border: '1px solid #dfe5ef',
+                            boxShadow: '0 8px 24px rgba(16,24,40,0.05)'
+                        }}
+                    >
                         <Typography variant="h6" fontWeight={700} sx={{ mb: 1 }}>
                             Chapter-wise Score %
                         </Typography>
@@ -307,7 +387,7 @@ export default function StudentResultsPage() {
                             <BarChart data={chapterData.slice(0, 12)} layout="vertical" margin={{ left: 20, right: 10 }}>
                                 <CartesianGrid strokeDasharray="3 3" />
                                 <XAxis type="number" domain={[0, 100]} />
-                                <YAxis type="category" dataKey="chapter" width={150} interval={0} />
+                                <YAxis type="category" dataKey="chapter" width={170} interval={0} />
                                 <Tooltip />
                                 <Legend />
                                 <Bar dataKey="percentage" fill="#2e7d32" name="Score %" />
@@ -376,24 +456,30 @@ export default function StudentResultsPage() {
                                             <Grid item xs={12} sm={6} key={optKey}>
                                                 <Paper variant="outlined" sx={{
                                                     p: 1.5,
+                                                    pr: 5.5,
                                                     bgcolor: bgColor,
                                                     borderColor: borderColor,
                                                     borderWidth: borderThickness,
                                                     display: 'flex',
-                                                    alignItems: 'center',
+                                                    alignItems: 'flex-start',
                                                     position: 'relative',
-                                                    transition: 'all 0.2s ease'
+                                                    transition: 'all 0.2s ease',
+                                                    minHeight: 62
                                                 }}>
-                                                    <Typography variant="body2" sx={{ color: textColor, fontWeight: (isSelected || isCorrectOption) ? 600 : 400, width: '90%' }}>
+                                                    <Typography variant="body2" sx={{ color: textColor, fontWeight: (isSelected || isCorrectOption) ? 600 : 400, width: '100%', pr: 0.5 }}>
                                                         <span style={{ fontWeight: 800, marginRight: 8 }}>{optKey})</span>
                                                         {optionText || <span style={{ fontStyle: 'italic', color: '#999' }}>Empty Option</span>}
                                                     </Typography>
 
                                                     {isCorrectOption && (
-                                                        <CorrectIcon color="success" sx={{ position: 'absolute', right: 10 }} fontSize="small" />
+                                                        <MuiTooltip title="Correct option">
+                                                            <CorrectIcon color="success" sx={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)' }} fontSize="small" />
+                                                        </MuiTooltip>
                                                     )}
                                                     {isSelected && !isCorrectOption && (
-                                                        <WrongIcon color="error" sx={{ position: 'absolute', right: 10 }} fontSize="small" />
+                                                        <MuiTooltip title="Your selected (incorrect)">
+                                                            <WrongIcon color="error" sx={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)' }} fontSize="small" />
+                                                        </MuiTooltip>
                                                     )}
                                                 </Paper>
                                             </Grid>

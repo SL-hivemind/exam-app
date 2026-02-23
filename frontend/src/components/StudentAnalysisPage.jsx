@@ -89,7 +89,7 @@ export default function StudentAnalysisPage() {
 
   if (!data) return null;
 
-  const { chapter_breakdown, exam_wise, improvement_needed, strengths } = data;
+  const { chapter_breakdown, subject_breakdown, exam_wise, improvement_needed, strengths } = data;
   const allExamWise = exam_wise || [];
   const filteredExamWise = lastX === "all" ? allExamWise : allExamWise.slice(-Number(lastX));
   const filteredTimeline = filteredExamWise.map((e) => ({
@@ -117,6 +117,7 @@ export default function StudentAnalysisPage() {
     { name: "Remaining", value: pieRemaining, color: "#d32f2f" }
   ];
   const chapterChartData = (chapter_breakdown || []).slice(0, 12);
+  const subjectChartData = (subject_breakdown || []).slice(0, 10);
   const trendPositive = filteredTrendPositive;
 
   return (
@@ -167,7 +168,7 @@ export default function StudentAnalysisPage() {
 
       <Grid container spacing={2.5} sx={{ mb: 2 }}>
         <Grid item xs={12} sm={6} md={3}>
-          <Paper sx={{ p: 2.5, borderRadius: 3, border: "1px solid #d9e2f1" }}>
+          <Paper sx={{ p: 2.5, borderRadius: 3, border: "1px solid #d9e2f1", boxShadow: '0 8px 24px rgba(16,24,40,0.05)' }}>
             <Stack direction="row" justifyContent="space-between" alignItems="center">
               <Typography variant="caption" color="text.secondary">Exams Attempted</Typography>
               <SchoolIcon color="primary" fontSize="small" />
@@ -176,7 +177,7 @@ export default function StudentAnalysisPage() {
           </Paper>
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
-          <Paper sx={{ p: 2.5, borderRadius: 3, border: "1px solid #d9e2f1" }}>
+          <Paper sx={{ p: 2.5, borderRadius: 3, border: "1px solid #d9e2f1", boxShadow: '0 8px 24px rgba(16,24,40,0.05)' }}>
             <Stack direction="row" justifyContent="space-between" alignItems="center">
               <Typography variant="caption" color="text.secondary">Average Score</Typography>
               <TrendingUpIcon sx={{ color: "#2e7d32" }} fontSize="small" />
@@ -185,7 +186,7 @@ export default function StudentAnalysisPage() {
           </Paper>
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
-          <Paper sx={{ p: 2.5, borderRadius: 3, border: "1px solid #d9e2f1" }}>
+          <Paper sx={{ p: 2.5, borderRadius: 3, border: "1px solid #d9e2f1", boxShadow: '0 8px 24px rgba(16,24,40,0.05)' }}>
             <Stack direction="row" justifyContent="space-between" alignItems="center">
               <Typography variant="caption" color="text.secondary">Avg Percentile</Typography>
               <InsightsIcon sx={{ color: "#ed6c02" }} fontSize="small" />
@@ -194,7 +195,7 @@ export default function StudentAnalysisPage() {
           </Paper>
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
-          <Paper sx={{ p: 2.5, borderRadius: 3, border: "1px solid #d9e2f1" }}>
+          <Paper sx={{ p: 2.5, borderRadius: 3, border: "1px solid #d9e2f1", boxShadow: '0 8px 24px rgba(16,24,40,0.05)' }}>
             <Stack direction="row" justifyContent="space-between" alignItems="center">
               <Typography variant="caption" color="text.secondary">Trend</Typography>
               <Chip
@@ -213,7 +214,7 @@ export default function StudentAnalysisPage() {
 
       <Grid container spacing={3}>
         <Grid item xs={12} lg={7}>
-          <Paper sx={{ p: { xs: 2, md: 3 }, borderRadius: 3, height: { xs: 360, md: 430 } }}>
+          <Paper sx={{ p: { xs: 2, md: 3 }, borderRadius: 3, border: "1px solid #d9e2f1", boxShadow: '0 10px 28px rgba(16,24,40,0.06)', height: { xs: 360, md: 430 } }}>
             <Typography variant="h6" fontWeight={700} gutterBottom>Score Trend</Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
               Progress across selected exam window.
@@ -232,7 +233,7 @@ export default function StudentAnalysisPage() {
         </Grid>
 
         <Grid item xs={12} lg={5}>
-          <Paper sx={{ p: 2.5, borderRadius: 3, mb: 2, height: { xs: 320, md: 430 } }}>
+          <Paper sx={{ p: 2.5, borderRadius: 3, border: "1px solid #d9e2f1", boxShadow: '0 10px 28px rgba(16,24,40,0.06)', mb: 2, height: { xs: 320, md: 430 } }}>
             <Typography variant="subtitle1" fontWeight={700}>Marks Distribution</Typography>
             <Typography variant="caption" color="text.secondary">For selected exam window</Typography>
             <ResponsiveContainer width="100%" height="88%">
@@ -248,7 +249,7 @@ export default function StudentAnalysisPage() {
             </ResponsiveContainer>
           </Paper>
 
-          <Paper sx={{ p: 2.5, borderRadius: 3, mb: 2 }}>
+          <Paper sx={{ p: 2.5, borderRadius: 3, border: "1px solid #d9e2f1", boxShadow: '0 8px 24px rgba(16,24,40,0.05)', mb: 2 }}>
             <Typography variant="subtitle1" fontWeight={700}>Improvement Needed</Typography>
             <Typography variant="caption" color="text.secondary">Lowest-scoring chapters</Typography>
             <Divider sx={{ my: 1.5 }} />
@@ -263,7 +264,7 @@ export default function StudentAnalysisPage() {
             )}
           </Paper>
 
-          <Paper sx={{ p: 2.5, borderRadius: 3 }}>
+          <Paper sx={{ p: 2.5, borderRadius: 3, border: "1px solid #d9e2f1", boxShadow: '0 8px 24px rgba(16,24,40,0.05)' }}>
             <Typography variant="subtitle1" fontWeight={700}>Strength Zones</Typography>
             <Typography variant="caption" color="text.secondary">Top-performing chapters</Typography>
             <Divider sx={{ my: 1.5 }} />
@@ -280,7 +281,7 @@ export default function StudentAnalysisPage() {
         </Grid>
 
         <Grid item xs={12}>
-          <Paper sx={{ p: { xs: 2, md: 3 }, borderRadius: 3, height: { xs: 420, md: 520 } }}>
+          <Paper sx={{ p: { xs: 2, md: 3 }, borderRadius: 3, border: "1px solid #d9e2f1", boxShadow: '0 10px 28px rgba(16,24,40,0.06)', height: { xs: 420, md: 520 } }}>
             <Typography variant="h6" fontWeight={700} gutterBottom>Chapter Accuracy</Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
               Horizontal view for easier chapter-by-chapter comparison.
@@ -307,24 +308,49 @@ export default function StudentAnalysisPage() {
           </Paper>
         </Grid>
 
+        {subjectChartData.length > 0 && (
+          <Grid item xs={12}>
+            <Paper sx={{ p: { xs: 2, md: 3 }, borderRadius: 3, border: "1px solid #d9e2f1", boxShadow: '0 10px 28px rgba(16,24,40,0.06)', height: { xs: 360, md: 420 } }}>
+              <Typography variant="h6" fontWeight={700} gutterBottom>Subject Accuracy</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                Subject-wise earned marks percentage.
+              </Typography>
+              <ResponsiveContainer width="100%" height="88%">
+                <BarChart data={subjectChartData} margin={{ top: 6, right: 20, left: 10, bottom: 6 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="subject" minTickGap={24} />
+                  <YAxis domain={[0, 100]} />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="percentage" fill="#1f6ed4" name="Score %" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </Paper>
+          </Grid>
+        )}
+
         <Grid item xs={12}>
-          <Paper sx={{ p: 2.5, borderRadius: 3 }}>
+          <Paper sx={{ p: 2.5, borderRadius: 3, border: "1px solid #d9e2f1", boxShadow: '0 10px 28px rgba(16,24,40,0.06)' }}>
             <Typography variant="h6" fontWeight={700} gutterBottom>Exam-wise Performance</Typography>
-            <TableContainer>
+            <TableContainer sx={{ maxHeight: 420 }}>
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell>Exam</TableCell>
-                    <TableCell>Submitted</TableCell>
-                    <TableCell>Score</TableCell>
-                    <TableCell>Percent</TableCell>
-                    <TableCell>Percentile</TableCell>
-                    <TableCell>Rank</TableCell>
+                    <TableCell sx={{ position: 'sticky', top: 0, bgcolor: '#f7f9fc', zIndex: 1 }}>Exam</TableCell>
+                    <TableCell sx={{ position: 'sticky', top: 0, bgcolor: '#f7f9fc', zIndex: 1 }}>Submitted</TableCell>
+                    <TableCell sx={{ position: 'sticky', top: 0, bgcolor: '#f7f9fc', zIndex: 1 }}>Score</TableCell>
+                    <TableCell sx={{ position: 'sticky', top: 0, bgcolor: '#f7f9fc', zIndex: 1 }}>Percent</TableCell>
+                    <TableCell sx={{ position: 'sticky', top: 0, bgcolor: '#f7f9fc', zIndex: 1 }}>Percentile</TableCell>
+                    <TableCell sx={{ position: 'sticky', top: 0, bgcolor: '#f7f9fc', zIndex: 1 }}>Rank</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {filteredExamWise.map((e) => (
-                    <TableRow key={e.exam_id + String(e.submitted_time)}>
+                    <TableRow
+                      key={e.exam_id + String(e.submitted_time)}
+                      hover
+                      sx={{ '&:nth-of-type(even)': { bgcolor: '#fafbff' } }}
+                    >
                       <TableCell>{e.exam_title}</TableCell>
                       <TableCell>{e.submitted_time ? new Date(e.submitted_time).toLocaleString() : "-"}</TableCell>
                       <TableCell>{`${e.score ?? 0}/${e.total_marks ?? 0}`}</TableCell>
