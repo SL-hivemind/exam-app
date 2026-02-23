@@ -22,6 +22,7 @@ import SpecialistActivityLog from "../components/subject/SpecialistActivityLog";
 import StudentDashboard from "../components/StudentDashboard";
 import PrimaryExamFlow from "../components/primary/PrimaryExamFlow";
 import StudentAnalysisPage from "../components/StudentAnalysisPage";
+import ProfilePage from "../components/ProfilePage";
 
 // Auth
 import Login from "../components/Login";
@@ -49,6 +50,7 @@ export default function AppRoutes() {
         <Route path="repository/questions/:id/edit" element={<RepoQuestionEditPage />} />
         <Route path="repository/bulk-edit" element={<BulkEditQuestions />} />
         <Route path="activity-log" element={<SpecialistActivityLog />} />
+        <Route path="profile" element={<ProfilePage />} />
       </Route>
 
       {/* --- 2. SCHOOL ROUTES (Wrapped in New Layout) --- */}
@@ -65,6 +67,7 @@ export default function AppRoutes() {
         <Route path="repository/questions" element={<RepoQuestionsPage />} />
         <Route path="repository/questions/new" element={<RepoQuestionEditPage />} />
         <Route path="repository/questions/:id/edit" element={<RepoQuestionEditPage />} />
+        <Route path="profile" element={<ProfilePage />} />
       </Route>
 
       {/* --- 3. SPECIALIST ROUTES (Wrapped in New Layout) --- */}
@@ -79,12 +82,19 @@ export default function AppRoutes() {
         <Route path="repository/questions/:id/edit" element={<RepoQuestionEditPage />} />
         <Route path="repository/bulk-edit" element={<BulkEditQuestions />} />
         <Route path="activity-log" element={<SpecialistActivityLog />} />
+        <Route path="profile" element={<ProfilePage />} />
       </Route>
 
       {/* --- 4. STUDENT DASHBOARD --- */}
       <Route path="/student/analysis" element={
           <ProtectedRoute roles={["student"]}>
             <StudentAnalysisPage />
+          </ProtectedRoute>
+      } />
+
+      <Route path="/student/profile" element={
+          <ProtectedRoute roles={["student"]}>
+            <ProfilePage />
           </ProtectedRoute>
       } />
 

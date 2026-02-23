@@ -13,7 +13,8 @@ import {
   Logout as LogoutIcon,
   Menu as MenuIcon,
   ChevronLeft as ChevronLeftIcon,
-  History as HistoryIcon
+  History as HistoryIcon,
+  Person as PersonIcon
 } from '@mui/icons-material';
 import { Link as RouterLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import useAuth from '../../hooks/useAuth';
@@ -44,6 +45,7 @@ export default function DashboardLayout() {
     { text: "Students", icon: <PeopleIcon />, path: `${basePath}/students`, allowed: !isSubjectSpecialist },
     { text: "Schools", icon: <SchoolIcon />, path: `${basePath}/schools`, allowed: isAdmin },
     { text: "Activity Log", icon: <HistoryIcon />, path: `${basePath}/activity-log`, allowed: isAdmin || isSubjectSpecialist },
+    { text: "Profile", icon: <PersonIcon />, path: `${basePath}/profile`, allowed: true },
   ];
 
   const handleLogout = () => {

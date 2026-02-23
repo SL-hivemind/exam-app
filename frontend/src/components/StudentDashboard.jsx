@@ -12,6 +12,7 @@ import {
   Info as InfoIcon,
   Insights as InsightsIcon,
   TrendingUp as TrendingUpIcon,
+  Person as PersonIcon,
   Timer as TimerIcon,
   AccessTime as AccessTimeIcon,
   Assignment as AssignmentIcon,
@@ -217,6 +218,13 @@ export default function StudentDashboard() {
                }}
              >
                Analysis
+             </Button>
+             <Button 
+               startIcon={<PersonIcon />}
+               variant="outlined"
+               onClick={() => navigate("/student/profile")}
+             >
+               Profile
              </Button>
              <Button 
                startIcon={<InfoIcon />} 
