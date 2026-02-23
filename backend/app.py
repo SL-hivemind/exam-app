@@ -880,11 +880,12 @@ def bulk_add_to_exam(current_user, exam_id):
 
     # 2. Duplicate them into the Exam Questions table
     for repo_q in repo_questions:
-        # Check if it's already in the exam to avoid duplicates
-        exists = Question.query.filter_by(exam_id=exam_id, text=repo_q.text).first()
+        # Use repo linkage to preserve subject/chapter metadata in downstream analysis.
+        exists = Question.query.filter_by(exam_id=exam_id, repo_question_id=repo_q.id).first()
         if not exists:
             new_exam_q = Question(
                 exam_id=exam_id,
+                repo_question_id=repo_q.id,
                 text=repo_q.text,
                 option_a=repo_q.option_a,
                 option_b=repo_q.option_b,
@@ -1109,8 +1110,12 @@ def pick_repo_questions(current_user, exam_id):
 
     created = 0
     for rq in repo_questions:
+        exists = Question.query.filter_by(exam_id=exam_id, repo_question_id=rq.id).first()
+        if exists:
+            continue
         q = Question(
             exam_id=exam_id,
+            repo_question_id=rq.id,
             text=rq.text,
             option_a=rq.option_a, option_b=rq.option_b,
             option_c=rq.option_c, option_d=rq.option_d,

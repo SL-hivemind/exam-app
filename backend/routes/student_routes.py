@@ -285,6 +285,15 @@ def register_student_routes(
         for answer in attempt.answers:
             question = Question.query.get(answer.question_id)
             source = question.source
+            # Backward-compatibility: older picked questions may miss repo_question_id.
+            # Try lightweight text-based lookup to recover subject/chapter metadata.
+            fallback_repo = None
+            if not getattr(source, 'subject', None):
+                q_text = (getattr(source, 'text', None) or '').strip()
+                if q_text:
+                    fallback_repo = QuestionRepository.query.filter(
+                        QuestionRepository.text == q_text
+                    ).order_by(QuestionRepository.id.desc()).first()
             answers_data.append(
                 {
                     'question_id': question.id,
@@ -293,9 +302,9 @@ def register_student_routes(
                     'marks_awarded': answer.marks_awarded,
                     'is_correct': answer.is_correct,
                     'marks': source.marks,
-                    'subject': getattr(source, 'subject', None),
-                    'chapter': getattr(source, 'chapter', None),
-                    'topic': getattr(source, 'topic', None),
+                    'subject': getattr(source, 'subject', None) or (fallback_repo.subject if fallback_repo else None),
+                    'chapter': getattr(source, 'chapter', None) or (fallback_repo.chapter if fallback_repo else None),
+                    'topic': getattr(source, 'topic', None) or (fallback_repo.topic if fallback_repo else None),
                     'option_a': source.option_a,
                     'option_b': source.option_b,
                     'option_c': source.option_c,
