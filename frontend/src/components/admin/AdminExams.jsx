@@ -1,28 +1,25 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
+  Alert,
   Box,
   Button,
+  Card,
+  CardActions,
+  CardContent,
+  Chip,
+  CircularProgress,
   Dialog,
-  DialogTitle,
-  DialogContent,
   DialogActions,
+  DialogContent,
+  DialogTitle,
+  Divider,
+  Grid,
+  InputAdornment,
+  Paper,
+  Snackbar,
+  Stack,
   TextField,
   Typography,
-  Grid,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
-  CircularProgress,
-  Snackbar,
-  Alert,
-  Stack,
-  Chip,
-  InputAdornment,
-  Zoom,
-  Divider,
 } from "@mui/material";
 import {
   Add as AddIcon,
@@ -30,63 +27,63 @@ import {
   Visibility as ViewIcon,
   Quiz as QuizIcon,
   Event as EventIcon,
-  Schedule as ScheduleIcon,
-  InfoOutlined as InfoIcon,
-  TimerOutlined as TimerIcon
+  TimerOutlined as TimerIcon,
+  CheckCircleOutline as ReleasedIcon,
+  DraftsOutlined as DraftIcon,
 } from "@mui/icons-material";
+import { format } from "date-fns";
+import { useNavigate } from "react-router-dom";
 import api from "../../utils/api";
 import useAuth from "../../hooks/useAuth";
-import { useNavigate } from "react-router-dom";
-import { format } from "date-fns";
-
 
 export default function AdminExams() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
   const [exams, setExams] = useState([]);
-  const [filteredExams, setFilteredExams] = useState([]);
   const [loadingExams, setLoadingExams] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-
-  // create dialog
   const [openCreate, setOpenCreate] = useState(false);
 
-  // common create fields
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [duration, setDuration] = useState(60);
-  // Dates stored as datetime-local strings (YYYY-MM-DDTHH:mm)
   const [accessStart, setAccessStart] = useState("");
   const [accessEnd, setAccessEnd] = useState("");
-
-  const [schoolId, setSchoolId] = useState("");
   const [errors, setErrors] = useState({});
 
-
-  // ui
   const [busy, setBusy] = useState(false);
   const [snack, setSnack] = useState({ open: false, severity: "success", message: "" });
 
-  const getBasePath = () => {
-    if (user?.role === 'school_admin') return '/school';
-    return '/admin';
-  };
-  const basePath = getBasePath();
-  const isSchoolAdmin = user?.role === 'school_admin';
+  const basePath = user?.role === "school_admin" ? "/school" : "/admin";
 
   useEffect(() => {
     fetchExams();
   }, []);
 
-  useEffect(() => {
-    if (!searchTerm) {
-      setFilteredExams(exams);
-    } else {
-      const lower = searchTerm.toLowerCase();
-      setFilteredExams(exams.filter(e => e.title.toLowerCase().includes(lower)));
-    }
-  }, [searchTerm, exams]);
+  const filteredExams = useMemo(() => {
+    if (!searchTerm) return exams;
+    const term = searchTerm.toLowerCase();
+    return exams.filter(
+      (exam) =>
+        (exam.title || "").toLowerCase().includes(term) ||
+        (exam.description || "").toLowerCase().includes(term)
+    );
+  }, [exams, searchTerm]);
+
+  const stats = useMemo(() => {
+    const now = new Date();
+    const total = exams.length;
+    const released = exams.filter((e) => e.results_released).length;
+    const drafts = total - released;
+    const active = exams.filter((e) => {
+      if (!e.access_start || !e.access_end) return false;
+      const start = new Date(e.access_start);
+      const end = new Date(e.access_end);
+      return start <= now && now <= end;
+    }).length;
+    return { total, released, drafts, active };
+  }, [exams]);
 
   async function fetchExams() {
     try {
@@ -94,8 +91,7 @@ export default function AdminExams() {
       const res = await api.get("/admin/exams");
       setExams(res.data.exams || []);
     } catch (e) {
-      console.error("fetchExams:", e);
-      setSnack({ open: true, severity: "error", message: "failed to load exams" });
+      setSnack({ open: true, severity: "error", message: "Failed to load exams" });
     } finally {
       setLoadingExams(false);
     }
@@ -105,18 +101,14 @@ export default function AdminExams() {
     setTitle("");
     setDescription("");
     setDuration(60);
-    setAccessStart(null);
-    setAccessEnd(null);
-    setSchoolId("");
+    setAccessStart("");
+    setAccessEnd("");
+    setErrors({});
     setOpenCreate(true);
   }
 
-  function closeCreate() {
-    setOpenCreate(false);
-  }
-
   const formatDate = (isoString) => {
-    if (!isoString) return "—";
+    if (!isoString) return "Not scheduled";
     try {
       return format(new Date(isoString), "MMM d, yyyy HH:mm");
     } catch {
@@ -125,26 +117,15 @@ export default function AdminExams() {
   };
 
   const validateExamForm = () => {
-    const newErrors = {};
-
-    if (!title.trim()) {
-      newErrors.title = "Exam title is required";
+    const nextErrors = {};
+    if (!title.trim()) nextErrors.title = "Exam title is required";
+    if (!duration || Number(duration) < 1) nextErrors.duration = "Duration must be at least 1 minute";
+    if (accessStart && accessEnd && new Date(accessEnd) <= new Date(accessStart)) {
+      nextErrors.accessEnd = "End time must be after start time";
     }
-
-    if (!duration || duration < 1) {
-      newErrors.duration = "Duration must be at least 1 minute";
-    }
-
-    if (accessStart && accessEnd) {
-      if (new Date(accessEnd) <= new Date(accessStart)) {
-        newErrors.accessEnd = "End time must be after start time";
-      }
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
   };
-
 
   async function handleManualCreate() {
     if (!validateExamForm()) return;
@@ -153,286 +134,232 @@ export default function AdminExams() {
       setBusy(true);
       const payload = {
         title: title.trim(),
-        description,
+        description: description || "",
         duration_minutes: Number(duration),
         access_start: accessStart || null,
         access_end: accessEnd || null,
       };
 
       const res = await api.post("/admin/exams", payload);
-
-      setSnack({
-        open: true,
-        severity: "success",
-        message: "Exam created successfully",
-      });
-
-      closeCreate();
-      fetchExams();
+      setSnack({ open: true, severity: "success", message: "Exam created successfully" });
+      setOpenCreate(false);
+      await fetchExams();
 
       if (res.data?.exam?.id) {
         navigate(`${basePath}/exams/${res.data.exam.id}`);
       }
     } catch (err) {
-      setSnack({
-        open: true,
-        severity: "error",
-        message: "Failed to create exam",
-      });
+      setSnack({ open: true, severity: "error", message: err.response?.data?.message || "Failed to create exam" });
     } finally {
       setBusy(false);
     }
   }
 
-
-
-
   return (
-    <Box sx={{ p: 3, bgcolor: '#f5f7fa' }}>
-
-      <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems="center" mb={4} spacing={2}>
+    <Box sx={{ minHeight: "100vh", bgcolor: "#f3f7fc", p: { xs: 2, md: 3 } }}>
+      <Stack direction={{ xs: "column", lg: "row" }} spacing={2} justifyContent="space-between" sx={{ mb: 3 }}>
         <Box>
-          <Typography variant="h4" fontWeight={700} color="primary.main">Exam Management</Typography>
-          <Typography variant="body2" color="text.secondary">Create and manage assessments.</Typography>
+          <Typography variant="h4" fontWeight={800} color="primary.main">
+            Exam Management
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Create, organize and maintain exams from one place.
+          </Typography>
         </Box>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={openCreateDialog} sx={{ px: 3, py: 1, borderRadius: 2 }}>
-          Create New Exam
-        </Button>
+        <Stack direction="row" spacing={1.5}>
+          <Button variant="outlined" onClick={fetchExams}>
+            Refresh
+          </Button>
+          <Button variant="contained" startIcon={<AddIcon />} onClick={openCreateDialog}>
+            Create Exam
+          </Button>
+        </Stack>
       </Stack>
 
-      <Paper elevation={0} sx={{ p: 2, mb: 3, borderRadius: 2, border: '1px solid #e0e0e0' }}>
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid item xs={12} sm={6} md={3}>
+          <Paper sx={{ p: 2, borderRadius: 2.5, border: "1px solid #d9e2f0" }}>
+            <Typography variant="caption" color="text.secondary">Total Exams</Typography>
+            <Typography variant="h5" fontWeight={700}>{stats.total}</Typography>
+          </Paper>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Paper sx={{ p: 2, borderRadius: 2.5, border: "1px solid #d9e2f0" }}>
+            <Typography variant="caption" color="text.secondary">Released</Typography>
+            <Typography variant="h5" fontWeight={700} color="success.main">{stats.released}</Typography>
+          </Paper>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Paper sx={{ p: 2, borderRadius: 2.5, border: "1px solid #d9e2f0" }}>
+            <Typography variant="caption" color="text.secondary">Drafts</Typography>
+            <Typography variant="h5" fontWeight={700} color="warning.main">{stats.drafts}</Typography>
+          </Paper>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Paper sx={{ p: 2, borderRadius: 2.5, border: "1px solid #d9e2f0" }}>
+            <Typography variant="caption" color="text.secondary">Active Now</Typography>
+            <Typography variant="h5" fontWeight={700} color="info.main">{stats.active}</Typography>
+          </Paper>
+        </Grid>
+      </Grid>
+
+      <Paper sx={{ p: 2, mb: 2.5, borderRadius: 2.5, border: "1px solid #d9e2f0" }}>
         <TextField
           fullWidth
           size="small"
-          placeholder="Search exams by title..."
+          placeholder="Search exam title or description..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           InputProps={{
-            startAdornment: <InputAdornment position="start"><SearchIcon color="action" /></InputAdornment>
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon color="action" />
+              </InputAdornment>
+            ),
           }}
         />
       </Paper>
 
-      <Paper elevation={1} sx={{ borderRadius: 2, overflow: 'hidden' }}>
-        <Table>
-          <TableHead sx={{ bgcolor: '#f8f9fa' }}>
-            <TableRow>
-              <TableCell><strong>Title & Description</strong></TableCell>
-              <TableCell><strong>Duration</strong></TableCell>
-              <TableCell><strong>Schedule</strong></TableCell>
-              <TableCell><strong>Status</strong></TableCell>
-              <TableCell align="right"><strong>Actions</strong></TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {loadingExams ? (
-              <TableRow><TableCell colSpan={5} align="center"><CircularProgress sx={{ my: 2 }} /></TableCell></TableRow>
-            ) : filteredExams.length === 0 ? (
-              <TableRow><TableCell colSpan={5} align="center" sx={{ py: 3, color: 'text.secondary' }}>No exams found.</TableCell></TableRow>
-            ) : (
-              filteredExams.map((e) => (
-                <TableRow key={e.id} hover>
-                  <TableCell>
-                    <Typography variant="subtitle1" fontWeight={600} color="primary.main">
-                      {e.title}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" noWrap display="block" sx={{ maxWidth: 300 }}>
-                      {e.description || "No description provided"}
-                    </Typography>
-                  </TableCell>
-
-                  <TableCell>
-                    <Stack direction="row" alignItems="center" spacing={0.5}>
-                      <TimerIcon fontSize="small" color="action" />
-                      <Typography variant="body2">{e.duration_minutes} min</Typography>
-                    </Stack>
-                  </TableCell>
-
-                  <TableCell>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                      <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <EventIcon fontSize="inherit" color="success" /> Start: {formatDate(e.access_start)}
-                      </Typography>
-                      <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <EventIcon fontSize="inherit" color="error" /> End: &nbsp;{formatDate(e.access_end)}
-                      </Typography>
-                    </Box>
-                  </TableCell>
-
-                  <TableCell>
+      {loadingExams ? (
+        <Box sx={{ py: 7, display: "flex", justifyContent: "center" }}>
+          <CircularProgress />
+        </Box>
+      ) : filteredExams.length === 0 ? (
+        <Alert severity="info">No exams found for the current filter.</Alert>
+      ) : (
+        <Grid container spacing={2}>
+          {filteredExams.map((exam) => (
+            <Grid key={exam.id} item xs={12} md={6} xl={4}>
+              <Card sx={{ height: "100%", borderRadius: 2.5, border: "1px solid #d9e2f0", boxShadow: "none" }}>
+                <CardContent>
+                  <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
                     <Chip
-                      label={e.results_released ? "Released" : "Draft"}
-                      color={e.results_released ? "success" : "default"}
+                      icon={exam.results_released ? <ReleasedIcon /> : <DraftIcon />}
+                      label={exam.results_released ? "Released" : "Draft"}
+                      color={exam.results_released ? "success" : "default"}
                       size="small"
-                      variant={e.results_released ? "filled" : "outlined"}
                     />
-                  </TableCell>
+                    <Typography variant="caption" color="text.secondary">ID: {exam.id}</Typography>
+                  </Stack>
 
-                  <TableCell align="right">
-                    <Stack direction="row" justifyContent="flex-end" spacing={1}>
-                      <Button
-                        variant="outlined"
-                        size="small"
-                        startIcon={<ViewIcon />}
-                        onClick={() => navigate(`${basePath}/exams/${e.id}`)}
-                      >
-                        View
-                      </Button>
-                      <Button
-                        variant="contained"
-                        size="small"
-                        startIcon={<QuizIcon />}
-                        onClick={() => navigate(`${basePath}/exams/${e.id}/questions`)}
-                        color="secondary"
-                      >
-                        Questions
-                      </Button>
-                    </Stack>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </Paper>
+                  <Typography variant="h6" fontWeight={700} sx={{ mb: 0.75 }}>
+                    {exam.title}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ minHeight: 42 }}>
+                    {exam.description || "No description provided"}
+                  </Typography>
 
-      <Dialog
-        open={openCreate}
-        onClose={closeCreate}
-        fullWidth
-        maxWidth="md"
-        PaperProps={{
-          sx: {
-            borderRadius: '8px', // Professional standard
-            boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
-          }
-        }}
-      >
-        <DialogTitle sx={{ px: 4, pt: 3, pb: 2 }}>
-          <Typography variant="h5" fontWeight={700} letterSpacing="-0.02em">
-            Create Exam
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Fill in the details below to initialize a new assessment.
-          </Typography>
-        </DialogTitle>
-
-        <Divider />
-
-        <DialogContent sx={{ px: 4, py: 3 }}>
-          <Stack spacing={4}>
-
-            {/* SECTION: GENERAL INFO */}
-            <Box>
-              <Stack direction="row" spacing={1} alignItems="center" mb={2.5}>
-                <Box sx={{ width: 3, height: 16, bgcolor: 'primary.main', borderRadius: 1 }} />
-                <Typography variant="overline" fontWeight={700} color="text.secondary" sx={{ letterSpacing: '0.1em' }}>
-                  General Details
-                </Typography>
-              </Stack>
-
-              <Grid container spacing={2.5}>
-                <Grid item xs={12} md={8}>
-                  <TextField
-                    label="Exam Title"
-                    fullWidth
+                  <Stack spacing={0.8} sx={{ mt: 2 }}>
+                    <Typography variant="caption" sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+                      <TimerIcon fontSize="inherit" /> {exam.duration_minutes} mins
+                    </Typography>
+                    <Typography variant="caption" sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+                      <EventIcon fontSize="inherit" /> Start: {formatDate(exam.access_start)}
+                    </Typography>
+                    <Typography variant="caption" sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+                      <EventIcon fontSize="inherit" /> End: {formatDate(exam.access_end)}
+                    </Typography>
+                  </Stack>
+                </CardContent>
+                <Divider />
+                <CardActions sx={{ p: 1.5, justifyContent: "space-between" }}>
+                  <Button
                     variant="outlined"
-                    placeholder="Internal Exam Title"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    error={!!errors.title}
-                    helperText={errors.title}
-                  />
-                </Grid>
-                <Grid item xs={12} md={4}>
-                  <TextField
-                    label="Duration"
-                    type="number"
-                    fullWidth
-                    value={duration}
-                    onChange={(e) => setDuration(e.target.value)}
-                    InputProps={{
-                      endAdornment: <InputAdornment position="end">min</InputAdornment>,
-                    }}
-                  />
-                </Grid>
-                <Grid item xs={12}>
-                  <TextField
-                    label="Description"
-                    fullWidth
-                    multiline
-                    rows={2}
-                    placeholder="Additional instructions for students..."
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                  />
-                </Grid>
-              </Grid>
-            </Box>
+                    size="small"
+                    startIcon={<ViewIcon />}
+                    onClick={() => navigate(`${basePath}/exams/${exam.id}`)}
+                  >
+                    Details
+                  </Button>
+                  <Button
+                    variant="contained"
+                    size="small"
+                    startIcon={<QuizIcon />}
+                    onClick={() => navigate(`${basePath}/exams/${exam.id}/questions`)}
+                  >
+                    Questions
+                  </Button>
+                </CardActions>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
+      )}
 
-            {/* SECTION: SCHEDULING */}
-            <Box>
-              <Stack direction="row" spacing={1} alignItems="center" mb={2.5}>
-                <Box sx={{ width: 3, height: 16, bgcolor: 'primary.main', borderRadius: 1 }} />
-                <Typography variant="overline" fontWeight={700} color="text.secondary" sx={{ letterSpacing: '0.1em' }}>
-                  Exam Schedule
-                </Typography>
-              </Stack>
-
-              <Grid container spacing={2.5}>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    label="Start Date & Time"
-                    type="datetime-local"
-                    fullWidth
-                    value={accessStart || ""}
-                    onChange={(e) => setAccessStart(e.target.value)}
-                    InputLabelProps={{ shrink: true }}
-                  />
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    label="End Date & Time"
-                    type="datetime-local"
-                    fullWidth
-                    value={accessEnd || ""}
-                    onChange={(e) => setAccessEnd(e.target.value)}
-                    InputLabelProps={{ shrink: true }}
-                    error={!!errors.accessEnd}
-                    helperText={errors.accessEnd}
-                  />
-                </Grid>
-              </Grid>
-            </Box>
-
-          </Stack>
+      <Dialog open={openCreate} onClose={() => setOpenCreate(false)} fullWidth maxWidth="md">
+        <DialogTitle>
+          <Typography variant="h6" fontWeight={700}>Create Exam</Typography>
+          <Typography variant="body2" color="text.secondary">Configure exam basics and scheduling.</Typography>
+        </DialogTitle>
+        <DialogContent dividers>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={8}>
+              <TextField
+                label="Exam Title"
+                fullWidth
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                error={!!errors.title}
+                helperText={errors.title}
+              />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField
+                label="Duration (min)"
+                type="number"
+                fullWidth
+                value={duration}
+                onChange={(e) => setDuration(e.target.value)}
+                error={!!errors.duration}
+                helperText={errors.duration}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                label="Description"
+                fullWidth
+                multiline
+                rows={3}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                label="Start Date & Time"
+                type="datetime-local"
+                fullWidth
+                value={accessStart || ""}
+                onChange={(e) => setAccessStart(e.target.value)}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                label="End Date & Time"
+                type="datetime-local"
+                fullWidth
+                value={accessEnd || ""}
+                onChange={(e) => setAccessEnd(e.target.value)}
+                InputLabelProps={{ shrink: true }}
+                error={!!errors.accessEnd}
+                helperText={errors.accessEnd}
+              />
+            </Grid>
+          </Grid>
         </DialogContent>
-
-        <DialogActions sx={{ px: 4, py: 3, borderTop: '1px solid #f0f0f0' }}>
-          <Button
-            onClick={closeCreate}
-            sx={{ color: 'text.secondary', fontWeight: 500 }}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            disableElevation
-            onClick={handleManualCreate}
-            disabled={busy}
-            sx={{
-              px: 4,
-              borderRadius: '6px',
-              fontWeight: 600,
-              textTransform: 'none'
-            }}
-          >
-            {busy ? <CircularProgress size={20} color="inherit" /> : "Save Exam"}
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setOpenCreate(false)}>Cancel</Button>
+          <Button variant="contained" onClick={handleManualCreate} disabled={busy}>
+            {busy ? <CircularProgress size={18} color="inherit" /> : "Create Exam"}
           </Button>
         </DialogActions>
       </Dialog>
+
       <Snackbar open={snack.open} autoHideDuration={4000} onClose={() => setSnack((s) => ({ ...s, open: false }))}>
-        <Alert severity={snack.severity} onClose={() => setSnack((s) => ({ ...s, open: false }))}>{snack.message}</Alert>
+        <Alert severity={snack.severity} onClose={() => setSnack((s) => ({ ...s, open: false }))}>
+          {snack.message}
+        </Alert>
       </Snackbar>
     </Box>
   );

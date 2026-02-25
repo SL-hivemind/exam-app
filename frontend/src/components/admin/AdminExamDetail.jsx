@@ -4,6 +4,7 @@ import {
   Box,
   Typography,
   Button,
+  Container,
   Paper,
   Dialog,
   DialogTitle,
@@ -351,16 +352,17 @@ export default function AdminExamDetail() {
 
 
   return (
-    <Box sx={{ p: 3, bgcolor: '#f5f7fa', minHeight: '100vh' }}>
+    <Box sx={{ bgcolor: '#f3f7fc', minHeight: '100vh', py: 2 }}>
+      <Container maxWidth="xl">
 
       <Stack direction="row" spacing={2} alignItems="center" mb={3}>
         <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(`${basePath}/exams`)} sx={{ color: 'text.secondary' }}>Back</Button>
-        <Typography variant="h5" fontWeight={700} color="text.primary">Exam Details</Typography>
+        <Typography variant="h4" fontWeight={800} color="text.primary">Exam Details</Typography>
       </Stack>
 
       {msg && <Alert severity={msg.type} onClose={() => setMsg(null)} sx={{ mb: 3 }}>{msg.text}</Alert>}
 
-      <Paper sx={{ mb: 3 }}>
+      <Paper sx={{ mb: 3, borderRadius: 2.5, border: '1px solid #d9e2f0' }}>
         <Tabs value={tabIndex} onChange={(e, v) => setTabIndex(v)} indicatorColor="primary" textColor="primary">
           <Tab label="Overview & Actions" />
           <Tab label="Student Progress & Re-attempt" />
@@ -371,7 +373,7 @@ export default function AdminExamDetail() {
       {tabIndex === 0 && (
         <Grid container spacing={3}>
           <Grid item xs={12} md={8}>
-            <Paper elevation={0} sx={{ p: 3, borderRadius: 2, border: '1px solid #e0e0e0', height: '100%' }}>
+            <Paper elevation={0} sx={{ p: 3, borderRadius: 2.5, border: '1px solid #d9e2f0', height: '100%', bgcolor: '#fff' }}>
               <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
                 <Box>
                   <Typography variant="h4" fontWeight={700} color="primary.main" gutterBottom>{exam.title}</Typography>
@@ -397,12 +399,20 @@ export default function AdminExamDetail() {
                   <Typography variant="caption">Assigned</Typography>
                   <Typography variant="subtitle1" fontWeight={600}>{exam.assigned_users?.length || 0}</Typography>
                 </Grid>
+                <Grid item xs={12} md={6}>
+                  <Typography variant="caption">Access Start</Typography>
+                  <Typography variant="subtitle2" fontWeight={600}>{formatDate(exam.access_start)}</Typography>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <Typography variant="caption">Access End</Typography>
+                  <Typography variant="subtitle2" fontWeight={600}>{formatDate(exam.access_end)}</Typography>
+                </Grid>
               </Grid>
             </Paper>
           </Grid>
 
           <Grid item xs={12} md={4}>
-            <Paper elevation={0} sx={{ p: 3, borderRadius: 2, border: '1px solid #e0e0e0', height: '100%' }}>
+            <Paper elevation={0} sx={{ p: 3, borderRadius: 2.5, border: '1px solid #d9e2f0', height: '100%', bgcolor: '#fff' }}>
               <Typography variant="h6" fontWeight={700} gutterBottom>Actions</Typography>
               <Stack spacing={2}>
                 <Button variant="contained" color={exam.results_released ? "warning" : "success"} startIcon={exam.results_released ? <UnpublishIcon /> : <PublishIcon />} onClick={handleToggleRelease} fullWidth>
@@ -421,7 +431,7 @@ export default function AdminExamDetail() {
 
       {/* === TAB 1: STUDENT PROGRESS === */}
       {tabIndex === 1 && (
-        <Paper sx={{ p: 3 }}>
+        <Paper sx={{ p: 3, borderRadius: 2.5, border: '1px solid #d9e2f0' }}>
           <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
             <Typography variant="h6">Student Attempts</Typography>
             <TextField
@@ -642,6 +652,7 @@ export default function AdminExamDetail() {
         </DialogActions>
       </Dialog>
 
+      </Container>
     </Box>
   );
 }

@@ -31,6 +31,14 @@ export default function ProfilePage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [profile, setProfile] = useState(null);
+  const [pw, setPw] = useState({
+    current_password: "",
+    new_password: "",
+    confirm_password: "",
+  });
+  const [pwSaving, setPwSaving] = useState(false);
+  const [pwError, setPwError] = useState("");
+  const [pwSuccess, setPwSuccess] = useState("");
 
   const [form, setForm] = useState({
     name: "",
@@ -110,6 +118,43 @@ export default function ProfilePage() {
     }
   };
 
+  const onPasswordChange = (key) => (event) => {
+    setPw((prev) => ({ ...prev, [key]: event.target.value }));
+  };
+
+  const onChangePassword = async () => {
+    setPwError("");
+    setPwSuccess("");
+
+    if (!pw.current_password || !pw.new_password || !pw.confirm_password) {
+      setPwError("All password fields are required");
+      return;
+    }
+    if (pw.new_password !== pw.confirm_password) {
+      setPwError("New password and confirm password do not match");
+      return;
+    }
+    if (pw.new_password.length < 8) {
+      setPwError("New password must be at least 8 characters");
+      return;
+    }
+
+    try {
+      setPwSaving(true);
+      await api.post(
+        "/me/change-password",
+        { current_password: pw.current_password, new_password: pw.new_password },
+        { headers: { auth_token: authToken } }
+      );
+      setPwSuccess("Password updated successfully");
+      setPw({ current_password: "", new_password: "", confirm_password: "" });
+    } catch (err) {
+      setPwError(err.response?.data?.message || "Failed to update password");
+    } finally {
+      setPwSaving(false);
+    }
+  };
+
   if (loading) {
     return (
       <Box sx={{ minHeight: "70vh", display: "flex", justifyContent: "center", alignItems: "center" }}>
@@ -175,13 +220,52 @@ export default function ProfilePage() {
           )}
         </Grid>
 
-        <Paper variant="outlined" sx={{ mt: 3, p: 2, borderRadius: 2 }}>
+        <Paper variant="outlined" sx={{ mt: 3, p: 2.5, borderRadius: 2 }}>
           <Typography variant="subtitle1" fontWeight={600}>
             Security
           </Typography>
           <Typography variant="body2" color="text.secondary">
             {profile?.security?.password_reset_channel || "Password reset policy is role-based."}
           </Typography>
+
+          {isStudent ? null : (
+            <Grid container spacing={2} sx={{ mt: 0.5 }}>
+              <Grid item xs={12} md={4}>
+                <TextField
+                  type="password"
+                  fullWidth
+                  label="Current Password"
+                  value={pw.current_password}
+                  onChange={onPasswordChange("current_password")}
+                />
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <TextField
+                  type="password"
+                  fullWidth
+                  label="New Password"
+                  value={pw.new_password}
+                  onChange={onPasswordChange("new_password")}
+                />
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <TextField
+                  type="password"
+                  fullWidth
+                  label="Confirm Password"
+                  value={pw.confirm_password}
+                  onChange={onPasswordChange("confirm_password")}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                {pwError && <Alert severity="error" sx={{ mb: 1.5 }}>{pwError}</Alert>}
+                {pwSuccess && <Alert severity="success" sx={{ mb: 1.5 }}>{pwSuccess}</Alert>}
+                <Button variant="outlined" onClick={onChangePassword} disabled={pwSaving}>
+                  {pwSaving ? "Updating Password..." : "Change Password"}
+                </Button>
+              </Grid>
+            </Grid>
+          )}
         </Paper>
 
         <Stack direction="row" justifyContent="flex-end" sx={{ mt: 3 }}>
