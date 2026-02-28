@@ -87,37 +87,37 @@ export default function AppRoutes() {
 
       {/* --- 4. STUDENT DASHBOARD --- */}
       <Route path="/student/analysis" element={
-          <ProtectedRoute roles={["student"]}>
-            <StudentAnalysisPage />
-          </ProtectedRoute>
+        <ProtectedRoute roles={["student"]}>
+          <StudentAnalysisPage />
+        </ProtectedRoute>
       } />
 
       <Route path="/student/profile" element={
-          <ProtectedRoute roles={["student"]}>
-            <ProfilePage />
-          </ProtectedRoute>
+        <ProtectedRoute roles={["student"]}>
+          <ProfilePage />
+        </ProtectedRoute>
       } />
 
       <Route path="/student/*" element={
-          <ProtectedRoute roles={["student"]}>
-            <StudentDashboard />
-          </ProtectedRoute>
+        <ProtectedRoute roles={["student"]}>
+          <StudentDashboard />
+        </ProtectedRoute>
       } />
 
       {/* --- 5. STUDENT ACTIVE EXAM & RESULTS --- */}
       <Route path="/exams/:examId/questions" element={
-          <ProtectedRoute roles={["student"]}>
-            <StudentExamQuestionsPage />
-          </ProtectedRoute>
-      } />
-      
-      <Route path="/exam/:examId/results" element={
-          <ProtectedRoute roles={["student"]}>
-            <StudentResultsPage />
-          </ProtectedRoute>
+        <ProtectedRoute roles={["student"]}>
+          <StudentExamQuestionsPage />
+        </ProtectedRoute>
       } />
 
-      <Route path="/primary"element={<PrimaryExamFlow />}/>
+      <Route path="/exam/:examId/results" element={
+        <ProtectedRoute roles={["student"]}>
+          <StudentResultsPage />
+        </ProtectedRoute>
+      } />
+
+      <Route path="/primary" element={<PrimaryExamFlow />} />
 
       {/* --- FALLBACKS --- */}
       <Route path="/" element={<Home />} />

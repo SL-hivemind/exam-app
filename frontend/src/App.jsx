@@ -25,22 +25,22 @@ const theme = createTheme({
 });
 
 export default function App() {
-  const {authToken} = useAuth();
+  const { authToken } = useAuth();
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <AuthProvider>
-        <Box minHeight="100vh" display="flex" flexDirection="column">
-          
-          <Navbar /> {/* Ensure it uses useAuth for login/logout */}
-          <Container maxWidth={false} disableGutters sx={{ flex: 1 }}>
-            <AppRoutes />
-          </Container>
-          {!authToken && <Footer />}
-        </Box>
-      </AuthProvider>
-    </ThemeProvider>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <AuthProvider>
+          <Box minHeight="100vh" display="flex" flexDirection="column">
+
+            <Navbar /> {/* Ensure it uses useAuth for login/logout */}
+            <Container maxWidth={false} disableGutters sx={{ flex: 1 }}>
+              <AppRoutes />
+            </Container>
+            {!authToken && <Footer />}
+          </Box>
+        </AuthProvider>
+      </ThemeProvider>
     </LocalizationProvider>
   );
 }

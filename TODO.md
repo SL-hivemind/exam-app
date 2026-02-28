@@ -1,1 +1,0 @@
-- [x] Modify ScrollHandler in Navbar.jsx to always use white background with blue text, removing transparency effect
