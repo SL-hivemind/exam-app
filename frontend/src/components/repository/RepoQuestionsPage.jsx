@@ -19,7 +19,8 @@ import {
   LibraryAdd as LibraryAddIcon,
   ArrowBack as ArrowBackIcon,
   Close as CloseIcon,
-  Delete as DeleteIcon
+  Delete as DeleteIcon,
+  PictureAsPdf as PdfIcon
 } from '@mui/icons-material';
 
 export default function RepoQuestionsPage() {
@@ -284,6 +285,17 @@ export default function RepoQuestionsPage() {
                 />
               </Button>
 
+            )}
+
+            {canAddRepo && (
+              <Button
+                variant="outlined"
+                color="secondary"
+                startIcon={<PdfIcon />}
+                onClick={() => navigate(`${basePath}/repository/pdf-import`)}
+              >
+                Import from PDF (AI)
+              </Button>
             )}
 
             {canAddRepo && (

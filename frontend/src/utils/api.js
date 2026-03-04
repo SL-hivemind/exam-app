@@ -20,6 +20,25 @@ export const repoApi = {
   create: (data) => api.post('/admin/repository/questions', data),
   update: (id, data) => api.put(`/admin/repository/questions/${id}`, data),
   disable: (id) => api.delete(`/admin/repository/questions/${id}`),
+
+  // PDF AI extraction
+  extractPdf: (file, onProgress) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return api.post('/admin/repository/extract-pdf', fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 120000,  // 2 min timeout for AI processing
+      onUploadProgress: onProgress,
+    });
+  },
+  bulkSaveAi: (data) => api.post('/admin/repository/bulk-save-ai', data),
+  uploadQuestionImage: (file) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return api.post('/admin/repository/upload-question-image', fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
 };
 
 // --- exams (extras) ---
@@ -51,7 +70,7 @@ export const schoolApi = {
   create: (payload) => api.post('/admin/schools', payload),
   update: (id, payload) => api.put(`/admin/schools/${id}`, payload),
   remove: (id) => api.delete(`/admin/schools/${id}`),
-}; 
+};
 
 // --- students (minor fix: default params) ---
 export const studentsApi = {

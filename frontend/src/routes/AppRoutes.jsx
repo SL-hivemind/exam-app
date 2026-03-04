@@ -18,6 +18,7 @@ import RepoQuestionEditPage from "../components/repository/RepoQuestionEditPage"
 import StudentExamQuestionsPage from "../components/StudentExamQuestionsPage";
 import StudentResultsPage from "../components/StudentResultsPage";
 import BulkEditQuestions from "../components/repository/BulkEditQuestions";
+import PdfExtractionReview from "../components/repository/PdfExtractionReview";
 import SpecialistActivityLog from "../components/subject/SpecialistActivityLog";
 import StudentDashboard from "../components/StudentDashboard";
 import PrimaryExamFlow from "../components/primary/PrimaryExamFlow";
@@ -49,6 +50,7 @@ export default function AppRoutes() {
         <Route path="repository/questions/new" element={<RepoQuestionEditPage />} />
         <Route path="repository/questions/:id/edit" element={<RepoQuestionEditPage />} />
         <Route path="repository/bulk-edit" element={<BulkEditQuestions />} />
+        <Route path="repository/pdf-import" element={<PdfExtractionReview />} />
         <Route path="activity-log" element={<SpecialistActivityLog />} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>
@@ -67,6 +69,7 @@ export default function AppRoutes() {
         <Route path="repository/questions" element={<RepoQuestionsPage />} />
         <Route path="repository/questions/new" element={<RepoQuestionEditPage />} />
         <Route path="repository/questions/:id/edit" element={<RepoQuestionEditPage />} />
+        <Route path="repository/pdf-import" element={<PdfExtractionReview />} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>
 
@@ -81,6 +84,7 @@ export default function AppRoutes() {
         <Route path="repository/questions/new" element={<RepoQuestionEditPage />} />
         <Route path="repository/questions/:id/edit" element={<RepoQuestionEditPage />} />
         <Route path="repository/bulk-edit" element={<BulkEditQuestions />} />
+        <Route path="repository/pdf-import" element={<PdfExtractionReview />} />
         <Route path="activity-log" element={<SpecialistActivityLog />} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>
