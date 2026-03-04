@@ -6,12 +6,11 @@ import useAuth from '../../hooks/useAuth';
 import {
     Box, Typography, Button, Paper, Stack, TextField, Grid,
     CircularProgress, Snackbar, Alert, Chip, IconButton,
-    LinearProgress, Divider, Card, CardContent, Tooltip,
+    LinearProgress, Card, CardContent, Tooltip,
     Dialog, DialogTitle, DialogContent, DialogActions,
 } from '@mui/material';
 
 import {
-    CloudUpload as UploadIcon,
     Save as SaveIcon,
     ArrowBack as BackIcon,
     Delete as DeleteIcon,

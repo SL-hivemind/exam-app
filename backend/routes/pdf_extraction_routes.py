@@ -1,6 +1,5 @@
 """Routes for AI-powered PDF question extraction."""
 
-import traceback
 from flask import jsonify, request
 from models import QuestionRepository, db, generate_short_id
 from utils.files import save_image_file, ALLOWED_IMG, allowed_file
