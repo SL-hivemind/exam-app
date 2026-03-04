@@ -2,13 +2,15 @@
 AI-powered PDF question extraction using Google Gemini.
 Converts PDF pages to images via PyMuPDF, sends them to Gemini Vision,
 and returns structured JSON of extracted MCQ questions.
+Uses the new google-genai SDK.
 """
 
 import os
 import json
 import logging
+import base64
 import fitz  # PyMuPDF
-import google.generativeai as genai
+from google import genai
 
 logger = logging.getLogger(__name__)
 
@@ -48,12 +50,12 @@ Return ONLY a valid JSON object with these fields:
 Return ONLY the JSON object. No other text."""
 
 
-def configure_gemini():
-    """Configure the Gemini API with the stored key."""
+def get_client():
+    """Create and return a Gemini client with the API key."""
     key = GEMINI_API_KEY or os.getenv("GEMINI_API_KEY", "")
     if not key:
         raise ValueError("GEMINI_API_KEY not set in environment variables")
-    genai.configure(api_key=key)
+    return genai.Client(api_key=key)
 
 
 def pdf_to_images(pdf_bytes):
@@ -78,35 +80,40 @@ def pdf_to_images(pdf_bytes):
     return images
 
 
-def extract_questions_from_image(image_bytes):
-    """
-    Send a single page image to Gemini and get structured questions back.
-    Returns a list of question dicts.
-    """
-    configure_gemini()
-    model = genai.GenerativeModel("gemini-1.5-flash")
-
-    response = model.generate_content(
-        [
-            EXTRACTION_PROMPT,
-            {"mime_type": "image/png", "data": image_bytes}
-        ],
-        generation_config=genai.GenerationConfig(
-            temperature=0.1,  # Low temp for accuracy
-            max_output_tokens=8192,
-        )
-    )
-
-    raw_text = response.text.strip()
-
-    # Clean up common AI formatting issues
+def _clean_json_response(raw_text):
+    """Strip markdown code fences from AI response."""
+    raw_text = raw_text.strip()
     if raw_text.startswith("```json"):
         raw_text = raw_text[7:]
     if raw_text.startswith("```"):
         raw_text = raw_text[3:]
     if raw_text.endswith("```"):
         raw_text = raw_text[:-3]
-    raw_text = raw_text.strip()
+    return raw_text.strip()
+
+
+def extract_questions_from_image(client, image_bytes):
+    """
+    Send a single page image to Gemini and get structured questions back.
+    Returns a list of question dicts.
+    """
+    # Encode image as base64 for the API
+    img_b64 = base64.b64encode(image_bytes).decode("utf-8")
+
+    response = client.models.generate_content(
+        model="gemini-2.0-flash",
+        contents=[
+            EXTRACTION_PROMPT,
+            {
+                "inline_data": {
+                    "mime_type": "image/png",
+                    "data": img_b64
+                }
+            }
+        ],
+    )
+
+    raw_text = _clean_json_response(response.text)
 
     try:
         questions = json.loads(raw_text)
@@ -119,33 +126,26 @@ def extract_questions_from_image(image_bytes):
         return []
 
 
-def extract_metadata_from_image(image_bytes):
+def extract_metadata_from_image(client, image_bytes):
     """
     Extract paper metadata (subject, class, chapter) from the first page.
     """
-    configure_gemini()
-    model = genai.GenerativeModel("gemini-1.5-flash")
+    img_b64 = base64.b64encode(image_bytes).decode("utf-8")
 
-    response = model.generate_content(
-        [
+    response = client.models.generate_content(
+        model="gemini-2.0-flash",
+        contents=[
             METADATA_PROMPT,
-            {"mime_type": "image/png", "data": image_bytes}
+            {
+                "inline_data": {
+                    "mime_type": "image/png",
+                    "data": img_b64
+                }
+            }
         ],
-        generation_config=genai.GenerationConfig(
-            temperature=0.1,
-            max_output_tokens=1024,
-        )
     )
 
-    raw_text = response.text.strip()
-
-    if raw_text.startswith("```json"):
-        raw_text = raw_text[7:]
-    if raw_text.startswith("```"):
-        raw_text = raw_text[3:]
-    if raw_text.endswith("```"):
-        raw_text = raw_text[:-3]
-    raw_text = raw_text.strip()
+    raw_text = _clean_json_response(response.text)
 
     try:
         return json.loads(raw_text)
@@ -155,20 +155,22 @@ def extract_metadata_from_image(image_bytes):
 
 def extract_pdf(pdf_bytes):
     """
-    Full pipeline: PDF bytes → page images → Gemini extraction → structured result.
+    Full pipeline: PDF bytes -> page images -> Gemini extraction -> structured result.
     Returns dict with 'metadata' and 'questions' keys.
     """
+    client = get_client()
+
     images = pdf_to_images(pdf_bytes)
     if not images:
         return {"metadata": {}, "questions": [], "total_pages": 0}
 
     # Extract metadata from first page
-    metadata = extract_metadata_from_image(images[0]["image_bytes"])
+    metadata = extract_metadata_from_image(client, images[0]["image_bytes"])
 
     # Extract questions from all pages
     all_questions = []
     for img_data in images:
-        page_questions = extract_questions_from_image(img_data["image_bytes"])
+        page_questions = extract_questions_from_image(client, img_data["image_bytes"])
         for q in page_questions:
             q["source_page"] = img_data["page_number"]
             # Mark questions needing image upload
