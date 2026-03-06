@@ -1,0 +1,20 @@
+# Environment files (contain secrets)
+.env
+.env.local
+.env.production
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Node
+node_modules/
+
+# Build
+build/
+dist/
+
+# IDE
+.vscode/
+.idea/

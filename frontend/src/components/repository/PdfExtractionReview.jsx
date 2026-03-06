@@ -340,10 +340,28 @@ export default function PdfExtractionReview() {
             setStep(0);
             setPdfFile(null);
             setPdfUrl(null);
+            const responseData = err.response?.data || {};
+            const backendMessage = typeof responseData.message === 'string' ? responseData.message : '';
+            const backendDetail = typeof responseData.detail === 'string' ? responseData.detail : '';
+            const statusCode = err.response?.status;
+
+            let errorMessage =
+                backendDetail ||
+                (backendMessage && backendMessage !== 'PDF extraction failed' ? backendMessage : '') ||
+                (statusCode ? `PDF extraction failed (HTTP ${statusCode})` : '') ||
+                err.message ||
+                'PDF extraction failed.';
+
+            if (/RESOURCE_EXHAUSTED|quota/i.test(errorMessage)) {
+                errorMessage = 'Gemini API quota exceeded. Check quota/billing in Google AI Studio and retry.';
+            } else if (errorMessage.length > 220) {
+                errorMessage = `${errorMessage.slice(0, 220)}...`;
+            }
+
             setSnack({
                 open: true,
                 severity: 'error',
-                message: err.response?.data?.message || err.response?.data?.detail || 'PDF extraction failed. Check your API key.',
+                message: errorMessage,
             });
         }
     }, []);

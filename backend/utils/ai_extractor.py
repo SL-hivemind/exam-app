@@ -1,196 +1,284 @@
 """
-AI-powered PDF question extraction using Google Gemini.
-Converts PDF pages to images via PyMuPDF, sends them to Gemini Vision,
-and returns structured JSON of extracted MCQ questions.
-Uses the new google-genai SDK.
+Local PDF MCQ extraction helpers (no external AI dependency).
 """
 
-import os
-import json
+from __future__ import annotations
+
 import logging
-import base64
+import re
+from typing import Dict, List, Optional, Tuple
+
 import fitz  # PyMuPDF
-from google import genai
 
 logger = logging.getLogger(__name__)
 
-# --------------- CONFIG ---------------
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+QUESTION_START_RE = re.compile(r"^\s*(?:Q(?:uestion)?\s*)?(\d{1,4})\s*[\)\.\-:]\s*(.+)?\s*$", re.IGNORECASE)
+OPTION_START_RE = re.compile(r"^\s*[\(\[]?([A-Da-d])[\)\]\.\-:]\s*(.+)?\s*$")
+INLINE_OPTION_SPLIT_RE = re.compile(r"(?:^|\s)([A-Da-d])[\)\.\-:]\s*")
+ANSWER_RE = re.compile(r"\b(?:answer|ans|correct(?:\s*answer)?)\s*[:\-]?\s*\(?([A-Da-d])\)?\b", re.IGNORECASE)
+MARKS_RE = re.compile(r"[\(\[]?\s*(\d{1,2})\s*marks?\s*[\)\]]?", re.IGNORECASE)
+SUBJECT_RE = re.compile(r"\bsubject\s*[:\-]\s*([^\n\r]+)", re.IGNORECASE)
+CLASS_RE = re.compile(r"\b(?:class|grade|std(?:andard)?)\s*[:\-]?\s*([0-9]{1,2}|[ivx]{1,5})\b", re.IGNORECASE)
+CHAPTER_RE = re.compile(r"\b(?:chapter|unit|lesson|topic)\s*[:\-]\s*([^\n\r]+)", re.IGNORECASE)
 
-EXTRACTION_PROMPT = """You are an expert exam question extractor. Analyze this exam paper image and extract ALL multiple-choice questions (MCQs) from it.
+IMAGE_KEYWORDS = (
+    "figure",
+    "diagram",
+    "graph",
+    "table",
+    "map",
+    "flowchart",
+    "match the following",
+    "refer to the image",
+)
 
-**CRITICAL RULES:**
-1. Return ONLY a valid JSON array — no extra text, no markdown fences, no explanation.
-2. Each question object MUST have these fields:
-   - "question_number": integer (the question number as it appears)
-   - "text": the full question text. Use LaTeX notation for ALL mathematical expressions (e.g., \\sqrt{x}, x^2, \\frac{a}{b}, \\pi, \\int, \\sum, etc.)
-   - "option_a": text of option A (with LaTeX for math)
-   - "option_b": text of option B (with LaTeX for math)
-   - "option_c": text of option C (with LaTeX for math)
-   - "option_d": text of option D (with LaTeX for math)
-   - "correct_answer": one of "A", "B", "C", "D" if marked/visible, otherwise null
-   - "has_image": boolean — set to true ONLY if the question contains a diagram, graph, figure, table, or "Match the Following" format that CANNOT be represented as plain text + LaTeX
-   - "marks": integer marks for the question if visible, otherwise 1
-
-3. For "Match the Following" or table-based questions: if the table is simple enough, represent it in the "text" field as structured text. If it's too complex, set "has_image" to true.
-4. For Statement & Reason questions: include both statements in the "text" field clearly labeled.
-5. If the image is a continuation of a previous page, still extract whatever questions are visible.
-6. If NO questions are found on this page, return an empty array: []
-
-**IMPORTANT:** Return ONLY the JSON array. No other text."""
-
-METADATA_PROMPT = """You are an expert exam question analyst. Look at this exam paper image and extract the following metadata if visible:
-
-Return ONLY a valid JSON object with these fields:
-- "subject": the subject name (e.g., "Mathematics", "Physics") or null if not visible
-- "class_number": the class/grade (e.g., "10", "12") or null if not visible
-- "chapter": the chapter name or topic area if visible, otherwise null
-- "total_questions": estimated total number of questions if visible, otherwise null
-
-Return ONLY the JSON object. No other text."""
-
-
-def get_client():
-    """Create and return a Gemini client with the API key."""
-    key = GEMINI_API_KEY or os.getenv("GEMINI_API_KEY", "")
-    if not key:
-        raise ValueError("GEMINI_API_KEY not set in environment variables")
-    return genai.Client(api_key=key)
+KNOWN_SUBJECTS = (
+    "mathematics",
+    "physics",
+    "chemistry",
+    "biology",
+    "science",
+    "social science",
+    "history",
+    "geography",
+    "english",
+    "hindi",
+    "computer science",
+)
 
 
-def pdf_to_images(pdf_bytes):
-    """
-    Convert PDF bytes to a list of PNG image byte arrays (one per page).
-    Uses PyMuPDF (fitz) — no external system deps needed.
-    """
-    images = []
+def _compact_spaces(text: str) -> str:
+    return re.sub(r"\s+", " ", text or "").strip()
+
+
+def _safe_int(value, default: int = 0) -> int:
+    try:
+        return int(value)
+    except Exception:
+        return default
+
+
+def _extract_marks(text: str) -> int:
+    match = MARKS_RE.search(text or "")
+    if not match:
+        return 1
+    marks = _safe_int(match.group(1), 1)
+    return marks if marks > 0 else 1
+
+
+def _extract_correct_answer(text: str) -> Optional[str]:
+    match = ANSWER_RE.search(text or "")
+    if not match:
+        return None
+    return match.group(1).upper()
+
+
+def _strip_answer_marker(text: str) -> str:
+    return _compact_spaces(ANSWER_RE.sub("", text or ""))
+
+
+def _has_image_requirement(text: str) -> bool:
+    content = (text or "").lower()
+    return any(keyword in content for keyword in IMAGE_KEYWORDS)
+
+
+def _pdf_to_text_pages(pdf_bytes: bytes) -> List[Dict]:
+    pages: List[Dict] = []
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
     for page_num in range(len(doc)):
         page = doc[page_num]
-        # Render at 2x resolution for better OCR accuracy
-        pix = page.get_pixmap(dpi=200)
-        img_bytes = pix.tobytes("png")
-        images.append({
+        pages.append({
             "page_number": page_num + 1,
-            "image_bytes": img_bytes,
-            "width": pix.width,
-            "height": pix.height
+            "text": page.get_text("text") or "",
         })
     doc.close()
-    return images
+    return pages
 
 
-def _clean_json_response(raw_text):
-    """Strip markdown code fences from AI response."""
-    raw_text = raw_text.strip()
-    if raw_text.startswith("```json"):
-        raw_text = raw_text[7:]
-    if raw_text.startswith("```"):
-        raw_text = raw_text[3:]
-    if raw_text.endswith("```"):
-        raw_text = raw_text[:-3]
-    return raw_text.strip()
-
-
-def extract_questions_from_image(client, image_bytes):
+def _split_inline_options(line: str) -> List[Tuple[str, str]]:
     """
-    Send a single page image to Gemini and get structured questions back.
-    Returns a list of question dicts.
+    Parse lines like: "A) x B) y C) z D) w"
     """
-    # Encode image as base64 for the API
-    img_b64 = base64.b64encode(image_bytes).decode("utf-8")
-
-    response = client.models.generate_content(
-        model="gemini-2.0-flash",
-        contents=[
-            EXTRACTION_PROMPT,
-            {
-                "inline_data": {
-                    "mime_type": "image/png",
-                    "data": img_b64
-                }
-            }
-        ],
-    )
-
-    raw_text = _clean_json_response(response.text)
-
-    try:
-        questions = json.loads(raw_text)
-        if not isinstance(questions, list):
-            questions = [questions]
-        return questions
-    except json.JSONDecodeError as e:
-        logger.error(f"Failed to parse Gemini response as JSON: {e}")
-        logger.error(f"Raw response: {raw_text[:500]}")
+    matches = list(INLINE_OPTION_SPLIT_RE.finditer(line or ""))
+    if len(matches) < 2:
         return []
 
+    options: List[Tuple[str, str]] = []
+    for idx, match in enumerate(matches):
+        letter = match.group(1).upper()
+        start = match.end()
+        end = matches[idx + 1].start() if idx + 1 < len(matches) else len(line)
+        value = _compact_spaces(line[start:end])
+        if value:
+            options.append((letter, value))
+    return options
 
-def extract_metadata_from_image(client, image_bytes):
-    """
-    Extract paper metadata (subject, class, chapter) from the first page.
-    """
-    img_b64 = base64.b64encode(image_bytes).decode("utf-8")
 
-    response = client.models.generate_content(
-        model="gemini-2.0-flash",
-        contents=[
-            METADATA_PROMPT,
-            {
-                "inline_data": {
-                    "mime_type": "image/png",
-                    "data": img_b64
-                }
+def _finalize_question(current: Dict, page_number: int, questions: List[Dict]) -> None:
+    text = _compact_spaces(" ".join(current.get("text_lines", [])))
+    options = current.get("options", {})
+
+    if not text:
+        return
+    if not any(options.get(k) for k in ("A", "B", "C", "D")):
+        # Keep only MCQs; skip non-option blocks.
+        return
+
+    correct_answer = _extract_correct_answer(text)
+    marks = _extract_marks(text)
+    text = _strip_answer_marker(text)
+
+    has_image = _has_image_requirement(text)
+    if has_image:
+        text = f"{text} [IMAGE_REQUIRED]"
+
+    questions.append({
+        "question_number": current.get("question_number"),
+        "text": text,
+        "option_a": options.get("A") or None,
+        "option_b": options.get("B") or None,
+        "option_c": options.get("C") or None,
+        "option_d": options.get("D") or None,
+        "correct_answer": correct_answer,
+        "has_image": has_image,
+        "marks": marks,
+        "source_page": page_number,
+    })
+
+
+def _extract_questions_from_text(page_text: str, page_number: int) -> List[Dict]:
+    questions: List[Dict] = []
+    current: Optional[Dict] = None
+
+    for raw_line in (page_text or "").splitlines():
+        line = _compact_spaces(raw_line)
+        if not line:
+            continue
+
+        q_match = QUESTION_START_RE.match(line)
+        if q_match:
+            if current:
+                _finalize_question(current, page_number, questions)
+
+            q_number = _safe_int(q_match.group(1), 0) or None
+            q_text = q_match.group(2) or ""
+            current = {
+                "question_number": q_number,
+                "text_lines": [q_text] if q_text else [],
+                "options": {"A": "", "B": "", "C": "", "D": ""},
+                "last_option": None,
             }
-        ],
-    )
+            continue
 
-    raw_text = _clean_json_response(response.text)
+        if current is None:
+            continue
 
-    try:
-        return json.loads(raw_text)
-    except json.JSONDecodeError:
-        return {"subject": None, "class_number": None, "chapter": None}
+        opt_match = OPTION_START_RE.match(line)
+        if opt_match:
+            letter = opt_match.group(1).upper()
+            option_text = _compact_spaces(opt_match.group(2) or "")
+            current["options"][letter] = option_text
+            current["last_option"] = letter
+            continue
+
+        inline_options = _split_inline_options(line)
+        if inline_options:
+            for letter, option_text in inline_options:
+                current["options"][letter] = option_text
+                current["last_option"] = letter
+            continue
+
+        # Continuation line: append to last option if one started, else to question text.
+        last_option = current.get("last_option")
+        if last_option and current["options"].get(last_option):
+            current["options"][last_option] = _compact_spaces(f"{current['options'][last_option]} {line}")
+        else:
+            current["text_lines"].append(line)
+
+    if current:
+        _finalize_question(current, page_number, questions)
+
+    return questions
 
 
-def extract_pdf(pdf_bytes):
-    """
-    Full pipeline: PDF bytes -> page images -> Gemini extraction -> structured result.
-    Returns dict with 'metadata' and 'questions' keys.
-    """
-    client = get_client()
-
-    images = pdf_to_images(pdf_bytes)
-    if not images:
-        return {"metadata": {}, "questions": [], "total_pages": 0}
-
-    # Extract metadata from first page
-    metadata = extract_metadata_from_image(client, images[0]["image_bytes"])
-
-    # Extract questions from all pages
-    all_questions = []
-    for img_data in images:
-        page_questions = extract_questions_from_image(client, img_data["image_bytes"])
-        for q in page_questions:
-            q["source_page"] = img_data["page_number"]
-            # Mark questions needing image upload
-            if q.get("has_image"):
-                q["text"] = q.get("text", "") + " [IMAGE_REQUIRED]"
-        all_questions.extend(page_questions)
-
-    # De-duplicate by question_number (in case page boundaries cause repeats)
+def _dedupe_questions(questions: List[Dict]) -> List[Dict]:
     seen_numbers = set()
+    seen_texts = set()
     unique_questions = []
-    for q in all_questions:
+
+    for q in questions:
         qn = q.get("question_number")
+        text_key = (q.get("text") or "").strip().lower()
+
         if qn and qn in seen_numbers:
             continue
+        if (not qn) and text_key and text_key in seen_texts:
+            continue
+
         if qn:
             seen_numbers.add(qn)
+        if text_key:
+            seen_texts.add(text_key)
+
         unique_questions.append(q)
 
+    return unique_questions
+
+
+def _extract_metadata_from_text(first_page_text: str, questions: List[Dict]) -> Dict:
+    content = first_page_text or ""
+    subject = None
+    class_number = None
+    chapter = None
+
+    subject_match = SUBJECT_RE.search(content)
+    class_match = CLASS_RE.search(content)
+    chapter_match = CHAPTER_RE.search(content)
+
+    if subject_match:
+        subject = _compact_spaces(subject_match.group(1))
+    else:
+        lowered = content.lower()
+        for candidate in KNOWN_SUBJECTS:
+            if candidate in lowered:
+                subject = candidate.title()
+                break
+
+    if class_match:
+        class_number = _compact_spaces(class_match.group(1)).upper()
+
+    if chapter_match:
+        chapter = _compact_spaces(chapter_match.group(1))
+
+    numbered = [q.get("question_number") for q in questions if q.get("question_number")]
+    total_questions = max(numbered) if numbered else len(questions)
+
     return {
+        "subject": subject,
+        "class_number": class_number,
+        "chapter": chapter,
+        "total_questions": total_questions or None,
+    }
+
+
+def extract_pdf(pdf_bytes: bytes) -> Dict:
+    """
+    Extract MCQ-like questions from a PDF using local text parsing only.
+    """
+    pages = _pdf_to_text_pages(pdf_bytes)
+    if not pages:
+        return {"engine": "local", "metadata": {}, "questions": [], "total_pages": 0}
+
+    all_questions = []
+    for page in pages:
+        all_questions.extend(_extract_questions_from_text(page["text"], page["page_number"]))
+
+    unique_questions = _dedupe_questions(all_questions)
+    metadata = _extract_metadata_from_text(pages[0]["text"], unique_questions)
+
+    return {
+        "engine": "local",
         "metadata": metadata,
         "questions": unique_questions,
-        "total_pages": len(images)
+        "total_pages": len(pages),
     }

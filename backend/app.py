@@ -96,7 +96,8 @@ CORS(
     resources={r"/*": {"origins": [
         "http://localhost:3000",
         "http://127.0.0.1:3000",
-        "https://sl-exam.onrender.com"
+        "https://sl-exam.onrender.com",
+        "https://sl-exams.onrender.com"
     ]}},
     supports_credentials=True,
     allow_headers=["Content-Type","Authorization","auth_token"],
@@ -1535,3 +1536,4 @@ if __name__ == '__main__':
         db.create_all()
     # Bind to 0.0.0.0 for LAN testing; change if you want only localhost
     app.run(host='0.0.0.0', port=5000, debug=True)
+
