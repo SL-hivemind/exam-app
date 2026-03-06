@@ -1,0 +1,26 @@
+# Environment files
+.env
+.env.*
+backend/.env
+frontend/.env
+frontend/.env.*
+
+# Python cache and virtual envs
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+backend/.pytest_cache/
+venv/
+backend/venv/
+
+# Node dependencies and builds
+node_modules/
+frontend/node_modules/
+build/
+dist/
+frontend/build/
+
+# Runtime-generated upload artifacts
+backend/uploads/
