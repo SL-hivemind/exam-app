@@ -953,8 +953,13 @@ def admin_students_create(current_user):
     try:
         name = (data.get("name") or "").strip()
         school_id = data.get("school_id")
-        if not name or not school_id :
-            return jsonify({"message": "name, school_id and number are required"}), 400
+
+        # School admins can omit school_id from payload; bind to their own school.
+        if current_user.role == "school_admin" and not school_id:
+            school_id = current_user.school_id
+
+        if not name or not school_id:
+            return jsonify({"message": "name and school_id are required"}), 400
 
         if current_user.role == "school_admin":
             if not current_user.school_id or int(school_id) != int(current_user.school_id):

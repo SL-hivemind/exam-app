@@ -36,7 +36,7 @@ export default function AdminStudents() {
   const [isEdit, setIsEdit] = useState(false);
   const [current, setCurrent] = useState({
     id: null, password: "", email: "", mobile_number: "",
-    school_id: "", name: "", class_number: "", number: ""
+    school_id: "", name: "", class_number: ""
   });
 
   const [error, setError] = useState("");
@@ -130,8 +130,7 @@ export default function AdminStudents() {
       // FIX: If School Admin, Auto-fill their school ID (backend will validate)
       school_id: student.school_id || (isSuperAdmin ? "" : user.school_id) || "",
       name: student.name || "",
-      class_number: student.class_number || "",
-      number: student.number || ""
+      class_number: student.class_number || ""
     });
     setIsEdit(!!student.id);
     setOpen(true);
@@ -158,8 +157,7 @@ export default function AdminStudents() {
         class_number: current.class_number || null,
         email: current.email || null,
         mobile_number: current.mobile_number || null,
-        ...(current.password ? { password: current.password } : {}),
-        ...(current.number ? { number: current.number } : {})
+        ...(current.password ? { password: current.password } : {})
       };
 
 
@@ -492,8 +490,9 @@ export default function AdminStudents() {
                 <TextField
                   label="Roll Number"
                   fullWidth
-                  value={current.number}
-                  onChange={(e) => setCurrent({ ...current, number: e.target.value })}
+                  value="Auto-generated"
+                  disabled
+                  helperText="Generated automatically after saving"
                 />
               </Grid>
             </Grid>
