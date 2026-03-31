@@ -68,7 +68,6 @@ class User(db.Model):
 
     email = db.Column(db.String(100), unique=True, nullable=True)
     mobile_number = db.Column(db.String(20), nullable=True)
-    name = db.Column(db.String(100), nullable=True)
 
     school_id = db.Column(db.Integer, db.ForeignKey('schools.id'), nullable=True)
     specialist_subject = db.Column(db.String(100), nullable=True)
@@ -87,7 +86,7 @@ class User(db.Model):
             "username": self.username,
             "role": self.role,
             "email": self.email,
-            "name": self.name,
+            "name": self.username,
             "school_id": self.school_id,
             "specialist_subject": self.specialist_subject
         }
@@ -120,7 +119,7 @@ class Student(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), primary_key=True)
     user = db.relationship('User', backref=db.backref('student_profile', uselist=False))
     student_id = db.Column(db.String(120), unique=True, nullable=False)
-    name = db.Column(db.String(200), nullable=False)
+    old_student_id = db.Column(db.String(120), nullable=True)
     class_number = db.Column(db.String(50), nullable=True)
     number = db.Column(db.String(50), nullable=False)
     school_id = db.Column(db.Integer, db.ForeignKey('schools.id'), nullable=False)
@@ -130,27 +129,20 @@ class Student(db.Model):
         if not self.school or not self.school.code:
             raise ValueError("school code required")
 
-        q = Student.query.filter_by(
-            school_id=self.school_id,
-            class_number=self.class_number
-        )
+        q = Student.query.filter_by(school_id=self.school_id)
 
         seq = q.count() + 1
-        seq4 = f"{seq:04d}"
-
-        if self.class_number:
-           self.student_id = f"{self.school.code}-{self.class_number}-{seq4}"
-        else:
-           self.student_id = f"{self.school.code}-{seq4}"
+        seq5 = f"{seq:05d}"
+        self.student_id = f"{self.school.code}-{seq5}"
 
     # Optional compatibility
-        self.number = seq4
+        self.number = seq5
 
     def to_dict(self):
         return {
             "user_id": self.user_id,
             "student_id": self.student_id,
-            "name": self.name,
+            "name": self.user.username if self.user else None,
             "class_number": self.class_number,
             "roll_number": self.number,
             "school_name": self.school.name if self.school else None,

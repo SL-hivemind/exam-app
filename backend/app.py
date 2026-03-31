@@ -40,7 +40,7 @@ from routes import register_analysis_routes, register_repository_routes, registe
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ENV_PATH = os.path.join(BASE_DIR, ".env")
 load_dotenv(dotenv_path=ENV_PATH, override=False)
-print(f"✅ Loaded environment from: {ENV_PATH}")
+print(f"Loaded environment from: {ENV_PATH}")
 
 app = Flask(__name__)
 
@@ -259,12 +259,7 @@ def login():
                 school_name = sch.name
 
         # Backward-compatible display name resolution:
-        # older student rows may have name only in students table.
-        display_name = getattr(user, 'name', None)
-        if user.role == 'student' and not (display_name or '').strip():
-            student_profile = Student.query.filter_by(user_id=user.id).first()
-            if student_profile:
-                display_name = student_profile.name
+        display_name = user.username
 
         profile = {'id': user.id, 'username': user.username, 'role': user.role, 'name': display_name, 'specialist_subject': getattr(user, 'specialist_subject', None),'school_id': user.school_id,       # Ensure this is sent
             'school_name': school_name}
@@ -300,7 +295,7 @@ def me_profile(current_user):
         'id': current_user.id,
         'role': current_user.role,
         'username': current_user.username,
-        'name': current_user.name or (student.name if student else None),
+        'name': current_user.username,
         'email': current_user.email,
         'mobile_number': current_user.mobile_number,
         'school_id': current_user.school_id or (student.school_id if student else None),
@@ -333,8 +328,7 @@ def update_me_profile(current_user):
             if 'name' in data:
                 next_name = (data.get('name') or '').strip()
                 if next_name:
-                    student.name = next_name
-                    current_user.name = next_name
+                    current_user.username = next_name
 
             db.session.commit()
             return jsonify({'message': 'profile updated'}), 200
@@ -342,7 +336,7 @@ def update_me_profile(current_user):
         if 'name' in data:
             next_name = (data.get('name') or '').strip()
             if next_name:
-                current_user.name = next_name
+                current_user.username = next_name
 
         if 'email' in data:
             next_email = (data.get('email') or '').strip() or None
@@ -458,24 +452,25 @@ def register_student():
 
     try:
         with db.session.begin():
-            # Students always login with generated student_id; keep a temporary
-            # unique username until student_id is generated.
-            temp_username = f"tmp_student_{secrets.token_hex(8)}"
-            while User.query.filter_by(username=temp_username).first():
-                temp_username = f"tmp_student_{secrets.token_hex(8)}"
+            base_username = name or "Student"
+            username = base_username
+            suffix = 1
+            while User.query.filter_by(username=username).first():
+                username = f"{base_username}_{suffix}"
+                suffix += 1
 
-            resolved_name = name or temp_username
-
-            user = User(username=temp_username, role='student',
-                        name=resolved_name,
-                        email=data.get('email'), mobile_number=data.get('mobile_number'))
+            user = User(
+                username=username, 
+                role='student',
+                email=data.get('email'), 
+                mobile_number=data.get('mobile_number')
+            )
             user.set_password(password)
             db.session.add(user)
             db.session.flush()
 
             student = Student(
                user_id=user.id,
-               name=resolved_name,
                class_number=class_number,
                school_id=school.id
             )
@@ -483,9 +478,6 @@ def register_student():
             student.generate_student_id_auto()
             db.session.add(student)
             db.session.flush()
-
-            user.username = student.student_id
-            db.session.add(user)
         return jsonify({'message':'student created','username': user.username}), 201
     except IntegrityError as e:
         db.session.rollback()
@@ -595,15 +587,13 @@ def admin_students_list(current_user):
             like = f"%{search}%"
             q = q.filter(
                 db.or_(
-                    Student.name.ilike(like),
                     User.username.ilike(like),
                     User.email.ilike(like),
                     Student.student_id.ilike(like) # Added search by Student ID too
                 )
             )
 
-        # Pagination
-        pagination = q.order_by(Student.number, Student.name).paginate(
+        pagination = q.order_by(Student.number, User.username).paginate(
             page=page, per_page=per_page, error_out=False
         )
 
@@ -611,7 +601,7 @@ def admin_students_list(current_user):
             {
                 "id": stu.user_id,
                 "username": usr.username,
-                "name": stu.name,
+                "name": usr.username,
                 "mobile_number": usr.mobile_number,
                 "school_name": sch.name if sch else None,
                 "class_number": stu.class_number,
@@ -662,13 +652,16 @@ def admin_students_create(current_user):
         if not sch:
             return jsonify({"message": "school not found"}), 404
 
-        temp_username = f"tmp_student_{secrets.token_hex(8)}"
-        while User.query.filter_by(username=temp_username).first():
-            temp_username = f"tmp_student_{secrets.token_hex(8)}"
+        base_username = name or "Student"
+        username = base_username
+        suffix = 1
+        while User.query.filter_by(username=username).first():
+            username = f"{base_username}_{suffix}"
+            suffix += 1
 
         u = User(
-            username=temp_username, role="student",
-            email=email, mobile_number=mobile_number, name=name
+            username=username, role="student",
+            email=email, mobile_number=mobile_number
         )
         u.set_password(password or "student@123")
         db.session.add(u)
@@ -676,15 +669,12 @@ def admin_students_create(current_user):
 
         stu = Student(
             user_id=u.id,
-            name=name,
             school_id=int(school_id),
             class_number=class_number or None
         )
         stu.school = sch
         stu.generate_student_id_auto()
         db.session.add(stu)
-        u.username = stu.student_id
-        u.name = stu.name
         db.session.commit()
 
         return jsonify({
@@ -724,7 +714,7 @@ def admin_student_detail(current_user, user_id):
             'username': user.username,
             'email': user.email,
             'mobile_number': user.mobile_number,
-            'name': student.name,
+            'name': user.username,
             'class_number': student.class_number,
             'school_id': student.school_id,
             'student_id': student.student_id,
@@ -749,9 +739,8 @@ def admin_student_detail(current_user, user_id):
                 changed = True
 
             if 'name' in data:
-                next_name = data.get('name') or student.name
-                student.name = next_name
-                user.name = next_name
+                next_name = data.get('name') or user.username
+                user.username = next_name
                 changed = True
 
             # Track inputs that may affect the student_id
@@ -783,7 +772,6 @@ def admin_student_detail(current_user, user_id):
                         'message': 'student_id already exists for this school/class'
                     }), 409
 
-                user.username = student.student_id
                 changed = True
 
             if changed:
@@ -800,7 +788,7 @@ def admin_student_detail(current_user, user_id):
                 'student': {
                     'user_id': student.user_id,
                     'student_id': student.student_id,
-                    'name': student.name,
+                    'name': user.username,
                     'class_number': student.class_number,
                     'school_id': student.school_id
                 }

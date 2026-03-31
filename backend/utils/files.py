@@ -194,11 +194,7 @@ def import_students_csv(path, fix_existing=False):
             if not s.student_id:
                 if not s.school and s.school_id:
                     s.school = School.query.get(s.school_id)
-                s.generate_student_id()
-
-            user = User.query.get(s.user_id)
-            if user and user.username != s.student_id:
-                user.username = s.student_id
+                s.generate_student_id_auto()
 
             created.append({
                 "user_id": s.user_id,
@@ -235,12 +231,19 @@ def import_students_csv(path, fix_existing=False):
                 raise ValueError(f"School not found: {school_code}")
 
             # -------------------------------
-            # Create USER (TEMP)
+            # Create USER
             # -------------------------------
             temp_password = password or secrets.token_hex(6)
 
+            base_username = name or "Student"
+            new_username = base_username
+            suffix = 1
+            while User.query.filter_by(username=new_username).first():
+                new_username = f"{base_username}_{suffix}"
+                suffix += 1
+
             user = User(
-                username="__tmp__",
+                username=new_username,
                 role="student",
                 email=email
             )
@@ -253,7 +256,6 @@ def import_students_csv(path, fix_existing=False):
             # -------------------------------
             student = Student(
                 user_id=user.id,
-                name=name,
                 class_number=class_number,
                 number=number or None,
                 school_id=school.id
@@ -268,10 +270,6 @@ def import_students_csv(path, fix_existing=False):
 
             db.session.add(student)
             db.session.flush()
-
-            # Sync username
-            user.username = student.student_id
-            db.session.add(user)
 
             created.append({
                 "student_id": student.student_id,
@@ -380,7 +378,7 @@ def export_student_attempts_to_excel(exam_id=None):
                 row = [
                     idx,  # Rank
                     student.student_id if student else "N/A",
-                    student.name if student else "N/A",
+                    student.user.username if (student and student.user) else "N/A",
                     student.school.name if student and student.school else "N/A",
                     exam.title if exam else "N/A",
                     score,
