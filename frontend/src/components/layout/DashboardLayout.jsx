@@ -14,7 +14,8 @@ import {
   Menu as MenuIcon,
   ChevronLeft as ChevronLeftIcon,
   History as HistoryIcon,
-  Person as PersonIcon
+  Person as PersonIcon,
+  NotificationsActive as NotificationsIcon
 } from '@mui/icons-material';
 import { Link as RouterLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import useAuth from '../../hooks/useAuth';
@@ -45,6 +46,7 @@ export default function DashboardLayout() {
     { text: "Students", icon: <PeopleIcon />, path: `${basePath}/students`, allowed: !isSubjectSpecialist },
     { text: "Schools", icon: <SchoolIcon />, path: `${basePath}/schools`, allowed: isAdmin },
     { text: "Activity Log", icon: <HistoryIcon />, path: `${basePath}/activity-log`, allowed: isAdmin || isSubjectSpecialist },
+    { text: "Requests", icon: <NotificationsIcon />, path: `${basePath}/requests`, allowed: isAdmin || isSchoolAdmin },
     { text: "Profile", icon: <PersonIcon />, path: `${basePath}/profile`, allowed: true },
   ];
 

@@ -310,6 +310,36 @@ class StudentAnswer(db.Model):
     marks_awarded = db.Column(db.Integer, default=0)
     attempt = db.relationship('StudentExamAttempt', backref=db.backref('answers', lazy=True))
 
+# -------------------- OTP FOR PASSWORD RESET --------------------
+
+class PasswordResetOTP(db.Model):
+    __tablename__ = 'password_reset_otps'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False)
+    otp_code = db.Column(db.String(6), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    used = db.Column(db.Boolean, default=False)
+
+    user = db.relationship('User', backref=db.backref('otps', lazy=True))
+
+# -------------------- STUDENT REQUESTS --------------------
+
+class StudentRequest(db.Model):
+    __tablename__ = 'student_requests'
+    id = db.Column(db.Integer, primary_key=True)
+    student_user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False)
+    school_id = db.Column(db.Integer, db.ForeignKey('schools.id'), nullable=True)
+    request_type = db.Column(db.String(30), nullable=False)  # 'password_reset' or 'profile_update'
+    message = db.Column(db.Text, nullable=True)  # student's note
+    status = db.Column(db.String(20), default='pending')  # 'pending', 'approved', 'rejected'
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    resolved_at = db.Column(db.DateTime, nullable=True)
+    resolved_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+
+    student = db.relationship('User', foreign_keys=[student_user_id], backref=db.backref('requests_made', lazy=True))
+    resolver = db.relationship('User', foreign_keys=[resolved_by])
+
 # -------------------- EVENT LISTENERS --------------------
 
 @event.listens_for(QuestionRepository, 'before_insert')

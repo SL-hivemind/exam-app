@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy import desc, or_
 from sqlalchemy import func, Integer
+import random
 from flask import make_response  # Make sure to import this
 
 
@@ -23,7 +24,8 @@ from models import (
     User, School, Student,
     Exam, Question, ExamStudent,
     StudentExamAttempt, StudentAnswer,
-    QuestionRepository,QuestionAuditLog,generate_short_id   # <- must exist in your models.py
+    QuestionRepository, QuestionAuditLog, generate_short_id,
+    PasswordResetOTP, StudentRequest
 )
 
 from utils.files import (
@@ -321,21 +323,14 @@ def update_me_profile(current_user):
 
     try:
         if current_user.role == 'student':
-            student = Student.query.filter_by(user_id=current_user.id).first()
-            if not student:
-                return jsonify({'message': 'student profile not found'}), 404
+            return jsonify({'message': 'Students cannot edit their own profile. Please request changes from your school admin.'}), 403
 
-            if 'name' in data:
-                next_name = (data.get('name') or '').strip()
-                if next_name:
-                    current_user.username = next_name
-
-            db.session.commit()
-            return jsonify({'message': 'profile updated'}), 200
-
-        if 'name' in data:
-            next_name = (data.get('name') or '').strip()
-            if next_name:
+        if 'name' in data or 'username' in data:
+            next_name = (data.get('username') or data.get('name') or '').strip()
+            if next_name and next_name != current_user.username:
+                existing = User.query.filter(User.username == next_name, User.id != current_user.id).first()
+                if existing:
+                    return jsonify({'message': f'Username "{next_name}" is already taken'}), 409
                 current_user.username = next_name
 
         if 'email' in data:
@@ -357,6 +352,36 @@ def update_me_profile(current_user):
         return jsonify({'message': 'profile update failed', 'detail': str(e)}), 500
 
 
+@app.post('/me/request-otp')
+@token_required
+def request_otp(current_user):
+    """Send a 6-digit OTP to the user's email for password reset."""
+    if current_user.role == 'student':
+        return jsonify({'message': 'Students must request password reset from school admin.'}), 403
+
+    if not current_user.email:
+        return jsonify({'message': 'No email address on your account. Please add an email to your profile first.'}), 400
+
+    # Generate 6-digit OTP
+    otp_code = str(random.randint(100000, 999999))
+    expires = datetime.utcnow() + timedelta(minutes=5)
+
+    # Invalidate any previous unused OTPs
+    PasswordResetOTP.query.filter_by(user_id=current_user.id, used=False).update({'used': True})
+
+    otp = PasswordResetOTP(user_id=current_user.id, otp_code=otp_code, expires_at=expires)
+    db.session.add(otp)
+    db.session.commit()
+
+    try:
+        from utils.email import send_otp_email
+        send_otp_email(current_user.email, otp_code, current_user.username)
+    except Exception as e:
+        return jsonify({'message': f'Failed to send OTP email: {str(e)}'}), 500
+
+    return jsonify({'message': f'OTP sent to {current_user.email}'}), 200
+
+
 @app.post('/me/change-password')
 @token_required
 def change_my_password(current_user):
@@ -364,21 +389,194 @@ def change_my_password(current_user):
         return jsonify({'message': 'students must contact school admin to reset password'}), 403
 
     data = request.get_json(silent=True) or {}
-    current_password = data.get('current_password')
+    otp_code = (data.get('otp') or '').strip()
     new_password = data.get('new_password')
 
-    if not current_password or not new_password:
-        return jsonify({'message': 'current_password and new_password are required'}), 400
+    if not otp_code or not new_password:
+        return jsonify({'message': 'otp and new_password are required'}), 400
 
     if len(str(new_password)) < 8:
         return jsonify({'message': 'new password must be at least 8 characters'}), 400
 
-    if not current_user.check_password(current_password):
-        return jsonify({'message': 'current password is incorrect'}), 400
+    # Validate OTP
+    otp = PasswordResetOTP.query.filter_by(
+        user_id=current_user.id, otp_code=otp_code, used=False
+    ).order_by(PasswordResetOTP.created_at.desc()).first()
 
+    if not otp:
+        return jsonify({'message': 'Invalid OTP'}), 400
+
+    if datetime.utcnow() > otp.expires_at:
+        otp.used = True
+        db.session.commit()
+        return jsonify({'message': 'OTP has expired. Please request a new one.'}), 400
+
+    otp.used = True
     current_user.set_password(new_password)
     db.session.commit()
-    return jsonify({'message': 'password updated'}), 200
+    return jsonify({'message': 'Password updated successfully'}), 200
+
+
+# ------------------------------
+# STUDENT REQUESTS (password reset / profile update)
+# ------------------------------
+@app.post('/me/request-update')
+@token_required
+def student_request_update(current_user):
+    """Students submit a request for password reset or profile update."""
+    if current_user.role != 'student':
+        return jsonify({'message': 'This endpoint is for students only'}), 403
+
+    data = request.get_json(silent=True) or {}
+    req_type = data.get('request_type', 'password_reset')  # 'password_reset' or 'profile_update'
+    message = (data.get('message') or '').strip()
+
+    if req_type not in ('password_reset', 'profile_update'):
+        return jsonify({'message': 'Invalid request_type'}), 400
+
+    # Check for existing pending request of same type
+    existing = StudentRequest.query.filter_by(
+        student_user_id=current_user.id, request_type=req_type, status='pending'
+    ).first()
+    if existing:
+        return jsonify({'message': f'You already have a pending {req_type.replace("_", " ")} request.'}), 409
+
+    student = Student.query.filter_by(user_id=current_user.id).first()
+    school_id = student.school_id if student else None
+
+    req = StudentRequest(
+        student_user_id=current_user.id,
+        school_id=school_id,
+        request_type=req_type,
+        message=message or None,
+        status='pending'
+    )
+    db.session.add(req)
+    db.session.commit()
+
+    return jsonify({'message': 'Request submitted. Your school admin will review it.', 'request_id': req.id}), 201
+
+
+@app.get('/me/request-status')
+@token_required
+def student_request_status(current_user):
+    """Students check their pending requests."""
+    if current_user.role != 'student':
+        return jsonify({'requests': []}), 200
+
+    reqs = StudentRequest.query.filter_by(student_user_id=current_user.id).order_by(
+        StudentRequest.created_at.desc()
+    ).limit(10).all()
+
+    return jsonify({'requests': [{
+        'id': r.id,
+        'type': r.request_type,
+        'status': r.status,
+        'message': r.message,
+        'created_at': r.created_at.isoformat() if r.created_at else None,
+        'resolved_at': r.resolved_at.isoformat() if r.resolved_at else None,
+    } for r in reqs]}), 200
+
+
+@app.get('/admin/student-requests')
+@role_required('admin', 'school_admin')
+def get_student_requests(current_user):
+    """Admins view pending student requests."""
+    q = StudentRequest.query
+
+    if current_user.role == 'school_admin':
+        q = q.filter_by(school_id=current_user.school_id)
+
+    status_filter = request.args.get('status', 'pending')
+    if status_filter:
+        q = q.filter_by(status=status_filter)
+
+    reqs = q.order_by(StudentRequest.created_at.desc()).all()
+
+    result = []
+    for r in reqs:
+        student_user = User.query.get(r.student_user_id)
+        student_profile = Student.query.filter_by(user_id=r.student_user_id).first()
+        result.append({
+            'id': r.id,
+            'student_name': student_user.username if student_user else 'Unknown',
+            'student_id': student_profile.student_id if student_profile else None,
+            'school_id': r.school_id,
+            'type': r.request_type,
+            'message': r.message,
+            'status': r.status,
+            'created_at': r.created_at.isoformat() if r.created_at else None,
+        })
+
+    return jsonify({'requests': result, 'count': len(result)}), 200
+
+
+@app.post('/admin/student-requests/<int:req_id>/approve')
+@role_required('admin', 'school_admin')
+def approve_student_request(current_user, req_id):
+    """Approve a student request. For password_reset, admin provides new password."""
+    sr = StudentRequest.query.get(req_id)
+    if not sr:
+        return jsonify({'message': 'Request not found'}), 404
+
+    if sr.status != 'pending':
+        return jsonify({'message': 'Request already resolved'}), 400
+
+    if current_user.role == 'school_admin' and sr.school_id != current_user.school_id:
+        return jsonify({'message': 'Not authorized for this request'}), 403
+
+    data = request.get_json(silent=True) or {}
+
+    student_user = User.query.get(sr.student_user_id)
+    if not student_user:
+        return jsonify({'message': 'Student user not found'}), 404
+
+    if sr.request_type == 'password_reset':
+        new_password = data.get('new_password')
+        if not new_password or len(str(new_password)) < 4:
+            return jsonify({'message': 'new_password is required (min 4 chars)'}), 400
+        student_user.set_password(new_password)
+
+    if sr.request_type == 'profile_update':
+        # Admin can update username, class, etc.
+        if 'username' in data:
+            new_un = data['username'].strip()
+            if new_un and new_un != student_user.username:
+                if User.query.filter(User.username == new_un, User.id != student_user.id).first():
+                    return jsonify({'message': f'Username "{new_un}" already taken'}), 409
+                student_user.username = new_un
+        if 'class_number' in data:
+            student = Student.query.filter_by(user_id=student_user.id).first()
+            if student:
+                student.class_number = data['class_number']
+
+    sr.status = 'approved'
+    sr.resolved_at = datetime.utcnow()
+    sr.resolved_by = current_user.id
+    db.session.commit()
+
+    return jsonify({'message': 'Request approved'}), 200
+
+
+@app.post('/admin/student-requests/<int:req_id>/reject')
+@role_required('admin', 'school_admin')
+def reject_student_request(current_user, req_id):
+    sr = StudentRequest.query.get(req_id)
+    if not sr:
+        return jsonify({'message': 'Request not found'}), 404
+
+    if sr.status != 'pending':
+        return jsonify({'message': 'Request already resolved'}), 400
+
+    if current_user.role == 'school_admin' and sr.school_id != current_user.school_id:
+        return jsonify({'message': 'Not authorized'}), 403
+
+    sr.status = 'rejected'
+    sr.resolved_at = datetime.utcnow()
+    sr.resolved_by = current_user.id
+    db.session.commit()
+
+    return jsonify({'message': 'Request rejected'}), 200
 
 
 

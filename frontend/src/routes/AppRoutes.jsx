@@ -13,6 +13,7 @@ import AdminStudents from "../components/admin/AdminStudents";
 import AdminSchools from "../components/admin/AdminSchools";
 import AdminExamQuestions from "../components/admin/AdminExamQuestions";
 import AdminExamDetail from "../components/admin/AdminExamDetail";
+import StudentRequests from "../components/admin/StudentRequests";
 import RepoQuestionsPage from "../components/repository/RepoQuestionsPage";
 import RepoQuestionEditPage from "../components/repository/RepoQuestionEditPage";
 import StudentExamQuestionsPage from "../components/StudentExamQuestionsPage";
@@ -50,6 +51,7 @@ export default function AppRoutes() {
         <Route path="repository/questions/:id/edit" element={<RepoQuestionEditPage />} />
         <Route path="repository/bulk-edit" element={<BulkEditQuestions />} />
         <Route path="activity-log" element={<SpecialistActivityLog />} />
+        <Route path="requests" element={<StudentRequests />} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>
 
@@ -67,6 +69,7 @@ export default function AppRoutes() {
         <Route path="repository/questions" element={<RepoQuestionsPage />} />
         <Route path="repository/questions/new" element={<RepoQuestionEditPage />} />
         <Route path="repository/questions/:id/edit" element={<RepoQuestionEditPage />} />
+        <Route path="requests" element={<StudentRequests />} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>
 

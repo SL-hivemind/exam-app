@@ -13,6 +13,7 @@ import SearchIcon from "@mui/icons-material/Search";
 import FilterListIcon from "@mui/icons-material/FilterList";
 import ClassIcon from "@mui/icons-material/Class";
 import VisibilityIcon from "@mui/icons-material/Visibility";
+import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
 import api from "../../utils/api";
 import useAuth from "../../hooks/useAuth";
 
@@ -44,6 +45,7 @@ export default function AdminStudents() {
   const [attemptsLoading, setAttemptsLoading] = useState(false);
   const [attemptsData, setAttemptsData] = useState(null);
   const [selectedStudent, setSelectedStudent] = useState(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [debouncedClass, setDebouncedClass] = useState("");
@@ -430,14 +432,23 @@ export default function AdminStudents() {
 
             {!isEdit && (
               <TextField
-                label="Password "
-                type="password"
+                label="Password"
+                type={showPassword ? "text" : "password"}
                 fullWidth
                 value={current.password}
                 onChange={(e) =>
                   setCurrent({ ...current, password: e.target.value })
                 }
                 helperText="Leave blank to auto-generate a secure password"
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton onClick={() => setShowPassword(!showPassword)} edge="end" size="small">
+                        {showPassword ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
               />
             )}
 
@@ -471,18 +482,19 @@ export default function AdminStudents() {
                     label="Class"
                     onChange={(e) => setCurrent({ ...current, class_number: e.target.value })}
                   >
-                    <MenuItem value="1">1</MenuItem>
-                    <MenuItem value="2">2</MenuItem>
-                    <MenuItem value="3">3</MenuItem>
-                    <MenuItem value="4">4</MenuItem>
-                    <MenuItem value="5">5</MenuItem>
-                    <MenuItem value="6">6</MenuItem>
-                    <MenuItem value="7">7</MenuItem>
-                    <MenuItem value="8">8</MenuItem>
-                    <MenuItem value="9">9</MenuItem>
-                    <MenuItem value="10">10</MenuItem>
+                    {[1,2,3,4,5,6,7,8,9,10].map(n => (
+                      <MenuItem key={n} value={String(n)}>{n}</MenuItem>
+                    ))}
                   </Select>
                 </FormControl>
+              </Grid>
+              <Grid item xs={6}>
+                <TextField
+                  label="Roll Number"
+                  fullWidth
+                  value={current.number}
+                  onChange={(e) => setCurrent({ ...current, number: e.target.value })}
+                />
               </Grid>
             </Grid>
 
