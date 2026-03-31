@@ -126,14 +126,21 @@ class Student(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def generate_student_id_auto(self):
-        if not self.school or not self.school.code:
+        if not self.school_id:
+            raise ValueError("school id required")
+
+        school = self.school if self.school else School.query.get(self.school_id)
+        if not school or not school.code:
             raise ValueError("school code required")
 
-        q = Student.query.filter_by(school_id=self.school_id)
+        with db.session.no_autoflush:
+            q = Student.query.filter_by(school_id=self.school_id)
+            if self.user_id:
+                q = q.filter(Student.user_id != self.user_id)
 
-        seq = q.count() + 1
+            seq = q.count() + 1
         seq5 = f"{seq:05d}"
-        self.student_id = f"{self.school.code}-{seq5}"
+        self.student_id = f"{school.code}-{seq5}"
 
     # Optional compatibility
         self.number = seq5

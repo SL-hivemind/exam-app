@@ -791,9 +791,8 @@ def register_student():
                class_number=class_number,
                school_id=school.id
             )
-            student.school = school
-            student.generate_student_id_auto()
             db.session.add(student)
+            student.generate_student_id_auto()
             db.session.flush()
         return jsonify({'message':'student created','username': user.username}), 201
     except IntegrityError as e:
@@ -994,20 +993,19 @@ def admin_students_create(current_user):
             school_id=int(school_id),
             class_number=class_number or None
         )
-        stu.school = sch
-        stu.generate_student_id_auto()
         db.session.add(stu)
+        stu.generate_student_id_auto()
         db.session.commit()
 
         return jsonify({
             "message": "student created",
-            "student": {
-                "id": stu.user_id,
-                "username": u.username,
-                "name": stu.name,
-                "school_id": stu.school_id,
-                "class_number": stu.class_number,
-                "number": stu.number,
+                "student": {
+                    "id": stu.user_id,
+                    "username": u.username,
+                    "name": u.username,
+                    "school_id": stu.school_id,
+                    "class_number": stu.class_number,
+                    "number": stu.number,
                 "student_id": stu.student_id
             }
         }), 201

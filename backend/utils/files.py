@@ -260,7 +260,7 @@ def import_students_csv(path, fix_existing=False):
                 number=number or None,
                 school_id=school.id
             )
-            student.school = school
+            db.session.add(student)
 
             # Auto-generate ONLY if missing
             if not username:
@@ -268,7 +268,6 @@ def import_students_csv(path, fix_existing=False):
             else:
                 student.student_id = username
 
-            db.session.add(student)
             db.session.flush()
 
             created.append({
