@@ -27,12 +27,14 @@ import ProfilePage from "../components/ProfilePage";
 
 // Auth
 import Login from "../components/Login";
+import ForgotPassword from "../components/ForgotPassword";
 import Home from "../components/Home";
 
 export default function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<PublicOnlyRoute><Login /></PublicOnlyRoute>} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
 
       {/* --- 1. ADMIN ROUTES (Wrapped in New Layout) --- */}
       <Route path="/admin" element={

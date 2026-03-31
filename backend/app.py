@@ -278,6 +278,125 @@ def login():
         return jsonify({'message': 'Login failed', 'detail': str(e)}), 500
 
 
+# ------------------------------
+# FORGOT PASSWORD (public, no token required)
+# ------------------------------
+@app.post('/forgot-password/init')
+def forgot_password_init():
+    """Look up user by username. If admin role → send OTP. If student → create request."""
+    data = request.get_json(silent=True) or {}
+    identifier = (data.get('username') or '').strip()
+    if not identifier:
+        return jsonify({'message': 'Username is required'}), 400
+
+    user = User.query.filter_by(username=identifier).first()
+    if not user:
+        student = Student.query.filter_by(student_id=identifier).first()
+        if student:
+            user = User.query.get(student.user_id)
+
+    if not user:
+        return jsonify({'message': 'No account found with that username or ID'}), 404
+
+    if user.role == 'student':
+        # Create a password reset request for school admin
+        existing = StudentRequest.query.filter_by(
+            student_user_id=user.id, request_type='password_reset', status='pending'
+        ).first()
+        if existing:
+            return jsonify({
+                'action': 'student_request',
+                'message': 'You already have a pending password reset request. Please wait for your school admin to approve it.'
+            }), 200
+
+        student = Student.query.filter_by(user_id=user.id).first()
+        school_id = student.school_id if student else None
+
+        req = StudentRequest(
+            student_user_id=user.id,
+            school_id=school_id,
+            request_type='password_reset',
+            message='Forgot password — requested from login page',
+            status='pending'
+        )
+        db.session.add(req)
+        db.session.commit()
+
+        return jsonify({
+            'action': 'student_request',
+            'message': 'Password reset request sent to your school admin. They will set a new password for you.'
+        }), 201
+
+    # Admin / School Admin / Subject Specialist → OTP flow
+    if not user.email:
+        return jsonify({
+            'action': 'no_email',
+            'message': 'No email on your account. Contact the platform administrator to reset your password.'
+        }), 400
+
+    otp_code = str(random.randint(100000, 999999))
+    expires = datetime.utcnow() + timedelta(minutes=5)
+
+    PasswordResetOTP.query.filter_by(user_id=user.id, used=False).update({'used': True})
+    otp = PasswordResetOTP(user_id=user.id, otp_code=otp_code, expires_at=expires)
+    db.session.add(otp)
+    db.session.commit()
+
+    try:
+        from utils.email import send_otp_email
+        send_otp_email(user.email, otp_code, user.username)
+    except Exception as e:
+        return jsonify({'message': f'Failed to send OTP: {str(e)}'}), 500
+
+    # Mask email for display
+    parts = user.email.split('@')
+    masked = parts[0][:2] + '***@' + parts[1] if len(parts) == 2 else '***'
+
+    return jsonify({
+        'action': 'otp_sent',
+        'message': f'OTP sent to {masked}',
+        'email_hint': masked
+    }), 200
+
+
+@app.post('/forgot-password/reset')
+def forgot_password_reset():
+    """Verify OTP and set new password (admin roles only, no token needed)."""
+    data = request.get_json(silent=True) or {}
+    identifier = (data.get('username') or '').strip()
+    otp_code = (data.get('otp') or '').strip()
+    new_password = data.get('new_password')
+
+    if not identifier or not otp_code or not new_password:
+        return jsonify({'message': 'username, otp, and new_password are required'}), 400
+
+    if len(str(new_password)) < 8:
+        return jsonify({'message': 'Password must be at least 8 characters'}), 400
+
+    user = User.query.filter_by(username=identifier).first()
+    if not user:
+        return jsonify({'message': 'User not found'}), 404
+
+    if user.role == 'student':
+        return jsonify({'message': 'Students cannot reset password via OTP'}), 403
+
+    otp = PasswordResetOTP.query.filter_by(
+        user_id=user.id, otp_code=otp_code, used=False
+    ).order_by(PasswordResetOTP.created_at.desc()).first()
+
+    if not otp:
+        return jsonify({'message': 'Invalid OTP'}), 400
+
+    if datetime.utcnow() > otp.expires_at:
+        otp.used = True
+        db.session.commit()
+        return jsonify({'message': 'OTP has expired. Please request a new one.'}), 400
+
+    otp.used = True
+    user.set_password(new_password)
+    db.session.commit()
+    return jsonify({'message': 'Password reset successfully. You can now login.'}), 200
+
 @app.get('/me/profile')
 @token_required
 def me_profile(current_user):

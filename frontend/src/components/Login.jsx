@@ -377,6 +377,20 @@ export default function Login() {
               />
             </Box>
 
+            {/* Forgot Password */}
+            <Box sx={{ textAlign: 'right', mt: 0.5 }}>
+              <RouterLink to="/forgot-password" style={{ textDecoration: 'none' }}>
+                <Typography sx={{
+                  fontFamily: ff, fontSize: '0.82rem', color: '#3b82f6',
+                  fontWeight: 500, cursor: 'pointer',
+                  transition: 'color 0.2s ease',
+                  '&:hover': { color: '#2563eb' },
+                }}>
+                  Forgot password?
+                </Typography>
+              </RouterLink>
+            </Box>
+
             {/* Submit */}
             <Button
               id="login-submit"
