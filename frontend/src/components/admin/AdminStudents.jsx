@@ -36,7 +36,7 @@ export default function AdminStudents() {
   const [isEdit, setIsEdit] = useState(false);
   const [current, setCurrent] = useState({
     id: null, password: "", email: "", mobile_number: "",
-    school_id: "", name: "", class_number: ""
+    school_id: "", username: "", class_number: ""
   });
 
   const [error, setError] = useState("");
@@ -129,7 +129,7 @@ export default function AdminStudents() {
       mobile_number: student.mobile_number || "",
       // FIX: If School Admin, Auto-fill their school ID (backend will validate)
       school_id: student.school_id || (isSuperAdmin ? "" : user.school_id) || "",
-      name: student.name || "",
+      username: student.username || "",
       class_number: student.class_number || ""
     });
     setIsEdit(!!student.id);
@@ -145,14 +145,14 @@ export default function AdminStudents() {
     // FIX: If School Admin, use their ID if current.school_id is empty
     const finalSchoolId = isSuperAdmin ? current.school_id : (user.school_id || current.school_id);
 
-    if (!current.name || !finalSchoolId) {
-      setError("Name and School are required");
+    if (!current.username || !finalSchoolId) {
+      setError("Username and School are required");
       return;
     }
 
     try {
       const data = {
-        name: current.name,
+        username: current.username,
         school_id: finalSchoolId,
         class_number: current.class_number || null,
         email: current.email || null,
@@ -252,7 +252,7 @@ export default function AdminStudents() {
             <TextField
               fullWidth
               size="small"
-              placeholder="Search Name / Username..."
+              placeholder="Search Username..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               InputProps={{
@@ -317,7 +317,7 @@ export default function AdminStudents() {
               sortedStudents.map((s) => (
                 <TableRow key={s.id} hover>
                   <TableCell>
-                    <Typography variant="subtitle2" fontWeight={600}>{s.name}</Typography>
+                    <Typography variant="subtitle2" fontWeight={600}>{s.username}</Typography>
                     <Chip label={s.student_id || "No ID"} size="small" sx={{ mt: 0.5, bgcolor: '#e3f2fd', fontWeight: 'bold', color: '#1565c0' }} />
                   </TableCell>
                   <TableCell>{s.mobile_number || "—"}</TableCell>
@@ -361,7 +361,7 @@ export default function AdminStudents() {
         fullWidth
       >
         <DialogTitle>
-          Student Attempts: {selectedStudent?.name || ""}
+          Student Attempts: {selectedStudent?.username || ""}
         </DialogTitle>
         <DialogContent dividers>
           {attemptsLoading ? (
@@ -422,10 +422,10 @@ export default function AdminStudents() {
           <Stack spacing={2} sx={{ mt: 1 }}>
 
             <TextField
-              label="Full Name"
+              label="Username"
               fullWidth
-              value={current.name}
-              onChange={(e) => setCurrent({ ...current, name: e.target.value })}
+              value={current.username}
+              onChange={(e) => setCurrent({ ...current, username: e.target.value })}
             />
 
             {!isEdit && (

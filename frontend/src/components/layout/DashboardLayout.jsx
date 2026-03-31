@@ -136,7 +136,7 @@ export default function DashboardLayout() {
           
           <Stack direction="row" alignItems="center" spacing={2}>
             <Box sx={{ textAlign: 'right', display: { xs: 'none', sm: 'block' } }}>
-              <Typography variant="body2" fontWeight={700}>{user?.name || user?.username}</Typography>
+              <Typography variant="body2" fontWeight={700}>{user?.username}</Typography>
               <Typography variant="caption" sx={{ color: '#3b82f6', fontWeight: 600, textTransform: 'uppercase' }}>
                 {user?.role?.replace('_', ' ')}
               </Typography>

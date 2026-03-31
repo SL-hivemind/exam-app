@@ -86,7 +86,6 @@ class User(db.Model):
             "username": self.username,
             "role": self.role,
             "email": self.email,
-            "name": self.username,
             "school_id": self.school_id,
             "specialist_subject": self.specialist_subject
         }
@@ -145,11 +144,15 @@ class Student(db.Model):
     # Optional compatibility
         self.number = seq5
 
+    @property
+    def username(self):
+        return self.user.username if self.user else None
+
     def to_dict(self):
         return {
             "user_id": self.user_id,
             "student_id": self.student_id,
-            "name": self.user.username if self.user else None,
+            "username": self.username,
             "class_number": self.class_number,
             "roll_number": self.number,
             "school_name": self.school.name if self.school else None,

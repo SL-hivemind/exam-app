@@ -84,7 +84,7 @@ export default function ProfilePage() {
         const data = res.data?.profile;
         setProfile(data);
         setForm({
-          username: data?.username || data?.name || "",
+          username: data?.username || "",
           email: data?.email || "",
           mobile_number: data?.mobile_number || "",
         });
@@ -133,7 +133,7 @@ export default function ProfilePage() {
       const nextProfile = refreshed.data?.profile;
       setProfile(nextProfile);
       setForm({
-        username: nextProfile?.username || nextProfile?.name || "",
+        username: nextProfile?.username || "",
         email: nextProfile?.email || "",
         mobile_number: nextProfile?.mobile_number || "",
       });

@@ -260,11 +260,14 @@ def login():
             if sch:
                 school_name = sch.name
 
-        # Backward-compatible display name resolution:
-        display_name = user.username
-
-        profile = {'id': user.id, 'username': user.username, 'role': user.role, 'name': display_name, 'specialist_subject': getattr(user, 'specialist_subject', None),'school_id': user.school_id,       # Ensure this is sent
-            'school_name': school_name}
+        profile = {
+            'id': user.id,
+            'username': user.username,
+            'role': user.role,
+            'specialist_subject': getattr(user, 'specialist_subject', None),
+            'school_id': user.school_id,  # Ensure this is sent
+            'school_name': school_name
+        }
         payload = {
             'sub': str(user.id),
             'role': user.role,
@@ -416,7 +419,6 @@ def me_profile(current_user):
         'id': current_user.id,
         'role': current_user.role,
         'username': current_user.username,
-        'name': current_user.username,
         'email': current_user.email,
         'mobile_number': current_user.mobile_number,
         'school_id': current_user.school_id or (student.school_id if student else None),
@@ -444,13 +446,13 @@ def update_me_profile(current_user):
         if current_user.role == 'student':
             return jsonify({'message': 'Students cannot edit their own profile. Please request changes from your school admin.'}), 403
 
-        if 'name' in data or 'username' in data:
-            next_name = (data.get('username') or data.get('name') or '').strip()
-            if next_name and next_name != current_user.username:
-                existing = User.query.filter(User.username == next_name, User.id != current_user.id).first()
+        if 'username' in data:
+            next_username = (data.get('username') or '').strip()
+            if next_username and next_username != current_user.username:
+                existing = User.query.filter(User.username == next_username, User.id != current_user.id).first()
                 if existing:
-                    return jsonify({'message': f'Username "{next_name}" is already taken'}), 409
-                current_user.username = next_name
+                    return jsonify({'message': f'Username "{next_username}" is already taken'}), 409
+                current_user.username = next_username
 
         if 'email' in data:
             next_email = (data.get('email') or '').strip() or None
@@ -753,7 +755,7 @@ def register_student():
     data = request.json or {}
     password = data.get('password')
     school_code = data.get('school_code') or data.get('school_id')
-    name = (data.get('name') or '').strip()
+    username_input = (data.get('username') or '').strip()
     class_number = data.get('class_number') or data.get('class')
 
     if not password or not school_code:
@@ -769,7 +771,7 @@ def register_student():
 
     try:
         with db.session.begin():
-            base_username = name or "Student"
+            base_username = username_input or "Student"
             username = base_username
             suffix = 1
             while User.query.filter_by(username=username).first():
@@ -917,7 +919,6 @@ def admin_students_list(current_user):
             {
                 "id": stu.user_id,
                 "username": usr.username,
-                "name": usr.username,
                 "mobile_number": usr.mobile_number,
                 "school_name": sch.name if sch else None,
                 "class_number": stu.class_number,
@@ -950,15 +951,15 @@ def admin_students_create(current_user):
     data = request.get_json(silent=True) or {}
 
     try:
-        name = (data.get("name") or "").strip()
+        username_input = (data.get("username") or "").strip()
         school_id = data.get("school_id")
 
         # School admins can omit school_id from payload; bind to their own school.
         if current_user.role == "school_admin" and not school_id:
             school_id = current_user.school_id
 
-        if not name or not school_id:
-            return jsonify({"message": "name and school_id are required"}), 400
+        if not username_input or not school_id:
+            return jsonify({"message": "username and school_id are required"}), 400
 
         if current_user.role == "school_admin":
             if not current_user.school_id or int(school_id) != int(current_user.school_id):
@@ -973,7 +974,7 @@ def admin_students_create(current_user):
         if not sch:
             return jsonify({"message": "school not found"}), 404
 
-        base_username = name or "Student"
+        base_username = username_input or "Student"
         username = base_username
         suffix = 1
         while User.query.filter_by(username=username).first():
@@ -999,13 +1000,12 @@ def admin_students_create(current_user):
 
         return jsonify({
             "message": "student created",
-                "student": {
-                    "id": stu.user_id,
-                    "username": u.username,
-                    "name": u.username,
-                    "school_id": stu.school_id,
-                    "class_number": stu.class_number,
-                    "number": stu.number,
+            "student": {
+                "id": stu.user_id,
+                "username": u.username,
+                "school_id": stu.school_id,
+                "class_number": stu.class_number,
+                "number": stu.number,
                 "student_id": stu.student_id
             }
         }), 201
@@ -1034,7 +1034,6 @@ def admin_student_detail(current_user, user_id):
             'username': user.username,
             'email': user.email,
             'mobile_number': user.mobile_number,
-            'name': user.username,
             'class_number': student.class_number,
             'school_id': student.school_id,
             'student_id': student.student_id,
@@ -1058,9 +1057,9 @@ def admin_student_detail(current_user, user_id):
                 user.set_password(data.get('password'))
                 changed = True
 
-            if 'name' in data:
-                next_name = data.get('name') or user.username
-                user.username = next_name
+            if 'username' in data:
+                next_username = (data.get('username') or user.username).strip()
+                user.username = next_username or user.username
                 changed = True
 
             # Track inputs that may affect the student_id
@@ -1108,7 +1107,7 @@ def admin_student_detail(current_user, user_id):
                 'student': {
                     'user_id': student.user_id,
                     'student_id': student.student_id,
-                    'name': user.username,
+                    'username': user.username,
                     'class_number': student.class_number,
                     'school_id': student.school_id
                 }
@@ -1187,7 +1186,7 @@ def admin_student_attempts(current_user, user_id):
         "student": {
             "user_id": student.user_id,
             "student_id": student.student_id,
-            "name": student.name,
+            "username": student.username,
             "class_number": student.class_number,
             "school_id": student.school_id
         },
@@ -1609,7 +1608,7 @@ def get_exam_attempts_list(current_user, exam_id):
         result.append({
             "user_id": student.user_id,
             "student_id": student.student_id,
-            "name": student.name,
+            "username": student.username,
             "status": status,
             "score": score,
             "start_time": start_time
@@ -1793,7 +1792,7 @@ def get_assigned_students(current_user, exam_id):
     assigned_students = Student.query.filter(Student.user_id.in_(student_user_ids)).all()
     student_list = [{
         'user_id': s.user_id,
-        'name': s.name,
+        'username': s.username,
         'student_id': s.student_id
     } for s in assigned_students]
     return jsonify(student_list), 200

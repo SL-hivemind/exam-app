@@ -195,7 +195,7 @@ export default function StudentDashboard() {
           <Box>
             <Box sx={{ color: 'primary.main', mb: 1 }}>
                 <AnimatedText 
-                    text={`Hello, ${user?.name || user?.username || 'Student'}!`} 
+                    text={`Hello, ${user?.username || 'Student'}!`} 
                     type="split" 
                     tag="h1"
                     className="MuiTypography-root MuiTypography-h4"

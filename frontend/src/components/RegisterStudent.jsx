@@ -20,7 +20,6 @@ import api from "../utils/api";
 export default function RegisterStudent() {
   const navigate = useNavigate();
   const [form, setForm] = useState({
-    name: "",
     password: "",
     email: "",
     school_id: "",
@@ -41,11 +40,6 @@ export default function RegisterStudent() {
   }, []);
 
   // --- Validation functions (no changes needed here) ---
-  const validateName = (name) => {
-    if (!name || !name.trim()) return "Name is required";
-    if (name.trim().length < 2) return "Name must be at least 2 characters";
-    return "";
-  };
   const validatePassword = (password) => {
     if (!password) return "Password is required";
     if (password.length < 8) return "Password must be at least 8 characters";
@@ -66,7 +60,6 @@ export default function RegisterStudent() {
 
     // Perform validation on submit
     const newErrors = {
-      name: validateName(form.name),
       password: validatePassword(form.password),
       school_id: !form.school_id ? "School selection is required" : "",
       number: form.number ? "" : "Roll number is required",
@@ -89,7 +82,6 @@ export default function RegisterStudent() {
       const data = {
         username: `${selectedSchool.code}-${form.class_number || 'X'}-${form.number}`,
         password: form.password,
-        name: form.name.trim(),
         school_code: selectedSchool.code,
         class_number: form.class_number.trim() || null,
         number: form.number,
@@ -141,16 +133,6 @@ export default function RegisterStudent() {
           {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
           
           <Stack spacing={2.5}>
-            <TextField
-              name="name"
-              label="Full Name"
-              required
-              fullWidth
-              value={form.name}
-              onChange={handleChange}
-              error={!!errors.name}
-              helperText={errors.name}
-            />
             <TextField
               name="password"
               label="Password"

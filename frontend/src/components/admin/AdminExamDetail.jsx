@@ -63,7 +63,7 @@ export default function AdminExamDetail() {
   const [loadingStudents, setLoadingStudents] = useState(false);
 
   // --- SAFE RESET STATE ---
-  const [resetDialog, setResetDialog] = useState({ open: false, studentId: null, studentName: '' });
+  const [resetDialog, setResetDialog] = useState({ open: false, studentId: null, studentUsername: '' });
   const [confirmText, setConfirmText] = useState("");
 
   const [assignOpen, setAssignOpen] = useState(false);
@@ -165,7 +165,7 @@ export default function AdminExamDetail() {
   const executeReset = async () => {
     try {
       await api.delete(`/admin/exams/${examId}/attempts/${resetDialog.studentId}`);
-      setMsg({ type: 'success', text: `Attempt reset for ${resetDialog.studentName}` });
+      setMsg({ type: 'success', text: `Attempt reset for ${resetDialog.studentUsername}` });
       fetchStudentAttempts();
       setResetDialog({ ...resetDialog, open: false }); // Close dialog
     } catch (err) {
@@ -342,8 +342,8 @@ export default function AdminExamDetail() {
   const setField = (k, v) => setEditFields((s) => ({ ...s, [k]: v }));
 
   const filteredStudents = studentList.filter(s =>
-    s.name.toLowerCase().includes(studentSearch.toLowerCase()) ||
-    s.student_id.toLowerCase().includes(studentSearch.toLowerCase())
+    (s.username || "").toLowerCase().includes(studentSearch.toLowerCase()) ||
+    (s.student_id || "").toLowerCase().includes(studentSearch.toLowerCase())
   );
 
   if (loading) return <Box p={4} display="flex" justifyContent="center"><CircularProgress /></Box>;
@@ -438,7 +438,7 @@ export default function AdminExamDetail() {
             <TableHead>
               <TableRow>
                 <TableCell>Student ID</TableCell>
-                <TableCell>Name</TableCell>
+                <TableCell>Username</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell>Score</TableCell>
                 <TableCell>Started At</TableCell>
@@ -454,7 +454,7 @@ export default function AdminExamDetail() {
                 filteredStudents.map((s) => (
                   <TableRow key={s.user_id}>
                     <TableCell>{s.student_id}</TableCell>
-                    <TableCell>{s.name}</TableCell>
+                    <TableCell>{s.username}</TableCell>
                     <TableCell>
                       <Chip
                         label={s.status}
@@ -473,7 +473,7 @@ export default function AdminExamDetail() {
                             color="error"
                             startIcon={<RestartIcon />}
                             onClick={() => {
-                              setResetDialog({ open: true, studentId: s.user_id, studentName: s.name });
+                              setResetDialog({ open: true, studentId: s.user_id, studentUsername: s.username });
                               setConfirmText("");
                             }}
                           >
@@ -611,7 +611,7 @@ export default function AdminExamDetail() {
 
         <DialogContent>
           <Typography variant="body2" paragraph>
-            You are about to delete the exam attempt for <strong>{resetDialog.studentName}</strong>.
+            You are about to delete the exam attempt for <strong>{resetDialog.studentUsername}</strong>.
           </Typography>
 
           <Alert severity="error" sx={{ mb: 2 }}>
@@ -619,17 +619,17 @@ export default function AdminExamDetail() {
           </Alert>
 
           <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
-            Type <strong>{resetDialog.studentName}</strong> below to confirm.
+            Type <strong>{resetDialog.studentUsername}</strong> below to confirm.
           </Typography>
 
           <TextField
             autoFocus
             fullWidth
             size="small"
-            placeholder="Type student name here"
+            placeholder="Type student username here"
             value={confirmText}
             onChange={(e) => setConfirmText(e.target.value)}
-            error={confirmText.length > 0 && confirmText !== resetDialog.studentName}
+            error={confirmText.length > 0 && confirmText !== resetDialog.studentUsername}
           />
         </DialogContent>
 
@@ -640,7 +640,7 @@ export default function AdminExamDetail() {
           <Button
             variant="contained"
             color="error"
-            disabled={confirmText !== resetDialog.studentName}
+            disabled={confirmText !== resetDialog.studentUsername}
             onClick={executeReset}
           >
             Delete & Reset
