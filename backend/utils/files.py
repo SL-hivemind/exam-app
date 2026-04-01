@@ -210,20 +210,20 @@ def import_students_csv(path, fix_existing=False):
     with open(path, newline="", encoding="utf-8-sig") as fh:
         reader = csv.DictReader(fh)
 
-        required = {"name", "school_code"}
+        required = {"username", "school_code"}
         if not required.issubset(reader.fieldnames or []):
-            raise ValueError("CSV must contain: name, school_code")
+            raise ValueError("CSV must contain: username, school_code")
 
         for row in reader:
-            name = (row.get("name") or "").strip()
+            username_val = (row.get("username") or "").strip()
             school_code = (row.get("school_code") or "").strip()
             class_number = row.get("class_number") or row.get("class")
             email = row.get("email") or None
             password = row.get("password") or None
             number = str(row.get("number") or "").strip()
-            username = (row.get("username") or "").strip()
+            student_id_val = (row.get("student_id") or "").strip()
 
-            if not name or not school_code:
+            if not username_val or not school_code:
                 continue
 
             school = School.query.filter_by(code=school_code).first()
@@ -235,7 +235,7 @@ def import_students_csv(path, fix_existing=False):
             # -------------------------------
             temp_password = password or secrets.token_hex(6)
 
-            base_username = name or "Student"
+            base_username = username_val or "Student"
             new_username = base_username
             suffix = 1
             while User.query.filter_by(username=new_username).first():
@@ -262,11 +262,11 @@ def import_students_csv(path, fix_existing=False):
             )
             db.session.add(student)
 
-            # Auto-generate ONLY if missing
-            if not username:
-                student.generate_student_id_auto()
+            # Assign specific student_id if provided, otherwise auto-generate
+            if student_id_val:
+                student.student_id = student_id_val
             else:
-                student.student_id = username
+                student.generate_student_id_auto()
 
             db.session.flush()
 

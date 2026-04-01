@@ -1,7 +1,7 @@
 import React,{useEffect,useState} from 'react';
 import {useParams,useNavigate} from 'react-router-dom';
 import {Box,Typography,Button,Paper,Stack,IconButton,Dialog,DialogTitle,DialogContent,DialogActions,TextField,Grid,Chip,CircularProgress} from '@mui/material';
-import {Delete as DeleteIcon,CloudUpload as CloudUploadIcon,Add as AddIcon,ArrowBack as ArrowBackIcon,LibraryAdd as RepoIcon,Image as ImageIcon} from '@mui/icons-material';
+import {Delete as DeleteIcon,CloudUpload as CloudUploadIcon,Add as AddIcon,ArrowBack as ArrowBackIcon,LibraryAdd as RepoIcon,Image as ImageIcon,Edit as EditIcon,Flag as FlagIcon} from '@mui/icons-material';
 import api from '../../utils/api';
 import useAuth from '../../hooks/useAuth';
 
@@ -14,6 +14,11 @@ const [loading,setLoading]=useState(false);
 const [uploadingImg,setUploadingImg]=useState(false);
 const [openDialog,setOpenDialog]=useState(false);
 const [newQ,setNewQ]=useState({text:'',option_a:'',option_b:'',option_c:'',option_d:'',correct_answer:'',marks:1,image_path:''});
+const [editDialog,setEditDialog]=useState(false);
+const [editingQ,setEditingQ]=useState(null);
+const [reportDialog,setReportDialog]=useState(false);
+const [reportQId,setReportQId]=useState(null);
+const [reportMsg,setReportMsg]=useState('');
 
 const getBasePath=()=>user?.role==='school_admin'?'/school':'/admin';
 const basePath=getBasePath();
@@ -73,6 +78,23 @@ fetchQuestions();
 }catch(err){alert('Delete failed');}
 };
 
+const handleEditSubmit=async()=>{
+try{
+await api.put(`/admin/exams/${examId}/questions/${editingQ.id}`,editingQ);
+setEditDialog(false);
+fetchQuestions();
+}catch(err){alert('Edit failed');}
+};
+
+const handleReportSubmit=async()=>{
+try{
+await api.post(`/admin/repository/questions/${reportQId}/report`,{message:reportMsg});
+setReportDialog(false);
+setReportMsg('');
+alert('Question reported successfully');
+}catch(err){alert('Report failed');}
+};
+
 return(
 <Box sx={{p:3,bgcolor:'#f5f7fa',minHeight:'100vh'}}>
 <Stack direction={{xs:'column',md:'row'}} justifyContent="space-between" alignItems="center" mb={4} spacing={2}>
@@ -103,12 +125,19 @@ return(
 <Grid item xs={6} md={3}><Typography variant="body2">C) {q.option_c}</Typography></Grid>
 <Grid item xs={6} md={3}><Typography variant="body2">D) {q.option_d}</Typography></Grid>
 </Grid>
-<Stack direction="row" spacing={2} mt={2}>
-<Chip label={`Answer: ${q.correct_answer}`} size="small" color="success" variant="outlined"/>
-<Chip label={`Marks: ${q.marks}`} size="small"/>
+<Stack direction="row" mt={2} alignItems="center">
+<Box>
+<Chip label={`Answer: ${q.correct_answer}`} size="small" color="success" variant="outlined" sx={{mr:1}}/>
+<Chip label={`Marks: ${q.marks}`} size="small" sx={{mr:1}}/>
+{q.is_global&&<Chip label="Repo Item" size="small" color="secondary" variant="outlined"/>}
+</Box>
 </Stack>
 </Box>
-<IconButton color="error" onClick={()=>handleDelete(q.id)} sx={{mt:-1,mr:-1}}><DeleteIcon/></IconButton>
+<Stack direction="row" spacing={1} sx={{mt:-1,mr:-1}}>
+{q.is_global&&<IconButton color="warning" onClick={()=>{setReportQId(q.repo_question_id);setReportDialog(true);}}><FlagIcon/></IconButton>}
+<IconButton color="primary" onClick={()=>{setEditingQ({...q});setEditDialog(true);}}><EditIcon/></IconButton>
+<IconButton color="error" onClick={()=>handleDelete(q.id)}><DeleteIcon/></IconButton>
+</Stack>
 </Box>
 </Paper>
 ))}
@@ -140,6 +169,47 @@ Upload Image<input type="file" hidden accept="image/*" onChange={handleImageUplo
 <DialogActions sx={{p:2}}>
 <Button onClick={()=>setOpenDialog(false)}>Cancel</Button>
 <Button variant="contained" onClick={handleAddManual}>Save Question</Button>
+</DialogActions>
+</Dialog>
+
+<Dialog open={editDialog} onClose={()=>setEditDialog(false)} fullWidth maxWidth="md">
+<DialogTitle>{editingQ?.is_global?'Override Marks (Repo Linked)':'Edit Question'}</DialogTitle>
+<DialogContent dividers>
+{editingQ?.is_global?(
+<Box>
+<Typography variant="body2" color="warning.main" gutterBottom>This is a Global Repository Question. You can only override the marks in your exam.</Typography>
+<Typography variant="body1" sx={{mb:2}}>{editingQ.text}</Typography>
+<TextField fullWidth label="Marks" type="number" value={editingQ?.marks||1} onChange={e=>setEditingQ({...editingQ,marks:e.target.value})}/>
+</Box>
+):(
+<Box>
+<TextField fullWidth margin="dense" label="Question Text" multiline rows={3} value={editingQ?.text||''} onChange={e=>setEditingQ({...editingQ,text:e.target.value})}/>
+<Grid container spacing={2} sx={{mt:1}}>
+<Grid item xs={6}><TextField fullWidth label="Option A" value={editingQ?.option_a||''} onChange={e=>setEditingQ({...editingQ,option_a:e.target.value})}/></Grid>
+<Grid item xs={6}><TextField fullWidth label="Option B" value={editingQ?.option_b||''} onChange={e=>setEditingQ({...editingQ,option_b:e.target.value})}/></Grid>
+<Grid item xs={6}><TextField fullWidth label="Option C" value={editingQ?.option_c||''} onChange={e=>setEditingQ({...editingQ,option_c:e.target.value})}/></Grid>
+<Grid item xs={6}><TextField fullWidth label="Option D" value={editingQ?.option_d||''} onChange={e=>setEditingQ({...editingQ,option_d:e.target.value})}/></Grid>
+<Grid item xs={6}><TextField fullWidth label="Correct Answer" value={editingQ?.correct_answer||''} onChange={e=>setEditingQ({...editingQ,correct_answer:e.target.value})}/></Grid>
+<Grid item xs={6}><TextField fullWidth label="Marks" type="number" value={editingQ?.marks||1} onChange={e=>setEditingQ({...editingQ,marks:e.target.value})}/></Grid>
+</Grid>
+</Box>
+)}
+</DialogContent>
+<DialogActions sx={{p:2}}>
+<Button onClick={()=>setEditDialog(false)}>Cancel</Button>
+<Button variant="contained" onClick={handleEditSubmit}>Save Edit</Button>
+</DialogActions>
+</Dialog>
+
+<Dialog open={reportDialog} onClose={()=>setReportDialog(false)} fullWidth maxWidth="sm">
+<DialogTitle>Report Repository Question</DialogTitle>
+<DialogContent dividers>
+<Typography variant="body2" color="text.secondary" gutterBottom>Found a mistake in this global question? Report it to the subject specialists for review.</Typography>
+<TextField fullWidth multiline rows={4} label="Reason / Mistake Details" value={reportMsg} onChange={e=>setReportMsg(e.target.value)} sx={{mt:2}}/>
+</DialogContent>
+<DialogActions sx={{p:2}}>
+<Button onClick={()=>setReportDialog(false)}>Cancel</Button>
+<Button variant="contained" color="error" onClick={handleReportSubmit} disabled={!reportMsg.trim()}>Report Mistake</Button>
 </DialogActions>
 </Dialog>
 </Box>

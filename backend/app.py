@@ -24,7 +24,7 @@ from models import (
     User, School, Student,
     Exam, Question, ExamStudent,
     StudentExamAttempt, StudentAnswer,
-    QuestionRepository, QuestionAuditLog, generate_short_id,
+    QuestionRepository, QuestionAuditLog, AuditLog, QuestionReport, generate_short_id,
     PasswordResetOTP, StudentRequest
 )
 
@@ -397,6 +397,7 @@ def forgot_password_reset():
 
     otp.used = True
     user.set_password(new_password)
+    db.session.add(AuditLog(user_id=user.id, action='PASSWORD_RESET', target_type='user', target_id=user.id, details='Reset via OTP'))
     db.session.commit()
     return jsonify({'message': 'Password reset successfully. You can now login.'}), 200
 
@@ -534,6 +535,7 @@ def change_my_password(current_user):
 
     otp.used = True
     current_user.set_password(new_password)
+    db.session.add(AuditLog(user_id=current_user.id, action='PASSWORD_RESET', target_type='user', target_id=current_user.id, details='Changed password via OTP'))
     db.session.commit()
     return jsonify({'message': 'Password updated successfully'}), 200
 
@@ -657,6 +659,7 @@ def approve_student_request(current_user, req_id):
         if not new_password or len(str(new_password)) < 4:
             return jsonify({'message': 'new_password is required (min 4 chars)'}), 400
         student_user.set_password(new_password)
+        db.session.add(AuditLog(user_id=current_user.id, action='PASSWORD_RESET', target_type='user', target_id=student_user.id, details='Password reset via request by Admin/School Admin'))
 
     if sr.request_type == 'profile_update':
         # Admin can update username, class, etc.
@@ -742,6 +745,13 @@ def admin_create_user(current_user):
             pass
     db.session.add(user)
     db.session.commit()
+
+    if email:
+        try:
+            from utils.email import send_welcome_email
+            send_welcome_email(email, username, password, role)
+        except Exception as e:
+            app.logger.error(f"Failed to send welcome email to {email}: {e}")
 
     # Return generated password for admin to share (remove in production)
     return jsonify({
@@ -1055,6 +1065,7 @@ def admin_student_detail(current_user, user_id):
 
             if data.get('password'):
                 user.set_password(data.get('password'))
+                db.session.add(AuditLog(user_id=current_user.id, action='PASSWORD_RESET', target_type='user', target_id=user.id, details='Password overridden directly by Admin/School Admin'))
                 changed = True
 
             if 'username' in data:
@@ -1479,52 +1490,52 @@ def admin_exam_question_detail(current_user, exam_id, question_id):
     exam = Exam.query.get_or_404(exam_id)
     q = Question.query.filter_by(exam_id=exam_id, id=question_id).first_or_404()
 
-    if request.method == 'GET':
-        # .to_dict() now uses the new Model logic to pull from Repo automatically!
-        return jsonify({'question': q.to_dict()}), 200
+    if current_user.role == 'school_admin':
+        if exam.school_id is not None and exam.school_id != current_user.school_id:
+            return jsonify({'message': 'forbidden'}), 403
 
-    # --- PUT: LIVE SYNC LOGIC ---
+    if request.method == 'GET':
+        return jsonify(q.to_dict()), 200
+
     if request.method == 'PUT':
         data = request.json or {}
         
-        # 1. CHECK IF GLOBAL LINKED
         if q.repo_question_id:
-            # 2. PERMISSION CHECK
-            if current_user.role == 'school_admin':
-                return jsonify({
-                    'message': 'Restricted: You cannot edit a Global Admin Question.',
-                    'error_code': 'READ_ONLY_CONTENT'
-                }), 403
-            
-            # 3. MASTER SYNC (Admin Only)
-            # Update the REPOSITORY, not the local table
-            repo_q = QuestionRepository.query.get(q.repo_question_id)
-            if repo_q:
-                print(f"SYNC: Admin updating Global Repo Question {repo_q.id}")
-                for field in ['text','option_a','option_b','option_c','option_d','correct_answer','marks','image_path']:
-                    if field in data:
-                        setattr(repo_q, field, data[field])
-                db.session.commit()
-                return jsonify({'message':'Global Repository Question updated (Synced)', 'question': q.to_dict()}), 200
-            
-        # 4. LOCAL UPDATE (Standard behavior for unlinked questions)
-        for field in ['text','option_a','option_b','option_c','option_d','correct_answer','marks','image_path']:
-            if field in data:
-                setattr(q, field, data[field])
-        db.session.commit()
-        return jsonify({'message':'Local Question updated','question': q.to_dict()}), 200
+            q.marks = int(data.get('marks') or q.marks)
+            db.session.add(AuditLog(
+                user_id=current_user.id, 
+                action='LOCAL_QUESTION_EDIT', 
+                target_type='question', 
+                target_id=q.id, 
+                details=f'Local repo marks overridden to {q.marks}'
+            ))
+        else:
+            q.text = data.get('text', q.text)
+            q.option_a = data.get('option_a', q.option_a)
+            q.option_b = data.get('option_b', q.option_b)
+            q.option_c = data.get('option_c', q.option_c)
+            q.option_d = data.get('option_d', q.option_d)
+            q.correct_answer = data.get('correct_answer', q.correct_answer)
+            q.marks = int(data.get('marks') or q.marks)
+            q.image_path = data.get('image_path', q.image_path)
+            db.session.add(AuditLog(
+                user_id=current_user.id, 
+                action='LOCAL_QUESTION_EDIT', 
+                target_type='question', 
+                target_id=q.id, 
+                details='Local question completely edited'
+            ))
 
-    # --- DELETE LOGIC ---
-    # School Admins cannot delete questions from Admin Exams
-    if current_user.role == 'school_admin':
-        if is_admin_exam(exam):
+        db.session.commit()
+        return jsonify({'message': 'Question updated', 'question': q.to_dict()}), 200
+
+    if request.method == 'DELETE':
+        if current_user.role == 'school_admin' and exam.school_id is None:
             return jsonify({'message': 'Permission Denied: Cannot delete questions from Admin Exam.'}), 403
-        # Even if exam is their own, if they try to delete a repo-linked question, 
-        # do we allow it? Yes, they are just removing the LINK from their exam.
-        
-    db.session.delete(q)
-    db.session.commit()
-    return jsonify({'message':'Question deleted'}), 200
+            
+        db.session.delete(q)
+        db.session.commit()
+        return jsonify({'message':'Question deleted'}), 200
 
 @app.post('/admin/exams/<int:exam_id>/questions/pick')
 @role_required('admin', 'school_admin')

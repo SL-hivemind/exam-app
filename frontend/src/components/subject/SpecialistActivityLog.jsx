@@ -12,11 +12,25 @@ export default function SpecialistActivityLog() {
     api.get('/admin/audit-logs').then(res => setLogs(res.data.logs)).catch(console.error);
   }, []);
 
+  const getLogColor = (action) => {
+    if (action.includes('PASSWORD')) return 'error';
+    if (action.includes('REPORT')) return 'success';
+    return 'info';
+  };
+
+  const getLogLabel = (action) => {
+    if (action === 'QUESTION_EDIT') return 'Question Edit';
+    if (action === 'LOCAL_QUESTION_EDIT') return 'Local Edit';
+    if (action === 'PASSWORD_RESET') return 'Password Reset';
+    if (action === 'REPORT_RESOLVED') return 'Report Resolved';
+    return action;
+  };
+
   return (
     <Box sx={{ p: 3, bgcolor: '#f5f7fa', minHeight: '100vh' }}>
         <Stack direction="row" alignItems="center" spacing={2} mb={3}>
             <Button startIcon={<ArrowBackIcon/>} onClick={() => navigate(-1)}>Back</Button>
-            <Typography variant="h5" fontWeight={700}>Activity Log</Typography>
+            <Typography variant="h5" fontWeight={700}>System Activity Log</Typography>
         </Stack>
 
         <Paper elevation={2}>
@@ -24,9 +38,9 @@ export default function SpecialistActivityLog() {
                 <TableHead sx={{ bgcolor: '#e3f2fd' }}>
                     <TableRow>
                         <TableCell><strong>Time</strong></TableCell>
-                        <TableCell><strong>User</strong></TableCell>
-                        <TableCell><strong>Action</strong></TableCell>
-                        <TableCell><strong>Question ID</strong></TableCell>
+                        <TableCell><strong>Author</strong></TableCell>
+                        <TableCell><strong>Action Category</strong></TableCell>
+                        <TableCell><strong>Target ID</strong></TableCell>
                         <TableCell><strong>Change Details</strong></TableCell>
                     </TableRow>
                 </TableHead>
@@ -37,12 +51,19 @@ export default function SpecialistActivityLog() {
                             <TableCell>{log.username}</TableCell>
                             <TableCell>
                                 <Chip 
-                                    label={log.action} 
-                                    color={log.action === 'UPDATE' ? 'info' : 'default'} 
+                                    label={getLogLabel(log.action)} 
+                                    color={getLogColor(log.action)} 
                                     size="small" 
+                                    variant="outlined"
+                                    sx={{ fontWeight: 'bold' }}
                                 />
                             </TableCell>
-                            <TableCell>#{log.question_id}</TableCell>
+                            <TableCell>
+                                {log.target_type === 'question' && `Repo Q#${log.target_id || ''}`}
+                                {log.target_type === 'user' && `User #${log.target_id || ''}`}
+                                {log.target_type === 'report' && `Report #${log.target_id || ''}`}
+                                {!log.target_type && `#${log.target_id || ''}`}
+                            </TableCell>
                             <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.85rem', color: '#444' }}>
                                 {log.details}
                             </TableCell>

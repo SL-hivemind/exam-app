@@ -20,6 +20,7 @@ import StudentExamQuestionsPage from "../components/StudentExamQuestionsPage";
 import StudentResultsPage from "../components/StudentResultsPage";
 import BulkEditQuestions from "../components/repository/BulkEditQuestions";
 import SpecialistActivityLog from "../components/subject/SpecialistActivityLog";
+import RepoReports from "../components/repository/RepoReports";
 import StudentDashboard from "../components/StudentDashboard";
 import PrimaryExamFlow from "../components/primary/PrimaryExamFlow";
 import StudentAnalysisPage from "../components/StudentAnalysisPage";
@@ -52,6 +53,7 @@ export default function AppRoutes() {
         <Route path="repository/questions/new" element={<RepoQuestionEditPage />} />
         <Route path="repository/questions/:id/edit" element={<RepoQuestionEditPage />} />
         <Route path="repository/bulk-edit" element={<BulkEditQuestions />} />
+        <Route path="repository/reports" element={<RepoReports />} />
         <Route path="activity-log" element={<SpecialistActivityLog />} />
         <Route path="requests" element={<StudentRequests />} />
         <Route path="profile" element={<ProfilePage />} />
@@ -86,6 +88,7 @@ export default function AppRoutes() {
         <Route path="repository/questions/new" element={<RepoQuestionEditPage />} />
         <Route path="repository/questions/:id/edit" element={<RepoQuestionEditPage />} />
         <Route path="repository/bulk-edit" element={<BulkEditQuestions />} />
+        <Route path="repository/reports" element={<RepoReports />} />
         <Route path="activity-log" element={<SpecialistActivityLog />} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>

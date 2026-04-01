@@ -6,7 +6,7 @@ from datetime import datetime
 from flask import jsonify, request
 from sqlalchemy import desc, or_
 
-from models import QuestionAuditLog, QuestionRepository, db
+from models import AuditLog, QuestionRepository, QuestionReport, User, db
 from utils.files import ALLOWED_CSV, allowed_file, import_repository_csv, save_csv_file
 
 
@@ -238,10 +238,11 @@ def register_repository_routes(app, token_required):
                 check_change(question, 'class_number', item.get('class_number'))
 
                 if changes:
-                    log = QuestionAuditLog(
+                    log = AuditLog(
                         user_id=current_user.id,
-                        action='UPDATE',
-                        question_id=question.id,
+                        action='QUESTION_EDIT',
+                        target_type='question',
+                        target_id=question.id,
                         details='; '.join(changes),
                     )
                     db.session.add(log)
@@ -260,11 +261,11 @@ def register_repository_routes(app, token_required):
         if current_user.role not in ('admin', 'subject_specialist'):
             return jsonify({'message': 'forbidden'}), 403
 
-        query = QuestionAuditLog.query
+        query = AuditLog.query
         if current_user.role == 'subject_specialist':
             query = query.filter_by(user_id=current_user.id)
 
-        logs = query.order_by(desc(QuestionAuditLog.timestamp)).limit(100).all()
+        logs = query.order_by(desc(AuditLog.timestamp)).limit(100).all()
         return (
             jsonify(
                 {
@@ -272,7 +273,8 @@ def register_repository_routes(app, token_required):
                         {
                             'id': log.id,
                             'action': log.action,
-                            'question_id': log.question_id,
+                            'target_type': log.target_type,
+                            'target_id': log.target_id,
                             'details': log.details,
                             'timestamp': log.timestamp.isoformat(),
                             'username': log.user.username,
@@ -305,3 +307,104 @@ def register_repository_routes(app, token_required):
             'topics': sorted(list(set(r[3] for r in results if r[3]))),
         }
         return jsonify(metadata), 200
+
+
+    @app.route('/admin/repository/questions/<int:q_id>/report', methods=['POST', 'OPTIONS'])
+    @token_required
+    def report_repository_question(current_user, q_id):
+        if request.method == 'OPTIONS':
+            return jsonify({'message': 'ok'}), 200
+            
+        if current_user.role not in ('admin', 'school_admin'):
+            return jsonify({'message': 'forbidden'}), 403
+            
+        data = request.json or {}
+        message = (data.get('message') or '').strip()
+        if not message:
+            return jsonify({'message': 'message is required'}), 400
+            
+        question = QuestionRepository.query.get_or_404(q_id)
+        
+        report = QuestionReport(
+            repo_question_id=question.id,
+            reported_by=current_user.id,
+            message=message
+        )
+        db.session.add(report)
+        db.session.commit()
+        
+        return jsonify({'message': 'question reported successfully'}), 201
+
+    @app.route('/admin/repository/reports', methods=['GET', 'OPTIONS'])
+    @token_required
+    def get_repository_reports(current_user):
+        if request.method == 'OPTIONS':
+            return jsonify({'message': 'ok'}), 200
+            
+        if current_user.role not in ('admin', 'subject_specialist'):
+            return jsonify({'message': 'forbidden'}), 403
+            
+        query = QuestionReport.query
+        
+        status_filter = request.args.get('status')
+        if status_filter:
+            query = query.filter_by(status=status_filter)
+            
+        if current_user.role == 'subject_specialist':
+            query = query.join(QuestionRepository).filter(QuestionRepository.subject.ilike(current_user.specialist_subject))
+            
+        reports = query.order_by(desc(QuestionReport.created_at)).all()
+        
+        result = []
+        for r in reports:
+            result.append({
+                'id': r.id,
+                'repo_question_id': r.repo_question_id,
+                'reporter_name': r.reporter.username if r.reporter else 'Unknown',
+                'message': r.message,
+                'status': r.status,
+                'created_at': r.created_at.isoformat() if r.created_at else None,
+                'resolved_at': r.resolved_at.isoformat() if r.resolved_at else None,
+                'resolver_name': r.resolver.username if r.resolver else None,
+                'question_text': r.question.text if r.question else None,
+                'question_custom_id': r.question.custom_id if r.question else None
+            })
+            
+        return jsonify({'reports': result}), 200
+
+    @app.route('/admin/repository/reports/<int:r_id>/resolve', methods=['POST', 'OPTIONS'])
+    @token_required
+    def resolve_repository_report(current_user, r_id):
+        if request.method == 'OPTIONS':
+            return jsonify({'message': 'ok'}), 200
+            
+        if current_user.role not in ('admin', 'subject_specialist'):
+            return jsonify({'message': 'forbidden'}), 403
+            
+        report = QuestionReport.query.get_or_404(r_id)
+        
+        if report.status == 'resolved':
+            return jsonify({'message': 'report already resolved'}), 400
+            
+        if current_user.role == 'subject_specialist':
+            if not report.question or not report.question.subject or report.question.subject.lower() != (current_user.specialist_subject or '').lower():
+                return jsonify({'message': 'forbidden'}), 403
+                
+        data = request.json or {}
+        resolution_notes = (data.get('notes') or '').strip()
+        
+        report.status = 'resolved'
+        report.resolved_by = current_user.id
+        report.resolved_at = datetime.utcnow()
+        
+        log = AuditLog(
+            user_id=current_user.id,
+            action='REPORT_RESOLVED',
+            target_type='report',
+            target_id=report.id,
+            details=resolution_notes or 'Report resolved'
+        )
+        db.session.add(log)
+        db.session.commit()
+        
+        return jsonify({'message': 'report resolved successfully'}), 200

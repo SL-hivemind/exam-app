@@ -209,15 +209,34 @@ class QuestionRepository(db.Model):
             "created_at": self.created_at.isoformat() if self.created_at else None
         }
 
-class QuestionAuditLog(db.Model):
-    __tablename__ = 'question_audit_logs'
+class AuditLog(db.Model):
+    __tablename__ = 'audit_logs'
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    action = db.Column(db.String(50), nullable=False) # 'UPDATE', 'DELETE', 'CREATE'
-    question_id = db.Column(db.Integer, nullable=True)
+    action = db.Column(db.String(50), nullable=False)  # 'QUESTION_EDIT', 'PASSWORD_RESET', 'REPORT_RESOLVED', etc.
+    target_type = db.Column(db.String(50), nullable=True)  # 'question', 'user', 'report'
+    target_id = db.Column(db.Integer, nullable=True)
     details = db.Column(db.Text, nullable=True)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
     user = db.relationship('User', backref='audit_logs')
+
+# Legacy alias so existing imports (QuestionAuditLog) keep working
+QuestionAuditLog = AuditLog
+
+class QuestionReport(db.Model):
+    __tablename__ = 'question_reports'
+    id = db.Column(db.Integer, primary_key=True)
+    repo_question_id = db.Column(db.Integer, db.ForeignKey('question_repository.id', ondelete='CASCADE'), nullable=False)
+    reported_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    status = db.Column(db.String(20), default='pending')  # 'pending', 'resolved'
+    resolved_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    resolved_at = db.Column(db.DateTime, nullable=True)
+
+    question = db.relationship('QuestionRepository', backref='reports')
+    reporter = db.relationship('User', foreign_keys=[reported_by])
+    resolver = db.relationship('User', foreign_keys=[resolved_by])
 
 # -------------------- EXAMS --------------------
 class Exam(db.Model):
@@ -287,7 +306,7 @@ class Question(db.Model):
             'option_c': src.option_c,
             'option_d': src.option_d,
             'correct_answer': src.correct_answer,
-            'marks': src.marks,
+            'marks': self.marks,
             'image_path': src.image_path if hasattr(src, 'image_path') else None,
             'repo_question_id': self.repo_question_id,
             'is_global': bool(self.repo_question_id)
