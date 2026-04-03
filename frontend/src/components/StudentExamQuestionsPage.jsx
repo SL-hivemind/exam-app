@@ -2,9 +2,10 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box, Typography, Paper, Button, Alert, RadioGroup,
-  FormControlLabel, Radio, CircularProgress, Container, Stack, Dialog, DialogTitle, DialogContent, DialogActions
+  FormControlLabel, Radio, CircularProgress, Container, Stack, Dialog, DialogTitle, DialogContent, DialogActions,
+  Grid, Drawer, IconButton, useTheme, useMediaQuery, Divider
 } from '@mui/material';
-import { AccessTime as TimerIcon } from '@mui/icons-material';
+import { AccessTime as TimerIcon, Apps as AppsIcon, Close as CloseIcon } from '@mui/icons-material';
 import api from '../utils/api';
 import useAuth from '../hooks/useAuth';
 import useExamSecurity from '../hooks/useExamSecurity'; 
@@ -25,9 +26,18 @@ export default function StudentExamQuestionsPage() {
   const [violations, setViolations] = useState(0);
   const [confirmOpen, setConfirmOpen] = useState(false);
   
-  // Pagination
+  // Pagination & Navigation
   const [currentPage, setCurrentPage] = useState(1);
   const questionsPerPage = 3;
+  const [visitedPages, setVisitedPages] = useState(new Set([1]));
+  const [mobileOpen, setMobileOpen] = useState(false);
+  
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+
+  useEffect(() => {
+    setVisitedPages(prev => new Set(prev).add(currentPage));
+  }, [currentPage]);
 
   // Refs for stable callbacks
   const timerRef = useRef(null);
@@ -237,6 +247,69 @@ export default function StudentExamQuestionsPage() {
   const totalQuestions = exam?.questions?.length || 0;
   const answeredCount = Object.keys(mcqAnswers).length;
 
+  const renderQuestionPalette = () => {
+    return (
+        <Box sx={{ p: { xs: 2, md: 0 }, height: '100%' }}>
+            <Paper elevation={3} sx={{ p: 2, position: 'sticky', top: 100, maxHeight: { md: '80vh' }, overflowY: 'auto' }}>
+                <Typography variant="h6" gutterBottom fontWeight="bold">Question Navigator</Typography>
+                <Divider sx={{ mb: 2 }} />
+                <Box display="flex" flexWrap="wrap" gap={1}>
+                    {exam?.questions?.map((q, idx) => {
+                        const qPage = Math.ceil((idx + 1) / questionsPerPage);
+                        const isAttempted = mcqAnswers[q.id] !== undefined;
+                        const isLeft = visitedPages.has(qPage) && !isAttempted;
+                        
+                        let bgColor = '#e0e0e0';
+                        let color = '#000';
+                        if (isAttempted) {
+                            bgColor = '#4caf50';
+                            color = '#fff';
+                        } else if (isLeft) {
+                            bgColor = '#ff9800';
+                            color = '#fff';
+                        }
+
+                        const isCurrent = currentPage === qPage;
+
+                        return (
+                            <Button
+                                key={q.id}
+                                variant="contained"
+                                onClick={() => {
+                                    setCurrentPage(qPage);
+                                    if (isMobile) setMobileOpen(false);
+                                }}
+                                sx={{
+                                    minWidth: 40,
+                                    width: 40,
+                                    height: 40,
+                                    m: 0,
+                                    p: 0,
+                                    borderRadius: 1,
+                                    bgcolor: bgColor,
+                                    color: color,
+                                    boxShadow: isCurrent ? `0 0 0 2px ${theme.palette.primary.main}` : 'none',
+                                    '&:hover': {
+                                        bgcolor: isAttempted ? '#388e3c' : isLeft ? '#f57c00' : '#bdbdbd',
+                                    }
+                                }}
+                            >
+                                {idx + 1}
+                            </Button>
+                        );
+                    })}
+                </Box>
+                
+                <Box mt={3} display="flex" flexDirection="column" gap={1}>
+                <Box display="flex" alignItems="center" gap={1}><Box width={16} height={16} borderRadius={1} bgcolor="#4caf50" /><Typography variant="body2">Attempted</Typography></Box>
+                <Box display="flex" alignItems="center" gap={1}><Box width={16} height={16} borderRadius={1} bgcolor="#ff9800" /><Typography variant="body2">Visited, Not Answered</Typography></Box>
+                <Box display="flex" alignItems="center" gap={1}><Box width={16} height={16} borderRadius={1} bgcolor="#e0e0e0" /><Typography variant="body2">Not Visited</Typography></Box>
+                </Box>
+            </Paper>
+        </Box>
+    );
+  };
+
   return (
     <Box 
         sx={{
@@ -246,23 +319,30 @@ export default function StudentExamQuestionsPage() {
         }}
         onContextMenu={(e) => e.preventDefault()}
     >
-      <Container maxWidth="md" sx={{ py: 4 }}>
+      <Container maxWidth="lg" sx={{ py: 4 }}>
         
         {/* HEADER BAR */}
         <Paper elevation={3} sx={{ p: 2, mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 10, zIndex: 100 }}>
-            <Box>
-                <Typography variant="h6" fontWeight={700}>{exam.title}</Typography>
-                <Typography variant="caption" color="text.secondary">
-                    Attempted: {answeredCount}/{totalQuestions}
-                </Typography>
+            <Box display="flex" alignItems="center" gap={1}>
+                {isMobile && (
+                    <IconButton onClick={() => setMobileOpen(true)} color="primary">
+                        <AppsIcon />
+                    </IconButton>
+                )}
+                <Box>
+                    <Typography variant="h6" fontWeight={700} sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>{exam.title}</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                        Attempted: {answeredCount}/{totalQuestions}
+                    </Typography>
+                </Box>
             </Box>
             
-            <Box display="flex" alignItems="center" gap={2}>
-                {violations > 0 && <Alert severity="warning" sx={{ py: 0 }}>Warnings: {violations}</Alert>}
+            <Box display="flex" alignItems="center" gap={{ xs: 1, sm: 2 }}>
+                {violations > 0 && <Alert severity="warning" sx={{ py: 0, display: { xs: 'none', sm: 'flex' } }}>Warnings: {violations}</Alert>}
                 
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, bgcolor: timeLeft < 300 ? '#ffebee' : '#e3f2fd', px: 2, py: 1, borderRadius: 2 }}>
-                    <TimerIcon color={timeLeft < 300 ? "error" : "primary"} />
-                    <Typography variant="h6" fontWeight={700} color={timeLeft < 300 ? "error" : "primary"}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, bgcolor: timeLeft < 300 ? '#ffebee' : '#e3f2fd', px: { xs: 1, sm: 2 }, py: 1, borderRadius: 2 }}>
+                    <TimerIcon color={timeLeft < 300 ? "error" : "primary"} fontSize={isMobile ? "small" : "medium"} />
+                    <Typography variant="h6" fontWeight={700} color={timeLeft < 300 ? "error" : "primary"} sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
                         {formatTime(timeLeft)}
                     </Typography>
                 </Box>
@@ -272,63 +352,91 @@ export default function StudentExamQuestionsPage() {
                     color="success" 
                     onClick={() => setConfirmOpen(true)}
                     disabled={submitLoading}
+                    size={isMobile ? "small" : "medium"}
                 >
-                    {submitLoading ? "Submitting..." : "Finish Exam"}
+                    {submitLoading ? "Wait..." : "Finish"}
                 </Button>
             </Box>
         </Paper>
 
-        {/* QUESTIONS LIST */}
-        {currentQuestions.map((q, idx) => (
-            <Paper key={q.id} elevation={1} sx={{ p: 3, mb: 3, borderRadius: 2 }}>
-                <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-                    Question {indexOfFirstQ + idx + 1} <span style={{fontSize:'0.8em', fontWeight:'normal', color:'#666'}}>({q.marks} Marks)</span>
-                </Typography>
-                
-                {q.image_path && (
-                    <Box sx={{ my: 2, display: 'flex', justifyContent: 'center' }}>
-                        <img src={q.image_path} alt="Question" style={{ maxHeight: 300, maxWidth: '100%', borderRadius: 4 }} />
+        <Grid container spacing={3}>
+            {/* MAIN QUESTIONS AREA */}
+            <Grid item xs={12} md={8}>
+                {currentQuestions.map((q, idx) => (
+                    <Paper key={q.id} elevation={1} sx={{ p: { xs: 2, sm: 3 }, mb: 3, borderRadius: 2 }}>
+                        <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+                            Question {indexOfFirstQ + idx + 1} <span style={{fontSize:'0.8em', fontWeight:'normal', color:'#666'}}>({q.marks} Marks)</span>
+                        </Typography>
+                        
+                        {q.image_path && (
+                            <Box sx={{ my: 2, display: 'flex', justifyContent: 'center' }}>
+                                <img src={q.image_path} alt="Question" style={{ maxHeight: 300, maxWidth: '100%', borderRadius: 4 }} />
+                            </Box>
+                        )}
+
+                        <Typography variant="body1" sx={{ mb: 2 }}>{q.text}</Typography>
+
+                        <RadioGroup 
+                            value={mcqAnswers[q.id] || ''} 
+                            onChange={(e) => handleMcqAnswerChange(q.id, e.target.value)}
+                        >
+                            {['a','b','c','d'].map((opt) => (
+                                q[`option_${opt}`] && (
+                                    <FormControlLabel 
+                                        key={opt}
+                                        value={opt.toUpperCase()} 
+                                        control={<Radio />} 
+                                        label={
+                                            <Typography variant="body2">
+                                                <Box component="span" fontWeight="bold" mr={1}>{opt.toUpperCase()})</Box> 
+                                                {q[`option_${opt}`]}
+                                            </Typography>
+                                        } 
+                                        sx={{ mb: 1, p: 1, borderRadius: 1, '&:hover': { bgcolor: '#f5f5f5' } }}
+                                    />
+                                )
+                            ))}
+                        </RadioGroup>
+                    </Paper>
+                ))}
+
+                {/* PAGINATION */}
+                {totalPages > 1 && (
+                    <Box display="flex" justifyContent="center" gap={2} mt={4}>
+                        <Button variant="outlined" disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)}>
+                            Previous
+                        </Button>
+                        <Typography sx={{ alignSelf: 'center' }}>Page {currentPage} of {totalPages}</Typography>
+                        <Button variant="outlined" disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)}>
+                            Next
+                        </Button>
                     </Box>
                 )}
+            </Grid>
 
-                <Typography variant="body1" sx={{ mb: 2 }}>{q.text}</Typography>
+            {/* DESKTOP SIDEBAR */}
+            {!isMobile && (
+                <Grid item xs={12} md={4}>
+                    {renderQuestionPalette()}
+                </Grid>
+            )}
+        </Grid>
 
-                <RadioGroup 
-                    value={mcqAnswers[q.id] || ''} 
-                    onChange={(e) => handleMcqAnswerChange(q.id, e.target.value)}
-                >
-                    {['a','b','c','d'].map((opt) => (
-                        q[`option_${opt}`] && (
-                            <FormControlLabel 
-                                key={opt}
-                                value={opt.toUpperCase()} 
-                                control={<Radio />} 
-                                label={
-                                    <Typography variant="body2">
-                                        <Box component="span" fontWeight="bold" mr={1}>{opt.toUpperCase()})</Box> 
-                                        {q[`option_${opt}`]}
-                                    </Typography>
-                                } 
-                                sx={{ mb: 1, p: 1, borderRadius: 1, '&:hover': { bgcolor: '#f5f5f5' } }}
-                            />
-                        )
-                    ))}
-                </RadioGroup>
-            </Paper>
-        ))}
-
-        {/* PAGINATION */}
-        {totalPages > 1 && (
-            <Box display="flex" justifyContent="center" gap={2} mt={4}>
-                <Button variant="outlined" disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)}>
-                    Previous
-                </Button>
-                <Typography sx={{ alignSelf: 'center' }}>Page {currentPage} of {totalPages}</Typography>
-                <Button variant="outlined" disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)}>
-                    Next
-                </Button>
+        {/* MOBILE DRAWER */}
+        <Drawer
+            anchor="right"
+            open={mobileOpen}
+            onClose={() => setMobileOpen(false)}
+            sx={{ '& .MuiDrawer-paper': { width: { xs: 280, sm: 320 }, zIndex: 1300 } }}
+        >
+            <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: 'primary.main', color: 'white' }}>
+                <Typography variant="h6">Questions</Typography>
+                <IconButton onClick={() => setMobileOpen(false)} sx={{ color: 'white' }}>
+                    <CloseIcon />
+                </IconButton>
             </Box>
-        )}
+            {renderQuestionPalette()}
+        </Drawer>
 
         {/* SUBMIT DIALOG */}
         <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)}>
