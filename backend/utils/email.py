@@ -105,7 +105,7 @@ def send_welcome_email(to_email, username, password, role):
             </p>
         </div>
         <div style="text-align: center; margin-bottom: 24px;">
-            <a href="https://example.com" style="display: inline-block; background: #2563eb; color: #fff; 
+            <a href="https://sl-exam.onrender.com/" style="display: inline-block; background: #2563eb; color: #fff; 
                       text-decoration: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; font-size: 14px;">
                 Login to Your Account
             </a>
