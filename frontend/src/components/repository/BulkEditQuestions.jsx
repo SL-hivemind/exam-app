@@ -12,9 +12,11 @@ import {
 import api from '../../utils/api';
 import { useNavigate } from 'react-router-dom';
 import FilterSidebar from '../ui/FilterSidebar';
+import { useAuth } from '../../hooks/useAuth';
 
 export default function BulkEditQuestions() {
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   /* ---------------- UI STATE ---------------- */
   const [filterOpen, setFilterOpen] = useState(true);
@@ -91,6 +93,18 @@ export default function BulkEditQuestions() {
     }));
   };
 
+  /* ✅ INLINE SUBJECT EDIT */
+  const handleInlineSubjectChange = (id, value) => {
+    setRows(prev =>
+      prev.map(r => (r.id === id ? { ...r, subject: value } : r))
+    );
+
+    setModifiedRows(prev => ({
+      ...prev,
+      [id]: { ...(prev[id] || rows.find(r => r.id === id)), subject: value }
+    }));
+  };
+
   /* ---------------- COLUMNS ---------------- */
   const columns = [
     {
@@ -121,13 +135,34 @@ export default function BulkEditQuestions() {
       )
     },
     { field: 'class_number', headerName: 'Class', width: 80 },
-    { field: 'subject', headerName: 'Subject', width: 120 },
+    
+    /* ✅ EDITABLE SUBJECT COLUMN (ADMIN ONLY) */
+    {
+      field: 'subject',
+      headerName: 'Subject',
+      width: 160,
+      renderCell: (params) => (
+        user?.role === 'admin' ? (
+          <TextField
+            size="small"
+            fullWidth
+            placeholder="Enter subject"
+            value={params.value || ''}
+            onChange={(e) =>
+              handleInlineSubjectChange(params.row.id, e.target.value)
+            }
+          />
+        ) : (
+          <Typography variant="body2">{params.value}</Typography>
+        )
+      )
+    },
 
-    /* ✅ NEW CHAPTER COLUMN */
+    /* ✅ EDITABLE CHAPTER COLUMN */
     {
       field: 'chapter',
       headerName: 'Chapter',
-      width: 220,
+      width: 200,
       renderCell: (params) => (
         <TextField
           size="small"

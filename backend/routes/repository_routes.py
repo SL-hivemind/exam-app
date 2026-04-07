@@ -168,7 +168,7 @@ def register_repository_routes(app, token_required):
             if current_user.role not in ('admin', 'subject_specialist'):
                 return jsonify({'message': 'forbidden'}), 403
             data = request.get_json(silent=True) or {}
-            for field in [
+            allowed_fields = [
                 'text',
                 'option_a',
                 'option_b',
@@ -176,10 +176,13 @@ def register_repository_routes(app, token_required):
                 'option_d',
                 'correct_answer',
                 'class_number',
-                'subject',
                 'marks',
                 'image_path',
-            ]:
+            ]
+            if current_user.role == 'admin':
+                allowed_fields.append('subject')
+                
+            for field in allowed_fields:
                 if field in data:
                     setattr(question, field, data.get(field))
             try:
@@ -236,6 +239,12 @@ def register_repository_routes(app, token_required):
                 check_change(question, 'correct_answer', item.get('correct_answer'))
                 check_change(question, 'marks', int(item.get('marks') or 1))
                 check_change(question, 'class_number', item.get('class_number'))
+                
+                if current_user.role == 'admin':
+                    check_change(question, 'subject', item.get('subject'))
+                    
+                check_change(question, 'chapter', item.get('chapter'))
+                check_change(question, 'topic', item.get('topic'))
 
                 if changes:
                     log = AuditLog(
