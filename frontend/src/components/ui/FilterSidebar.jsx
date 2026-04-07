@@ -5,20 +5,33 @@ import api from '../../utils/api';
 
 export default function FilterSidebar({filters,onFilterChange,onReset}){
 const [metadata,setMetadata]=useState({subjects:[],classes:[],chapters:[],topics:[]});
-const [loading,setLoading]=useState(false);
 
 useEffect(()=>{
 const fetchMetadata=async()=>{
 try{
-const res=await api.get('/api/metadata/repository');
+// Build cascading query params so chapters/topics reflect selected class/subject
+const params=new URLSearchParams();
+if(filters.class_number) params.set('class_number',filters.class_number);
+if(filters.subject) params.set('subject',filters.subject);
+if(filters.chapter) params.set('chapter',filters.chapter);
+const res=await api.get(`/api/metadata/repository?${params}`);
 setMetadata(res.data);
 }catch(err){console.error('Failed to fetch filter metadata',err);}
 };
 fetchMetadata();
-},[]);
+},[filters.class_number,filters.subject,filters.chapter]);
 
 const handleChange=(name,value)=>{
-onFilterChange({...filters,[name]:value});
+const next={...filters,[name]:value};
+// Cascade: clear child filters when parent changes
+if(name==='class_number'||name==='subject'){
+next.chapter='';
+next.topic='';
+}
+if(name==='chapter'){
+next.topic='';
+}
+onFilterChange(next);
 };
 
 return(

@@ -25,6 +25,8 @@ def register_repository_routes(app, token_required):
             per_page = request.args.get('per_page', 20, type=int)
             cls = request.args.get('class_number')
             subject = request.args.get('subject')
+            chapter = request.args.get('chapter')
+            topic = request.args.get('topic')
             search = request.args.get('search', '').strip()
 
             query = QuestionRepository.query
@@ -34,6 +36,10 @@ def register_repository_routes(app, token_required):
                 query = query.filter(QuestionRepository.class_number == cls)
             if subject and subject not in ('null', ''):
                 query = query.filter(QuestionRepository.subject.ilike(subject))
+            if chapter and chapter not in ('null', ''):
+                query = query.filter(QuestionRepository.chapter.ilike(chapter))
+            if topic and topic not in ('null', ''):
+                query = query.filter(QuestionRepository.topic.ilike(topic))
             if search:
                 like = f'%{search}%'
                 query = query.filter(
@@ -307,6 +313,18 @@ def register_repository_routes(app, token_required):
 
         if current_user.role == 'subject_specialist':
             query = query.filter(QuestionRepository.subject.ilike(current_user.specialist_subject))
+
+        # Cascading filters: narrow chapters/topics based on selected class/subject
+        cls = request.args.get('class_number')
+        subject = request.args.get('subject')
+        chapter = request.args.get('chapter')
+
+        if cls and cls not in ('null', ''):
+            query = query.filter(QuestionRepository.class_number == cls)
+        if subject and subject not in ('null', ''):
+            query = query.filter(QuestionRepository.subject.ilike(subject))
+        if chapter and chapter not in ('null', ''):
+            query = query.filter(QuestionRepository.chapter.ilike(chapter))
 
         results = query.distinct().all()
         metadata = {
