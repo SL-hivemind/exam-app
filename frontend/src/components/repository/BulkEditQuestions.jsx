@@ -12,7 +12,7 @@ import {
 import api from '../../utils/api';
 import { useNavigate } from 'react-router-dom';
 import FilterSidebar from '../ui/FilterSidebar';
-import { useAuth } from '../../hooks/useAuth';
+import useAuth from '../../hooks/useAuth';
 
 export default function BulkEditQuestions() {
   const navigate = useNavigate();
