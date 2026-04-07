@@ -1,15 +1,16 @@
-import React,{useState,useEffect} from 'react';
+import React,{useState,useEffect,useRef} from 'react';
 import {Box,Typography,TextField,MenuItem,Stack,Divider,IconButton,Autocomplete} from '@mui/material';
 import {FilterList as FilterIcon,RestartAlt as ResetIcon,Search as SearchIcon} from '@mui/icons-material';
 import api from '../../utils/api';
 
 export default function FilterSidebar({filters,onFilterChange,onReset}){
 const [metadata,setMetadata]=useState({subjects:[],classes:[],chapters:[],topics:[]});
+// Track previous cascading keys to only clear children on genuine user-driven changes
+const prevCascadeRef=useRef({class_number:filters.class_number,subject:filters.subject,chapter:filters.chapter});
 
 useEffect(()=>{
 const fetchMetadata=async()=>{
 try{
-// Build cascading query params so chapters/topics reflect selected class/subject
 const params=new URLSearchParams();
 if(filters.class_number) params.set('class_number',filters.class_number);
 if(filters.subject) params.set('subject',filters.subject);
@@ -22,15 +23,24 @@ fetchMetadata();
 },[filters.class_number,filters.subject,filters.chapter]);
 
 const handleChange=(name,value)=>{
-const next={...filters,[name]:value};
-// Cascade: clear child filters when parent changes
+const next={...filters,[name]:value||''};
+
+// Only cascade-clear children when the user explicitly changes a PARENT filter
+// (not when Autocomplete fires null because options list changed)
+const prev=prevCascadeRef.current;
 if(name==='class_number'||name==='subject'){
-next.chapter='';
-next.topic='';
+  if(prev[name]!==next[name]){
+    next.chapter='';
+    next.topic='';
+  }
 }
 if(name==='chapter'){
-next.topic='';
+  if(prev.chapter!==next.chapter){
+    next.topic='';
+  }
 }
+
+prevCascadeRef.current={class_number:next.class_number,subject:next.subject,chapter:next.chapter};
 onFilterChange(next);
 };
 
@@ -91,6 +101,7 @@ onChange={e=>handleChange('subject',e.target.value)}>
 
 <Autocomplete
 size="small"
+freeSolo
 options={metadata.chapters}
 value={filters.chapter||null}
 onChange={(e,val)=>handleChange('chapter',val)}
@@ -99,6 +110,7 @@ sx={{mb:1}}/>
 
 <Autocomplete
 size="small"
+freeSolo
 options={metadata.topics}
 value={filters.topic||null}
 onChange={(e,val)=>handleChange('topic',val)}

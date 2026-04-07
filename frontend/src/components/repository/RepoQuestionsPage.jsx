@@ -344,6 +344,23 @@ export default function RepoQuestionsPage() {
                       {q.text}
                     </Typography>
 
+                    {/* Question image */}
+                    {q.image_path && (
+                      <Box sx={{ my: 1.5 }}>
+                        <img
+                          src={q.image_path}
+                          alt="Question"
+                          style={{
+                            maxHeight: 200,
+                            maxWidth: '100%',
+                            borderRadius: 8,
+                            border: '1px solid #e0e0e0',
+                            objectFit: 'contain'
+                          }}
+                        />
+                      </Box>
+                    )}
+
                     {/* Options */}
                     <Grid container spacing={1} mt={1}>
                       {q.option_a && (

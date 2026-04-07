@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import {
   Box, Paper, Typography, Button, Stack, Drawer, TextField,
-  IconButton, Divider, Grid, Snackbar, Alert, Collapse, Tooltip, Chip
+  IconButton, Divider, Grid, Snackbar, Alert, Collapse, Tooltip, Chip,
+  CardMedia
 } from '@mui/material';
 import { DataGrid, GridToolbar } from '@mui/x-data-grid';
 import {
@@ -57,7 +58,9 @@ export default function BulkEditQuestions() {
         ...filters
       };
       const res = await api.get('/admin/repository/questions', { params });
-      setRows(res.data.questions || []);
+      const fetched = res.data.questions || [];
+      // Preserve any unsaved inline edits when paginating
+      setRows(fetched.map(r => modifiedRows[r.id] ? { ...r, ...modifiedRows[r.id] } : r));
       setTotal(res.data.total || 0);
     } catch {
       setSnack({ open: true, msg: 'Failed to load questions', type: 'error' });
@@ -176,6 +179,29 @@ export default function BulkEditQuestions() {
       )
     },
 
+    /* IMAGE THUMBNAIL COLUMN */
+    {
+      field: 'image_path',
+      headerName: 'Img',
+      width: 60,
+      renderCell: (params) =>
+        params.value ? (
+          <Box
+            component="img"
+            src={params.value}
+            alt="Q"
+            sx={{
+              width: 40,
+              height: 40,
+              objectFit: 'cover',
+              borderRadius: 1,
+              border: '1px solid #e0e0e0',
+              cursor: 'pointer'
+            }}
+            onClick={() => setEditingRow(params.row)}
+          />
+        ) : null
+    },
     {
       field: 'text',
       headerName: 'Content Preview',
@@ -336,6 +362,28 @@ export default function BulkEditQuestions() {
                   setEditingRow({ ...editingRow, text: e.target.value })
                 }
               />
+
+              {/* QUESTION IMAGE PREVIEW */}
+              {editingRow.image_path && (
+                <Box sx={{
+                  border: '1px solid #e0e0e0',
+                  borderRadius: 2,
+                  overflow: 'hidden',
+                  bgcolor: '#fafafa',
+                  textAlign: 'center',
+                  p: 1
+                }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                    Question Image
+                  </Typography>
+                  <CardMedia
+                    component="img"
+                    image={editingRow.image_path}
+                    alt="Question"
+                    sx={{ maxHeight: 250, objectFit: 'contain', borderRadius: 1 }}
+                  />
+                </Box>
+              )}
 
               {/* OPTIONS */}
               <Box>

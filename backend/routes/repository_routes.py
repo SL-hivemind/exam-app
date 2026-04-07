@@ -218,50 +218,54 @@ def register_repository_routes(app, token_required):
         data = request.json or []
         updated_count = 0
         try:
-            for item in data:
-                q_id = item.get('id')
-                question = QuestionRepository.query.get(q_id)
-                if not question:
-                    continue
-
-                if current_user.role == 'subject_specialist':
-                    subject = (current_user.specialist_subject or '').lower()
-                    if not question.subject or question.subject.lower() != subject:
+            # Prevent autoflush mid-loop: each .get() was triggering flush of
+            # prior iterations' UPDATEs, firing before_update → generate_short_id()
+            # SELECT on the same locked rows → lock wait timeout.
+            with db.session.no_autoflush:
+                for item in data:
+                    q_id = item.get('id')
+                    question = QuestionRepository.query.get(q_id)
+                    if not question:
                         continue
 
-                changes = []
+                    if current_user.role == 'subject_specialist':
+                        subject = (current_user.specialist_subject or '').lower()
+                        if not question.subject or question.subject.lower() != subject:
+                            continue
 
-                def check_change(obj, field, new_val):
-                    old_val = getattr(obj, field)
-                    if str(old_val) != str(new_val):
-                        setattr(obj, field, new_val)
-                        changes.append(f'{field}: {old_val} -> {new_val}')
+                    changes = []
 
-                check_change(question, 'text', item.get('text'))
-                check_change(question, 'option_a', item.get('option_a'))
-                check_change(question, 'option_b', item.get('option_b'))
-                check_change(question, 'option_c', item.get('option_c'))
-                check_change(question, 'option_d', item.get('option_d'))
-                check_change(question, 'correct_answer', item.get('correct_answer'))
-                check_change(question, 'marks', int(item.get('marks') or 1))
-                check_change(question, 'class_number', item.get('class_number'))
-                
-                if current_user.role == 'admin':
-                    check_change(question, 'subject', item.get('subject'))
-                    
-                check_change(question, 'chapter', item.get('chapter'))
-                check_change(question, 'topic', item.get('topic'))
+                    def check_change(obj, field, new_val):
+                        old_val = getattr(obj, field)
+                        if str(old_val) != str(new_val):
+                            setattr(obj, field, new_val)
+                            changes.append(f'{field}: {old_val} -> {new_val}')
 
-                if changes:
-                    log = AuditLog(
-                        user_id=current_user.id,
-                        action='QUESTION_EDIT',
-                        target_type='question',
-                        target_id=question.id,
-                        details='; '.join(changes),
-                    )
-                    db.session.add(log)
-                    updated_count += 1
+                    check_change(question, 'text', item.get('text'))
+                    check_change(question, 'option_a', item.get('option_a'))
+                    check_change(question, 'option_b', item.get('option_b'))
+                    check_change(question, 'option_c', item.get('option_c'))
+                    check_change(question, 'option_d', item.get('option_d'))
+                    check_change(question, 'correct_answer', item.get('correct_answer'))
+                    check_change(question, 'marks', int(item.get('marks') or 1))
+                    check_change(question, 'class_number', item.get('class_number'))
+
+                    if current_user.role == 'admin':
+                        check_change(question, 'subject', item.get('subject'))
+
+                    check_change(question, 'chapter', item.get('chapter'))
+                    check_change(question, 'topic', item.get('topic'))
+
+                    if changes:
+                        log = AuditLog(
+                            user_id=current_user.id,
+                            action='QUESTION_EDIT',
+                            target_type='question',
+                            target_id=question.id,
+                            details='; '.join(changes),
+                        )
+                        db.session.add(log)
+                        updated_count += 1
 
             db.session.commit()
             return jsonify({'message': f'Successfully updated {updated_count} questions', 'status': 'success'}), 200
@@ -304,34 +308,48 @@ def register_repository_routes(app, token_required):
     @app.route('/api/metadata/repository', methods=['GET'])
     @token_required
     def get_repository_metadata(current_user):
-        query = db.session.query(
-            QuestionRepository.subject,
-            QuestionRepository.class_number,
-            QuestionRepository.chapter,
-            QuestionRepository.topic,
-        )
-
-        if current_user.role == 'subject_specialist':
-            query = query.filter(QuestionRepository.subject.ilike(current_user.specialist_subject))
-
-        # Cascading filters: narrow chapters/topics based on selected class/subject
         cls = request.args.get('class_number')
         subject = request.args.get('subject')
         chapter = request.args.get('chapter')
 
-        if cls and cls not in ('null', ''):
-            query = query.filter(QuestionRepository.class_number == cls)
-        if subject and subject not in ('null', ''):
-            query = query.filter(QuestionRepository.subject.ilike(subject))
-        if chapter and chapter not in ('null', ''):
-            query = query.filter(QuestionRepository.chapter.ilike(chapter))
+        def _base():
+            q = QuestionRepository.query
+            if current_user.role == 'subject_specialist':
+                q = q.filter(QuestionRepository.subject.ilike(current_user.specialist_subject))
+            return q
 
-        results = query.distinct().all()
+        def _clean(val):
+            return val and val not in ('null', '')
+
+        # Classes: always show all (no parent filter)
+        classes_q = _base().with_entities(QuestionRepository.class_number).distinct()
+
+        # Subjects: narrowed by class only
+        subjects_q = _base().with_entities(QuestionRepository.subject).distinct()
+        if _clean(cls):
+            subjects_q = subjects_q.filter(QuestionRepository.class_number == cls)
+
+        # Chapters: narrowed by class + subject
+        chapters_q = _base().with_entities(QuestionRepository.chapter).distinct()
+        if _clean(cls):
+            chapters_q = chapters_q.filter(QuestionRepository.class_number == cls)
+        if _clean(subject):
+            chapters_q = chapters_q.filter(QuestionRepository.subject.ilike(subject))
+
+        # Topics: narrowed by class + subject + chapter
+        topics_q = _base().with_entities(QuestionRepository.topic).distinct()
+        if _clean(cls):
+            topics_q = topics_q.filter(QuestionRepository.class_number == cls)
+        if _clean(subject):
+            topics_q = topics_q.filter(QuestionRepository.subject.ilike(subject))
+        if _clean(chapter):
+            topics_q = topics_q.filter(QuestionRepository.chapter.ilike(chapter))
+
         metadata = {
-            'subjects': sorted(list(set(r[0] for r in results if r[0]))),
-            'classes': sorted(list(set(r[1] for r in results if r[1])), key=lambda x: str(x)),
-            'chapters': sorted(list(set(r[2] for r in results if r[2]))),
-            'topics': sorted(list(set(r[3] for r in results if r[3]))),
+            'classes': sorted([r[0] for r in classes_q.all() if r[0]], key=lambda x: str(x)),
+            'subjects': sorted([r[0] for r in subjects_q.all() if r[0]]),
+            'chapters': sorted([r[0] for r in chapters_q.all() if r[0]]),
+            'topics': sorted([r[0] for r in topics_q.all() if r[0]]),
         }
         return jsonify(metadata), 200
 
