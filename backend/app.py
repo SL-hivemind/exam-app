@@ -1008,6 +1008,14 @@ def admin_students_create(current_user):
         stu.generate_student_id_auto()
         db.session.commit()
 
+        # Send welcome email with credentials if student has an email
+        if email:
+            try:
+                from utils.email import send_student_welcome_email
+                send_student_welcome_email(email, username, password or "student@123")
+            except Exception as e:
+                app.logger.error(f"Failed to send student welcome email to {email}: {e}")
+
         return jsonify({
             "message": "student created",
             "student": {
@@ -1729,6 +1737,18 @@ def admin_assign_students(current_user, exam_id):
             )
             db.session.commit()
 
+            # Send exam notification email
+            try:
+                user_obj = User.query.get(student.user_id)
+                if user_obj and user_obj.email:
+                    from utils.email import send_exam_notification_email
+                    send_exam_notification_email(
+                        user_obj.email, user_obj.username,
+                        exam.title, exam.description, exam.duration_minutes
+                    )
+            except Exception as mail_err:
+                app.logger.error(f"Exam notification email failed: {mail_err}")
+
             return jsonify(
                 {"message": "Student assigned successfully"}
             ), 200
@@ -1782,6 +1802,24 @@ def admin_assign_students(current_user, exam_id):
                 new_count += 1
 
         db.session.commit()
+
+        # Send exam notification emails to newly assigned students
+        if new_count > 0:
+            try:
+                from utils.email import send_exam_notification_email
+                newly_assigned = [s for s in students_to_assign if s.user_id not in already]
+                for stu in newly_assigned:
+                    user_obj = User.query.get(stu.user_id)
+                    if user_obj and user_obj.email:
+                        try:
+                            send_exam_notification_email(
+                                user_obj.email, user_obj.username,
+                                exam.title, exam.description, exam.duration_minutes
+                            )
+                        except Exception:
+                            pass
+            except Exception as mail_err:
+                app.logger.error(f"Bulk exam notification emails failed: {mail_err}")
 
         return jsonify({
             "message": f"Assignment complete. Added {new_count} new students."
