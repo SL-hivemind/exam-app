@@ -41,11 +41,13 @@ def register_student_routes(
         for assignment in pagination.items:
             exam = assignment.exam
             attempt = StudentExamAttempt.query.filter_by(exam_id=exam.id, student_id=student.user_id).first()
+            in_progress = bool(attempt and attempt.submitted_time is None)
             exams_data.append(
                 {
                     'exam': exam.to_dict(),
                     'assigned': True,
                     'attempted': bool(attempt and attempt.submitted_time is not None),
+                    'in_progress': in_progress,
                     'score': attempt.score if (attempt and attempt.submitted_time) else None,
                 }
             )
@@ -79,8 +81,6 @@ def register_student_routes(
             within_window = False
         attempt = StudentExamAttempt.query.filter_by(exam_id=exam.id, student_id=student.user_id).first()
         already_submitted = bool(attempt and attempt.submitted_time)
-        if access_end and now > access_end:
-            within_window = False
         return (
             jsonify(
                 {
@@ -139,6 +139,11 @@ def register_student_routes(
         if exam.access_end:
             access_end_utc = to_utc_naive(exam.access_end)
             allowed_end = min(allowed_end, access_end_utc)
+            
+        saved_answers = {}
+        for sa in StudentAnswer.query.filter_by(attempt_id=attempt.id).all():
+            saved_answers[str(sa.question_id)] = sa.answer
+
         return (
             jsonify(
                 {
@@ -146,6 +151,7 @@ def register_student_routes(
                     'attempt_id': attempt.id,
                     'start_time': attempt.start_time.isoformat() + 'Z',
                     'expires_at': allowed_end.isoformat() + 'Z',
+                    'saved_answers': saved_answers
                 }
             ),
             200,
@@ -160,6 +166,11 @@ def register_student_routes(
 
         if not ExamStudent.query.filter_by(exam_id=exam.id, student_id=student.user_id).first():
             return jsonify({'message': 'not assigned to exam'}), 403
+
+        # Guard: block access after submission
+        attempt = StudentExamAttempt.query.filter_by(exam_id=exam.id, student_id=student.user_id).first()
+        if attempt and attempt.submitted_time:
+            return jsonify({'message': 'exam already submitted'}), 403
 
         questions = Question.query.filter_by(exam_id=exam.id).all()
         questions_data = []
@@ -198,6 +209,86 @@ def register_student_routes(
 
         return jsonify({'questions': questions_data}), 200
 
+    # ---- AUTO-SAVE (click-based, debounced 500ms from frontend) ----
+    @app.post('/student/exams/<int:exam_id>/autosave')
+    @role_required('student')
+    def student_autosave(current_user, exam_id):
+        student = Student.query.filter_by(user_id=current_user.id).first()
+        exam = Exam.query.get_or_404(exam_id)
+
+        attempt = StudentExamAttempt.query.filter_by(
+            exam_id=exam.id, student_id=student.user_id
+        ).first()
+        if not attempt:
+            return jsonify({'message': 'no active attempt'}), 400
+        if attempt.submitted_time:
+            return jsonify({'message': 'already submitted'}), 200
+
+        # Check if time isn't long past
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        allowed_end = attempt.start_time + timedelta(minutes=exam.duration_minutes)
+        if now > allowed_end + timedelta(minutes=2):
+            # Time is over — auto-finalize this attempt
+            _finalize_attempt(attempt, exam, reason='timeout')
+            return jsonify({'message': 'time expired, auto-submitted'}), 200
+
+        payload = request.get_json(silent=True) or {}
+        answers = payload.get('answers', [])
+
+        try:
+            for ans in answers:
+                qid = ans.get('question_id')
+                resp = ans.get('answer')
+                if not qid:
+                    continue
+
+                existing = StudentAnswer.query.filter_by(
+                    attempt_id=attempt.id, question_id=qid
+                ).first()
+
+                if existing:
+                    existing.answer = resp
+                else:
+                    db.session.add(StudentAnswer(
+                        attempt_id=attempt.id,
+                        question_id=qid,
+                        answer=resp,
+                        is_correct=False,
+                        marks_awarded=0,
+                    ))
+
+            db.session.commit()
+            return jsonify({'message': 'saved', 'count': len(answers)}), 200
+        except SQLAlchemyError:
+            db.session.rollback()
+            return jsonify({'message': 'save failed'}), 500
+
+    def _finalize_attempt(attempt, exam, reason='abandoned'):
+        """Grade whatever answers exist and mark the attempt as submitted."""
+        if attempt.submitted_time:
+            return
+
+        total_score = 0
+        for sa in StudentAnswer.query.filter_by(attempt_id=attempt.id).all():
+            question = Question.query.get(sa.question_id)
+            if not question:
+                continue
+            is_correct = False
+            marks_awarded = 0
+            if question.correct_answer and sa.answer and \
+               str(sa.answer).strip().upper() == str(question.correct_answer).strip().upper():
+                is_correct = True
+                marks_awarded = int(question.marks or 0)
+            sa.is_correct = is_correct
+            sa.marks_awarded = marks_awarded
+            total_score += marks_awarded
+
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        attempt.submitted_time = now
+        attempt.score = total_score
+        attempt.submission_reason = reason
+        db.session.commit()
+
     @app.post('/student/exams/<int:exam_id>/submit')
     @role_required('student')
     @no_cache
@@ -206,6 +297,7 @@ def register_student_routes(
         exam = Exam.query.get_or_404(exam_id)
         payload = request.get_json(silent=True) or {}
         answers = payload.get('answers', [])
+        reason = payload.get('reason', 'manual')
 
         attempt = StudentExamAttempt.query.filter_by(exam_id=exam.id, student_id=student.user_id).first()
         if not attempt:
@@ -215,8 +307,14 @@ def register_student_routes(
 
         now = datetime.now(timezone.utc).replace(tzinfo=None)
         allowed_end = attempt.start_time + timedelta(minutes=exam.duration_minutes)
+        
+        # If time is over but they didn't manually submit on time, record as timeout.
         if now > allowed_end:
-            return jsonify({'message': 'time is over'}), 403
+            reason = 'timeout'
+            if now > allowed_end + timedelta(minutes=5):
+                # Auto-finalize with whatever auto-saved answers exist
+                _finalize_attempt(attempt, exam)
+                return jsonify({'message': 'time expired, auto-graded from saved answers', 'score': attempt.score}), 200
 
         total_score = 0
         try:
@@ -236,18 +334,27 @@ def register_student_routes(
                     is_correct = True
                     marks_awarded = int(question.marks or 0)
 
-                student_answer = StudentAnswer(
-                    attempt_id=attempt.id,
-                    question_id=qid,
-                    answer=resp,
-                    is_correct=is_correct,
-                    marks_awarded=marks_awarded,
-                )
-                db.session.add(student_answer)
+                # Upsert: update if auto-saved answer exists, else insert
+                existing = StudentAnswer.query.filter_by(
+                    attempt_id=attempt.id, question_id=qid
+                ).first()
+                if existing:
+                    existing.answer = resp
+                    existing.is_correct = is_correct
+                    existing.marks_awarded = marks_awarded
+                else:
+                    db.session.add(StudentAnswer(
+                        attempt_id=attempt.id,
+                        question_id=qid,
+                        answer=resp,
+                        is_correct=is_correct,
+                        marks_awarded=marks_awarded,
+                    ))
                 total_score += marks_awarded
 
             attempt.submitted_time = now
             attempt.score = total_score
+            attempt.submission_reason = reason
             db.session.add(attempt)
             db.session.commit()
             return jsonify({'message': 'submitted', 'score': total_score}), 200
@@ -266,6 +373,12 @@ def register_student_routes(
 
         student = Student.query.filter_by(user_id=current_user.id).first()
         attempt = StudentExamAttempt.query.filter_by(exam_id=exam.id, student_id=student.user_id).first()
+
+        if attempt and not attempt.submitted_time:
+            now = datetime.now(timezone.utc).replace(tzinfo=None)
+            allowed_end = attempt.start_time + timedelta(minutes=exam.duration_minutes)
+            if now > allowed_end + timedelta(minutes=2):
+                _finalize_attempt(attempt, exam)
 
         if not attempt or not attempt.submitted_time:
             return jsonify({'message': 'no attempt found'}), 400
@@ -322,6 +435,7 @@ def register_student_routes(
                         'start_time': attempt.start_time.isoformat(),
                         'submitted_time': attempt.submitted_time.isoformat(),
                         'score': attempt.score,
+                        'submission_reason': getattr(attempt, 'submission_reason', 'manual'),
                         'rank': rank,
                         'participants': len(peer_scores),
                     },

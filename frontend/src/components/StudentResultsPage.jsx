@@ -178,11 +178,31 @@ export default function StudentResultsPage() {
                                 {exam.description || 'Exam Result'}
                             </Typography>
                             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ mt: 3 }} alignItems={{ xs: 'flex-start', sm: 'center' }}>
-                                <Box display="flex" alignItems="center" gap={1}>
+                                <Box display="flex" alignItems="center" gap={1} flexWrap="wrap">
                                     <TimeIcon color="action" />
                                     <Typography variant="body2">
                                         Submitted: {submitted ? submitted.toLocaleString() : 'N/A'}
                                     </Typography>
+                                    {attempt.submission_reason && (
+                                        <Chip 
+                                            size="small"
+                                            label={
+                                                attempt.submission_reason === 'manual' ? 'Manually Submitted' :
+                                                attempt.submission_reason === 'timeout' ? 'Auto-Submitted (Time Out)' :
+                                                attempt.submission_reason === 'tab_switch' ? 'Violation (Tab Switch)' :
+                                                attempt.submission_reason === 'abandoned' ? 'Auto-Submitted (Abandoned)' :
+                                                attempt.submission_reason
+                                            }
+                                            color={
+                                                attempt.submission_reason === 'manual' ? 'success' :
+                                                attempt.submission_reason === 'timeout' ? 'warning' :
+                                                attempt.submission_reason === 'tab_switch' ? 'error' :
+                                                'default'
+                                            }
+                                            variant="outlined"
+                                            sx={{ ml: { sm: 1 }, fontWeight: 'bold' }}
+                                        />
+                                    )}
                                 </Box>
                                 {rank && participants ? (
                                     <Chip

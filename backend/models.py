@@ -327,6 +327,7 @@ class StudentExamAttempt(db.Model):
     start_time = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     submitted_time = db.Column(db.DateTime, nullable=True)
     score = db.Column(db.Integer, nullable=True)
+    submission_reason = db.Column(db.String(50), nullable=True, default='manual')
     __table_args__ = (db.UniqueConstraint('exam_id', 'student_id', name='uq_exam_attempt'),)
 
 class StudentAnswer(db.Model):

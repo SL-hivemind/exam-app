@@ -440,6 +440,7 @@ export default function AdminExamDetail() {
                 <TableCell>Student ID</TableCell>
                 <TableCell>Username</TableCell>
                 <TableCell>Status</TableCell>
+                <TableCell>Submission</TableCell>
                 <TableCell>Score</TableCell>
                 <TableCell>Started At</TableCell>
                 <TableCell align="right">Actions</TableCell>
@@ -447,9 +448,9 @@ export default function AdminExamDetail() {
             </TableHead>
             <TableBody>
               {loadingStudents ? (
-                <TableRow><TableCell colSpan={6} align="center"><CircularProgress /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} align="center"><CircularProgress /></TableCell></TableRow>
               ) : filteredStudents.length === 0 ? (
-                <TableRow><TableCell colSpan={6} align="center">No students found.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} align="center">No students found.</TableCell></TableRow>
               ) : (
                 filteredStudents.map((s) => (
                   <TableRow key={s.user_id}>
@@ -461,6 +462,28 @@ export default function AdminExamDetail() {
                         color={s.status === 'Completed' ? 'success' : s.status === 'Discontinued' ? 'error' : 'default'}
                         size="small"
                       />
+                    </TableCell>
+                    <TableCell>
+                      {s.submission_reason ? (
+                        <Chip
+                          label={
+                            s.submission_reason === 'manual' ? 'Manual' :
+                            s.submission_reason === 'timeout' ? 'Time Out' :
+                            s.submission_reason === 'tab_switch' ? 'Tab Switch' :
+                            s.submission_reason === 'abandoned' ? 'Abandoned' :
+                            s.submission_reason
+                          }
+                          size="small"
+                          variant="outlined"
+                          color={
+                            s.submission_reason === 'manual' ? 'success' :
+                            s.submission_reason === 'timeout' ? 'warning' :
+                            s.submission_reason === 'tab_switch' ? 'error' :
+                            s.submission_reason === 'abandoned' ? 'warning' :
+                            'default'
+                          }
+                        />
+                      ) : '-'}
                     </TableCell>
                     <TableCell>{s.score !== null ? s.score : '-'}</TableCell>
                     <TableCell>{s.start_time ? new Date(s.start_time).toLocaleString() : '-'}</TableCell>

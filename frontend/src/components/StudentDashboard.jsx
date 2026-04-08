@@ -86,6 +86,11 @@ export default function StudentDashboard() {
     const accessStart = exam.access_start ? new Date(exam.access_start) : null;
     const accessEnd = exam.access_end ? new Date(exam.access_end) : null;
 
+    // In-progress (started but not submitted)
+    if (examObj.in_progress) {
+      return { label: 'In Progress', color: 'warning', bg: '#ed6c02', icon: <PlayArrowIcon /> };
+    }
+
     if (!examObj.attempted) {
       if (accessStart && now < accessStart) return { label: 'Upcoming', color: 'info', bg: '#0288d1', icon: <AccessTimeIcon /> };
       if (accessEnd && now > accessEnd) return { label: 'Missed', color: 'error', bg: '#d32f2f', icon: <LockIcon /> };
@@ -101,7 +106,8 @@ export default function StudentDashboard() {
 
   const isExamAvailable = (examObj) => {
     if (!examObj || !examObj.exam) return false;
-    return examObj.assigned && !examObj.attempted && isWithinAccessWindow(examObj.exam);
+    // Available if assigned, not submitted, and within access window OR already in-progress
+    return examObj.assigned && !examObj.attempted && (isWithinAccessWindow(examObj.exam) || examObj.in_progress);
   };
 
   const formatDateTime = (isoString) => {
@@ -321,7 +327,19 @@ export default function StudentDashboard() {
                             </CardContent>
 
                             <CardActions sx={{ p: 2, pt: 0, bgcolor: '#fafafa' }}>
-                            {active ? (
+                            {examObj.in_progress ? (
+                                <Button 
+                                fullWidth 
+                                variant="contained" 
+                                color="warning"
+                                size="large"
+                                onClick={() => handleStartExam(exam.id)}
+                                disabled={startingExamId === exam.id}
+                                startIcon={startingExamId === exam.id ? <CircularProgress size={20} color="inherit"/> : <PlayArrowIcon />}
+                                >
+                                {startingExamId === exam.id ? 'Loading...' : 'Resume Exam'}
+                                </Button>
+                            ) : active ? (
                                 <Button 
                                 fullWidth 
                                 variant="contained" 

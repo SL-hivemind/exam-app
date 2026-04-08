@@ -49,11 +49,14 @@ export default function StudentExamQuestionsPage() {
   // --- 1. SECURITY HOOK ---
   useExamSecurity(!loading && !submitted, (type) => {
       if (type === 'tab_switch') {
-          setViolations(prev => prev + 1);
-          if (violations >= 3) {
-              alert("WARNING: Too many tab switches. Your exam is being auto-submitted.");
-              handleSubmitRef.current(true);
-          }
+          setViolations(prev => {
+              const next = prev + 1;
+              if (next >= 3) {
+                  alert("WARNING: Too many tab switches. Your exam is being auto-submitted.");
+                  handleSubmitRef.current('tab_switch');
+              }
+              return next;
+          });
       }
   });
 
@@ -73,7 +76,7 @@ export default function StudentExamQuestionsPage() {
 
 
   // --- 3. SUBMIT LOGIC ---
-  const handleSubmitMcqAnswers = useCallback(async (forceSubmit = false) => {
+  const handleSubmitMcqAnswers = useCallback(async (reason = 'manual') => {
     if (submitted) return;
 
     setSubmitLoading(true);
@@ -85,7 +88,7 @@ export default function StudentExamQuestionsPage() {
         answer
       }));
 
-      await api.post(`/student/exams/${examId}/submit`, { answers }, { 
+      await api.post(`/student/exams/${examId}/submit`, { answers, reason }, { 
         headers: { auth_token: authToken } 
       });
       
@@ -110,26 +113,9 @@ export default function StudentExamQuestionsPage() {
   }, [handleSubmitMcqAnswers]);
 
 
-  // --- 4. BEACON API (Auto-submit on Tab Close) ---
-  useEffect(() => {
-      const handleUnload = () => {
-          if (submitted) return;
-          
-          const answers = Object.entries(mcqAnswers).map(([questionId, answer]) => ({
-            question_id: parseInt(questionId),
-            answer
-          }));
-          
-          const payload = JSON.stringify({ answers });
-          const blob = new Blob([payload], { type: 'application/json' });
-          // Ensure URL matches your backend
-          const url = `${api.defaults.baseURL || 'http://localhost:5000'}/student/exams/${examId}/submit`;
-          
-          navigator.sendBeacon(url, blob);
-      };
-      window.addEventListener("unload", handleUnload);
-      return () => window.removeEventListener("unload", handleUnload);
-  }, [mcqAnswers, examId, submitted]);
+  // --- 4. BEACON REMOVED ---
+  // sendBeacon cannot send auth headers, so it always fails.
+  // Auto-save + Lazy Finalization already covers tab-close scenarios.
 
 
   // --- 5. INITIALIZATION & TIMER ---
@@ -162,12 +148,21 @@ export default function StudentExamQuestionsPage() {
         setExam({ ...canStartRes.data.exam, questions: questionsRes.data.questions });
 
         // Step C: Restore Local Answers
-        const savedAnswers = localStorage.getItem(storageKey);
-        if (savedAnswers) setMcqAnswers(JSON.parse(savedAnswers));
+        const savedAnswersStr = localStorage.getItem(storageKey);
+        let mergedAnswers = savedAnswersStr ? JSON.parse(savedAnswersStr) : {};
 
         // Step D: Start/Resume Attempt
         const attemptRes = await api.post(`/student/exams/${examId}/start`, {}, { headers: { auth_token: authToken } });
         
+        // Merge answers from server (if resuming on different device)
+        if (attemptRes.data.saved_answers) {
+           mergedAnswers = { ...attemptRes.data.saved_answers, ...mergedAnswers };
+        }
+        
+        if (Object.keys(mergedAnswers).length > 0) {
+           setMcqAnswers(mergedAnswers);
+        }
+
         const expiresAt = new Date(attemptRes.data.expires_at);
         const now = new Date();
         let remainingSeconds = Math.max(0, Math.floor((expiresAt - now) / 1000));
@@ -177,7 +172,7 @@ export default function StudentExamQuestionsPage() {
         setTimeLeft(remainingSeconds);
 
         if (remainingSeconds <= 0) {
-           handleSubmitRef.current(true);
+           handleSubmitRef.current('timeout');
            return;
         }
 
@@ -186,7 +181,7 @@ export default function StudentExamQuestionsPage() {
           setTimeLeft(prev => {
             if (prev <= 1) {
               clearInterval(timerRef.current);
-              handleSubmitRef.current(true); // Time's up!
+              handleSubmitRef.current('timeout'); // Time's up!
               return 0;
             }
             return prev - 1;
@@ -206,16 +201,39 @@ export default function StudentExamQuestionsPage() {
   }, [examId, authToken, storageKey, navigate]);
 
 
-  // --- 6. AUTO-SAVE ANSWERS ---
+  // --- 6. AUTO-SAVE ANSWERS (sends only the changed answer) ---
+  const lastSavedRef = useRef({});
   useEffect(() => {
     if (submitted) return;
-    const saveTimer = setTimeout(() => {
+    const saveTimer = setTimeout(async () => {
       if (Object.keys(mcqAnswers).length > 0) {
+        // 1. Save full state locally for instant page-reload recovery
         localStorage.setItem(storageKey, JSON.stringify(mcqAnswers));
+        
+        // 2. Find only the answers that changed since last save
+        const changedAnswers = Object.entries(mcqAnswers).filter(
+            ([qId, ans]) => lastSavedRef.current[qId] !== ans
+        );
+        
+        if (changedAnswers.length > 0) {
+            try {
+                const payload = changedAnswers.map(([qId, ans]) => ({
+                    question_id: parseInt(qId),
+                    answer: ans
+                }));
+                await api.post(`/student/exams/${examId}/autosave`, { answers: payload }, { 
+                    headers: { auth_token: authToken } 
+                });
+                // Update the ref so we don't re-send these
+                lastSavedRef.current = { ...mcqAnswers };
+            } catch (err) {
+                console.error("Autosave to backend failed silently:", err);
+            }
+        }
       }
     }, 500);
     return () => clearTimeout(saveTimer);
-  }, [mcqAnswers, storageKey, submitted]);
+  }, [mcqAnswers, storageKey, submitted, examId, authToken]);
 
 
   const handleMcqAnswerChange = (mcqId, answer) => {
@@ -447,7 +465,7 @@ export default function StudentExamQuestionsPage() {
              </DialogContent>
              <DialogActions>
                  <Button onClick={() => setConfirmOpen(false)}>Cancel</Button>
-                 <Button onClick={() => { setConfirmOpen(false); handleSubmitMcqAnswers(false); }} variant="contained" color="success">
+                 <Button onClick={() => { setConfirmOpen(false); handleSubmitMcqAnswers('manual'); }} variant="contained" color="success">
                      Yes, Submit
                  </Button>
              </DialogActions>

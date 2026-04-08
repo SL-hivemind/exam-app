@@ -1158,6 +1158,37 @@ def admin_student_attempts(current_user, user_id):
     if current_user.role == 'school_admin' and student.school_id != current_user.school_id:
         return jsonify({'message': 'Forbidden'}), 403
 
+    # --- Lazy Finalization: auto-grade abandoned attempts whose time expired ---
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    open_attempts = (
+        db.session.query(StudentExamAttempt, Exam)
+        .join(Exam, Exam.id == StudentExamAttempt.exam_id)
+        .filter(StudentExamAttempt.student_id == user_id)
+        .filter(StudentExamAttempt.submitted_time.is_(None))
+        .all()
+    )
+    for oatt, oex in open_attempts:
+        allowed_end = oatt.start_time + timedelta(minutes=oex.duration_minutes)
+        if now > allowed_end + timedelta(minutes=2):
+            total_score = 0
+            for sa in StudentAnswer.query.filter_by(attempt_id=oatt.id).all():
+                question = Question.query.get(sa.question_id)
+                if not question:
+                    continue
+                is_correct = False
+                marks_awarded = 0
+                if question.correct_answer and sa.answer and \
+                   str(sa.answer).strip().upper() == str(question.correct_answer).strip().upper():
+                    is_correct = True
+                    marks_awarded = int(question.marks or 0)
+                sa.is_correct = is_correct
+                sa.marks_awarded = marks_awarded
+                total_score += marks_awarded
+            oatt.submitted_time = now
+            oatt.score = total_score
+            oatt.submission_reason = 'abandoned'
+    db.session.commit()
+
     attempt_rows = (
         db.session.query(StudentExamAttempt, Exam)
         .join(Exam, Exam.id == StudentExamAttempt.exam_id)
@@ -1191,7 +1222,8 @@ def admin_student_attempts(current_user, user_id):
             "percentage": pct,
             "percentile": _calculate_percentile(att.score, peer_scores),
             "rank": _competition_rank(att.score, peer_scores),
-            "participants": len(peer_scores)
+            "participants": len(peer_scores),
+            "submission_reason": getattr(att, 'submission_reason', 'manual')
         })
 
     summary = {
@@ -1605,7 +1637,36 @@ def get_exam_attempts_list(current_user, exam_id):
         StudentExamAttempt.exam_id == exam_id,
         StudentExamAttempt.student_id.in_(student_ids)
     ).all()
-    
+
+    # --- Lazy Finalization: auto-grade abandoned attempts ---
+    exam_obj = Exam.query.get(exam_id)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    finalized_any = False
+    for att in attempts:
+        if att.submitted_time is None and exam_obj:
+            allowed_end = att.start_time + timedelta(minutes=exam_obj.duration_minutes)
+            if now > allowed_end + timedelta(minutes=2):
+                total_score = 0
+                for sa in StudentAnswer.query.filter_by(attempt_id=att.id).all():
+                    question = Question.query.get(sa.question_id)
+                    if not question:
+                        continue
+                    is_correct = False
+                    marks_awarded = 0
+                    if question.correct_answer and sa.answer and \
+                       str(sa.answer).strip().upper() == str(question.correct_answer).strip().upper():
+                        is_correct = True
+                        marks_awarded = int(question.marks or 0)
+                    sa.is_correct = is_correct
+                    sa.marks_awarded = marks_awarded
+                    total_score += marks_awarded
+                att.submitted_time = now
+                att.score = total_score
+                att.submission_reason = 'abandoned'
+                finalized_any = True
+    if finalized_any:
+        db.session.commit()
+
     attempt_map = {a.student_id: a for a in attempts}
 
     result = []
@@ -1615,12 +1676,14 @@ def get_exam_attempts_list(current_user, exam_id):
         status = "Not Started"
         score = None
         start_time = None
+        submission_reason = None
         
         if att:
             start_time = att.start_time
             if att.submitted_time:
                 status = "Completed"
                 score = att.score
+                submission_reason = getattr(att, 'submission_reason', 'manual')
             else:
                 status = "Discontinued"
 
@@ -1630,7 +1693,8 @@ def get_exam_attempts_list(current_user, exam_id):
             "username": student.username,
             "status": status,
             "score": score,
-            "start_time": start_time
+            "start_time": start_time,
+            "submission_reason": submission_reason
         })
 
     return jsonify({"students": result}), 200
