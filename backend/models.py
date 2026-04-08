@@ -378,6 +378,10 @@ def auto_gen_id(mapper, connection, target):
 
 @event.listens_for(QuestionRepository, 'before_update')
 def update_id_on_scope_change(mapper, connection, target):
+    # Skip if the bulk update route has already computed a batch-safe ID
+    if getattr(target, '_bulk_id_set', False):
+        return
+
     state = db.inspect(target)
 
     scope_changed = (
@@ -391,5 +395,5 @@ def update_id_on_scope_change(mapper, connection, target):
             target.class_number,
             target.subject,
             target.chapter,
-            exclude_id=target.id   # 🔑 THIS LINE FIXES YOUR ERROR
+            exclude_id=target.id
         )

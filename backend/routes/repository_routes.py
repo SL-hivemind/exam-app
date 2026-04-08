@@ -218,9 +218,8 @@ def register_repository_routes(app, token_required):
         data = request.json or []
         updated_count = 0
         try:
-            # Prevent autoflush mid-loop: each .get() was triggering flush of
-            # prior iterations' UPDATEs, firing before_update → generate_short_id()
-            # SELECT on the same locked rows → lock wait timeout.
+            scope_changed_questions = []
+
             with db.session.no_autoflush:
                 for item in data:
                     q_id = item.get('id')
@@ -266,6 +265,48 @@ def register_repository_routes(app, token_required):
                         )
                         db.session.add(log)
                         updated_count += 1
+
+                    # Check if scope fields changed (needs custom_id regeneration)
+                    state = db.inspect(question)
+                    if (state.attrs.chapter.history.has_changes() or
+                        state.attrs.subject.history.has_changes() or
+                        state.attrs.class_number.history.has_changes()):
+                        scope_changed_questions.append(question)
+
+                # Batch-safe ID generation: compute unique serials per prefix
+                if scope_changed_questions:
+                    import re as _re
+                    from sqlalchemy import func as _func
+
+                    def _abbr(text):
+                        if not text or str(text).strip() == '':
+                            return 'GEN'
+                        clean = _re.sub(
+                            r'\b(the|a|an|of|and|in|to|on|for|with)\b',
+                            '', str(text), flags=_re.IGNORECASE
+                        )
+                        clean = _re.sub(r'[^a-zA-Z0-9]', '', clean)
+                        return clean[:3].upper().ljust(3, 'X')
+
+                    prefix_counters = {}
+                    for q in scope_changed_questions:
+                        c = str(q.class_number).zfill(2) if q.class_number else '00'
+                        s = _abbr(q.subject)
+                        ch = _abbr(q.chapter)
+                        prefix = f'{c}-{s}-{ch}-'
+
+                        if prefix not in prefix_counters:
+                            last_id = db.session.query(
+                                _func.max(QuestionRepository.custom_id)
+                            ).filter(
+                                QuestionRepository.custom_id.like(f'{prefix}%')
+                            ).scalar()
+                            last_num = int(last_id.split('-')[-1]) if last_id else 0
+                            prefix_counters[prefix] = last_num
+
+                        prefix_counters[prefix] += 1
+                        q.custom_id = f'{prefix}{str(prefix_counters[prefix]).zfill(4)}'
+                        q._bulk_id_set = True  # tell before_update event to skip
 
             db.session.commit()
             return jsonify({'message': f'Successfully updated {updated_count} questions', 'status': 'success'}), 200
