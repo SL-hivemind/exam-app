@@ -13,7 +13,9 @@ import {
   ListItemButton,
   ListItemText,
   useScrollTrigger,
-  Stack
+  Stack,
+  Menu,
+  MenuItem
 } from "@mui/material";
 import { useNavigate, useLocation } from "react-router-dom";
 import MenuIcon from "@mui/icons-material/Menu";
@@ -50,6 +52,11 @@ export default function Navbar(props) {
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [anchorEl, setAnchorEl] = useState(null);
+  const openMenu = Boolean(anchorEl);
+
+  const handleMenuClick = (event) => setAnchorEl(event.currentTarget);
+  const handleMenuClose = () => setAnchorEl(null);
 
   // Check if we are on home
   const isHome = location.pathname === "/";
@@ -89,10 +96,15 @@ export default function Navbar(props) {
   };
 
   const menuItems = [
-    { label: "Services", id: "services" },
-    { label: "Exams", id: "exams" },
-    { label: "Publishing", id: "publications" },
-    { label: "Ambassadors", id: "ambassador" },
+    { label: "Thinklets", id: "thinklets" },
+    { label: "Publications", id: "publications" },
+    { label: "Radio", id: "radio" },
+    { label: "LSRW", id: "lsrw" },
+    { label: "Ambassador", id: "ambassador" },
+    { label: "SJIS", id: "sjis" },
+    { label: "Ecosystem", id: "services" },
+    { label: "Plans", id: "plans" },
+    { label: "Gallery", id: "gallery" },
   ];
 
   // Mobile Drawer Content
@@ -173,16 +185,21 @@ export default function Navbar(props) {
               </Stack>
 
               {/* DESKTOP MENU */}
-              <Box sx={{ display: { xs: "none", md: "flex" }, alignItems: 'center', gap: 2 }}>
-                {menuItems.map((item) => (
-                  <Button
-                    key={item.id}
-                    onClick={() => handleNavClick(item.id)}
-                    sx={{ color: "inherit", fontWeight: 500 }}
-                  >
-                    {item.label}
-                  </Button>
-                ))}
+              <Box sx={{ display: { xs: "none", md: "flex" }, alignItems: 'center', gap: 1 }}>
+                <Button onClick={() => handleNavClick("thinklets")} sx={{ color: "inherit", fontWeight: 500 }}>Thinklets</Button>
+                <Button onClick={() => handleNavClick("publications")} sx={{ color: "inherit", fontWeight: 500 }}>Publications</Button>
+                
+                <Button onClick={handleMenuClick} sx={{ color: "inherit", fontWeight: 500 }}>Initiatives ▾</Button>
+                <Menu anchorEl={anchorEl} open={openMenu} onClose={handleMenuClose}>
+                  <MenuItem onClick={() => { handleNavClick("radio"); handleMenuClose(); }}>Radio</MenuItem>
+                  <MenuItem onClick={() => { handleNavClick("lsrw"); handleMenuClose(); }}>LSRW</MenuItem>
+                  <MenuItem onClick={() => { handleNavClick("ambassador"); handleMenuClose(); }}>Ambassador</MenuItem>
+                  <MenuItem onClick={() => { handleNavClick("sjis"); handleMenuClose(); }}>SJIS</MenuItem>
+                </Menu>
+
+                <Button onClick={() => handleNavClick("services")} sx={{ color: "inherit", fontWeight: 500 }}>Ecosystem</Button>
+                <Button onClick={() => handleNavClick("plans")} sx={{ color: "inherit", fontWeight: 500 }}>Plans</Button>
+                <Button onClick={() => handleNavClick("gallery")} sx={{ color: "inherit", fontWeight: 500 }}>Gallery</Button>
 
                 {isAuthenticated ? (
                   <>

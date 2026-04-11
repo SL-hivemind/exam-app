@@ -1685,7 +1685,7 @@ def get_exam_attempts_list(current_user, exam_id):
                 score = att.score
                 submission_reason = getattr(att, 'submission_reason', 'manual')
             else:
-                status = "Discontinued"
+                status = "Started"
 
         result.append({
             "user_id": student.user_id,

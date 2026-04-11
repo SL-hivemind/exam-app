@@ -51,7 +51,7 @@ export default function RepoReports() {
                 Review and resolve mistakes reported by School Admins
             </Typography>
 
-            <Paper sx={{ width: '100%', overflow: 'hidden' }}>
+            <Paper sx={{ width: '100%', overflowX: 'auto' }}>
                 <Table>
                     <TableHead sx={{ bgcolor: '#f8fafc' }}>
                         <TableRow>

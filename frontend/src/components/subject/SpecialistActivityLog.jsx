@@ -33,7 +33,7 @@ export default function SpecialistActivityLog() {
             <Typography variant="h5" fontWeight={700}>System Activity Log</Typography>
         </Stack>
 
-        <Paper elevation={2}>
+        <Paper elevation={2} sx={{ overflowX: 'auto' }}>
             <Table>
                 <TableHead sx={{ bgcolor: '#e3f2fd' }}>
                     <TableRow>

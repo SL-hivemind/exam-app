@@ -422,7 +422,7 @@ export default function AdminExamDetail() {
 
       {/* === TAB 1: STUDENT PROGRESS === */}
       {tabIndex === 1 && (
-        <Paper sx={{ p: 3 }}>
+        <Paper sx={{ p: 3, overflowX: 'auto' }}>
           <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
             <Typography variant="h6">Student Attempts</Typography>
             <TextField
@@ -433,6 +433,8 @@ export default function AdminExamDetail() {
               InputProps={{ endAdornment: <SearchIcon color="action" /> }}
             />
           </Stack>
+
+
 
           <Table>
             <TableHead>
@@ -459,7 +461,7 @@ export default function AdminExamDetail() {
                     <TableCell>
                       <Chip
                         label={s.status}
-                        color={s.status === 'Completed' ? 'success' : s.status === 'Discontinued' ? 'error' : 'default'}
+                        color={s.status === 'Completed' ? 'success' : s.status === 'Started' ? 'primary' : s.status === 'Discontinued' ? 'error' : 'default'}
                         size="small"
                       />
                     </TableCell>
@@ -489,7 +491,7 @@ export default function AdminExamDetail() {
                     <TableCell>{s.start_time ? new Date(s.start_time).toLocaleString() : '-'}</TableCell>
                     <TableCell align="right">
                       {/* RE-ATTEMPT BUTTON (Triggers Dialog) */}
-                      {(s.status === 'Completed' || s.status === 'Discontinued') && (
+                      {(s.status === 'Completed' || s.status === 'Started' || s.status === 'Discontinued') && (
                         <Tooltip title="Reset Attempt (Allows Re-exam)">
                           <Button
                             size="small"

@@ -213,7 +213,7 @@ export default function AdminExams() {
         />
       </Paper>
 
-      <Paper elevation={1} sx={{ borderRadius: 2, overflow: 'hidden' }}>
+      <Paper elevation={1} sx={{ borderRadius: 2, overflowX: 'auto' }}>
         <Table>
           <TableHead sx={{ bgcolor: '#f8f9fa' }}>
             <TableRow>

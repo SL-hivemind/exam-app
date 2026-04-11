@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Box, Paper, Typography, Button, Stack, Drawer, TextField,
   IconButton, Divider, Grid, Snackbar, Alert, Collapse, Tooltip, Chip,
-  CardMedia
+  CardMedia, CircularProgress
 } from '@mui/material';
 import { DataGrid, GridToolbar } from '@mui/x-data-grid';
 import {
@@ -43,6 +43,7 @@ export default function BulkEditQuestions() {
   const [editingRow, setEditingRow] = useState(null);
   const [modifiedRows, setModifiedRows] = useState({});
   const [snack, setSnack] = useState({ open: false, msg: '', type: 'success' });
+  const [isSaving, setIsSaving] = useState(false);
 
   /* ---------------- FETCH ---------------- */
   useEffect(() => {
@@ -259,23 +260,27 @@ export default function BulkEditQuestions() {
 
         <Button
           variant="contained"
-          startIcon={<SaveIcon />}
-          disabled={!Object.keys(modifiedRows).length}
+          startIcon={isSaving ? <CircularProgress size={20} color="inherit" /> : <SaveIcon />}
+          disabled={!Object.keys(modifiedRows).length || isSaving}
           onClick={async () => {
+            setIsSaving(true);
+            setSnack({ open: true, msg: 'Uploading changes...', type: 'info' });
             try {
               await api.put(
                 '/admin/repository/questions/bulk',
                 Object.values(modifiedRows)
               );
               setModifiedRows({});
-              fetchQuestions();
+              await fetchQuestions();
               setSnack({ open: true, msg: 'Saved successfully', type: 'success' });
             } catch {
               setSnack({ open: true, msg: 'Save failed', type: 'error' });
+            } finally {
+              setIsSaving(false);
             }
           }}
         >
-          Save All
+          {isSaving ? 'Saving...' : 'Save All'}
         </Button>
       </Stack>
 

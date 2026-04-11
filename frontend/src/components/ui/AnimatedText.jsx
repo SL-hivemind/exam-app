@@ -34,16 +34,16 @@ const variants = {
 };
 
 export default function AnimatedText({
-  text,               
-  words = [],         
-  type = 'split',     
+  text,
+  words = [],
+  type = 'split',
   className = '',
   color = 'inherit',
-  tag = 'p',          
+  tag = 'p',
   delay = 0,
-  interval = 3000     
+  interval = 3000
 }) {
-  
+
   const [index, setIndex] = useState(0);
 
   useEffect(() => {
@@ -58,43 +58,43 @@ export default function AnimatedText({
   // 1. RENDER: ROTATING TEXT
   if (type === 'rotate') {
     return (
-      <Box sx={{ 
-        display: 'flex', 
-        flexDirection: { xs: 'column', md: 'row' }, 
-        alignItems: 'center', 
-        justifyContent: 'center', 
-        gap: 2, 
+      <Box sx={{
+        display: 'flex',
+        flexDirection: { xs: 'column', md: 'row' },
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 2,
         flexWrap: 'wrap',
         width: '100%'
       }}>
         {/* Static Prefix */}
-        <Typography 
-            variant="h2" 
-            component="span" 
-            fontWeight={800} 
-            sx={{ 
-                color: '#0d1b2a', 
-                fontSize: { xs: '2.5rem', md: '4rem' }, 
-                lineHeight: 1.2,
-                whiteSpace: 'nowrap'
-            }}
+        <Typography
+          variant="h2"
+          component="span"
+          fontWeight={800}
+          sx={{
+            color: '#0d1b2a',
+            fontSize: { xs: '2.5rem', md: '4rem' },
+            lineHeight: 1.2,
+            whiteSpace: 'nowrap'
+          }}
         >
           {text}
         </Typography>
 
         {/* Rotating Part */}
-        <Box sx={{ 
-            position: 'relative', 
-            height: { xs: '4rem', md: '6rem' }, // Increased height to prevent vertical clipping
-            // FIX: Increased minWidth to fit "Publications" and "Student Growth"
-            minWidth: { xs: '320px', md: '550px' },  
-            overflow: 'hidden',
-            bgcolor: 'rgba(25, 118, 210, 0.08)', // Very light blue
-            borderRadius: '15px', 
-            px: { xs: 2, md: 4 }, // More padding
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
+        <Box sx={{
+          position: 'relative',
+          height: { xs: '4rem', md: '6rem' }, // Increased height to prevent vertical clipping
+          // FIX: Increased minWidth to fit "Publications" and "Student Growth"
+          minWidth: { xs: '320px', md: '550px' },
+          overflow: 'hidden',
+          bgcolor: 'rgba(25, 118, 210, 0.08)', // Very light blue
+          borderRadius: '15px',
+          px: { xs: 2, md: 4 }, // More padding
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
         }}>
           <AnimatePresence mode='wait'>
             <motion.div
@@ -103,7 +103,7 @@ export default function AnimatedText({
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: -60, opacity: 0 }} // Exit higher
               transition={{ duration: 0.4, ease: "backOut" }}
-              style={{ 
+              style={{
                 position: 'absolute',
                 display: 'flex',
                 alignItems: 'center',
@@ -112,19 +112,19 @@ export default function AnimatedText({
                 textAlign: 'center'
               }}
             >
-              <Typography 
-                variant="h2" 
-                component="span" 
-                fontWeight={900} 
-                sx={{ 
-                    fontSize: { xs: '2.2rem', md: '4rem' }, 
-                    lineHeight: 1,
-                    pb: 1, // Padding bottom to catch descenders (g, y, p)
-                    background: `linear-gradient(45deg, ${color}, #0d47a1)`,
-                    backgroundClip: "text",
-                    WebkitBackgroundClip: "text",
-                    WebkitTextFillColor: "transparent",
-                    whiteSpace: 'nowrap'
+              <Typography
+                variant="h2"
+                component="span"
+                fontWeight={900}
+                sx={{
+                  fontSize: { xs: '2.2rem', md: '4rem' },
+                  lineHeight: 1,
+                  pb: 1, // Padding bottom to catch descenders (g, y, p)
+                  background: `linear-gradient(45deg, ${color}, #0d47a1)`,
+                  backgroundClip: "text",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  whiteSpace: 'nowrap'
                 }}
               >
                 {words[index]}

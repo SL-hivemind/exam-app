@@ -130,7 +130,7 @@ export default function StudentRequests() {
       {error && <Alert severity="error" onClose={() => setError("")} sx={{ mb: 2 }}>{error}</Alert>}
       {success && <Alert severity="success" onClose={() => setSuccess("")} sx={{ mb: 2 }}>{success}</Alert>}
 
-      <Paper elevation={1} sx={{ borderRadius: 2, overflow: "hidden" }}>
+      <Paper elevation={1} sx={{ borderRadius: 2, overflowX: "auto" }}>
         <Table>
           <TableHead sx={{ bgcolor: "#f8f9fa" }}>
             <TableRow>
