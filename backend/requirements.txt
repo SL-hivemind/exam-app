@@ -32,6 +32,7 @@ PyMySQL==1.1.2
 pytest==8.4.1
 python-dateutil==2.9.0.post0
 python-dotenv==1.1.1
+razorpay==1.4.2
 s3transfer==0.14.0
 setuptools==80.9.0
 six==1.17.0

@@ -69,6 +69,7 @@ export default function Navbar(props) {
     else if (user.role === 'school_admin') navigate("/school");
     else if (user.role === 'subject_specialist') navigate("/specialist");
     else if (user.role === 'student') navigate("/student");
+    else if (user.role === 'public_user') navigate("/portal/dashboard");
     else navigate("/"); 
     
     setMobileOpen(false);
@@ -122,6 +123,11 @@ export default function Navbar(props) {
             </ListItemButton>
           </ListItem>
         ))}
+        <ListItem disablePadding>
+          <ListItemButton onClick={() => { navigate("/portal"); setMobileOpen(false); }}>
+            <ListItemText primary="Public Exams" primaryTypographyProps={{ fontWeight: 600, color: '#2563eb' }} />
+          </ListItemButton>
+        </ListItem>
         {isAuthenticated ? (
           <>
             <ListItem disablePadding>
@@ -200,6 +206,7 @@ export default function Navbar(props) {
                 <Button onClick={() => handleNavClick("services")} sx={{ color: "inherit", fontWeight: 500 }}>Ecosystem</Button>
                 <Button onClick={() => handleNavClick("plans")} sx={{ color: "inherit", fontWeight: 500 }}>Plans</Button>
                 <Button onClick={() => handleNavClick("gallery")} sx={{ color: "inherit", fontWeight: 500 }}>Gallery</Button>
+                <Button onClick={() => navigate("/portal")} sx={{ color: "inherit", fontWeight: 600, bgcolor: 'rgba(59,130,246,0.08)', borderRadius: '8px', mx: 0.5 }}>Public Exams</Button>
 
                 {isAuthenticated ? (
                   <>

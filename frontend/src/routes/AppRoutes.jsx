@@ -31,6 +31,16 @@ import Login from "../components/Login";
 import ForgotPassword from "../components/ForgotPassword";
 import Home from "../components/Home";
 
+// Public Portal
+import PortalCatalog from "../components/public/PortalCatalog";
+import PortalLogin from "../components/public/PortalLogin";
+import PortalRegister from "../components/public/PortalRegister";
+import PortalForgotPassword from "../components/public/PortalForgotPassword";
+import PortalCourseDetail from "../components/public/PortalCourseDetail";
+import PortalExamInterface from "../components/public/PortalExamInterface";
+import PortalDashboard from "../components/public/PortalDashboard";
+import AdminPortalManager from "../components/public/AdminPortalManager";
+
 export default function AppRoutes() {
   return (
     <Routes>
@@ -56,6 +66,7 @@ export default function AppRoutes() {
         <Route path="repository/reports" element={<RepoReports />} />
         <Route path="activity-log" element={<SpecialistActivityLog />} />
         <Route path="requests" element={<StudentRequests />} />
+        <Route path="portal" element={<AdminPortalManager />} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>
 
@@ -126,6 +137,19 @@ export default function AppRoutes() {
       } />
 
       <Route path="/primary" element={<PrimaryExamFlow />} />
+
+      {/* --- 6. PUBLIC PORTAL ROUTES --- */}
+      <Route path="/portal" element={<PortalCatalog />} />
+      <Route path="/portal/login" element={<PortalLogin />} />
+      <Route path="/portal/register" element={<PortalRegister />} />
+      <Route path="/portal/forgot-password" element={<PortalForgotPassword />} />
+      <Route path="/portal/course/:courseId" element={<PortalCourseDetail />} />
+      <Route path="/portal/exam/:contentId" element={<PortalExamInterface />} />
+      <Route path="/portal/dashboard" element={
+        <ProtectedRoute roles={["public_user"]}>
+          <PortalDashboard />
+        </ProtectedRoute>
+      } />
 
       {/* --- FALLBACKS --- */}
       <Route path="/" element={<Home />} />

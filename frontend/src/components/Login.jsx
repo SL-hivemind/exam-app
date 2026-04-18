@@ -61,6 +61,7 @@ export default function Login() {
       admin: '/admin/exams',
       school_admin: '/school',
       student: '/student',
+      public_user: '/portal/dashboard',
     };
     navigate(routes[user.role] || '/', { replace: true });
   }, [user, navigate]);
@@ -225,14 +226,7 @@ export default function Login() {
               ))}
             </Box>
 
-            {/* Trust line */}
-            <Typography sx={{
-              fontFamily: ff, fontSize: '0.78rem', color: '#94a3b8',
-              mt: 4, display: { xs: 'none', md: 'block' },
-            }}>
-              Trusted by <b style={{ color: '#64748b' }}>500+</b> schools &{' '}
-              <b style={{ color: '#64748b' }}>50,000+</b> students across the country
-            </Typography>
+            {/* Trust line - Removd as per requested */}
           </Box>
         </Box>
 

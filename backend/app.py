@@ -25,7 +25,9 @@ from models import (
     Exam, Question, ExamStudent,
     StudentExamAttempt, StudentAnswer,
     QuestionRepository, QuestionAuditLog, AuditLog, QuestionReport, generate_short_id,
-    PasswordResetOTP, StudentRequest
+    PasswordResetOTP, StudentRequest,
+    PublicProfile, PublicCourse, CourseContent,
+    CourseSubscription, PublicExamAttempt, EmailVerificationOTP,
 )
 
 from utils.files import (
@@ -34,7 +36,7 @@ from utils.files import (
     IMAGES_DIR, CSV_DIR, export_student_attempts_to_excel
 )
 
-from routes import register_analysis_routes, register_repository_routes, register_student_routes
+from routes import register_analysis_routes, register_repository_routes, register_student_routes, register_portal_routes
 
 # ------------------------------
 # Environment/bootstrap
@@ -216,6 +218,7 @@ def _competition_rank(score, all_scores):
 register_repository_routes(app, token_required)
 register_student_routes(app, role_required, no_cache, to_utc_naive)
 register_analysis_routes(app, token_required, _competition_rank, _calculate_percentile)
+register_portal_routes(app, token_required, role_required)
 
 # ------------------------------
 # DB init

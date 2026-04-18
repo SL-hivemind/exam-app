@@ -198,19 +198,32 @@ export default function Home() {
         <Container maxWidth="xl" sx={{ position: 'relative', zIndex: 1 }}>
           <SectionHeading overline="KNOWLEDGE HUB" title="Thinklets & Suggested Reads" subtitle="Curated articles, breakthrough discoveries, and handpicked books." />
           <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ duration: 0.8 }}>
-            <Slider {...carouselSettings}>
+            <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+              <Slider {...carouselSettings}>
+                  {thinkletArticles.map((article) => (
+                    <Box key={article.id} sx={{ p: 2, display: 'flex !important' }}>
+                      <Card sx={{ display: 'flex', flexDirection: 'column', width: '100%', borderRadius: 3, border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.02)' }}>
+                        <CardMedia component="img" height="200" image={article.image} alt={article.title} />
+                        <CardContent sx={{ flexGrow: 1, p: 3 }}><Typography variant="h6" fontWeight={700} sx={{ color: '#0f172a' }}>{article.title}</Typography><Typography variant="body2" sx={{ color: '#64748b' }}>{article.summary}</Typography></CardContent>
+                        <CardActions sx={{ p: 3, pt: 0 }}>
+                          <Button size="small" onClick={() => window.open(article.link, '_blank')}>Read Article</Button>
+                        </CardActions>
+                      </Card>
+                    </Box>
+                  ))}
+              </Slider>
+            </Box>
+            <Box sx={{ display: { xs: 'flex', md: 'none' }, flexDirection: 'column', gap: 3, mt: 2 }}>
                 {thinkletArticles.map((article) => (
-                  <Box key={article.id} sx={{ p: 2, display: 'flex !important' }}>
-                    <Card sx={{ display: 'flex', flexDirection: 'column', width: '100%', borderRadius: 3, border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.02)' }}>
-                      <CardMedia component="img" height="200" image={article.image} alt={article.title} />
-                      <CardContent sx={{ flexGrow: 1, p: 3 }}><Typography variant="h6" fontWeight={700} sx={{ color: '#0f172a' }}>{article.title}</Typography><Typography variant="body2" sx={{ color: '#64748b' }}>{article.summary}</Typography></CardContent>
-                      <CardActions sx={{ p: 3, pt: 0 }}>
-                        <Button size="small" onClick={() => window.open(article.link, '_blank')}>Read Article</Button>
-                      </CardActions>
-                    </Card>
-                  </Box>
+                  <Card key={article.id} sx={{ display: 'flex', flexDirection: 'column', width: '100%', borderRadius: 3, border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.02)' }}>
+                    <CardMedia component="img" height="200" image={article.image} alt={article.title} />
+                    <CardContent sx={{ flexGrow: 1, p: 3 }}><Typography variant="h6" fontWeight={700} sx={{ color: '#0f172a' }}>{article.title}</Typography><Typography variant="body2" sx={{ color: '#64748b' }}>{article.summary}</Typography></CardContent>
+                    <CardActions sx={{ p: 3, pt: 0 }}>
+                      <Button size="small" onClick={() => window.open(article.link, '_blank')}>Read Article</Button>
+                    </CardActions>
+                  </Card>
                 ))}
-            </Slider>
+            </Box>
           </motion.div>
         </Container>
       </Box>
@@ -261,7 +274,7 @@ export default function Home() {
       {/* ═══════════════════ 6. FULL WIDTH SECTION: AMBASSADOR ═══════════════════ */}
       <Box id="ambassador" sx={{ py: 16, bgcolor: '#f8fafc', position: 'relative', overflow: 'hidden' }}>
         <RisingStars color="rgba(239, 68, 68, 0.15)" count={30} speed={0.8} />
-        <Typography sx={{ position: 'absolute', top: -30, right: -50, fontSize: '20rem', fontWeight: 900, color: 'rgba(203, 213, 225, 0.2)', fontFamily: '"Anton", sans-serif', lineHeight: 1, pointerEvents: 'none' }}>LEAD</Typography>
+        <Typography sx={{ position: 'absolute', top: -30, right: { xs: -10, md: -50 }, fontSize: { xs: '6rem', sm: '10rem', md: '20rem' }, fontWeight: 900, color: 'rgba(203, 213, 225, 0.2)', fontFamily: '"Anton", sans-serif', lineHeight: 1, pointerEvents: 'none' }}>LEAD</Typography>
         <Container maxWidth="md" sx={{ position: 'relative', zIndex: 1, textAlign: 'center' }}>
           <motion.div initial={{ opacity: 0, scale: 0.95 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true }}>
             <Typography variant="h1" sx={{ fontFamily: '"Anton", sans-serif', color: '#0f172a', letterSpacing: 2, mb: 2 }}>STUDENT AMBASSADOR</Typography>
@@ -352,7 +365,7 @@ export default function Home() {
       <StraightDivider color="#f8fafc" />
       <Box id="gallery" sx={{ py: 14, bgcolor: '#f8fafc', overflow: 'hidden' }}>
         <Container maxWidth="xl">
-          <SectionHeading overline="GALLERY" title="Our Works in Action" subtitle="Glimpses into our school setups, labs, events, and the community we've built." />
+          <SectionHeading overline="GALLERY" title="Our Works in Action" />
           <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.8 }}>
             <DomeGallery data={ourWorksPhotos} />
           </motion.div>
