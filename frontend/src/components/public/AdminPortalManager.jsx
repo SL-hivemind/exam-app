@@ -431,7 +431,7 @@ export default function AdminPortalManager() {
               <TextField fullWidth label='Answer Key JSON (e.g. {"1":"A","2":"C"})' value={contentForm.answer_key_json}
                 onChange={e => setContentForm({ ...contentForm, answer_key_json: e.target.value })}
                 sx={{ ...inputSx, mb: 2 }} size="small" multiline rows={3}
-                helperText="Format: {\"1\":\"A\",\"2\":\"B\",\"3\":\"C\",...}" />
+                helperText={'Format: {"1":"A","2":"B","3":"C",...}'} />
             </>
           )}
           {!editContent && (
