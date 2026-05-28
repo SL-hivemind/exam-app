@@ -1,21 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box, Typography, TextField, Button, Alert, IconButton,
-  InputAdornment, Toolbar, Stepper, Step, StepLabel, CircularProgress,
+  InputAdornment, Stepper, Step, StepLabel, CircularProgress,
+  Select, MenuItem, FormControl, Container,
 } from '@mui/material';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
-import { portalApi } from '../../utils/api';
+import { publicApi } from '../../utils/api';
 import useAuth from '../../hooks/useAuth';
 
 const ff = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
 
-export default function PortalRegister() {
+export default function PublicRegister() {
   const navigate = useNavigate();
   const { login } = useAuth();
-  const [step, setStep] = useState(0); // 0 = form, 1 = OTP verify
-  const [form, setForm] = useState({ username: '', email: '', password: '', phone_number: '' });
+  const [step, setStep] = useState(0);
+  const [form, setForm] = useState({ username: '', email: '', password: '', phone_number: '', course_id: '' });
+  const [courses, setCourses] = useState([]);
   const [otp, setOtp] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState('');
@@ -23,20 +25,20 @@ export default function PortalRegister() {
   const [busy, setBusy] = useState(false);
   const [emailHint, setEmailHint] = useState('');
 
+  useEffect(() => {
+    publicApi.listCourses().then(r => setCourses(r.data.courses || [])).catch(() => {});
+  }, []);
+
   const handleChange = (field) => (e) => setForm({ ...form, [field]: e.target.value });
 
   const handleInitRegister = async (e) => {
     e.preventDefault();
     setError(''); setSuccess('');
-    if (!form.email || !form.username || !form.password) {
-      setError('All fields are required'); return;
-    }
-    if (form.password.length < 8) {
-      setError('Password must be at least 8 characters'); return;
-    }
+    if (!form.email || !form.username || !form.password) { setError('All fields are required'); return; }
+    if (form.password.length < 8) { setError('Password must be at least 8 characters'); return; }
     setBusy(true);
     try {
-      const res = await portalApi.registerInit(form);
+      const res = await publicApi.registerInit(form);
       setEmailHint(res.data.email_hint || '');
       setSuccess(`OTP sent to ${res.data.email_hint || 'your email'}`);
       setStep(1);
@@ -51,15 +53,15 @@ export default function PortalRegister() {
     if (!otp || otp.length !== 6) { setError('Enter the 6-digit OTP'); return; }
     setBusy(true);
     try {
-      const res = await portalApi.registerVerify({ ...form, otp });
+      const res = await publicApi.registerVerify({ ...form, otp });
       const token = res.data.auth_token;
       const user = res.data.user;
       if (token && user) {
         login(user, token);
-        navigate('/portal');
+        navigate('/public/dashboard');
       } else {
         setSuccess('Account created! Redirecting...');
-        setTimeout(() => navigate('/portal/login'), 1500);
+        setTimeout(() => navigate('/public/login'), 1500);
       }
     } catch (err) {
       setError(err.response?.data?.message || 'Verification failed');
@@ -78,22 +80,13 @@ export default function PortalRegister() {
   };
 
   return (
-    <Box sx={{
-      minHeight: '100vh', fontFamily: ff,
-      background: 'linear-gradient(135deg, #eff6ff 0%, #f8faff 40%, #e0f2fe 100%)',
-      display: 'flex', flexDirection: 'column', alignItems: 'center',
-    }}>
-      <Toolbar />
-      <Box sx={{
-        width: '100%', maxWidth: 440, mt: { xs: 3, md: 6 }, px: 2,
-        animation: 'lgEnter 0.6s ease-out both',
-      }}>
+    <Container maxWidth="sm" sx={{ py: { xs: 4, md: 6 } }}>
+      <Box sx={{ maxWidth: 440, mx: 'auto' }}>
         <Box sx={{
           bgcolor: '#fff', borderRadius: '20px', p: { xs: 3, sm: 4.5 },
           border: '1px solid rgba(0,0,0,0.06)',
           boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 12px 40px rgba(0,0,0,0.06)',
         }}>
-          {/* Brand */}
           <Box sx={{
             width: 44, height: 44, borderRadius: '12px', mb: 2,
             background: 'linear-gradient(135deg, #2563eb, #3b82f6)',
@@ -107,7 +100,7 @@ export default function PortalRegister() {
             Create Account
           </Typography>
           <Typography sx={{ fontFamily: ff, fontSize: '0.85rem', color: '#94a3b8', mb: 3 }}>
-            Join the Public Exam Portal
+            Join the Public Exam Platform
           </Typography>
 
           <Stepper activeStep={step} sx={{ mb: 3 }}>
@@ -138,12 +131,20 @@ export default function PortalRegister() {
                   ),
                 }}
               />
+              <FormControl fullWidth sx={{ mb: 3 }}>
+                <Select value={form.course_id} onChange={handleChange('course_id')} displayEmpty
+                  sx={{ ...inputSx['& .MuiOutlinedInput-root'] }}>
+                  <MenuItem value="" disabled>Select an initial course</MenuItem>
+                  {courses.map(c => (<MenuItem key={c.id} value={c.id}>{c.title}</MenuItem>))}
+                </Select>
+              </FormControl>
               <Button fullWidth type="submit" disabled={busy} sx={{
                 height: 48, borderRadius: '12px', fontFamily: ff, fontWeight: 700,
                 textTransform: 'none', color: '#fff',
                 background: 'linear-gradient(135deg, #2563eb 0%, #3b82f6 100%)',
                 boxShadow: '0 4px 14px rgba(59,130,246,0.3)',
                 '&:hover': { boxShadow: '0 8px 24px rgba(59,130,246,0.4)', transform: 'translateY(-2px)' },
+                transition: 'all 0.2s ease',
               }}>
                 {busy ? <CircularProgress size={22} sx={{ color: '#fff' }} /> : 'Send OTP →'}
               </Button>
@@ -156,8 +157,7 @@ export default function PortalRegister() {
               <TextField fullWidth placeholder="Enter OTP" value={otp}
                 onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
                 sx={{ ...inputSx, mb: 3, '& input': { textAlign: 'center', letterSpacing: 8, fontSize: '1.4rem', fontWeight: 700 } }}
-                size="small" required
-              />
+                size="small" required />
               <Button fullWidth type="submit" disabled={busy} sx={{
                 height: 48, borderRadius: '12px', fontFamily: ff, fontWeight: 700,
                 textTransform: 'none', color: '#fff',
@@ -178,13 +178,13 @@ export default function PortalRegister() {
           <Box sx={{ mt: 3, textAlign: 'center' }}>
             <Typography sx={{ fontFamily: ff, fontSize: '0.82rem', color: '#94a3b8' }}>
               Already have an account?{' '}
-              <RouterLink to="/portal/login" style={{ color: '#3b82f6', fontWeight: 600, textDecoration: 'none' }}>
+              <RouterLink to="/public/login" style={{ color: '#3b82f6', fontWeight: 600, textDecoration: 'none' }}>
                 Sign in
               </RouterLink>
             </Typography>
           </Box>
         </Box>
       </Box>
-    </Box>
+    </Container>
   );
 }

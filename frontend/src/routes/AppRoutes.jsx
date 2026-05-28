@@ -6,6 +6,7 @@ import PublicOnlyRoute from "./PublicOnlyRoute";
 
 // NEW Unified Layout
 import DashboardLayout from "../components/layout/DashboardLayout";
+import PublicLayout from "../components/layout/PublicLayout";
 
 // Sub-pages (Keep these exactly as they are)
 import AdminExams from "../components/admin/AdminExams";
@@ -31,15 +32,21 @@ import Login from "../components/Login";
 import ForgotPassword from "../components/ForgotPassword";
 import Home from "../components/Home";
 
-// Public Portal
-import PortalCatalog from "../components/public/PortalCatalog";
-import PortalLogin from "../components/public/PortalLogin";
-import PortalRegister from "../components/public/PortalRegister";
-import PortalForgotPassword from "../components/public/PortalForgotPassword";
-import PortalCourseDetail from "../components/public/PortalCourseDetail";
-import PortalExamInterface from "../components/public/PortalExamInterface";
-import PortalDashboard from "../components/public/PortalDashboard";
-import AdminPortalManager from "../components/public/AdminPortalManager";
+// Public Exam Section
+import PublicCatalog from "../components/public/PublicCatalog";
+import PublicCourseDetail from "../components/public/PublicCourseDetail";
+import PublicLogin from "../components/public/PublicLogin";
+import PublicRegister from "../components/public/PublicRegister";
+import PublicForgotPassword from "../components/public/PublicForgotPassword";
+import PublicExamInterface from "../components/public/PublicExamInterface";
+import PublicDashboard from "../components/public/PublicDashboard";
+import AdminPublicManager from "../components/public/AdminPublicManager";
+
+// Quick Exam Section (Module 3)
+import QuickLanding from "../components/quick/QuickLanding";
+import QuickExamInterface from "../components/quick/QuickExamInterface";
+import QuickResults from "../components/quick/QuickResults";
+import AdminQuickExams from "../components/quick/AdminQuickExams";
 
 export default function AppRoutes() {
   return (
@@ -66,7 +73,8 @@ export default function AppRoutes() {
         <Route path="repository/reports" element={<RepoReports />} />
         <Route path="activity-log" element={<SpecialistActivityLog />} />
         <Route path="requests" element={<StudentRequests />} />
-        <Route path="portal" element={<AdminPortalManager />} />
+        <Route path="portal" element={<AdminPublicManager />} />
+        <Route path="quick" element={<AdminQuickExams />} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>
 
@@ -138,18 +146,28 @@ export default function AppRoutes() {
 
       <Route path="/primary" element={<PrimaryExamFlow />} />
 
-      {/* --- 6. PUBLIC PORTAL ROUTES --- */}
-      <Route path="/portal" element={<PortalCatalog />} />
-      <Route path="/portal/login" element={<PortalLogin />} />
-      <Route path="/portal/register" element={<PortalRegister />} />
-      <Route path="/portal/forgot-password" element={<PortalForgotPassword />} />
-      <Route path="/portal/course/:courseId" element={<PortalCourseDetail />} />
-      <Route path="/portal/exam/:contentId" element={<PortalExamInterface />} />
-      <Route path="/portal/dashboard" element={
-        <ProtectedRoute roles={["public_user"]}>
-          <PortalDashboard />
-        </ProtectedRoute>
-      } />
+      {/* --- 6. PUBLIC EXAM ROUTES (with shared top-nav layout) --- */}
+      <Route path="/public" element={<PublicLayout />}>
+        <Route index element={<PublicCatalog />} />
+        <Route path="course/:courseId" element={<PublicCourseDetail />} />
+        <Route path="login" element={<PublicLogin />} />
+        <Route path="register" element={<PublicRegister />} />
+        <Route path="forgot-password" element={<PublicForgotPassword />} />
+        <Route path="dashboard" element={
+          <ProtectedRoute roles={["public_user"]}>
+            <PublicDashboard />
+          </ProtectedRoute>
+        } />
+      </Route>
+
+      {/* Public exam viewer (full-screen, no layout wrapper) */}
+      <Route path="/public/viewer/:contentId" element={<PublicExamInterface />} />
+
+      {/* --- 7. QUICK EXAM ROUTES (zero-auth, no layout) --- */}
+      <Route path="/quick" element={<QuickLanding />} />
+      <Route path="/quick/:code" element={<QuickLanding />} />
+      <Route path="/quick/:code/exam" element={<QuickExamInterface />} />
+      <Route path="/quick/:code/results" element={<QuickResults />} />
 
       {/* --- FALLBACKS --- */}
       <Route path="/" element={<Home />} />
@@ -157,3 +175,4 @@ export default function AppRoutes() {
     </Routes>
   );
 }
+

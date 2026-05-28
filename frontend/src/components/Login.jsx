@@ -61,7 +61,7 @@ export default function Login() {
       admin: '/admin/exams',
       school_admin: '/school',
       student: '/student',
-      public_user: '/portal/dashboard',
+      public_user: '/public/dashboard',
     };
     navigate(routes[user.role] || '/', { replace: true });
   }, [user, navigate]);

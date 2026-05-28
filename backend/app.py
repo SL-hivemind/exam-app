@@ -36,7 +36,7 @@ from utils.files import (
     IMAGES_DIR, CSV_DIR, export_student_attempts_to_excel
 )
 
-from routes import register_analysis_routes, register_repository_routes, register_student_routes, register_portal_routes
+from routes import register_analysis_routes, register_repository_routes, register_student_routes, register_public_routes, register_quick_routes
 
 # ------------------------------
 # Environment/bootstrap
@@ -123,6 +123,8 @@ def token_from_request():
             token = parts[1].strip()
     if not token:
         token = request.headers.get("auth_token")
+    if not token:
+        token = request.args.get("token") or request.args.get("auth_token")
     return token
 
 def token_required(f):
@@ -218,7 +220,8 @@ def _competition_rank(score, all_scores):
 register_repository_routes(app, token_required)
 register_student_routes(app, role_required, no_cache, to_utc_naive)
 register_analysis_routes(app, token_required, _competition_rank, _calculate_percentile)
-register_portal_routes(app, token_required, role_required)
+register_public_routes(app, token_required, role_required)
+register_quick_routes(app, token_required, role_required)
 
 # ------------------------------
 # DB init

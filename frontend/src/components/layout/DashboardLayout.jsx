@@ -17,6 +17,7 @@ import {
   Person as PersonIcon,
   NotificationsActive as NotificationsIcon,
   Storefront as StorefrontIcon,
+  FlashOn as FlashOnIcon,
 } from '@mui/icons-material';
 import { Link as RouterLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import useAuth from '../../hooks/useAuth';
@@ -48,7 +49,8 @@ export default function DashboardLayout() {
     { text: "Schools", icon: <SchoolIcon />, path: `${basePath}/schools`, allowed: isAdmin },
     { text: "Activity Log", icon: <HistoryIcon />, path: `${basePath}/activity-log`, allowed: isAdmin || isSubjectSpecialist },
     { text: "Requests", icon: <NotificationsIcon />, path: `${basePath}/requests`, allowed: isAdmin || isSchoolAdmin },
-    { text: "Public Portal", icon: <StorefrontIcon />, path: `${basePath}/portal`, allowed: isAdmin },
+    { text: "Public Exams", icon: <StorefrontIcon />, path: `${basePath}/portal`, allowed: isAdmin },
+    { text: "Quick Exams", icon: <FlashOnIcon />, path: `${basePath}/quick`, allowed: isAdmin },
     { text: "Profile", icon: <PersonIcon />, path: `${basePath}/profile`, allowed: true },
   ];
 

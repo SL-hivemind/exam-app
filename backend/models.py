@@ -432,11 +432,11 @@ class CourseContent(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     course_id = db.Column(db.Integer, db.ForeignKey('public_courses.id', ondelete='CASCADE'), nullable=False)
     title = db.Column(db.String(250), nullable=False)
-    content_type = db.Column(db.String(30), nullable=False)  # 'pdf_exam', 'pdf_material', 'video'
+    content_type = db.Column(db.String(30), nullable=False)  # 'pdf_exam', 'cbt_exam', 'pdf_material', 'video'
     file_url = db.Column(db.String(500), nullable=True)
     is_free = db.Column(db.Boolean, default=False)
     order_index = db.Column(db.Integer, default=0)
-    total_questions = db.Column(db.Integer, nullable=True)  # For exam PDFs only
+    total_questions = db.Column(db.Integer, nullable=True)  # For exam PDFs/CBTs
     answer_key_json = db.Column(db.Text, nullable=True)  # JSON: {"1":"A","2":"C",...}
     duration_minutes = db.Column(db.Integer, nullable=True, default=60)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -456,6 +456,32 @@ class CourseContent(db.Model):
         }
         if include_answers:
             d['answer_key_json'] = self.answer_key_json
+        return d
+
+# -------------------- PUBLIC QUESTION (CBT) --------------------
+class PublicQuestion(db.Model):
+    __tablename__ = 'public_questions'
+    id = db.Column(db.Integer, primary_key=True)
+    content_id = db.Column(db.Integer, db.ForeignKey('course_contents.id', ondelete='CASCADE'), nullable=False)
+    question_text = db.Column(db.Text, nullable=False)
+    options_json = db.Column(db.Text, nullable=False)  # JSON: {"A":"opt1", "B":"opt2", "C":"opt3", "D":"opt4"}
+    correct_option = db.Column(db.String(10), nullable=False)  # 'A', 'B', 'C', 'D'
+    explanation = db.Column(db.Text, nullable=True)
+    order_index = db.Column(db.Integer, default=1)
+
+    content = db.relationship('CourseContent', backref=db.backref('questions', lazy=True, cascade='all, delete-orphan'))
+
+    def to_dict(self, include_answer=False):
+        d = {
+            'id': self.id,
+            'content_id': self.content_id,
+            'question_text': self.question_text,
+            'options_json': self.options_json,
+            'order_index': self.order_index,
+        }
+        if include_answer:
+            d['correct_option'] = self.correct_option
+            d['explanation'] = self.explanation
         return d
 
 # -------------------- COURSE SUBSCRIPTION --------------------
@@ -519,6 +545,89 @@ class EmailVerificationOTP(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     expires_at = db.Column(db.DateTime, nullable=False)
     used = db.Column(db.Boolean, default=False)
+
+# -------------------- MODULE 3: QUICK EXAM (Zero-Auth) --------------------
+
+class QuickExam(db.Model):
+    __tablename__ = 'quick_exams'
+    id = db.Column(db.Integer, primary_key=True)
+    code = db.Column(db.String(10), unique=True, nullable=False, index=True)
+    title = db.Column(db.String(250), nullable=False)
+    created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    duration_minutes = db.Column(db.Integer, default=30)
+    total_questions = db.Column(db.Integer, default=0)
+    is_active = db.Column(db.Boolean, default=True)
+    expires_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    questions = db.relationship('QuickQuestion', backref='exam', cascade='all, delete-orphan', lazy='dynamic')
+    responses = db.relationship('QuickResponse', backref='exam', cascade='all, delete-orphan', lazy='dynamic')
+
+    def is_expired(self):
+        if not self.expires_at:
+            return False
+        return datetime.utcnow() > self.expires_at
+
+    def to_dict(self, include_stats=False):
+        d = {
+            'id': self.id,
+            'code': self.code,
+            'title': self.title,
+            'duration_minutes': self.duration_minutes,
+            'total_questions': self.total_questions,
+            'is_active': self.is_active,
+            'expires_at': self.expires_at.isoformat() if self.expires_at else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'is_expired': self.is_expired(),
+        }
+        if include_stats:
+            d['response_count'] = self.responses.count()
+        return d
+
+
+class QuickQuestion(db.Model):
+    __tablename__ = 'quick_questions'
+    id = db.Column(db.Integer, primary_key=True)
+    exam_id = db.Column(db.Integer, db.ForeignKey('quick_exams.id', ondelete='CASCADE'), nullable=False)
+    question_text = db.Column(db.Text, nullable=False)
+    options_json = db.Column(db.Text, nullable=False)
+    correct_option = db.Column(db.String(5), nullable=False)
+    explanation = db.Column(db.Text, nullable=True)
+    order_index = db.Column(db.Integer, default=1)
+
+    def to_dict(self, include_answer=True):
+        d = {
+            'id': self.id,
+            'order_index': self.order_index,
+            'question_text': self.question_text,
+            'options_json': self.options_json,
+        }
+        if include_answer:
+            d['correct_option'] = self.correct_option
+            d['explanation'] = self.explanation
+        return d
+
+
+class QuickResponse(db.Model):
+    __tablename__ = 'quick_responses'
+    id = db.Column(db.Integer, primary_key=True)
+    exam_id = db.Column(db.Integer, db.ForeignKey('quick_exams.id', ondelete='CASCADE'), nullable=False)
+    participant_name = db.Column(db.String(100), nullable=False)
+    answers_json = db.Column(db.Text, nullable=True)
+    score = db.Column(db.Integer, default=0)
+    total = db.Column(db.Integer, default=0)
+    submitted_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'participant_name': self.participant_name,
+            'score': self.score,
+            'total': self.total,
+            'submitted_at': self.submitted_at.isoformat() if self.submitted_at else None,
+            'answers_json': self.answers_json,
+        }
+
 
 # -------------------- EVENT LISTENERS --------------------
 

@@ -58,8 +58,9 @@ export default function Navbar(props) {
   const handleMenuClick = (event) => setAnchorEl(event.currentTarget);
   const handleMenuClose = () => setAnchorEl(null);
 
-  // Check if we are on home
+  // Check if we are on home or public exams
   const isHome = location.pathname === "/";
+  const isPublicExams = location.pathname.startsWith("/public");
 
   // --- SMART DASHBOARD NAVIGATION ---
   const handleDashboardClick = () => {
@@ -69,7 +70,7 @@ export default function Navbar(props) {
     else if (user.role === 'school_admin') navigate("/school");
     else if (user.role === 'subject_specialist') navigate("/specialist");
     else if (user.role === 'student') navigate("/student");
-    else if (user.role === 'public_user') navigate("/portal/dashboard");
+    else if (user.role === 'public_user') navigate("/public/dashboard");
     else navigate("/"); 
     
     setMobileOpen(false);
@@ -116,15 +117,22 @@ export default function Navbar(props) {
         <Typography variant="h6" fontWeight={700} color="primary">SL Exams</Typography>
       </Stack>
       <List>
-        {menuItems.map((item) => (
+        {!isPublicExams && menuItems.map((item) => (
           <ListItem key={item.id} disablePadding>
             <ListItemButton onClick={() => handleNavClick(item.id)}>
               <ListItemText primary={item.label} />
             </ListItemButton>
           </ListItem>
         ))}
+        {isPublicExams && (
+          <ListItem disablePadding>
+            <ListItemButton onClick={() => { navigate("/"); setMobileOpen(false); }}>
+              <ListItemText primary="Back to Home" />
+            </ListItemButton>
+          </ListItem>
+        )}
         <ListItem disablePadding>
-          <ListItemButton onClick={() => { navigate("/portal"); setMobileOpen(false); }}>
+          <ListItemButton onClick={() => { navigate("/public"); setMobileOpen(false); }}>
             <ListItemText primary="Public Exams" primaryTypographyProps={{ fontWeight: 600, color: '#2563eb' }} />
           </ListItemButton>
         </ListItem>
@@ -144,13 +152,13 @@ export default function Navbar(props) {
         ) : (
           <>
             <ListItem disablePadding>
-              <ListItemButton onClick={() => { navigate("/login"); setMobileOpen(false); }}>
+              <ListItemButton onClick={() => { navigate(isPublicExams ? "/public/login" : "/login"); setMobileOpen(false); }}>
                 <ListItemText primary="Login" />
               </ListItemButton>
             </ListItem>
             <ListItem disablePadding>
-              <ListItemButton onClick={() => { navigate("/register"); setMobileOpen(false); }}>
-                <ListItemText primary="Register" />
+              <ListItemButton onClick={() => { navigate(isPublicExams ? "/public/register" : "/register"); setMobileOpen(false); }}>
+                <ListItemText primary={isPublicExams ? "Register" : "Get Started"} />
               </ListItemButton>
             </ListItem>
           </>
@@ -192,21 +200,28 @@ export default function Navbar(props) {
 
               {/* DESKTOP MENU */}
               <Box sx={{ display: { xs: "none", md: "flex" }, alignItems: 'center', gap: 1 }}>
-                <Button onClick={() => handleNavClick("thinklets")} sx={{ color: "inherit", fontWeight: 500 }}>Thinklets</Button>
-                <Button onClick={() => handleNavClick("publications")} sx={{ color: "inherit", fontWeight: 500 }}>Publications</Button>
-                
-                <Button onClick={handleMenuClick} sx={{ color: "inherit", fontWeight: 500 }}>Initiatives ▾</Button>
-                <Menu anchorEl={anchorEl} open={openMenu} onClose={handleMenuClose}>
-                  <MenuItem onClick={() => { handleNavClick("radio"); handleMenuClose(); }}>Radio</MenuItem>
-                  <MenuItem onClick={() => { handleNavClick("lsrw"); handleMenuClose(); }}>LSRW</MenuItem>
-                  <MenuItem onClick={() => { handleNavClick("ambassador"); handleMenuClose(); }}>Ambassador</MenuItem>
-                  <MenuItem onClick={() => { handleNavClick("sjis"); handleMenuClose(); }}>SJIS</MenuItem>
-                </Menu>
+                {!isPublicExams ? (
+                  <>
+                    <Button onClick={() => handleNavClick("thinklets")} sx={{ color: "inherit", fontWeight: 500 }}>Thinklets</Button>
+                    <Button onClick={() => handleNavClick("publications")} sx={{ color: "inherit", fontWeight: 500 }}>Publications</Button>
+                    
+                    <Button onClick={handleMenuClick} sx={{ color: "inherit", fontWeight: 500 }}>Initiatives ▾</Button>
+                    <Menu anchorEl={anchorEl} open={openMenu} onClose={handleMenuClose}>
+                      <MenuItem onClick={() => { handleNavClick("radio"); handleMenuClose(); }}>Radio</MenuItem>
+                      <MenuItem onClick={() => { handleNavClick("lsrw"); handleMenuClose(); }}>LSRW</MenuItem>
+                      <MenuItem onClick={() => { handleNavClick("ambassador"); handleMenuClose(); }}>Ambassador</MenuItem>
+                      <MenuItem onClick={() => { handleNavClick("sjis"); handleMenuClose(); }}>SJIS</MenuItem>
+                    </Menu>
 
-                <Button onClick={() => handleNavClick("services")} sx={{ color: "inherit", fontWeight: 500 }}>Ecosystem</Button>
-                <Button onClick={() => handleNavClick("plans")} sx={{ color: "inherit", fontWeight: 500 }}>Plans</Button>
-                <Button onClick={() => handleNavClick("gallery")} sx={{ color: "inherit", fontWeight: 500 }}>Gallery</Button>
-                <Button onClick={() => navigate("/portal")} sx={{ color: "inherit", fontWeight: 600, bgcolor: 'rgba(59,130,246,0.08)', borderRadius: '8px', mx: 0.5 }}>Public Exams</Button>
+                    <Button onClick={() => handleNavClick("services")} sx={{ color: "inherit", fontWeight: 500 }}>Ecosystem</Button>
+                    <Button onClick={() => handleNavClick("plans")} sx={{ color: "inherit", fontWeight: 500 }}>Plans</Button>
+                    <Button onClick={() => handleNavClick("gallery")} sx={{ color: "inherit", fontWeight: 500 }}>Gallery</Button>
+                  </>
+                ) : (
+                  <Button onClick={() => navigate("/")} sx={{ color: "inherit", fontWeight: 500 }}>Back to Home</Button>
+                )}
+                
+                <Button onClick={() => navigate("/public")} sx={{ color: "inherit", fontWeight: 600, bgcolor: 'rgba(59,130,246,0.08)', borderRadius: '8px', mx: 0.5 }}>Public Exams</Button>
 
                 {isAuthenticated ? (
                   <>
@@ -219,16 +234,16 @@ export default function Navbar(props) {
                   </>
                 ) : (
                   <>
-                    <Button color="inherit" onClick={() => navigate("/login")}>
+                    <Button color="inherit" onClick={() => navigate(isPublicExams ? "/public/login" : "/login")}>
                       Login
                     </Button>
                     <Button 
                       variant="contained" 
                       color={isHome ? "warning" : "primary"} 
-                      onClick={() => navigate("/register")}
-                      sx={{ borderRadius: 5, px: 3 }}
+                      onClick={() => navigate(isPublicExams ? "/public/register" : "/register")}
+                      sx={{ borderRadius: 5, px: 3, textTransform: 'none', fontWeight: 700 }}
                     >
-                      Get Started
+                      {isPublicExams ? "Register" : "Get Started"}
                     </Button>
                   </>
                 )}

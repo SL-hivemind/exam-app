@@ -51,7 +51,7 @@ const SectionHeading = ({ overline, title, subtitle, align = 'center', light = f
       {overline && (
         <Typography variant="overline" fontWeight={800} letterSpacing={4} sx={{
           display: 'inline-block', px: 3, py: 0.5, borderRadius: 20,
-          bgcolor: light ? 'rgba(255,255,255,0.1)' : '#e2e8f0', 
+          bgcolor: light ? 'rgba(255,255,255,0.1)' : '#e2e8f0',
           color: light ? '#cbd5e1' : '#475569', mb: 2,
         }}>{overline}</Typography>
       )}
@@ -109,7 +109,7 @@ const ourWorksPhotos = [
   { id: 6, image: 'https://yt3.ggpht.com/QDt4RdMrVmJBcMTkrpjbrmhOSHryXhOZP9LU1sw3tBEhwNE0RcSqNCwP3wo7iGYQ2JKmYZFAC7PZkQ=s640-c-fcrop64=1,20000000dfffffff-rw-nd-v1', title: '', desc: '' },
   { id: 7, image: 'https://e2eindia.org/images/gallery/new-gal-4.jpg', title: '', desc: '' },
   { id: 8, image: 'https://e2eindia.org/images/gallery/_11.jpg', title: '', desc: '' },
-  { id: 9, image: 'https://yt3.ggpht.com/EMy1VhGR9qBsiJOa7D2Nl6jTaXZivYuxuDgPyE8BzLZVQNRQUW6UUnFa7_A5lCSyL7vJztevnt4wvg=s640-c-fcrop64=1,35e60000ca19ffff-rw-nd-v1', title: '', desc: '' },  
+  { id: 9, image: 'https://yt3.ggpht.com/EMy1VhGR9qBsiJOa7D2Nl6jTaXZivYuxuDgPyE8BzLZVQNRQUW6UUnFa7_A5lCSyL7vJztevnt4wvg=s640-c-fcrop64=1,35e60000ca19ffff-rw-nd-v1', title: '', desc: '' },
 ];
 
 /* ─────────────────────── MAIN COMPONENT ─────────────────────── */
@@ -130,7 +130,7 @@ export default function Home() {
 
   return (
     <Box sx={{ bgcolor: "#ffffff", minHeight: "100vh", overflowX: 'hidden' }}>
-      
+
       <style>
         {`
           @import url('https://fonts.googleapis.com/css2?family=Anton&family=Cinzel:wght@600;800&family=Orbitron:wght@600;900&family=Playfair+Display:ital,wght@0,600;0,800;1,600&family=Space+Grotesk:wght@400;700&display=swap');
@@ -138,7 +138,7 @@ export default function Home() {
       </style>
 
       {/* Floating Action Button */}
-      <Fab 
+      <Fab
         variant="extended"
         onClick={() => navigate('/public')}
         sx={{
@@ -150,7 +150,7 @@ export default function Home() {
         }}
       >
         <PublicIcon sx={{ mr: 1 }} />
-        Visit Public Portal
+        Public Exams
       </Fab>
 
       {/* ═══════════════════ 1. HERO SECTION ═══════════════════ */}
@@ -200,29 +200,29 @@ export default function Home() {
           <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ duration: 0.8 }}>
             <Box sx={{ display: { xs: 'none', md: 'block' } }}>
               <Slider {...carouselSettings}>
-                  {thinkletArticles.map((article) => (
-                    <Box key={article.id} sx={{ p: 2, display: 'flex !important' }}>
-                      <Card sx={{ display: 'flex', flexDirection: 'column', width: '100%', borderRadius: 3, border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.02)' }}>
-                        <CardMedia component="img" height="200" image={article.image} alt={article.title} />
-                        <CardContent sx={{ flexGrow: 1, p: 3 }}><Typography variant="h6" fontWeight={700} sx={{ color: '#0f172a' }}>{article.title}</Typography><Typography variant="body2" sx={{ color: '#64748b' }}>{article.summary}</Typography></CardContent>
-                        <CardActions sx={{ p: 3, pt: 0 }}>
-                          <Button size="small" onClick={() => window.open(article.link, '_blank')}>Read Article</Button>
-                        </CardActions>
-                      </Card>
-                    </Box>
-                  ))}
+                {thinkletArticles.map((article) => (
+                  <Box key={article.id} sx={{ p: 2, display: 'flex !important' }}>
+                    <Card sx={{ display: 'flex', flexDirection: 'column', width: '100%', borderRadius: 3, border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.02)' }}>
+                      <CardMedia component="img" height="200" image={article.image} alt={article.title} />
+                      <CardContent sx={{ flexGrow: 1, p: 3 }}><Typography variant="h6" fontWeight={700} sx={{ color: '#0f172a' }}>{article.title}</Typography><Typography variant="body2" sx={{ color: '#64748b' }}>{article.summary}</Typography></CardContent>
+                      <CardActions sx={{ p: 3, pt: 0 }}>
+                        <Button size="small" onClick={() => window.open(article.link, '_blank')}>Read Article</Button>
+                      </CardActions>
+                    </Card>
+                  </Box>
+                ))}
               </Slider>
             </Box>
             <Box sx={{ display: { xs: 'flex', md: 'none' }, flexDirection: 'column', gap: 3, mt: 2 }}>
-                {thinkletArticles.map((article) => (
-                  <Card key={article.id} sx={{ display: 'flex', flexDirection: 'column', width: '100%', borderRadius: 3, border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.02)' }}>
-                    <CardMedia component="img" height="200" image={article.image} alt={article.title} />
-                    <CardContent sx={{ flexGrow: 1, p: 3 }}><Typography variant="h6" fontWeight={700} sx={{ color: '#0f172a' }}>{article.title}</Typography><Typography variant="body2" sx={{ color: '#64748b' }}>{article.summary}</Typography></CardContent>
-                    <CardActions sx={{ p: 3, pt: 0 }}>
-                      <Button size="small" onClick={() => window.open(article.link, '_blank')}>Read Article</Button>
-                    </CardActions>
-                  </Card>
-                ))}
+              {thinkletArticles.map((article) => (
+                <Card key={article.id} sx={{ display: 'flex', flexDirection: 'column', width: '100%', borderRadius: 3, border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.02)' }}>
+                  <CardMedia component="img" height="200" image={article.image} alt={article.title} />
+                  <CardContent sx={{ flexGrow: 1, p: 3 }}><Typography variant="h6" fontWeight={700} sx={{ color: '#0f172a' }}>{article.title}</Typography><Typography variant="body2" sx={{ color: '#64748b' }}>{article.summary}</Typography></CardContent>
+                  <CardActions sx={{ p: 3, pt: 0 }}>
+                    <Button size="small" onClick={() => window.open(article.link, '_blank')}>Read Article</Button>
+                  </CardActions>
+                </Card>
+              ))}
             </Box>
           </motion.div>
         </Container>
@@ -250,10 +250,10 @@ export default function Home() {
         <Waves lineColor="rgba(56, 189, 248, 0.7)" speed={0.025} />
         <Container maxWidth="md" sx={{ position: 'relative', zIndex: 1, textAlign: 'center' }}>
           <motion.div initial={{ opacity: 0, y: 50 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
-             <Avatar sx={{ bgcolor: 'rgba(56, 189, 248, 0.1)', color: '#38bdf8', width: 90, height: 90, mx: 'auto', mb: 3 }}><MicIcon sx={{ fontSize: 50 }} /></Avatar>
-             <Typography variant="h2" sx={{ fontFamily: '"Orbitron", sans-serif', color: '#fff', fontWeight: 900, letterSpacing: 2, mb: 3, textShadow: '0 0 20px rgba(56, 189, 248, 0.5)' }}>SL-RADIO</Typography>
-             <Typography variant="h6" sx={{ fontFamily: '"Space Grotesk", sans-serif', color: '#bae6fd', fontWeight: 300, mb: 5, lineHeight: 1.8 }}>Tune in to frequency of innovation. Have a personalised School radio for your school.</Typography>
-             <Button variant="outlined" size="large" onClick={() => window.open(`https://youtube.com/@SaradaPublications-v1l`, '_blank')} sx={{ borderColor: '#38bdf8', color: '#38bdf8', borderWidth: 2, borderRadius: 50, px: 6, '&:hover': { bgcolor: '#38bdf8', color: '#0B1121' } }}>Listen Live</Button>
+            <Avatar sx={{ bgcolor: 'rgba(56, 189, 248, 0.1)', color: '#38bdf8', width: 90, height: 90, mx: 'auto', mb: 3 }}><MicIcon sx={{ fontSize: 50 }} /></Avatar>
+            <Typography variant="h2" sx={{ fontFamily: '"Orbitron", sans-serif', color: '#fff', fontWeight: 900, letterSpacing: 2, mb: 3, textShadow: '0 0 20px rgba(56, 189, 248, 0.5)' }}>SL-RADIO</Typography>
+            <Typography variant="h6" sx={{ fontFamily: '"Space Grotesk", sans-serif', color: '#bae6fd', fontWeight: 300, mb: 5, lineHeight: 1.8 }}>Tune in to frequency of innovation. Have a personalised School radio for your school.</Typography>
+            <Button variant="outlined" size="large" onClick={() => window.open(`https://youtube.com/@SaradaPublications-v1l`, '_blank')} sx={{ borderColor: '#38bdf8', color: '#38bdf8', borderWidth: 2, borderRadius: 50, px: 6, '&:hover': { bgcolor: '#38bdf8', color: '#0B1121' } }}>Listen Live</Button>
           </motion.div>
         </Container>
       </Box>
@@ -265,7 +265,7 @@ export default function Home() {
           <motion.div initial={{ opacity: 0, y: 50 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
             <Typography variant="overline" sx={{ fontFamily: '"Cinzel", serif', fontWeight: 800, color: '#94a3b8', letterSpacing: 3, fontSize: '1rem' }}>Mastering Language</Typography>
             <Typography variant="h2" sx={{ fontFamily: '"Cinzel", serif', fontWeight: 600, color: '#0f172a', mt: 1, mb: 4 }}>English LSRW</Typography>
-            <Typography variant="h5" sx={{ fontFamily: '"Playfair Display", serif', fontStyle: 'italic', color: '#475569', mb: 6, lineHeight: 1.8 }}>Listening. Speaking. Reading. Writing. <br/>A dedicated program curated by expert linguists to foster elegance, fluency, and sheer command over the English language in students.</Typography>
+            <Typography variant="h5" sx={{ fontFamily: '"Playfair Display", serif', fontStyle: 'italic', color: '#475569', mb: 6, lineHeight: 1.8 }}>Listening. Speaking. Reading. Writing. <br />A dedicated program curated by expert linguists to foster elegance, fluency, and sheer command over the English language in students.</Typography>
             <Button variant="text" size="large" onClick={() => window.location.href = `mailto:${directorMail}?subject=Inquiry: English LSRW Program`} sx={{ fontFamily: '"Cinzel", serif', color: '#0f172a', borderBottom: '2px solid #0f172a', borderRadius: 0, px: 2 }}>Explore Curriculum</Button>
           </motion.div>
         </Container>

@@ -13,11 +13,13 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import PublishIcon from '@mui/icons-material/Publish';
 import PeopleIcon from '@mui/icons-material/People';
 import DescriptionIcon from '@mui/icons-material/Description';
-import { portalApi } from '../../utils/api';
+import ContentPasteIcon from '@mui/icons-material/ContentPaste';
+import QuizIcon from '@mui/icons-material/Quiz';
+import { publicApi } from '../../utils/api';
 
 const ff = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
 
-export default function AdminPortalManager() {
+export default function AdminPublicManager() {
   const [tab, setTab] = useState(0);
   const [courses, setCourses] = useState([]);
   const [selectedCourse, setSelectedCourse] = useState(null);
@@ -41,22 +43,29 @@ export default function AdminPortalManager() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [busy, setBusy] = useState(false);
 
+  // Smart Paste
+  const [smartPasteDialog, setSmartPasteDialog] = useState(false);
+  const [smartPasteText, setSmartPasteText] = useState('');
+  const [smartPasteTarget, setSmartPasteTarget] = useState(null);
+  const [parsedPreview, setParsedPreview] = useState([]);
+  const [questionPreview, setQuestionPreview] = useState({ open: false, contentId: null, questions: [] });
+
   const loadCourses = () => {
     setLoading(true);
-    portalApi.adminListCourses()
+    publicApi.adminListCourses()
       .then(r => setCourses(r.data.courses || []))
       .catch(() => setError('Failed to load courses'))
       .finally(() => setLoading(false));
   };
 
   const loadContents = (courseId) => {
-    portalApi.adminListContents(courseId)
+    publicApi.adminListContents(courseId)
       .then(r => setContents(r.data.contents || []))
       .catch(() => {});
   };
 
   const loadSubs = () => {
-    portalApi.adminSubscriptions()
+    publicApi.adminSubscriptions()
       .then(r => setSubs(r.data.subscriptions || []))
       .catch(() => {});
   };
@@ -79,10 +88,10 @@ export default function AdminPortalManager() {
     setBusy(true);
     try {
       if (editCourse) {
-        await portalApi.adminUpdateCourse(editCourse.id, courseForm);
+        await publicApi.adminUpdateCourse(editCourse.id, courseForm);
         setMsg('Course updated');
       } else {
-        await portalApi.adminCreateCourse(courseForm);
+        await publicApi.adminCreateCourse(courseForm);
         setMsg('Course created');
       }
       setCourseDialog(false);
@@ -95,7 +104,7 @@ export default function AdminPortalManager() {
   const deleteCourse = async (id) => {
     if (!window.confirm('Delete this course and all its content?')) return;
     try {
-      await portalApi.adminDeleteCourse(id);
+      await publicApi.adminDeleteCourse(id);
       setMsg('Course deleted');
       if (selectedCourse?.id === id) setSelectedCourse(null);
       loadCourses();
@@ -107,7 +116,7 @@ export default function AdminPortalManager() {
   const togglePublish = async (course) => {
     const newStatus = course.status === 'published' ? 'draft' : 'published';
     try {
-      await portalApi.adminUpdateCourse(course.id, { status: newStatus });
+      await publicApi.adminUpdateCourse(course.id, { status: newStatus });
       setMsg(`Course ${newStatus === 'published' ? 'published' : 'unpublished'}`);
       loadCourses();
     } catch { setError('Failed to update status'); }
@@ -131,7 +140,7 @@ export default function AdminPortalManager() {
     setBusy(true);
     try {
       if (editContent) {
-        await portalApi.adminUpdateContent(editContent.id, contentForm);
+        await publicApi.adminUpdateContent(editContent.id, contentForm);
         setMsg('Content updated');
       } else {
         const fd = new FormData();
@@ -143,7 +152,7 @@ export default function AdminPortalManager() {
         fd.append('duration_minutes', contentForm.duration_minutes);
         fd.append('order_index', contentForm.order_index);
         if (selectedFile) fd.append('file', selectedFile);
-        await portalApi.adminUploadContent(selectedCourse.id, fd);
+        await publicApi.adminUploadContent(selectedCourse.id, fd);
         setMsg('Content uploaded');
       }
       setContentDialog(false);
@@ -156,12 +165,39 @@ export default function AdminPortalManager() {
   const deleteContent = async (id) => {
     if (!window.confirm('Delete this content?')) return;
     try {
-      await portalApi.adminDeleteContent(id);
+      await publicApi.adminDeleteContent(id);
       setMsg('Content deleted');
       loadContents(selectedCourse.id);
     } catch (err) {
       setError(err.response?.data?.message || 'Delete failed');
     }
+  };
+
+  const openSmartPaste = (content) => {
+    setSmartPasteTarget(content);
+    setSmartPasteText('');
+    setParsedPreview([]);
+    setSmartPasteDialog(true);
+  };
+
+  const submitSmartPaste = async () => {
+    if (!smartPasteText.trim() || !smartPasteTarget) return;
+    setBusy(true);
+    try {
+      const r = await publicApi.adminSmartPaste(smartPasteTarget.id, smartPasteText);
+      setMsg(r.data.message || 'Questions parsed!');
+      setParsedPreview(r.data.questions || []);
+      loadContents(selectedCourse.id);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Parsing failed');
+    } finally { setBusy(false); }
+  };
+
+  const viewQuestions = async (contentId) => {
+    try {
+      const r = await publicApi.adminListQuestions(contentId);
+      setQuestionPreview({ open: true, contentId, questions: r.data.questions || [] });
+    } catch { setError('Failed to load questions'); }
   };
 
   const inputSx = {
@@ -173,10 +209,10 @@ export default function AdminPortalManager() {
   return (
     <Box sx={{ fontFamily: ff }}>
       <Typography sx={{ fontFamily: ff, fontSize: '1.4rem', fontWeight: 800, color: '#0f172a', mb: 0.5 }}>
-        Public Portal Manager
+        Public Exam Manager
       </Typography>
       <Typography sx={{ fontFamily: ff, fontSize: '0.85rem', color: '#64748b', mb: 3 }}>
-        Create courses, upload PDFs, and manage public exam content.
+        Create courses, upload content, and manage public exams.
       </Typography>
 
       {msg && <Alert severity="success" onClose={() => setMsg('')} sx={{ mb: 2, borderRadius: '12px' }}>{msg}</Alert>}
@@ -265,13 +301,13 @@ export default function AdminPortalManager() {
                   </Typography>
                   <Button startIcon={<UploadFileIcon />} onClick={() => openContentDialog()} variant="outlined"
                     sx={{ fontFamily: ff, fontWeight: 600, textTransform: 'none', borderRadius: '10px' }}>
-                    Upload PDF
+                    Add Content
                   </Button>
                 </Box>
                 {contents.length === 0 ? (
                   <Box sx={{ textAlign: 'center', py: 6, bgcolor: '#fff', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
                     <UploadFileIcon sx={{ fontSize: 40, color: '#d1d5db', mb: 1 }} />
-                    <Typography sx={{ color: '#94a3b8', fontFamily: ff }}>No content yet. Upload your first PDF.</Typography>
+                    <Typography sx={{ color: '#94a3b8', fontFamily: ff }}>No content yet. Upload a PDF or use Smart Paste.</Typography>
                   </Box>
                 ) : (
                   contents.map((c, i) => (
@@ -296,6 +332,18 @@ export default function AdminPortalManager() {
                           </Box>
                         </Box>
                         <Box sx={{ display: 'flex', gap: 0.5 }}>
+                          {c.content_type === 'cbt_exam' && (
+                            <Tooltip title="View Questions">
+                              <IconButton size="small" onClick={() => viewQuestions(c.id)}>
+                                <QuizIcon fontSize="small" sx={{ color: '#2563eb' }} />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                          <Tooltip title="Smart Paste Questions">
+                            <IconButton size="small" onClick={() => openSmartPaste(c)}>
+                              <ContentPasteIcon fontSize="small" sx={{ color: '#f59e0b' }} />
+                            </IconButton>
+                          </Tooltip>
                           <IconButton size="small" onClick={() => openContentDialog(c)}>
                             <EditIcon fontSize="small" sx={{ color: '#64748b' }} />
                           </IconButton>
@@ -410,8 +458,9 @@ export default function AdminPortalManager() {
             <InputLabel>Type</InputLabel>
             <Select value={contentForm.content_type} label="Type"
               onChange={e => setContentForm({ ...contentForm, content_type: e.target.value })}>
-              <MenuItem value="pdf_material">PDF Material</MenuItem>
-              <MenuItem value="pdf_exam">PDF Exam (with Answer Key)</MenuItem>
+              <MenuItem value="pdf_material">Study Material (PDF)</MenuItem>
+              <MenuItem value="pdf_exam">PDF Exam (PDF + OMR Sheet)</MenuItem>
+              <MenuItem value="cbt_exam">Interactive Exam (Smart Paste / CBT)</MenuItem>
             </Select>
           </FormControl>
           <FormControlLabel
@@ -454,6 +503,75 @@ export default function AdminPortalManager() {
             sx={{ fontFamily: ff, fontWeight: 700, textTransform: 'none', borderRadius: '10px' }}>
             {busy ? <CircularProgress size={20} /> : editContent ? 'Update' : 'Upload'}
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Smart Paste Dialog */}
+      <Dialog open={smartPasteDialog} onClose={() => setSmartPasteDialog(false)} maxWidth="md" fullWidth>
+        <DialogTitle sx={{ fontFamily: ff, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1 }}>
+          <ContentPasteIcon sx={{ color: '#f59e0b' }} /> Smart Paste {smartPasteTarget ? `— ${smartPasteTarget.title}` : ''}
+        </DialogTitle>
+        <DialogContent>
+          <Typography sx={{ fontFamily: ff, fontSize: '0.82rem', color: '#64748b', mb: 2 }}>
+            Paste raw question text below. Supported format: <code style={{ fontSize: '0.78rem', background: '#f1f5f9', padding: '2px 6px', borderRadius: 4 }}>1. Question? A) opt B) opt C) opt D) opt Answer: B</code>
+          </Typography>
+          <TextField fullWidth multiline rows={14} placeholder={"1. What is the capital of India?\nA) Mumbai\nB) New Delhi\nC) Chennai\nD) Kolkata\nAnswer: B\nExplanation: New Delhi is the capital.\n\n2. Who wrote Hamlet?\nA) Dickens\nB) Shakespeare\nC) Austen\nD) Twain\nAnswer: B"}
+            value={smartPasteText} onChange={e => setSmartPasteText(e.target.value)}
+            sx={{ ...inputSx, mb: 2, '& textarea': { fontFamily: 'monospace', fontSize: '0.85rem' } }} />
+          {parsedPreview.length > 0 && (
+            <Alert severity="success" sx={{ borderRadius: '10px', mb: 1 }}>
+              {parsedPreview.length} questions parsed successfully!
+            </Alert>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSmartPasteDialog(false)} sx={{ fontFamily: ff, textTransform: 'none' }}>Cancel</Button>
+          <Button onClick={submitSmartPaste} disabled={busy || !smartPasteText.trim()} variant="contained"
+            startIcon={busy ? <CircularProgress size={16} /> : <ContentPasteIcon />}
+            sx={{ fontFamily: ff, fontWeight: 700, textTransform: 'none', borderRadius: '10px',
+              background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}>
+            Parse & Save Questions
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Question Preview Dialog */}
+      <Dialog open={questionPreview.open} onClose={() => setQuestionPreview({ open: false, contentId: null, questions: [] })} maxWidth="md" fullWidth>
+        <DialogTitle sx={{ fontFamily: ff, fontWeight: 700 }}>
+          Questions Preview ({questionPreview.questions.length} total)
+        </DialogTitle>
+        <DialogContent>
+          {questionPreview.questions.map((q) => {
+            const opts = typeof q.options_json === 'string' ? JSON.parse(q.options_json) : q.options_json;
+            return (
+              <Box key={q.id} sx={{ mb: 2.5, p: 2, bgcolor: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                <Typography sx={{ fontFamily: ff, fontWeight: 700, fontSize: '0.9rem', color: '#0f172a', mb: 1 }}>
+                  Q{q.order_index}. {q.question_text}
+                </Typography>
+                {['A', 'B', 'C', 'D'].map(letter => (
+                  <Box key={letter} sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 0.5, pl: 1 }}>
+                    <Chip label={letter} size="small"
+                      sx={{ fontFamily: ff, fontWeight: 700, width: 28, height: 24,
+                        bgcolor: q.correct_option === letter ? 'rgba(34,197,94,0.15)' : '#fff',
+                        color: q.correct_option === letter ? '#16a34a' : '#64748b',
+                        border: q.correct_option === letter ? '1.5px solid #16a34a' : '1px solid #e2e8f0' }} />
+                    <Typography sx={{ fontFamily: ff, fontSize: '0.85rem', color: '#334155' }}>
+                      {opts[letter] || ''}
+                    </Typography>
+                  </Box>
+                ))}
+                {q.explanation && (
+                  <Typography sx={{ fontFamily: ff, fontSize: '0.78rem', color: '#64748b', mt: 1, fontStyle: 'italic' }}>
+                    Explanation: {q.explanation}
+                  </Typography>
+                )}
+              </Box>
+            );
+          })}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setQuestionPreview({ open: false, contentId: null, questions: [] })}
+            sx={{ fontFamily: ff, textTransform: 'none' }}>Close</Button>
         </DialogActions>
       </Dialog>
     </Box>

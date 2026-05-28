@@ -1,9 +1,10 @@
-# routes/portal_routes.py
+# routes/public_routes.py
 # ─────────────────────────────────────────────────────────────
-# Public Portal Routes  (B2C — completely isolated from School/Student flow)
+# Public Routes  (B2C — completely isolated from School/Student flow)
 # ─────────────────────────────────────────────────────────────
 import os
 import json
+import re
 import random
 import hashlib
 import hmac
@@ -19,11 +20,12 @@ from models import (
     db, bcrypt, User,
     PublicProfile, PublicCourse, CourseContent,
     CourseSubscription, PublicExamAttempt, EmailVerificationOTP,
+    PublicQuestion,
 )
 
-# ── Upload directory for portal PDFs ──
-PORTAL_UPLOADS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'uploads', 'portal')
-os.makedirs(PORTAL_UPLOADS, exist_ok=True)
+# ── Upload directory for public PDFs ──
+PUBLIC_UPLOADS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'uploads', 'portal')
+os.makedirs(PUBLIC_UPLOADS, exist_ok=True)
 
 ALLOWED_PDF = {'pdf'}
 
@@ -32,8 +34,8 @@ def allowed_pdf(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_PDF
 
 
-def register_portal_routes(app, token_required, role_required):
-    """Register all /portal/* and /admin/portal/* routes."""
+def register_public_routes(app, token_required, role_required):
+    """Register all /public/* and /admin/public/* routes."""
 
     import jwt as pyjwt
 
@@ -47,8 +49,8 @@ def register_portal_routes(app, token_required, role_required):
     # 1. PUBLIC AUTH (Registration, Login, Forgot Password)
     # ═══════════════════════════════════════════════════
 
-    @app.post('/portal/register/init')
-    def portal_register_init():
+    @app.post('/public/register/init')
+    def public_register_init():
         """Step 1: Collect email, username, password — send OTP."""
         data = request.get_json(silent=True) or {}
         email = (data.get('email') or '').strip().lower()
@@ -80,15 +82,15 @@ def register_portal_routes(app, token_required, role_required):
             from utils.email import send_otp_email
             send_otp_email(email, otp_code, username)
         except Exception as e:
-            current_app.logger.error(f"Portal OTP email error: {e}")
+            current_app.logger.error(f"Public OTP email error: {e}")
             return jsonify({'message': f'Failed to send OTP email: {str(e)}'}), 500
 
         parts = email.split('@')
         masked = parts[0][:2] + '***@' + parts[1] if len(parts) == 2 else '***'
         return jsonify({'message': f'OTP sent to {masked}', 'email_hint': masked}), 200
 
-    @app.post('/portal/register/verify')
-    def portal_register_verify():
+    @app.post('/public/register/verify')
+    def public_register_verify():
         """Step 2: Verify OTP and create account."""
         data = request.get_json(silent=True) or {}
         email = (data.get('email') or '').strip().lower()
@@ -169,8 +171,8 @@ def register_portal_routes(app, token_required, role_required):
             db.session.rollback()
             return jsonify({'message': f'Registration failed: {str(e)}'}), 500
 
-    @app.post('/portal/login')
-    def portal_login():
+    @app.post('/public/login')
+    def public_login():
         """Login for public users (email + password)."""
         data = request.get_json(silent=True) or {}
         email = (data.get('email') or '').strip().lower()
@@ -204,8 +206,8 @@ def register_portal_routes(app, token_required, role_required):
             },
         }), 200
 
-    @app.post('/portal/forgot-password/init')
-    def portal_forgot_init():
+    @app.post('/public/forgot-password/init')
+    def public_forgot_init():
         """Send OTP to email for password reset."""
         data = request.get_json(silent=True) or {}
         email = (data.get('email') or '').strip().lower()
@@ -233,8 +235,8 @@ def register_portal_routes(app, token_required, role_required):
         masked = parts[0][:2] + '***@' + parts[1] if len(parts) == 2 else '***'
         return jsonify({'message': f'OTP sent to {masked}', 'email_hint': masked}), 200
 
-    @app.post('/portal/forgot-password/reset')
-    def portal_forgot_reset():
+    @app.post('/public/forgot-password/reset')
+    def public_forgot_reset():
         """Verify OTP and reset password."""
         data = request.get_json(silent=True) or {}
         email = (data.get('email') or '').strip().lower()
@@ -271,14 +273,14 @@ def register_portal_routes(app, token_required, role_required):
     # 2. PUBLIC CATALOG (Guest-accessible)
     # ═══════════════════════════════════════════════════
 
-    @app.get('/portal/courses')
-    def portal_list_courses():
+    @app.get('/public/courses')
+    def public_list_courses():
         """List all published courses — accessible to anyone."""
         courses = PublicCourse.query.filter_by(status='published').order_by(PublicCourse.created_at.desc()).all()
         return jsonify({'courses': [c.to_dict() for c in courses]}), 200
 
-    @app.get('/portal/courses/<int:course_id>')
-    def portal_course_detail(course_id):
+    @app.get('/public/courses/<int:course_id>')
+    def public_course_detail(course_id):
         """Course detail with content list (file_url hidden for paid content if not subscribed)."""
         course = PublicCourse.query.get(course_id)
         if not course or course.status != 'published':
@@ -355,9 +357,9 @@ def register_portal_routes(app, token_required, role_required):
     # 3. ENROLLMENT & PAYMENT
     # ═══════════════════════════════════════════════════
 
-    @app.post('/portal/courses/<int:course_id>/enroll')
+    @app.post('/public/courses/<int:course_id>/enroll')
     @token_required
-    def portal_enroll_free(current_user, course_id):
+    def public_enroll_free(current_user, course_id):
         """Enroll in a free course (or free tier of a paid course)."""
         profile = get_public_profile(current_user)
         if not profile:
@@ -386,9 +388,9 @@ def register_portal_routes(app, token_required, role_required):
 
         return jsonify({'message': 'Enrolled successfully', 'subscription': sub.to_dict()}), 201
 
-    @app.post('/portal/courses/<int:course_id>/create-order')
+    @app.post('/public/courses/<int:course_id>/create-order')
     @token_required
-    def portal_create_razorpay_order(current_user, course_id):
+    def public_create_razorpay_order(current_user, course_id):
         """Create a Razorpay order for a paid course."""
         profile = get_public_profile(current_user)
         if not profile:
@@ -454,9 +456,9 @@ def register_portal_routes(app, token_required, role_required):
             current_app.logger.error(f"Razorpay order error: {traceback.format_exc()}")
             return jsonify({'message': f'Payment order creation failed: {str(e)}'}), 500
 
-    @app.post('/portal/payment/verify')
+    @app.post('/public/payment/verify')
     @token_required
-    def portal_verify_payment(current_user):
+    def public_verify_payment(current_user):
         """Verify Razorpay payment signature and activate subscription."""
         profile = get_public_profile(current_user)
         if not profile:
@@ -498,9 +500,9 @@ def register_portal_routes(app, token_required, role_required):
     # 4. PDF SERVING & EXAM ATTEMPTS
     # ═══════════════════════════════════════════════════
 
-    @app.get('/portal/content/<int:content_id>/file')
+    @app.get('/public/content/<int:content_id>/file')
     @token_required
-    def portal_serve_pdf(current_user, content_id):
+    def public_serve_pdf(current_user, content_id):
         """Serve PDF file — checks access (free or subscribed)."""
         content = CourseContent.query.get(content_id)
         if not content or not content.file_url:
@@ -519,22 +521,22 @@ def register_portal_routes(app, token_required, role_required):
             if not sub:
                 return jsonify({'message': 'Subscription required to access this content'}), 403
 
-        file_path = os.path.join(PORTAL_UPLOADS, content.file_url)
+        file_path = os.path.join(PUBLIC_UPLOADS, content.file_url)
         if not os.path.isfile(file_path):
             return jsonify({'message': 'File not found on server'}), 404
 
         return send_file(file_path, mimetype='application/pdf')
 
-    @app.post('/portal/content/<int:content_id>/start-exam')
+    @app.post('/public/content/<int:content_id>/start-exam')
     @token_required
-    def portal_start_exam(current_user, content_id):
+    def public_start_exam(current_user, content_id):
         """Start a PDF exam attempt."""
         profile = get_public_profile(current_user)
         if not profile:
             return jsonify({'message': 'Public profile required'}), 403
 
         content = CourseContent.query.get(content_id)
-        if not content or content.content_type != 'pdf_exam':
+        if not content or content.content_type not in ('pdf_exam', 'cbt_exam'):
             return jsonify({'message': 'Exam content not found'}), 404
 
         # Check access
@@ -585,9 +587,35 @@ def register_portal_routes(app, token_required, role_required):
             'duration_minutes': content.duration_minutes,
         }), 201
 
-    @app.post('/portal/attempts/<int:attempt_id>/submit')
+    @app.get('/public/content/<int:content_id>/questions')
     @token_required
-    def portal_submit_exam(current_user, attempt_id):
+    def public_get_questions(current_user, content_id):
+        """Serve CBT questions for a native interactive exam (without answers)."""
+        profile = get_public_profile(current_user)
+        if not profile:
+            return jsonify({'message': 'Public profile required'}), 403
+
+        content = CourseContent.query.get(content_id)
+        if not content or content.content_type != 'cbt_exam':
+            return jsonify({'message': 'CBT content not found'}), 404
+
+        # Check access
+        if not content.is_free:
+            sub = CourseSubscription.query.filter_by(
+                public_profile_id=profile.id, course_id=content.course_id, status='active'
+            ).first()
+            if not sub:
+                return jsonify({'message': 'Subscription required'}), 403
+
+        questions = PublicQuestion.query.filter_by(content_id=content_id).order_by(PublicQuestion.order_index).all()
+        return jsonify({
+            'questions': [q.to_dict(include_answer=False) for q in questions],
+            'total': len(questions),
+        }), 200
+
+    @app.post('/public/attempts/<int:attempt_id>/submit')
+    @token_required
+    def public_submit_exam(current_user, attempt_id):
         """Submit answers for a PDF exam and auto-grade."""
         profile = get_public_profile(current_user)
         if not profile:
@@ -624,21 +652,59 @@ def register_portal_routes(app, token_required, role_required):
             'attempt': attempt.to_dict(),
         }), 200
 
+    @app.get('/public/attempts/<int:attempt_id>/review')
+    @token_required
+    def public_exam_review(current_user, attempt_id):
+        """Return submitted answers alongside the answer key for post-exam review."""
+        profile = get_public_profile(current_user)
+        if not profile:
+            return jsonify({'message': 'Public profile required'}), 403
+
+        attempt = PublicExamAttempt.query.get(attempt_id)
+        if not attempt or attempt.public_profile_id != profile.id:
+            return jsonify({'message': 'Attempt not found'}), 404
+        if not attempt.submitted_at:
+            return jsonify({'message': 'Exam not yet submitted'}), 400
+
+        content = CourseContent.query.get(attempt.content_id)
+        answer_key = {}
+        if content and content.answer_key_json:
+            try:
+                answer_key = json.loads(content.answer_key_json)
+            except Exception:
+                pass
+
+        user_answers = {}
+        if attempt.answers_json:
+            try:
+                user_answers = json.loads(attempt.answers_json)
+            except Exception:
+                pass
+
+        return jsonify({
+            'attempt': attempt.to_dict(),
+            'user_answers': user_answers,
+            'answer_key': answer_key,
+            'total_questions': content.total_questions if content else 0,
+            'duration_minutes': content.duration_minutes if content else 60,
+            'questions': [],  # will be populated for CBT
+        }), 200
+
     # ═══════════════════════════════════════════════════
     # 5. PUBLIC USER DASHBOARD
     # ═══════════════════════════════════════════════════
 
-    @app.get('/portal/me/profile')
+    @app.get('/public/me/profile')
     @token_required
-    def portal_my_profile(current_user):
+    def public_my_profile(current_user):
         profile = get_public_profile(current_user)
         if not profile:
             return jsonify({'message': 'Public profile not found'}), 404
         return jsonify({'profile': profile.to_dict()}), 200
 
-    @app.put('/portal/me/profile')
+    @app.put('/public/me/profile')
     @token_required
-    def portal_update_profile(current_user):
+    def public_update_profile(current_user):
         profile = get_public_profile(current_user)
         if not profile:
             return jsonify({'message': 'Public profile not found'}), 404
@@ -657,9 +723,9 @@ def register_portal_routes(app, token_required, role_required):
         db.session.commit()
         return jsonify({'message': 'Profile updated', 'profile': profile.to_dict()}), 200
 
-    @app.get('/portal/me/subscriptions')
+    @app.get('/public/me/subscriptions')
     @token_required
-    def portal_my_subscriptions(current_user):
+    def public_my_subscriptions(current_user):
         profile = get_public_profile(current_user)
         if not profile:
             return jsonify({'subscriptions': []}), 200
@@ -669,9 +735,9 @@ def register_portal_routes(app, token_required, role_required):
         ).all()
         return jsonify({'subscriptions': [s.to_dict() for s in subs]}), 200
 
-    @app.get('/portal/me/attempts')
+    @app.get('/public/me/attempts')
     @token_required
-    def portal_my_attempts(current_user):
+    def public_my_attempts(current_user):
         profile = get_public_profile(current_user)
         if not profile:
             return jsonify({'attempts': []}), 200
@@ -680,9 +746,9 @@ def register_portal_routes(app, token_required, role_required):
         ).order_by(PublicExamAttempt.start_time.desc()).all()
         return jsonify({'attempts': [a.to_dict() for a in attempts]}), 200
 
-    @app.get('/portal/me/dashboard-data')
+    @app.get('/public/me/dashboard-data')
     @token_required
-    def portal_my_dashboard_data(current_user):
+    def public_my_dashboard_data(current_user):
         profile = get_public_profile(current_user)
         if not profile:
             return jsonify({'dashboard_courses': [], 'available_courses': []}), 200
@@ -751,18 +817,18 @@ def register_portal_routes(app, token_required, role_required):
         }), 200
 
     # ═══════════════════════════════════════════════════
-    # 6. ADMIN — MANAGE PUBLIC PORTAL
+    # 6. ADMIN — MANAGE PUBLIC Public
     # ═══════════════════════════════════════════════════
 
-    @app.get('/admin/portal/courses')
+    @app.get('/admin/public/courses')
     @role_required('admin')
-    def admin_portal_list_courses(current_user):
+    def admin_public_list_courses(current_user):
         courses = PublicCourse.query.order_by(PublicCourse.created_at.desc()).all()
         return jsonify({'courses': [c.to_dict() for c in courses]}), 200
 
-    @app.post('/admin/portal/courses')
+    @app.post('/admin/public/courses')
     @role_required('admin')
-    def admin_portal_create_course(current_user):
+    def admin_public_create_course(current_user):
         data = request.get_json(silent=True) or {}
         title = (data.get('title') or '').strip()
         if not title:
@@ -780,9 +846,9 @@ def register_portal_routes(app, token_required, role_required):
         db.session.commit()
         return jsonify({'message': 'Course created', 'course': course.to_dict()}), 201
 
-    @app.put('/admin/portal/courses/<int:course_id>')
+    @app.put('/admin/public/courses/<int:course_id>')
     @role_required('admin')
-    def admin_portal_update_course(current_user, course_id):
+    def admin_public_update_course(current_user, course_id):
         course = PublicCourse.query.get(course_id)
         if not course:
             return jsonify({'message': 'Course not found'}), 404
@@ -802,9 +868,9 @@ def register_portal_routes(app, token_required, role_required):
 
         return jsonify({'message': 'Course updated', 'course': course.to_dict()}), 200
 
-    @app.delete('/admin/portal/courses/<int:course_id>')
+    @app.delete('/admin/public/courses/<int:course_id>')
     @role_required('admin')
-    def admin_portal_delete_course(current_user, course_id):
+    def admin_public_delete_course(current_user, course_id):
         course = PublicCourse.query.get(course_id)
         if not course:
             return jsonify({'message': 'Course not found'}), 404
@@ -814,18 +880,18 @@ def register_portal_routes(app, token_required, role_required):
 
     # ── Content Management ──
 
-    @app.get('/admin/portal/courses/<int:course_id>/contents')
+    @app.get('/admin/public/courses/<int:course_id>/contents')
     @role_required('admin')
-    def admin_portal_list_contents(current_user, course_id):
+    def admin_public_list_contents(current_user, course_id):
         course = PublicCourse.query.get(course_id)
         if not course:
             return jsonify({'message': 'Course not found'}), 404
         contents = CourseContent.query.filter_by(course_id=course_id).order_by(CourseContent.order_index).all()
         return jsonify({'contents': [c.to_dict(include_answers=True) for c in contents]}), 200
 
-    @app.post('/admin/portal/courses/<int:course_id>/contents')
+    @app.post('/admin/public/courses/<int:course_id>/contents')
     @role_required('admin')
-    def admin_portal_upload_content(current_user, course_id):
+    def admin_public_upload_content(current_user, course_id):
         """Upload a PDF and create content entry. Use multipart/form-data."""
         course = PublicCourse.query.get(course_id)
         if not course:
@@ -848,7 +914,7 @@ def register_portal_routes(app, token_required, role_required):
             if f and allowed_pdf(f.filename):
                 fname = secure_filename(f.filename)
                 unique_name = f"{course_id}_{int(datetime.utcnow().timestamp())}_{fname}"
-                f.save(os.path.join(PORTAL_UPLOADS, unique_name))
+                f.save(os.path.join(PUBLIC_UPLOADS, unique_name))
                 file_url = unique_name
             else:
                 return jsonify({'message': 'Only PDF files are allowed'}), 400
@@ -869,9 +935,9 @@ def register_portal_routes(app, token_required, role_required):
 
         return jsonify({'message': 'Content uploaded', 'content': content.to_dict(include_answers=True)}), 201
 
-    @app.put('/admin/portal/contents/<int:content_id>')
+    @app.put('/admin/public/contents/<int:content_id>')
     @role_required('admin')
-    def admin_portal_update_content(current_user, content_id):
+    def admin_public_update_content(current_user, content_id):
         content = CourseContent.query.get(content_id)
         if not content:
             return jsonify({'message': 'Content not found'}), 404
@@ -895,16 +961,16 @@ def register_portal_routes(app, token_required, role_required):
 
         return jsonify({'message': 'Content updated', 'content': content.to_dict(include_answers=True)}), 200
 
-    @app.delete('/admin/portal/contents/<int:content_id>')
+    @app.delete('/admin/public/contents/<int:content_id>')
     @role_required('admin')
-    def admin_portal_delete_content(current_user, content_id):
+    def admin_public_delete_content(current_user, content_id):
         content = CourseContent.query.get(content_id)
         if not content:
             return jsonify({'message': 'Content not found'}), 404
 
         # Delete file from disk
         if content.file_url:
-            file_path = os.path.join(PORTAL_UPLOADS, content.file_url)
+            file_path = os.path.join(PUBLIC_UPLOADS, content.file_url)
             if os.path.isfile(file_path):
                 os.remove(file_path)
 
@@ -914,9 +980,9 @@ def register_portal_routes(app, token_required, role_required):
 
     # ── Subscriptions Overview ──
 
-    @app.get('/admin/portal/subscriptions')
+    @app.get('/admin/public/subscriptions')
     @role_required('admin')
-    def admin_portal_subscriptions(current_user):
+    def admin_public_subscriptions(current_user):
         subs = CourseSubscription.query.order_by(CourseSubscription.enrolled_at.desc()).all()
         result = []
         for s in subs:
@@ -925,3 +991,143 @@ def register_portal_routes(app, token_required, role_required):
             d['email'] = s.profile.user.email if s.profile and s.profile.user else None
             result.append(d)
         return jsonify({'subscriptions': result, 'count': len(result)}), 200
+
+    # ── Smart Paste: Parse raw text into CBT questions ──
+
+    @app.post('/admin/public/contents/<int:content_id>/smart-questions')
+    @role_required('admin')
+    def admin_smart_paste_questions(current_user, content_id):
+        """Parse raw pasted text into native CBT questions and save them."""
+        content = CourseContent.query.get(content_id)
+        if not content:
+            return jsonify({'message': 'Content not found'}), 404
+
+        data = request.get_json(silent=True) or {}
+        raw_text = data.get('raw_text', '').strip()
+        if not raw_text:
+            return jsonify({'message': 'No text provided'}), 400
+
+        # ── Regex parser ──
+        # Supports patterns like:
+        #   1. Question text?        OR    Q1. Question text?
+        #   A) Option A              OR    a) Option A
+        #   B) Option B
+        #   C) Option C
+        #   D) Option D
+        #   Answer: B                OR    Ans: B
+        #   Explanation: optional
+        question_pattern = re.compile(
+            r'(?:Q?\s*)(\d+)[.)\s]+(.+?)\s*'
+            r'[Aa][.)\s]+(.+?)\s*'
+            r'[Bb][.)\s]+(.+?)\s*'
+            r'[Cc][.)\s]+(.+?)\s*'
+            r'[Dd][.)\s]+(.+?)\s*'
+            r'(?:Ans(?:wer)?\s*[:.)\s]+\s*([A-Da-d]))'
+            r'(?:\s*Explanation\s*[:.)\s]*(.+?))?'
+            r'(?=\s*(?:Q?\s*\d+[.)\s])|$)',
+            re.DOTALL | re.IGNORECASE
+        )
+
+        matches = question_pattern.findall(raw_text)
+
+        if not matches:
+            # Fallback: try a simpler line-by-line approach
+            matches = _parse_questions_simple(raw_text)
+
+        if not matches:
+            return jsonify({'message': 'Could not parse any questions from the provided text. Please check the format.'}), 400
+
+        # Delete existing questions for this content (overwrite)
+        PublicQuestion.query.filter_by(content_id=content_id).delete()
+
+        created = []
+        answer_key = {}
+        for idx, m in enumerate(matches):
+            q_num = m[0] if m[0] else str(idx + 1)
+            q_text = m[1].strip()
+            opt_a = m[2].strip()
+            opt_b = m[3].strip()
+            opt_c = m[4].strip()
+            opt_d = m[5].strip()
+            correct = m[6].strip().upper() if len(m) > 6 and m[6] else 'A'
+            explanation = m[7].strip() if len(m) > 7 and m[7] else None
+
+            options = json.dumps({'A': opt_a, 'B': opt_b, 'C': opt_c, 'D': opt_d})
+            q = PublicQuestion(
+                content_id=content_id,
+                question_text=q_text,
+                options_json=options,
+                correct_option=correct,
+                explanation=explanation,
+                order_index=int(q_num),
+            )
+            db.session.add(q)
+            created.append(q)
+            answer_key[str(q_num)] = correct
+
+        # Update CourseContent metadata
+        content.content_type = 'cbt_exam'
+        content.total_questions = len(created)
+        content.answer_key_json = json.dumps(answer_key)
+        db.session.commit()
+
+        return jsonify({
+            'message': f'{len(created)} questions parsed and saved',
+            'questions': [q.to_dict(include_answer=True) for q in created],
+            'content': content.to_dict(include_answers=True),
+        }), 201
+
+    @app.get('/admin/public/contents/<int:content_id>/questions')
+    @role_required('admin')
+    def admin_list_questions(current_user, content_id):
+        """List all questions for a content item (admin view with answers)."""
+        questions = PublicQuestion.query.filter_by(content_id=content_id).order_by(PublicQuestion.order_index).all()
+        return jsonify({
+            'questions': [q.to_dict(include_answer=True) for q in questions],
+            'total': len(questions),
+        }), 200
+
+
+def _parse_questions_simple(raw_text):
+    """Fallback line-by-line parser for simpler text formats."""
+    lines = [l.strip() for l in raw_text.split('\n') if l.strip()]
+    questions = []
+    i = 0
+    while i < len(lines):
+        # Try to match a question number line
+        q_match = re.match(r'^(?:Q?\s*)(\d+)[.)\s]+(.+)', lines[i], re.IGNORECASE)
+        if q_match and i + 4 < len(lines):
+            q_num = q_match.group(1)
+            q_text = q_match.group(2).strip()
+            opts = []
+            j = i + 1
+            for letter in ['A', 'B', 'C', 'D']:
+                if j < len(lines):
+                    opt_match = re.match(r'^[A-Da-d][.)\s]+(.+)', lines[j])
+                    if opt_match:
+                        opts.append(opt_match.group(1).strip())
+                        j += 1
+                    else:
+                        opts.append(lines[j])
+                        j += 1
+                else:
+                    opts.append('')
+
+            correct = 'A'
+            explanation = None
+            if j < len(lines):
+                ans_match = re.match(r'^(?:Ans(?:wer)?\s*[:.)\s]+\s*)([A-Da-d])', lines[j], re.IGNORECASE)
+                if ans_match:
+                    correct = ans_match.group(1).upper()
+                    j += 1
+            if j < len(lines):
+                exp_match = re.match(r'^(?:Explanation\s*[:.)\s]*)(.+)', lines[j], re.IGNORECASE)
+                if exp_match:
+                    explanation = exp_match.group(1).strip()
+                    j += 1
+
+            questions.append((q_num, q_text, opts[0], opts[1], opts[2], opts[3], correct, explanation or ''))
+            i = j
+        else:
+            i += 1
+    return questions

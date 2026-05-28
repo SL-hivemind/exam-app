@@ -2,7 +2,7 @@ import axios from 'axios';
 import useAuth from '../hooks/useAuth'; // if you have one; otherwise set header where you call.
 
 const api = axios.create({
-  baseURL: "https://sl-exams.onrender.com",
+  baseURL: process.env.REACT_APP_API_URL || "http://localhost:5000",
 });
 
 // attach token if you already do it globally; else keep as-is
@@ -68,46 +68,69 @@ export const studentsApi = {
   },
 };
 
-// --- public portal ---
-export const portalApi = {
+// --- public catalog ---
+export const publicApi = {
   // Auth
-  registerInit: (data) => api.post('/portal/register/init', data),
-  registerVerify: (data) => api.post('/portal/register/verify', data),
-  login: (data) => api.post('/portal/login', data),
-  forgotInit: (data) => api.post('/portal/forgot-password/init', data),
-  forgotReset: (data) => api.post('/portal/forgot-password/reset', data),
+  registerInit: (data) => api.post('/public/register/init', data),
+  registerVerify: (data) => api.post('/public/register/verify', data),
+  login: (data) => api.post('/public/login', data),
+  forgotInit: (data) => api.post('/public/forgot-password/init', data),
+  forgotReset: (data) => api.post('/public/forgot-password/reset', data),
 
   // Public catalog
-  listCourses: () => api.get('/portal/courses'),
-  getCourse: (id) => api.get(`/portal/courses/${id}`),
+  listCourses: () => api.get('/public/courses'),
+  getCourse: (id) => api.get(`/public/courses/${id}`),
 
   // Enrollment & Payment
-  enrollFree: (courseId) => api.post(`/portal/courses/${courseId}/enroll`),
-  createOrder: (courseId) => api.post(`/portal/courses/${courseId}/create-order`),
-  verifyPayment: (data) => api.post('/portal/payment/verify', data),
+  enrollFree: (courseId) => api.post(`/public/courses/${courseId}/enroll`),
+  createOrder: (courseId) => api.post(`/public/courses/${courseId}/create-order`),
+  verifyPayment: (data) => api.post('/public/payment/verify', data),
 
   // Content & Exams
-  getContentFile: (contentId) => api.get(`/portal/content/${contentId}/file`, { responseType: 'blob' }),
-  startExam: (contentId) => api.post(`/portal/content/${contentId}/start-exam`),
-  submitExam: (attemptId, answers) => api.post(`/portal/attempts/${attemptId}/submit`, { answers }),
+  getContentFile: (contentId) => api.get(`/public/content/${contentId}/file`, { responseType: 'blob' }),
+  startExam: (contentId) => api.post(`/public/content/${contentId}/start-exam`),
+  submitExam: (attemptId, answers) => api.post(`/public/attempts/${attemptId}/submit`, { answers }),
+  reviewExam: (attemptId) => api.get(`/public/attempts/${attemptId}/review`),
 
   // User dashboard
-  myProfile: () => api.get('/portal/me/profile'),
-  updateProfile: (data) => api.put('/portal/me/profile', data),
-  mySubscriptions: () => api.get('/portal/me/subscriptions'),
-  myAttempts: () => api.get('/portal/me/attempts'),
+  myProfile: () => api.get('/public/me/profile'),
+  updateProfile: (data) => api.put('/public/me/profile', data),
+  mySubscriptions: () => api.get('/public/me/subscriptions'),
+  myAttempts: () => api.get('/public/me/attempts'),
+  myDashboardData: () => api.get('/public/me/dashboard-data'),
 
   // Admin
-  adminListCourses: () => api.get('/admin/portal/courses'),
-  adminCreateCourse: (data) => api.post('/admin/portal/courses', data),
-  adminUpdateCourse: (id, data) => api.put(`/admin/portal/courses/${id}`, data),
-  adminDeleteCourse: (id) => api.delete(`/admin/portal/courses/${id}`),
-  adminListContents: (courseId) => api.get(`/admin/portal/courses/${courseId}/contents`),
+  adminListCourses: () => api.get('/admin/public/courses'),
+  adminCreateCourse: (data) => api.post('/admin/public/courses', data),
+  adminUpdateCourse: (id, data) => api.put(`/admin/public/courses/${id}`, data),
+  adminDeleteCourse: (id) => api.delete(`/admin/public/courses/${id}`),
+  adminListContents: (courseId) => api.get(`/admin/public/courses/${courseId}/contents`),
   adminUploadContent: (courseId, formData) =>
-    api.post(`/admin/portal/courses/${courseId}/contents`, formData, {
+    api.post(`/admin/public/courses/${courseId}/contents`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     }),
-  adminUpdateContent: (contentId, data) => api.put(`/admin/portal/contents/${contentId}`, data),
-  adminDeleteContent: (contentId) => api.delete(`/admin/portal/contents/${contentId}`),
-  adminSubscriptions: () => api.get('/admin/portal/subscriptions'),
+  adminUpdateContent: (contentId, data) => api.put(`/admin/public/contents/${contentId}`, data),
+  adminDeleteContent: (contentId) => api.delete(`/admin/public/contents/${contentId}`),
+  adminSubscriptions: () => api.get('/admin/public/subscriptions'),
+  adminSmartPaste: (contentId, rawText) => api.post(`/admin/public/contents/${contentId}/smart-questions`, { raw_text: rawText }),
+  adminListQuestions: (contentId) => api.get(`/admin/public/contents/${contentId}/questions`),
+
+  // CBT Questions (student-facing)
+  getQuestions: (contentId) => api.get(`/public/content/${contentId}/questions`),
+};
+
+
+// ─── MODULE 3: QUICK EXAM (Zero-Auth) ───
+export const quickApi = {
+  // Admin
+  createExam: (data) => api.post('/admin/quick/exams', data),
+  listExams: () => api.get('/admin/quick/exams'),
+  getExam: (id) => api.get(`/admin/quick/exams/${id}`),
+  toggleExam: (id, data) => api.patch(`/admin/quick/exams/${id}`, data),
+  deleteExam: (id) => api.delete(`/admin/quick/exams/${id}`),
+
+  // Public (no auth needed — but axios will still send token if present, which is fine)
+  getInfo: (code) => api.get(`/quick/${code}`),
+  getQuestions: (code) => api.get(`/quick/${code}/questions`),
+  submit: (code, data) => api.post(`/quick/${code}/submit`, data),
 };
