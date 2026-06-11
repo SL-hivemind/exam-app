@@ -375,6 +375,8 @@ class StudentRequest(db.Model):
 @event.listens_for(QuestionRepository, 'before_insert')
 def auto_gen_id(mapper, connection, target):
     """Triggers on first save (CSV upload or UI creation)"""
+    if target.custom_id:
+        return
     target.custom_id = generate_short_id(target.class_number, target.subject, target.chapter)
 
 @event.listens_for(QuestionRepository, 'before_update')
