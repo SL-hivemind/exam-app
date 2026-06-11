@@ -117,6 +117,19 @@ export const publicApi = {
 
   // CBT Questions (student-facing)
   getQuestions: (contentId) => api.get(`/public/content/${contentId}/questions`),
+
+  // Dynamic Practice Engine
+  practiceStart: (data) => api.post('/public/practice/start', data),
+  practiceSubmit: (attemptId, answers) => api.post(`/public/practice/${attemptId}/submit`, { answers }),
+  practiceReview: (attemptId) => api.get(`/public/practice/${attemptId}/review`),
+
+  // Daily Challenge & Streak
+  challengeStart: () => api.post('/public/challenge/start'),
+  challengeSubmit: (challengeId, answers) => api.post(`/public/challenge/${challengeId}/submit`, { answers }),
+
+  // Course Structure & Search
+  courseStructure: (courseId) => api.get(`/public/courses/${courseId}/structure`),
+  contentSearch: (params) => api.get('/public/content/search', { params }),
 };
 
 

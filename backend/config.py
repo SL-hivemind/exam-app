@@ -1,4 +1,5 @@
 import os
+from urllib.parse import quote_plus
 
 class Config:
     DB_USER = os.getenv('DB_USER')
@@ -11,7 +12,7 @@ class Config:
         raise ValueError("Missing required database environment variables: DB_USER, DB_PASSWORD, DB_HOST, DB_NAME")
 
     SQLALCHEMY_DATABASE_URI = (
-        f"mysql+mysqlconnector://{DB_USER}:{DB_PASSWORD}"
+        f"mysql+pymysql://{DB_USER}:{quote_plus(DB_PASSWORD)}"
         f"@{DB_HOST}:{DB_PORT}/{DB_NAME}"
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False

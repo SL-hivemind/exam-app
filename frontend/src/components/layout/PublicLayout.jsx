@@ -52,7 +52,7 @@ export default function PublicLayout() {
         }}
       >
         <Container maxWidth="xl">
-          <Toolbar disableGutters sx={{ height: 64, gap: 2 }}>
+          <Toolbar disableGutters sx={{ height: 50, gap: 1.5 }}>
             {/* Brand */}
             <Box
               component={RouterLink}
@@ -63,15 +63,15 @@ export default function PublicLayout() {
               }}
             >
               <Box sx={{
-                width: 36, height: 36, borderRadius: '10px',
+                width: 30, height: 30, borderRadius: '8px',
                 background: 'linear-gradient(135deg, #2563eb, #7c3aed)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                boxShadow: '0 4px 14px rgba(37,99,235,0.35)',
+                boxShadow: '0 4px 12px rgba(37,99,235,0.3)',
               }}>
-                <SchoolIcon sx={{ color: '#fff', fontSize: 20 }} />
+                <SchoolIcon sx={{ color: '#fff', fontSize: 17 }} />
               </Box>
               <Typography sx={{
-                fontFamily: ff, fontWeight: 800, fontSize: '1.1rem',
+                fontFamily: ff, fontWeight: 800, fontSize: '1rem',
                 color: '#fff', letterSpacing: '-0.02em',
                 display: { xs: 'none', sm: 'block' },
               }}>
@@ -88,8 +88,8 @@ export default function PublicLayout() {
                     component={RouterLink}
                     to={link.path}
                     sx={{
-                      fontFamily: ff, fontWeight: 600, fontSize: '0.85rem',
-                      textTransform: 'none', px: 2, py: 0.8, borderRadius: '8px',
+                      fontFamily: ff, fontWeight: 600, fontSize: '0.8rem',
+                      textTransform: 'none', px: 1.5, py: 0.6, borderRadius: '8px',
                       color: isActive(link.path, link.exact) ? '#fff' : '#94a3b8',
                       bgcolor: isActive(link.path, link.exact) ? 'rgba(59,130,246,0.15)' : 'transparent',
                       '&:hover': {

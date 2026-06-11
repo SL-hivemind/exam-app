@@ -1,0 +1,248 @@
+1. If all Bloops are Razzies and all Razzies are Lazzies, then all Bloops are Lazzies.
+A) True
+B) False
+C) Cannot be determined
+D) None of the above
+Answer: A
+Explanation: This is a basic syllogism. If A is a subset of B, and B is a subset of C, then A is a subset of C.
+
+2. Look at this series: 2, 6, 18, 54, ... What number should come next?
+A) 108
+B) 148
+C) 162
+D) 216
+Answer: C
+Explanation: Each number in the series is multiplied by 3 to get the next number (54 * 3 = 162).
+
+3. SCD, TEF, UGH, ____, WKL
+A) CMN
+B) UJI
+C) VIJ
+D) IJT
+Answer: C
+Explanation: The first letters are in alphabetical order: S, T, U, V, W. The second and third letters are alphabetical pairs: CD, EF, GH, IJ, KL.
+
+4. Which word does NOT belong with the others?
+A) Parsley
+B) Basil
+C) Dill
+D) Mayonnaise
+Answer: D
+Explanation: Parsley, basil, and dill are types of herbs. Mayonnaise is not an herb.
+
+5. Odometer is to mileage as compass is to:
+A) Speed
+B) Hiking
+C) Needle
+D) Direction
+Answer: D
+Explanation: An odometer is an instrument used to measure mileage. A compass is an instrument used to determine direction.
+
+6. Melt : Liquid :: Freeze : ____
+A) Ice
+B) Solid
+C) Condense
+D) Push
+Answer: B
+Explanation: Melting turns a solid into a liquid. Freezing turns a liquid into a solid.
+
+7. If in a certain language, MYSTIFY is coded as NZTUJGZ, how is NEMESIS coded in that language?
+A) MDLHRDR
+B) OFNFTJT
+C) ODNHTDR
+D) PGOKVKU
+Answer: B
+Explanation: Each letter in the word is moved one step forward in the alphabet (M->N, Y->Z, S->T, etc.). Applying this to NEMESIS gives OFNFTJT.
+
+8. Pointing to a photograph of a boy Suresh said, "He is the son of the only son of my mother." How is Suresh related to that boy?
+A) Brother
+B) Uncle
+C) Cousin
+D) Father
+Answer: D
+Explanation: The "only son of my mother" is Suresh himself. Therefore, the boy is the son of Suresh, making Suresh his father.
+
+9. A man walks 5 km toward south and then turns to the right. After walking 3 km he turns to the left and walks 5 km. Now in which direction is he from the starting place?
+A) West
+B) South
+C) North-East
+D) South-West
+Answer: D
+Explanation: He goes 5km South, then 3km West (right turn), then 5km South (left turn). Relative to the start, he is South-West.
+
+10. What is the missing number in the sequence? 4, 9, 16, 25, 36, ?
+A) 47
+B) 49
+C) 50
+D) 64
+Answer: B
+Explanation: The sequence consists of squares of consecutive integers: 2^2, 3^2, 4^2, 5^2, 6^2, so the next is 7^2 = 49.
+
+11. Forest is to tree as tree is to ?
+A) Plant
+B) Leaf
+C) Branch
+D) Mangrove
+Answer: B
+Explanation: A forest is made up of trees, and a tree is made up of leaves (as its primary collective component in this analogy context).
+
+12. If A is the brother of B; B is the sister of C; and C is the father of D, how D is related to A?
+A) Brother
+B) Sister
+C) Nephew
+D) Cannot be determined
+Answer: D
+Explanation: We know C is a male (father of D), but the gender of D is not specified. D could be a nephew or a niece to A.
+
+13. Arrange the words given below in a meaningful sequence. 1. Word 2. Paragraph 3. Sentence 4. Letters 5. Phrase
+A) 4, 1, 5, 3, 2
+B) 4, 1, 3, 5, 2
+C) 4, 2, 5, 1, 3
+D) 4, 1, 5, 2, 3
+Answer: A
+Explanation: Letters form a Word, Words form a Phrase, Phrases form a Sentence, and Sentences form a Paragraph.
+
+14. Choose the word which is different from the rest.
+A) Chicken
+B) Snake
+C) Swan
+D) Crocodile
+E) Frog
+Answer: A
+Explanation: All except chicken can live in water. (Wait, let's stick to 4 options). Let's use 4 options.
+A) Triangle
+B) Circle
+C) Rectangle
+D) Square
+Answer: B
+Explanation: A circle has no straight sides or angles, unlike the other geometric figures.
+
+15. Statement: All pens are pencils. No pencil is an eraser.
+Conclusion 1: No eraser is a pen.
+Conclusion 2: Some pencils are pens.
+A) Only conclusion 1 follows
+B) Only conclusion 2 follows
+C) Both conclusions 1 and 2 follow
+D) Neither conclusion 1 nor 2 follows
+Answer: C
+Explanation: Since all pens are inside pencils, and pencils do not overlap with erasers, pens cannot overlap with erasers (Conclusion 1). Since all pens are pencils, some pencils must be pens (Conclusion 2).
+
+16. Which number replaces the question mark? 3, 8, 15, 24, ?
+A) 31
+B) 33
+C) 35
+D) 37
+Answer: C
+Explanation: The differences between consecutive terms are 5, 7, 9. The next difference should be 11. So, 24 + 11 = 35.
+
+17. If 'white' is called 'blue', 'blue' is called 'red', 'red' is called 'yellow', 'yellow' is called 'green', what would be the color of human blood?
+A) Red
+B) Yellow
+C) Green
+D) Blue
+Answer: B
+Explanation: The color of human blood is 'red', and according to the code, 'red' is called 'yellow'.
+
+18. Find the odd one out: 8, 27, 64, 100, 125, 216
+A) 27
+B) 64
+C) 100
+D) 125
+Answer: C
+Explanation: All numbers except 100 are perfect cubes (2^3, 3^3, 4^3, 5^3, 6^3). 100 is a perfect square.
+
+19. In a row of boys, If A who is 10th from the left and B who is 9th from the right interchange their positions, A becomes 15th from the left. How many boys are there in the row?
+A) 23
+B) 27
+C) 28
+D) 31
+Answer: A
+Explanation: A's new position is 15th from left, which is B's old position (9th from right). Total boys = (15 + 9) - 1 = 23.
+
+20. A clock is started at noon. By 10 minutes past 5, the hour hand has turned through:
+A) 145 degrees
+B) 150 degrees
+C) 155 degrees
+D) 160 degrees
+Answer: C
+Explanation: The hour hand turns 360 degrees in 12 hours, so it turns 30 degrees per hour. In 5 hours and 10 minutes (310 minutes), it turns (310 / 60) * 30 = 155 degrees.
+
+21. If HOME is written as 2541, SHOP is written as 8256, then how will WORK be written?
+A) 8573
+B) 9573
+C) 8473
+D) Cannot be determined
+Answer: D
+Explanation: The letters W, R, K are not present in HOME or SHOP, so their codes cannot be derived.
+
+22. Choose the pair that has a similar relationship to Book : Chapter
+A) Building : Story
+B) Tree : Forest
+C) Computer : Screen
+D) Body : Organ
+Answer: A
+Explanation: A book is composed of chapters, just as a building is composed of stories.
+
+23. Which of the following is the same as Count, List, Weight?
+A) Sequence
+B) Number
+C) Measure
+D) Compare
+Answer: C
+Explanation: Count, List, and Weight are all verbs related to quantifying or organizing items. Measure is also a verb denoting quantification.
+
+24. Play is to actor as concert is to:
+A) Symphony
+B) Musician
+C) Piano
+D) Percussion
+Answer: B
+Explanation: An actor performs in a play; a musician performs in a concert.
+
+25. A father is now three times as old as his son. Five years back, he was four times as old as his son. The age of the son is:
+A) 12
+B) 15
+C) 18
+D) 20
+Answer: B
+Explanation: Let son's age be x, father's is 3x. 5 years ago: (3x - 5) = 4(x - 5) -> 3x - 5 = 4x - 20 -> x = 15.
+
+26. Complete the series: 1, 4, 9, 16, 25, 36, 49, ...
+A) 54
+B) 56
+C) 64
+D) 81
+Answer: C
+Explanation: These are the squares of natural numbers. The next is 8^2 = 64.
+
+27. Find the missing letter: A, C, F, J, ?
+A) L
+B) M
+C) N
+D) O
+Answer: D
+Explanation: The letters jump by 2, 3, 4 positions. A(+2)=C, C(+3)=F, F(+4)=J. Next is J(+5) = O.
+
+28. In a certain code language, '134' means 'good and tasty', '478' means 'see good pictures' and '729' means 'pictures are faint'. Which of the following digits stands for 'see'?
+A) 9
+B) 2
+C) 1
+D) 8
+Answer: D
+Explanation: 'good' is common in 1st and 2nd statement, so code is 4. 'pictures' is common in 2nd and 3rd, so code is 7. Remaining word in 2nd is 'see', remaining digit is 8.
+
+29. Five children are sitting in a row. S is sitting next to P but not T. K is sitting next to R who is sitting on the extreme left and T is not sitting next to K. Who are sitting adjacent to S?
+A) K and P
+B) R and P
+C) Only P
+D) P and T
+Answer: D
+Explanation: R is on the extreme left. K is next to R (R K ...). T is not next to K, so T is further right. S is next to P but not T. The arrangement is R, K, P, S, T. S is adjacent to P and T.
+
+30. Six friends A, B, C, D, E and F are sitting in a circle facing the center. C is to the left of D, F is between A and E, and E is between F and D. Who is to the left of B?
+A) A
+B) C
+C) D
+D) E
+Answer: A
+Explanation: D is right of C. E is between F and D (D, E, F). F is between A and E (E, F, A). The sequence is C, D, E, F, A. Since they sit in a circle, B must be between A and C. A is to the left of B.

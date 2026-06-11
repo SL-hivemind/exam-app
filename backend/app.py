@@ -64,7 +64,7 @@ if not all([DB_USER, DB_HOST, DB_NAME]):
 
 if DB_ENGINE == "mysql":
     app.config["SQLALCHEMY_DATABASE_URI"] = (
-        f"mysql+mysqlconnector://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+        f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
     )
 else:
     app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{os.path.join(BASE_DIR, 'app.db')}"

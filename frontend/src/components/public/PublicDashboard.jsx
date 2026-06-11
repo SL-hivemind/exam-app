@@ -21,12 +21,16 @@ import MenuIcon from '@mui/icons-material/Menu';
 import AddIcon from '@mui/icons-material/Add';
 import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment';
 import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutline';
+import ScienceIcon from '@mui/icons-material/Science';
+import AutoStoriesIcon from '@mui/icons-material/AutoStories';
+import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
+import SearchIcon from '@mui/icons-material/Search';
 import { useNavigate } from 'react-router-dom';
 import { publicApi } from '../../utils/api';
 import useAuth from '../../hooks/useAuth';
 
 const ff = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
-const SIDEBAR_W = 260;
+const SIDEBAR_W = 220;
 
 export default function PublicDashboard() {
   const { user, logout } = useAuth();
@@ -44,6 +48,8 @@ export default function PublicDashboard() {
   const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [dailyStreak, setDailyStreak] = useState(0);
+  const [challengeCompleted, setChallengeCompleted] = useState(false);
 
   const loadData = () => {
     setLoading(true);
@@ -55,6 +61,10 @@ export default function PublicDashboard() {
       setAvailableCourses(d.data.available_courses || []);
       setAttempts(a.data.attempts || []);
     }).finally(() => setLoading(false));
+    // Load streak info
+    publicApi.myProfile().then(r => {
+      setDailyStreak(r.data?.profile?.daily_streak || 0);
+    }).catch(() => {});
   };
 
   useEffect(() => {
@@ -113,7 +123,7 @@ export default function PublicDashboard() {
   ];
 
   const sidebar = (
-    <Box sx={{ width: SIDEBAR_W, height: '100%', bgcolor: '#0f172a', display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ width: SIDEBAR_W, height: '100%', bgcolor: '#0f172a', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
       {/* User info */}
       <Box sx={{ p: 2.5, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
@@ -128,19 +138,19 @@ export default function PublicDashboard() {
       </Box>
 
       {/* Nav */}
-      <Box sx={{ flex: 1, py: 1.5, px: 1.5 }}>
+      <Box sx={{ flex: 1, py: 1, px: 1 }}>
         {sidebarItems.map(item => (
           <Box key={item.id} onClick={() => { setTab(item.id); setMobileOpen(false); }}
             sx={{
-              display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.2,
-              borderRadius: '10px', cursor: 'pointer', mb: 0.5,
+              display: 'flex', alignItems: 'center', gap: 1.2, px: 1.5, py: 0.8,
+              borderRadius: '8px', cursor: 'pointer', mb: 0.3,
               bgcolor: tab === item.id ? 'rgba(59,130,246,0.15)' : 'transparent',
               color: tab === item.id ? '#60a5fa' : '#94a3b8',
               transition: 'all 0.15s',
               '&:hover': { bgcolor: 'rgba(255,255,255,0.05)', color: '#fff' },
             }}>
-            {React.cloneElement(item.icon, { sx: { fontSize: 20 } })}
-            <Typography sx={{ fontFamily: ff, fontWeight: 600, fontSize: '0.85rem' }}>{item.label}</Typography>
+            {React.cloneElement(item.icon, { sx: { fontSize: 18 } })}
+            <Typography sx={{ fontFamily: ff, fontWeight: 600, fontSize: '0.8rem' }}>{item.label}</Typography>
           </Box>
         ))}
       </Box>
@@ -163,16 +173,21 @@ export default function PublicDashboard() {
 
   /* ── OVERVIEW TAB ── */
   const renderOverview = () => {
-    // Find a free exam for the Daily Quiz
-    let dailyQuiz = null;
-    for (const ac of availableCourses) {
-      // If we don't have contents populated in availableCourses, we might need a fallback.
-      // Since the backend doesn't send contents for available courses in dashboard-data,
-      // we'll just show a generic daily quiz UI that links to the catalog, or use a course.
-    }
-
-    // Calculate a mock streak or use a placeholder
-    const mockStreak = completedAttempts.length > 0 ? 3 : 0;
+    const handleStartChallenge = async () => {
+      try {
+        const r = await publicApi.challengeStart();
+        if (r.data.already_completed) {
+          setChallengeCompleted(true);
+          setDailyStreak(r.data.streak || 0);
+          setMsg(`Already completed today! Score: ${r.data.score}/5`);
+        } else {
+          // For now, show a message - full CBT player integration comes later
+          setMsg(`Daily Challenge started! ${r.data.questions?.length || 5} questions loaded.`);
+        }
+      } catch (err) {
+        setError(err.response?.data?.message || 'Could not start challenge');
+      }
+    };
 
     return (
     <>
@@ -180,7 +195,7 @@ export default function PublicDashboard() {
         {[
           { label: 'Enrolled', value: dashboardCourses.length, icon: <SchoolIcon />, color: '#2563eb', bg: 'rgba(37,99,235,0.08)' },
           { label: 'Exams Taken', value: completedAttempts.length, icon: <QuizIcon />, color: '#16a34a', bg: 'rgba(22,163,74,0.08)' },
-          { label: 'Daily Streak', value: `${mockStreak} Days`, icon: <LocalFireDepartmentIcon />, color: '#f97316', bg: 'rgba(249,115,22,0.1)' },
+          { label: 'Daily Streak', value: dailyStreak > 0 ? `${dailyStreak} Days` : '0 Days', icon: <LocalFireDepartmentIcon />, color: '#f97316', bg: 'rgba(249,115,22,0.1)' },
           { label: 'Best Score', value: bestScore != null ? bestScore : '—', icon: <TrendingUpIcon />, color: '#eab308', bg: 'rgba(234,179,8,0.08)' },
         ].map((s, i) => (
           <Grid item xs={12} sm={6} md={3} key={i}>
@@ -196,6 +211,36 @@ export default function PublicDashboard() {
           </Grid>
         ))}
       </Grid>
+
+      {/* ── Quick Prep Hub ── */}
+      <Box sx={{ mb: 4 }}>
+        <Typography sx={{ fontFamily: ff, fontWeight: 700, fontSize: '1rem', color: '#0f172a', mb: 2 }}>Quick Prep Hub</Typography>
+        <Grid container spacing={2}>
+          {[
+            { label: 'Chapter Practice', desc: 'Focus on one topic', icon: <AutoStoriesIcon />, color: '#2563eb', bg: 'linear-gradient(135deg, rgba(37,99,235,0.08), rgba(59,130,246,0.04))', action: () => setTab('courses') },
+            { label: 'Subject Practice', desc: 'Mix all chapters', icon: <ScienceIcon />, color: '#7c3aed', bg: 'linear-gradient(135deg, rgba(124,58,237,0.08), rgba(139,92,246,0.04))', action: () => setTab('courses') },
+            { label: 'Full Mock Test', desc: 'Complete exam mix', icon: <EmojiEventsIcon />, color: '#f59e0b', bg: 'linear-gradient(135deg, rgba(245,158,11,0.08), rgba(251,191,36,0.04))', action: () => setTab('courses') },
+            { label: 'Previous Papers', desc: 'PYQ question papers', icon: <HistoryIcon />, color: '#0d9488', bg: 'linear-gradient(135deg, rgba(13,148,136,0.08), rgba(20,184,166,0.04))', action: () => setTab('courses') },
+            { label: 'Study Materials', desc: 'PDFs & videos', icon: <MenuBookIcon />, color: '#dc2626', bg: 'linear-gradient(135deg, rgba(220,38,38,0.08), rgba(239,68,68,0.04))', action: () => setTab('courses') },
+          ].map((item, i) => (
+            <Grid item xs={6} sm={4} md={2.4} key={i}>
+              <Card onClick={item.action} sx={{
+                borderRadius: '14px', border: '1px solid #e2e8f0', boxShadow: 'none',
+                cursor: 'pointer', transition: 'all 0.2s ease', background: item.bg,
+                '&:hover': { borderColor: item.color, transform: 'translateY(-2px)', boxShadow: `0 6px 20px ${item.color}15` },
+              }}>
+                <CardContent sx={{ p: 2, textAlign: 'center', '&:last-child': { pb: 2 } }}>
+                  <Box sx={{ width: 40, height: 40, borderRadius: '10px', bgcolor: `${item.color}12`, display: 'flex', alignItems: 'center', justifyContent: 'center', mx: 'auto', mb: 1, color: item.color }}>
+                    {React.cloneElement(item.icon, { sx: { fontSize: 22 } })}
+                  </Box>
+                  <Typography sx={{ fontFamily: ff, fontWeight: 700, fontSize: '0.78rem', color: '#0f172a', lineHeight: 1.2 }}>{item.label}</Typography>
+                  <Typography sx={{ fontFamily: ff, fontSize: '0.65rem', color: '#94a3b8', mt: 0.3 }}>{item.desc}</Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
+      </Box>
 
       <Grid container spacing={3} sx={{ mb: 4 }}>
         <Grid item xs={12} md={8}>
@@ -236,16 +281,20 @@ export default function PublicDashboard() {
               <LocalFireDepartmentIcon sx={{ fontSize: 100 }} />
             </Box>
             <CardContent sx={{ p: 3, position: 'relative', zIndex: 1 }}>
-              <Chip label="Quiz of the Day" size="small" sx={{ bgcolor: 'rgba(255,255,255,0.1)', color: '#60a5fa', fontWeight: 700, fontFamily: ff, mb: 2, fontSize: '0.7rem' }} />
-              <Typography sx={{ fontFamily: ff, fontSize: '1.15rem', fontWeight: 800, mb: 1, lineHeight: 1.3 }}>
-                General Knowledge Mini-Test
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                <Chip label="Quiz of the Day" size="small" sx={{ bgcolor: 'rgba(255,255,255,0.1)', color: '#60a5fa', fontWeight: 700, fontFamily: ff, fontSize: '0.7rem' }} />
+                {dailyStreak > 0 && <Chip label={`\uD83D\uDD25 ${dailyStreak} Day Streak`} size="small" sx={{ bgcolor: 'rgba(249,115,22,0.2)', color: '#fb923c', fontWeight: 700, fontFamily: ff, fontSize: '0.7rem' }} />}
+              </Box>
+              <Typography sx={{ fontFamily: ff, fontSize: '1.1rem', fontWeight: 800, mb: 1, lineHeight: 1.3 }}>
+                5 Mixed Questions
               </Typography>
               <Typography sx={{ fontFamily: ff, fontSize: '0.8rem', color: '#94a3b8', mb: 3 }}>
-                5 Questions • 10 Minutes
+                Based on your enrolled courses
               </Typography>
-              <Button fullWidth onClick={() => navigate('/public')} variant="contained" endIcon={<PlayCircleOutlineIcon />}
-                sx={{ fontFamily: ff, fontWeight: 700, textTransform: 'none', borderRadius: '10px', background: 'linear-gradient(135deg, #3b82f6, #2563eb)', color: '#fff', '&:hover': { background: '#2563eb' } }}>
-                Start Challenge
+              <Button fullWidth onClick={handleStartChallenge} variant="contained" endIcon={challengeCompleted ? <CheckCircleIcon /> : <PlayCircleOutlineIcon />}
+                disabled={challengeCompleted}
+                sx={{ fontFamily: ff, fontWeight: 700, textTransform: 'none', borderRadius: '10px', background: challengeCompleted ? 'rgba(34,197,94,0.2)' : 'linear-gradient(135deg, #3b82f6, #2563eb)', color: '#fff', '&:hover': { background: challengeCompleted ? 'rgba(34,197,94,0.2)' : '#2563eb' }, '&.Mui-disabled': { color: '#22c55e' } }}>
+                {challengeCompleted ? 'Completed Today' : 'Start Challenge'}
               </Button>
             </CardContent>
           </Card>
@@ -428,7 +477,7 @@ export default function PublicDashboard() {
   const tabTitles = { overview: 'Dashboard Overview', courses: 'My Courses', history: 'Exam History' };
 
   return (
-    <Box sx={{ display: 'flex', minHeight: 'calc(100vh - 64px)', fontFamily: ff }}>
+    <Box sx={{ display: 'flex', minHeight: 'calc(100vh - 50px)', fontFamily: ff }}>
       {/* Desktop sidebar */}
       {!isMobile && <Box sx={{ width: SIDEBAR_W, flexShrink: 0 }}>{sidebar}</Box>}
 
