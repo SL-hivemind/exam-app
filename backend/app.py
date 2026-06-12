@@ -100,6 +100,7 @@ CORS(
     resources={r"/*": {"origins": [
         "http://localhost:3000",
         "http://127.0.0.1:3000",
+        "http://192.168.1.18:3000",
         "https://sl-exam.onrender.com"
     ]}},
     supports_credentials=True,

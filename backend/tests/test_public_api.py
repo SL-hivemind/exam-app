@@ -541,6 +541,74 @@ def test_admin_public_course_crud(client):
         course_db = PublicCourse.query.get(course_id)
         assert course_db is None
 
+def test_admin_public_course_delete_with_attempts(client):
+    """Test that deleting a course deletes its contents and associated attempts without IntegrityErrors."""
+    admin_headers = get_admin_auth_headers(client)
+    
+    # 1. Register a student so we have a profile to link an attempt
+    reg_data = {
+        'email': 'student_test_del@example.com',
+        'username': 'student_del_user',
+        'password': 'securepassword123'
+    }
+    client.post('/public/register/init', json=reg_data)
+    with app.app_context():
+        otp_record = EmailVerificationOTP.query.filter_by(email='student_test_del@example.com', used=False).first()
+        otp_code = otp_record.otp_code
+    
+    verify_data = reg_data.copy()
+    verify_data['otp'] = otp_code
+    verify_data['phone_number'] = '1234567890'
+    resp = client.post('/public/register/verify', json=verify_data)
+    assert resp.status_code == 201
+    
+    # Get the student auth headers
+    student_headers = get_auth_headers(client, 'student_test_del@example.com', 'securepassword123')
+
+    # 2. Create a course, add content to it, and have the student attempt it
+    new_course = {
+        'title': 'Course to Delete',
+        'description': 'Will delete this',
+        'price': 0.0,
+        'status': 'published'
+    }
+    resp = client.post('/admin/public/courses', json=new_course, headers=admin_headers)
+    assert resp.status_code == 201
+    course_id = resp.get_json()['course']['id']
+    
+    # Enroll the student
+    resp = client.post(f'/public/courses/{course_id}/enroll', headers=student_headers)
+    assert resp.status_code in (200, 201)
+
+    # Add content (exam) to the course
+    with app.app_context():
+        content = CourseContent(
+            course_id=course_id,
+            title='Calculus Exam to Delete',
+            content_type='pdf_exam',
+            is_free=True,
+            total_questions=5,
+            duration_minutes=30
+        )
+        db.session.add(content)
+        db.session.commit()
+        content_id = content.id
+
+    # Student starts the exam attempt
+    resp = client.post(f'/public/content/{content_id}/start-exam', headers=student_headers)
+    assert resp.status_code == 201
+    attempt_id = resp.get_json()['attempt']['id']
+
+    # 3. Delete the course as admin
+    resp = client.delete(f'/admin/public/courses/{course_id}', headers=admin_headers)
+    assert resp.status_code == 200
+
+    # 4. Verify everything is deleted
+    with app.app_context():
+        assert PublicCourse.query.get(course_id) is None
+        assert CourseContent.query.get(content_id) is None
+        assert PublicExamAttempt.query.get(attempt_id) is None
+
 def test_admin_public_content_crud(client):
     """Test admin CRUD controls for course content items."""
     admin_headers = get_admin_auth_headers(client)

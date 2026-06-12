@@ -130,6 +130,12 @@ export const publicApi = {
   // Course Structure & Search
   courseStructure: (courseId) => api.get(`/public/courses/${courseId}/structure`),
   contentSearch: (params) => api.get('/public/content/search', { params }),
+
+  // Study mode (practice with answers, no attempt recorded)
+  studySession: (contentId) => api.post(`/public/content/${contentId}/study-session`),
+
+  // Admin: batch reorder content items
+  adminReorderContents: (courseId, orderedIds) => api.put(`/admin/public/courses/${courseId}/reorder`, { order: orderedIds }),
 };
 
 

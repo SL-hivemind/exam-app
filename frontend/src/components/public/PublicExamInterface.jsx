@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box, Typography, Button, Toolbar, Alert, CircularProgress,
-  Drawer, IconButton, Chip, Dialog, DialogTitle, DialogContent,
+  Drawer, IconButton, Chip, Dialog, DialogTitle, DialogContent, Snackbar,
   DialogActions, useMediaQuery, useTheme, Fab, Tooltip, Radio,
 } from '@mui/material';
 import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore';
@@ -16,6 +16,8 @@ import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
 import FullscreenIcon from '@mui/icons-material/Fullscreen';
 import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
 import VisibilityIcon from '@mui/icons-material/Visibility';
+import ReplayIcon from '@mui/icons-material/Replay';
+import SchoolIcon from '@mui/icons-material/School';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { publicApi } from '../../utils/api';
 
@@ -50,6 +52,13 @@ export default function PublicExamInterface() {
   const [cbtQuestions, setCbtQuestions] = useState([]);
   const [currentQ, setCurrentQ] = useState(1);
 
+  // Study mode state
+  const isStudyMode = location.state?.mode === 'study';
+  const [studyAnswerKey, setStudyAnswerKey] = useState({});
+  const [studyRevealed, setStudyRevealed] = useState({});  // tracks which questions have been answered
+  const [studyScore, setStudyScore] = useState({ correct: 0, wrong: 0 });
+  const [studyFinished, setStudyFinished] = useState(false);
+
   // Load content and start attempt
   useEffect(() => {
     const init = async () => {
@@ -57,41 +66,65 @@ export default function PublicExamInterface() {
         const isCbt = content?.content_type === 'cbt_exam';
         const isExamType = content?.content_type === 'pdf_exam' || isCbt;
 
-        if (isExamType || !content) {
+        if (isStudyMode) {
+          // Study mode: load questions with answers, no attempt created
           try {
-            const startRes = await publicApi.startExam(contentId);
-            const attemptData = startRes.data.attempt;
-            setAttempt(attemptData);
-            setTotalQuestions(startRes.data.total_questions || 0);
-            setDurationMinutes(startRes.data.duration_minutes || 60);
-
-            if (startRes.data.already_submitted || attemptData.submitted_at) {
-              setSubmitted(true);
-              setResult(attemptData);
+            const studyRes = await publicApi.studySession(contentId);
+            setTotalQuestions(studyRes.data.total || 0);
+            setDurationMinutes(studyRes.data.duration_minutes || 60);
+            setStudyAnswerKey(studyRes.data.answer_key || {});
+            if (isCbt && studyRes.data.questions?.length) {
+              setCbtQuestions(studyRes.data.questions);
             }
-          } catch (examErr) {
-            if (examErr.response?.status === 404 && content?.content_type === 'pdf_material') {
-              // Just study material
-            } else {
-              throw examErr;
+          } catch (err) {
+            setError(err.response?.data?.message || 'Failed to load study session');
+          }
+          // Also load PDF for pdf_exam study mode
+          if (!isCbt) {
+            try {
+              const pdfRes = await publicApi.getContentFile(contentId);
+              const blob = new Blob([pdfRes.data], { type: 'application/pdf' });
+              setPdfUrl(URL.createObjectURL(blob));
+            } catch { /* PDF may not be available */ }
+          }
+        } else {
+          // Exam mode: existing behavior
+          if (isExamType || !content) {
+            try {
+              const startRes = await publicApi.startExam(contentId);
+              const attemptData = startRes.data.attempt;
+              setAttempt(attemptData);
+              setTotalQuestions(startRes.data.total_questions || 0);
+              setDurationMinutes(startRes.data.duration_minutes || 60);
+
+              if (startRes.data.already_submitted || attemptData.submitted_at) {
+                setSubmitted(true);
+                setResult(attemptData);
+              }
+            } catch (examErr) {
+              if (examErr.response?.status === 404 && content?.content_type === 'pdf_material') {
+                // Just study material
+              } else {
+                throw examErr;
+              }
             }
           }
-        }
 
-        // For CBT exams: load native questions instead of PDF
-        if (isCbt || content?.content_type === 'cbt_exam') {
-          try {
-            const qRes = await publicApi.getQuestions(contentId);
-            setCbtQuestions(qRes.data.questions || []);
-            if (!totalQuestions && qRes.data.total) setTotalQuestions(qRes.data.total);
-          } catch { /* questions may not exist yet */ }
-        } else {
-          // Fetch PDF blob for pdf_exam or pdf_material
-          try {
-            const pdfRes = await publicApi.getContentFile(contentId);
-            const blob = new Blob([pdfRes.data], { type: 'application/pdf' });
-            setPdfUrl(URL.createObjectURL(blob));
-          } catch { /* PDF may not be available */ }
+          // For CBT exams: load native questions instead of PDF
+          if (isCbt || content?.content_type === 'cbt_exam') {
+            try {
+              const qRes = await publicApi.getQuestions(contentId);
+              setCbtQuestions(qRes.data.questions || []);
+              if (!totalQuestions && qRes.data.total) setTotalQuestions(qRes.data.total);
+            } catch { /* questions may not exist yet */ }
+          } else {
+            // Fetch PDF blob for pdf_exam or pdf_material
+            try {
+              const pdfRes = await publicApi.getContentFile(contentId);
+              const blob = new Blob([pdfRes.data], { type: 'application/pdf' });
+              setPdfUrl(URL.createObjectURL(blob));
+            } catch { /* PDF may not be available */ }
+          }
         }
       } catch (err) {
         setError(err.response?.data?.message || 'Failed to open content');
@@ -106,9 +139,9 @@ export default function PublicExamInterface() {
     };
   }, [contentId]);
 
-  // Timer
+  // Timer (disabled in study mode)
   useEffect(() => {
-    if (!attempt || submitted || !attempt.start_time) return;
+    if (isStudyMode || !attempt || submitted || !attempt.start_time) return;
 
     // Append 'Z' to indicate UTC time if missing, to avoid incorrect local timezone parsing
     const startTimeStr = attempt.start_time.endsWith('Z') ? attempt.start_time : `${attempt.start_time}Z`;
@@ -136,8 +169,19 @@ export default function PublicExamInterface() {
 
   const handleAnswer = useCallback((qNum, option) => {
     if (reviewMode) return;
+    // In study mode, lock answer after first selection and reveal correct answer
+    if (isStudyMode && studyRevealed[qNum]) return;
     setAnswers(prev => ({ ...prev, [qNum]: option }));
-  }, [reviewMode]);
+    if (isStudyMode) {
+      setStudyRevealed(prev => ({ ...prev, [qNum]: true }));
+      const correct = studyAnswerKey[qNum];
+      if (correct && option.toUpperCase() === correct.toUpperCase()) {
+        setStudyScore(prev => ({ ...prev, correct: prev.correct + 1 }));
+      } else {
+        setStudyScore(prev => ({ ...prev, wrong: prev.wrong + 1 }));
+      }
+    }
+  }, [reviewMode, isStudyMode, studyRevealed, studyAnswerKey]);
 
   const toggleMark = useCallback((qNum) => {
     if (reviewMode) return;
@@ -158,9 +202,9 @@ export default function PublicExamInterface() {
     return () => document.removeEventListener('fullscreenchange', handler);
   }, []);
 
-  // Tab-switch detection
+  // Tab-switch detection (disabled in study mode)
   useEffect(() => {
-    if (!attempt || submitted || reviewMode) return;
+    if (isStudyMode || !attempt || submitted || reviewMode) return;
     const handler = () => {
       if (document.hidden) {
         setTabWarning(p => p + 1);
@@ -169,7 +213,23 @@ export default function PublicExamInterface() {
     };
     document.addEventListener('visibilitychange', handler);
     return () => document.removeEventListener('visibilitychange', handler);
-  }, [attempt, submitted, reviewMode]);
+  }, [attempt, submitted, reviewMode, isStudyMode]);
+
+  // Study mode: reset & try again
+  const handleStudyReset = () => {
+    setAnswers({});
+    setStudyRevealed({});
+    setStudyScore({ correct: 0, wrong: 0 });
+    setStudyFinished(false);
+    setCurrentQ(1);
+  };
+
+  // Study mode: check if all questions answered
+  useEffect(() => {
+    if (isStudyMode && totalQuestions > 0 && Object.keys(studyRevealed).length >= totalQuestions && !studyFinished) {
+      setStudyFinished(true);
+    }
+  }, [studyRevealed, totalQuestions, isStudyMode, studyFinished]);
 
   // Review mode loader
   const loadReview = async (attemptId) => {
@@ -224,6 +284,11 @@ export default function PublicExamInterface() {
       if (!userAns) return 'unanswered';
       return userAns.toUpperCase() === (correctAns || '').toUpperCase() ? 'correct' : 'wrong';
     }
+    // Study mode: show correct/wrong after reveal
+    if (isStudyMode && studyRevealed[q]) {
+      const correctAns = studyAnswerKey[q];
+      return answers[q]?.toUpperCase() === correctAns?.toUpperCase() ? 'correct' : 'wrong';
+    }
     if (marked[q]) return 'marked';
     if (answers[q]) return 'answered';
     return 'unanswered';
@@ -241,11 +306,15 @@ export default function PublicExamInterface() {
     <Box sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column', bgcolor: inDrawer ? '#fff' : '#f8fafc' }}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5, pb: 1.5, borderBottom: '1px solid #e2e8f0', flexShrink: 0 }}>
         <Typography sx={{ fontFamily: ff, fontWeight: 700, fontSize: '1rem', color: '#0f172a' }}>
-          {reviewMode ? '📋 Review Mode' : 'Answer Sheet'}
+          {isStudyMode ? '📚 Study Mode' : reviewMode ? '📋 Review Mode' : 'Answer Sheet'}
         </Typography>
-        {!reviewMode && (
+        {!reviewMode && !isStudyMode && (
           <Chip icon={<TimerIcon sx={{ fontSize: 16 }} />} label={formatTime(timeLeft)} size="small"
             sx={{ fontFamily: ff, fontWeight: 700, bgcolor: timeLeft !== null && timeLeft < 300 ? 'rgba(239,68,68,0.1)' : 'rgba(59,130,246,0.1)', color: timeLeft !== null && timeLeft < 300 ? '#ef4444' : '#2563eb', '& .MuiChip-icon': { color: 'inherit' } }} />
+        )}
+        {isStudyMode && (
+          <Chip icon={<SchoolIcon sx={{ fontSize: 16 }} />} label={`${studyScore.correct}✓ ${studyScore.wrong}✗`} size="small"
+            sx={{ fontFamily: ff, fontWeight: 700, bgcolor: 'rgba(168,85,247,0.1)', color: '#a855f7', '& .MuiChip-icon': { color: 'inherit' } }} />
         )}
       </Box>
       <Box sx={{ mb: 1.5, flexShrink: 0 }}>
@@ -282,24 +351,25 @@ export default function PublicExamInterface() {
       <Box sx={{ flex: 1, overflowY: 'auto', pr: 1, minHeight: 0, '&::-webkit-scrollbar': { width: '6px' }, '&::-webkit-scrollbar-thumb': { bgcolor: '#cbd5e1', borderRadius: '10px' } }}>
         {Array.from({ length: totalQuestions }, (_, i) => i + 1).map(qNum => {
           const qStr = String(qNum);
-          const correctAns = reviewMode ? reviewData?.answer_key?.[qStr] : null;
-          const rowBg = reviewMode ? (answers[qStr] ? (answers[qStr]?.toUpperCase() === correctAns?.toUpperCase() ? 'rgba(34,197,94,0.06)' : 'rgba(239,68,68,0.06)') : 'transparent') : (marked[qStr] ? 'rgba(234,179,8,0.06)' : answers[qStr] ? 'rgba(59,130,246,0.04)' : 'transparent');
-          const rowBorder = reviewMode ? (answers[qStr] ? (answers[qStr]?.toUpperCase() === correctAns?.toUpperCase() ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)') : 'transparent') : (marked[qStr] ? 'rgba(234,179,8,0.2)' : answers[qStr] ? 'rgba(59,130,246,0.15)' : 'transparent');
+          const correctAns = (reviewMode ? reviewData?.answer_key?.[qStr] : null) || (isStudyMode && studyRevealed[qStr] ? studyAnswerKey[qStr] : null);
+          const showReveal = reviewMode || (isStudyMode && studyRevealed[qStr]);
+          const rowBg = showReveal ? (answers[qStr] ? (answers[qStr]?.toUpperCase() === correctAns?.toUpperCase() ? 'rgba(34,197,94,0.06)' : 'rgba(239,68,68,0.06)') : 'transparent') : (marked[qStr] ? 'rgba(234,179,8,0.06)' : answers[qStr] ? 'rgba(59,130,246,0.04)' : 'transparent');
+          const rowBorder = showReveal ? (answers[qStr] ? (answers[qStr]?.toUpperCase() === correctAns?.toUpperCase() ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)') : 'transparent') : (marked[qStr] ? 'rgba(234,179,8,0.2)' : answers[qStr] ? 'rgba(59,130,246,0.15)' : 'transparent');
           return (
             <Box key={qNum} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5, p: 1, borderRadius: '10px', bgcolor: rowBg, border: '1px solid', borderColor: rowBorder }}>
               <Typography sx={{ fontFamily: ff, fontWeight: 700, fontSize: '0.82rem', color: '#64748b', minWidth: 32, textAlign: 'right' }}>Q{qNum}</Typography>
               {options.map(opt => {
                 const isSelected = answers[qStr] === opt;
-                const isCorrect = reviewMode && correctAns?.toUpperCase() === opt;
-                const isWrong = reviewMode && isSelected && !isCorrect;
+                const isCorrect = showReveal && correctAns?.toUpperCase() === opt;
+                const isWrong = showReveal && isSelected && !isCorrect;
                 let bg = '#fff', clr = '#334155', border = '#d1d5db', shadow = 'none';
-                if (reviewMode) {
+                if (showReveal) {
                   if (isCorrect) { bg = '#22c55e'; clr = '#fff'; border = '#22c55e'; shadow = '0 2px 8px rgba(34,197,94,0.3)'; }
                   else if (isWrong) { bg = '#ef4444'; clr = '#fff'; border = '#ef4444'; shadow = '0 2px 8px rgba(239,68,68,0.3)'; }
                 } else if (isSelected) { bg = '#2563eb'; clr = '#fff'; border = '#2563eb'; shadow = '0 2px 8px rgba(37,99,235,0.3)'; }
                 return (
                   <Box key={opt} onClick={(e) => { e.preventDefault(); handleAnswer(qStr, opt); }} role="button" tabIndex={0}
-                    sx={{ width: 36, height: 36, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: reviewMode ? 'default' : 'pointer', fontFamily: ff, fontWeight: 700, fontSize: '0.82rem', transition: 'all 0.15s ease', userSelect: 'none', bgcolor: bg, color: clr, border: '2px solid', borderColor: border, boxShadow: shadow, ...(!reviewMode && { '&:hover': { borderColor: '#2563eb', transform: 'scale(1.1)' } }) }}>
+                    sx={{ width: 36, height: 36, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: (showReveal || (isStudyMode && studyRevealed[qStr])) ? 'default' : 'pointer', fontFamily: ff, fontWeight: 700, fontSize: '0.82rem', transition: 'all 0.15s ease', userSelect: 'none', bgcolor: bg, color: clr, border: '2px solid', borderColor: border, boxShadow: shadow, ...(!(showReveal || (isStudyMode && studyRevealed[qStr])) && { '&:hover': { borderColor: '#2563eb', transform: 'scale(1.1)' } }) }}>
                     {opt}
                   </Box>
                 );
@@ -319,7 +389,25 @@ export default function PublicExamInterface() {
         })}
       </Box>
       <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid #e2e8f0', flexShrink: 0 }}>
-        {reviewMode ? (
+        {isStudyMode ? (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            {studyFinished && (
+              <Box sx={{ textAlign: 'center', mb: 1, p: 1.5, bgcolor: 'rgba(168,85,247,0.06)', borderRadius: '10px' }}>
+                <Typography sx={{ fontFamily: ff, fontWeight: 700, fontSize: '0.85rem', color: '#7c3aed' }}>
+                  {studyScore.correct} correct, {studyScore.wrong} wrong of {totalQuestions}
+                </Typography>
+              </Box>
+            )}
+            <Button fullWidth onClick={handleStudyReset} startIcon={<ReplayIcon />} variant="outlined"
+              sx={{ fontFamily: ff, fontWeight: 700, textTransform: 'none', borderRadius: '12px', py: 1.2, borderColor: '#a855f7', color: '#a855f7', '&:hover': { bgcolor: 'rgba(168,85,247,0.06)', borderColor: '#9333ea' } }}>
+              Reset & Try Again
+            </Button>
+            <Button fullWidth onClick={() => navigate('/public/dashboard')} variant="contained"
+              sx={{ fontFamily: ff, fontWeight: 700, textTransform: 'none', borderRadius: '12px', py: 1.2, background: 'linear-gradient(135deg, #2563eb, #3b82f6)' }}>
+              Back to Dashboard
+            </Button>
+          </Box>
+        ) : reviewMode ? (
           <Button fullWidth onClick={() => navigate('/public/dashboard')} variant="contained"
             sx={{ fontFamily: ff, fontWeight: 700, textTransform: 'none', borderRadius: '12px', py: 1.5, background: 'linear-gradient(135deg, #2563eb, #3b82f6)' }}>
             Back to Dashboard
@@ -343,8 +431,8 @@ export default function PublicExamInterface() {
     );
   }
 
-  // ── SUBMITTED / RESULT STATE ──
-  if (submitted && result && !reviewMode) {
+  // ── SUBMITTED / RESULT STATE (skip in study mode) ──
+  if (!isStudyMode && submitted && result && !reviewMode) {
     return (
       <Box sx={{ minHeight: '100vh', bgcolor: '#f8fafc', fontFamily: ff, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         <Toolbar />
@@ -384,14 +472,18 @@ export default function PublicExamInterface() {
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
           <IconButton onClick={() => navigate(-1)} sx={{ color: '#94a3b8' }}><ArrowBackIcon /></IconButton>
           <Typography sx={{ fontFamily: ff, fontWeight: 700, color: '#fff', fontSize: '0.9rem' }} noWrap>
-            {reviewMode ? '📋 Review: ' : ''}{content?.title || 'Course Content'}
+            {isStudyMode ? '📚 Study: ' : reviewMode ? '📋 Review: ' : ''}{content?.title || 'Course Content'}
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          {tabWarning > 0 && !reviewMode && (
+          {isStudyMode && (
+            <Chip icon={<SchoolIcon sx={{ fontSize: 14 }} />} label="Practice" size="small"
+              sx={{ fontFamily: ff, fontWeight: 700, fontSize: '0.72rem', bgcolor: 'rgba(168,85,247,0.2)', color: '#d8b4fe', '& .MuiChip-icon': { color: 'inherit' } }} />
+          )}
+          {tabWarning > 0 && !reviewMode && !isStudyMode && (
             <Chip label={`⚠ ${tabWarning} tab switches`} size="small" sx={{ fontFamily: ff, fontWeight: 600, bgcolor: 'rgba(239,68,68,0.2)', color: '#fca5a5', fontSize: '0.72rem' }} />
           )}
-          {content?.content_type === 'pdf_exam' && !reviewMode && (
+          {content?.content_type === 'pdf_exam' && !reviewMode && !isStudyMode && (
             <Chip icon={<TimerIcon sx={{ fontSize: 16 }} />} label={formatTime(timeLeft)} size="small"
               sx={{ fontFamily: ff, fontWeight: 700, fontSize: '0.85rem', bgcolor: timeLeft !== null && timeLeft < 300 ? 'rgba(239,68,68,0.2)' : 'rgba(59,130,246,0.2)', color: timeLeft !== null && timeLeft < 300 ? '#fca5a5' : '#93c5fd', '& .MuiChip-icon': { color: 'inherit' } }} />
           )}
@@ -417,19 +509,26 @@ export default function PublicExamInterface() {
               const opts = typeof qData.options_json === 'string' ? JSON.parse(qData.options_json) : qData.options_json;
               const qNum = String(qData.order_index || currentQ);
               const userAns = answers[qNum];
-              const correctAns = reviewMode && reviewData ? reviewData.answer_key?.[qNum] : null;
+              const correctAns = (reviewMode && reviewData ? reviewData.answer_key?.[qNum] : null) || (isStudyMode && studyRevealed[qNum] ? studyAnswerKey[qNum] : null);
+              const showRevealQ = reviewMode || (isStudyMode && studyRevealed[qNum]);
               return (
                 <Box sx={{ maxWidth: 720, mx: 'auto', p: { xs: 2, md: 4 }, pt: { xs: 2, md: 3 } }}>
                   {/* Question number & mark */}
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                     <Chip label={`Question ${currentQ} of ${totalQuestions || cbtQuestions.length}`}
-                      sx={{ fontFamily: ff, fontWeight: 700, bgcolor: '#f1f5f9', color: '#334155' }} />
-                    {!reviewMode && (
+                      sx={{ fontFamily: ff, fontWeight: 700, bgcolor: isStudyMode ? 'rgba(168,85,247,0.08)' : '#f1f5f9', color: isStudyMode ? '#7c3aed' : '#334155' }} />
+                    {!reviewMode && !isStudyMode && (
                       <Tooltip title={marked[qNum] ? 'Unmark' : 'Mark for Review'}>
                         <IconButton onClick={() => toggleMark(qNum)}>
                           {marked[qNum] ? <BookmarkIcon sx={{ color: '#eab308' }} /> : <BookmarkBorderIcon sx={{ color: '#94a3b8' }} />}
                         </IconButton>
                       </Tooltip>
+                    )}
+                    {isStudyMode && showRevealQ && (
+                      <Chip label={userAns?.toUpperCase() === correctAns?.toUpperCase() ? '✓ Correct' : '✗ Wrong'} size="small"
+                        sx={{ fontFamily: ff, fontWeight: 700,
+                          bgcolor: userAns?.toUpperCase() === correctAns?.toUpperCase() ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
+                          color: userAns?.toUpperCase() === correctAns?.toUpperCase() ? '#16a34a' : '#ef4444' }} />
                     )}
                   </Box>
                   {/* Question text */}
@@ -440,43 +539,44 @@ export default function PublicExamInterface() {
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                     {['A', 'B', 'C', 'D'].map(letter => {
                       const isSelected = userAns === letter;
-                      const isCorrect = correctAns === letter;
-                      const isWrong = reviewMode && isSelected && !isCorrect;
+                      const isCorrect = showRevealQ && correctAns?.toUpperCase() === letter;
+                      const isWrong = showRevealQ && isSelected && !isCorrect;
+                      const isLocked = showRevealQ || (isStudyMode && studyRevealed[qNum]);
                       let borderColor = '#e2e8f0';
                       let bgColor = '#fff';
-                      if (reviewMode) {
+                      if (showRevealQ) {
                         if (isCorrect) { borderColor = '#16a34a'; bgColor = 'rgba(34,197,94,0.06)'; }
                         else if (isWrong) { borderColor = '#ef4444'; bgColor = 'rgba(239,68,68,0.06)'; }
                       } else if (isSelected) {
                         borderColor = '#2563eb'; bgColor = 'rgba(37,99,235,0.06)';
                       }
                       return (
-                        <Box key={letter} onClick={() => !reviewMode && handleAnswer(qNum, letter)}
+                        <Box key={letter} onClick={() => !isLocked && handleAnswer(qNum, letter)}
                           sx={{
                             display: 'flex', alignItems: 'center', gap: 2, p: { xs: 1.5, md: 2 },
                             borderRadius: '14px', border: `2px solid ${borderColor}`, bgcolor: bgColor,
-                            cursor: reviewMode ? 'default' : 'pointer', transition: 'all 0.2s',
-                            '&:hover': reviewMode ? {} : { borderColor: '#93c5fd', bgcolor: 'rgba(37,99,235,0.03)' },
+                            cursor: isLocked ? 'default' : 'pointer', transition: 'all 0.2s',
+                            '&:hover': isLocked ? {} : { borderColor: '#93c5fd', bgcolor: 'rgba(37,99,235,0.03)' },
                           }}>
-                          <Radio checked={isSelected} disabled={reviewMode}
-                            sx={{ p: 0, color: isSelected ? '#2563eb' : '#cbd5e1', '&.Mui-checked': { color: reviewMode ? (isWrong ? '#ef4444' : '#16a34a') : '#2563eb' } }} />
+                          <Radio checked={isSelected} disabled={isLocked}
+                            sx={{ p: 0, color: isSelected ? '#2563eb' : '#cbd5e1', '&.Mui-checked': { color: showRevealQ ? (isWrong ? '#ef4444' : '#16a34a') : '#2563eb' } }} />
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1 }}>
                             <Chip label={letter} size="small"
                               sx={{ fontFamily: ff, fontWeight: 800, width: 30, height: 28,
-                                bgcolor: isSelected ? (reviewMode ? (isWrong ? '#fef2f2' : '#f0fdf4') : '#eff6ff') : '#f8fafc',
-                                color: isSelected ? (reviewMode ? (isWrong ? '#ef4444' : '#16a34a') : '#2563eb') : '#64748b',
+                                bgcolor: isSelected ? (showRevealQ ? (isWrong ? '#fef2f2' : '#f0fdf4') : '#eff6ff') : '#f8fafc',
+                                color: isSelected ? (showRevealQ ? (isWrong ? '#ef4444' : '#16a34a') : '#2563eb') : '#64748b',
                                 border: 'none' }} />
                             <Typography sx={{ fontFamily: ff, fontSize: { xs: '0.9rem', md: '0.95rem' }, color: '#334155', fontWeight: isSelected ? 600 : 400 }}>
                               {opts[letter] || ''}
                             </Typography>
                           </Box>
-                          {reviewMode && isCorrect && <CheckCircleIcon sx={{ color: '#16a34a', fontSize: 22 }} />}
+                          {showRevealQ && isCorrect && <CheckCircleIcon sx={{ color: '#16a34a', fontSize: 22 }} />}
                         </Box>
                       );
                     })}
                   </Box>
-                  {/* Explanation in review mode */}
-                  {reviewMode && qData.explanation && (
+                  {/* Explanation in review/study mode */}
+                  {showRevealQ && qData.explanation && (
                     <Box sx={{ mt: 3, p: 2, bgcolor: '#fffbeb', borderRadius: '12px', border: '1px solid #fde68a' }}>
                       <Typography sx={{ fontFamily: ff, fontSize: '0.85rem', color: '#92400e', fontWeight: 600 }}>
                         Explanation: {qData.explanation}
@@ -497,10 +597,15 @@ export default function PublicExamInterface() {
                           background: 'linear-gradient(135deg, #2563eb, #3b82f6)' }}>
                         Next
                       </Button>
-                    ) : !reviewMode ? (
+                    ) : !reviewMode && !isStudyMode ? (
                       <Button onClick={() => setConfirmOpen(true)} variant="contained" color="success"
                         sx={{ fontFamily: ff, fontWeight: 700, textTransform: 'none', borderRadius: '12px', flex: 1 }}>
                         Submit Exam
+                      </Button>
+                    ) : isStudyMode && studyFinished ? (
+                      <Button onClick={handleStudyReset} startIcon={<ReplayIcon />} variant="outlined"
+                        sx={{ fontFamily: ff, fontWeight: 700, textTransform: 'none', borderRadius: '12px', flex: 1, borderColor: '#a855f7', color: '#a855f7' }}>
+                        Reset & Try Again
                       </Button>
                     ) : null}
                   </Box>

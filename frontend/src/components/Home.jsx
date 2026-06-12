@@ -213,12 +213,12 @@ export default function Home() {
                 ))}
               </Slider>
             </Box>
-            <Box sx={{ display: { xs: 'flex', md: 'none' }, flexDirection: 'column', gap: 3, mt: 2 }}>
+            <Box sx={{ display: { xs: 'flex', md: 'none' }, gap: 2, mt: 2, overflowX: 'auto', scrollSnapType: 'x mandatory', pb: 2, px: 1, WebkitOverflowScrolling: 'touch', '&::-webkit-scrollbar': { display: 'none' }, scrollbarWidth: 'none' }}>
               {thinkletArticles.map((article) => (
-                <Card key={article.id} sx={{ display: 'flex', flexDirection: 'column', width: '100%', borderRadius: 3, border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.02)' }}>
-                  <CardMedia component="img" height="200" image={article.image} alt={article.title} />
-                  <CardContent sx={{ flexGrow: 1, p: 3 }}><Typography variant="h6" fontWeight={700} sx={{ color: '#0f172a' }}>{article.title}</Typography><Typography variant="body2" sx={{ color: '#64748b' }}>{article.summary}</Typography></CardContent>
-                  <CardActions sx={{ p: 3, pt: 0 }}>
+                <Card key={article.id} sx={{ display: 'flex', flexDirection: 'column', minWidth: '82vw', maxWidth: '82vw', scrollSnapAlign: 'start', flexShrink: 0, borderRadius: 3, border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.02)' }}>
+                  <CardMedia component="img" height="180" image={article.image} alt={article.title} />
+                  <CardContent sx={{ flexGrow: 1, p: 2.5 }}><Typography variant="subtitle1" fontWeight={700} sx={{ color: '#0f172a', mb: 0.5 }}>{article.title}</Typography><Typography variant="body2" sx={{ color: '#64748b', fontSize: '0.82rem' }}>{article.summary}</Typography></CardContent>
+                  <CardActions sx={{ p: 2.5, pt: 0 }}>
                     <Button size="small" onClick={() => window.open(article.link, '_blank')}>Read Article</Button>
                   </CardActions>
                 </Card>
@@ -274,12 +274,12 @@ export default function Home() {
       {/* ═══════════════════ 6. FULL WIDTH SECTION: AMBASSADOR ═══════════════════ */}
       <Box id="ambassador" sx={{ py: 16, bgcolor: '#f8fafc', position: 'relative', overflow: 'hidden' }}>
         <RisingStars color="rgba(239, 68, 68, 0.15)" count={30} speed={0.8} />
-        <Typography sx={{ position: 'absolute', top: -30, right: { xs: -10, md: -50 }, fontSize: { xs: '6rem', sm: '10rem', md: '20rem' }, fontWeight: 900, color: 'rgba(203, 213, 225, 0.2)', fontFamily: '"Anton", sans-serif', lineHeight: 1, pointerEvents: 'none' }}>LEAD</Typography>
+        <Typography sx={{ position: 'absolute', top: -30, right: { sm: -10, md: -50 }, fontSize: { sm: '10rem', md: '20rem' }, fontWeight: 900, color: 'rgba(203, 213, 225, 0.2)', fontFamily: '"Anton", sans-serif', lineHeight: 1, pointerEvents: 'none', display: { xs: 'none', sm: 'block' } }}>LEAD</Typography>
         <Container maxWidth="md" sx={{ position: 'relative', zIndex: 1, textAlign: 'center' }}>
           <motion.div initial={{ opacity: 0, scale: 0.95 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true }}>
-            <Typography variant="h1" sx={{ fontFamily: '"Anton", sans-serif', color: '#0f172a', letterSpacing: 2, mb: 2 }}>STUDENT AMBASSADOR</Typography>
-            <Typography variant="h5" sx={{ fontFamily: '"Space Grotesk", sans-serif', fontWeight: 700, color: '#ef4444', textTransform: 'uppercase', mb: 3 }}>Lead The Change. Voice The Future.</Typography>
-            <Typography variant="h6" sx={{ color: '#475569', mb: 5, maxWidth: 600, mx: 'auto' }}>Step up to represent, organize, and inspire. Our ambassador program shapes the leaders of tomorrow through action today.</Typography>
+            <Typography variant="h1" sx={{ fontFamily: '"Anton", sans-serif', color: '#0f172a', letterSpacing: { xs: 1, md: 2 }, mb: 2, fontSize: { xs: '2.2rem', sm: '3rem', md: '4rem', lg: '5rem' }, overflowWrap: 'break-word', wordBreak: 'break-word', px: { xs: 1, sm: 0 } }}>STUDENT AMBASSADOR</Typography>
+            <Typography variant="h5" sx={{ fontFamily: '"Space Grotesk", sans-serif', fontWeight: 700, color: '#ef4444', textTransform: 'uppercase', mb: 3, fontSize: { xs: '1rem', sm: '1.25rem', md: '1.5rem' } }}>Lead The Change. Voice The Future.</Typography>
+            <Typography variant="h6" sx={{ color: '#475569', mb: 5, maxWidth: 600, mx: 'auto', fontSize: { xs: '0.95rem', md: '1.15rem' }, px: { xs: 2, sm: 0 } }}>Step up to represent, organize, and inspire. Our ambassador program shapes the leaders of tomorrow through action today.</Typography>
             <Button variant="contained" size="large" onClick={() => window.location.href = `mailto:${directorMail}?subject=Application: Student Ambassador`} sx={{ bgcolor: '#ef4444', color: '#fff', borderRadius: 0, fontWeight: 900, fontSize: '1.2rem', fontFamily: '"Space Grotesk", sans-serif', px: 6, py: 2, '&:hover': { bgcolor: '#dc2626' } }}>Apply To Lead</Button>
           </motion.div>
         </Container>

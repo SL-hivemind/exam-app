@@ -49,6 +49,7 @@ export default function PublicCatalog() {
   const [courses, setCourses] = useState([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState('all');
   const navigate = useNavigate();
   const { user } = useAuth();
   const isLoggedIn = user && user.role === 'public_user';
@@ -60,10 +61,13 @@ export default function PublicCatalog() {
       .finally(() => setLoading(false));
   }, []);
 
-  const filtered = courses.filter(c =>
-    c.title.toLowerCase().includes(search.toLowerCase()) ||
-    (c.description || '').toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = courses.filter(c => {
+    const matchesSearch = c.title.toLowerCase().includes(search.toLowerCase()) ||
+      (c.description || '').toLowerCase().includes(search.toLowerCase());
+    if (filter === 'free') return matchesSearch && (!c.price || c.price === 0);
+    if (filter === 'premium') return matchesSearch && c.price > 0;
+    return matchesSearch;
+  });
 
   /* ── how-it-works steps ── */
   const steps = [
@@ -187,7 +191,62 @@ export default function PublicCatalog() {
         </Container>
       </Box>
 
-      {/* ═══════ 2. HOW IT WORKS ═══════ */}
+      {/* ═══════ 2. COURSE CATALOG (moved up for accessibility) ═══════ */}
+      <Box sx={{ py: { xs: 6, md: 8 }, bgcolor: '#f8fafc' }}>
+        <Container maxWidth="lg">
+          <SectionTitle overline="AVAILABLE COURSES" title="Browse Our Exam Catalog" subtitle="Click any course to explore its syllabus, free papers, and premium content." />
+
+          {/* Filter Chips */}
+          <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1.5, mb: 3, flexWrap: 'wrap' }}>
+            {[{ key: 'all', label: 'All Courses' }, { key: 'free', label: 'Free' }, { key: 'premium', label: 'Premium' }].map(f => (
+              <Chip key={f.key} label={f.label} clickable onClick={() => setFilter(f.key)}
+                sx={{ fontFamily: ff, fontWeight: 600, fontSize: '0.82rem', px: 1, borderRadius: '10px',
+                  bgcolor: filter === f.key ? '#2563eb' : '#fff', color: filter === f.key ? '#fff' : '#475569',
+                  border: filter === f.key ? 'none' : '1px solid #e2e8f0',
+                  boxShadow: filter === f.key ? '0 2px 8px rgba(37,99,235,0.25)' : 'none',
+                  '&:hover': { bgcolor: filter === f.key ? '#1d4ed8' : '#f8fafc' },
+                  transition: 'all 0.2s' }} />
+            ))}
+          </Box>
+
+          <Box sx={{ display: 'flex', justifyContent: 'center', mb: 4 }}>
+            <TextField fullWidth placeholder="Search courses..." value={search} onChange={e => setSearch(e.target.value)}
+              InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon sx={{ color: '#94a3b8' }} /></InputAdornment> }}
+              sx={{ maxWidth: 480, '& .MuiOutlinedInput-root': { borderRadius: '14px', bgcolor: '#fff', fontFamily: ff, '& fieldset': { borderColor: '#e2e8f0' }, '&:hover fieldset': { borderColor: '#93c5fd' }, '&.Mui-focused fieldset': { borderColor: '#3b82f6' } } }}
+            />
+          </Box>
+
+          {loading ? (
+            <Grid container spacing={3} justifyContent="center">{[1,2,3].map(i => <Grid item xs={12} sm={6} md={4} key={i}><Skeleton variant="rounded" height={300} sx={{ borderRadius: '16px' }} /></Grid>)}</Grid>
+          ) : filtered.length === 0 ? (
+            <Box sx={{ textAlign: 'center', py: 8 }}><Typography sx={{ fontSize: '1.1rem', color: '#64748b', fontFamily: ff }}>{search ? 'No courses match your search.' : 'No courses available yet.'}</Typography></Box>
+          ) : (
+            <Grid container spacing={3} justifyContent="center">
+              {filtered.map(course => (
+                <Grid item xs={12} sm={6} md={4} key={course.id}>
+                  <Card onClick={() => navigate(`/public/course/${course.id}`)}
+                    sx={{ borderRadius: '16px', overflow: 'hidden', border: '1px solid #e2e8f0', boxShadow: 'none', height: '100%', display: 'flex', flexDirection: 'column', cursor: 'pointer', transition: 'all 0.25s', '&:hover': { borderColor: '#93c5fd', boxShadow: '0 8px 30px rgba(59,130,246,0.12)', transform: 'translateY(-4px)' } }}>
+                    <CardMedia sx={{ height: 150, background: course.thumbnail_url ? `url(${course.thumbnail_url}) center/cover` : 'linear-gradient(135deg, #1e293b, #334155)', display: 'flex', alignItems: 'flex-end', p: 2 }}>
+                      <Chip icon={course.price > 0 ? <LockIcon sx={{ fontSize: 14 }} /> : <LockOpenIcon sx={{ fontSize: 14 }} />} label={course.price > 0 ? `₹${course.price}` : 'Free'} size="small"
+                        sx={{ bgcolor: course.price > 0 ? 'rgba(234,179,8,0.9)' : 'rgba(34,197,94,0.9)', color: '#fff', fontWeight: 700, fontFamily: ff, '& .MuiChip-icon': { color: '#fff' } }} />
+                    </CardMedia>
+                    <CardContent sx={{ p: 2.5, flex: 1, display: 'flex', flexDirection: 'column' }}>
+                      <Typography sx={{ fontFamily: ff, fontSize: '1.05rem', fontWeight: 700, color: '#0f172a', mb: 1, lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{course.title}</Typography>
+                      <Typography sx={{ fontFamily: ff, fontSize: '0.82rem', color: '#64748b', lineHeight: 1.6, mb: 2, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{course.description || 'Explore this course to learn more.'}</Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 'auto' }}>
+                        <Typography sx={{ fontSize: '0.75rem', color: '#94a3b8', fontFamily: ff, fontWeight: 600 }}>{course.content_count || 0} Items</Typography>
+                        <ArrowForwardIcon sx={{ fontSize: 18, color: '#94a3b8' }} />
+                      </Box>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+          )}
+        </Container>
+      </Box>
+
+      {/* ═══════ 3. HOW IT WORKS ═══════ */}
       <Box sx={{ py: { xs: 8, md: 10 }, bgcolor: '#fff' }}>
         <Container maxWidth="lg">
           <SectionTitle overline="HOW IT WORKS" title="Get Started in 4 Simple Steps" subtitle="From registration to taking your first exam — it only takes a few minutes." />
@@ -345,47 +404,7 @@ export default function PublicCatalog() {
         </Container>
       </Box>
 
-      {/* ═══════ 6. COURSE CATALOG ═══════ */}
-      <Box sx={{ py: { xs: 8, md: 10 }, bgcolor: '#f8fafc' }}>
-        <Container maxWidth="lg">
-          <SectionTitle overline="AVAILABLE COURSES" title="Browse Our Exam Catalog" subtitle="Click any course to explore its syllabus, free papers, and premium content." />
-
-          <Box sx={{ display: 'flex', justifyContent: 'center', mb: 4 }}>
-            <TextField fullWidth placeholder="Search courses..." value={search} onChange={e => setSearch(e.target.value)}
-              InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon sx={{ color: '#94a3b8' }} /></InputAdornment> }}
-              sx={{ maxWidth: 480, '& .MuiOutlinedInput-root': { borderRadius: '14px', bgcolor: '#fff', fontFamily: ff, '& fieldset': { borderColor: '#e2e8f0' }, '&:hover fieldset': { borderColor: '#93c5fd' }, '&.Mui-focused fieldset': { borderColor: '#3b82f6' } } }}
-            />
-          </Box>
-
-          {loading ? (
-            <Grid container spacing={3} justifyContent="center">{[1,2,3].map(i => <Grid item xs={12} sm={6} md={4} key={i}><Skeleton variant="rounded" height={300} sx={{ borderRadius: '16px' }} /></Grid>)}</Grid>
-          ) : filtered.length === 0 ? (
-            <Box sx={{ textAlign: 'center', py: 8 }}><Typography sx={{ fontSize: '1.1rem', color: '#64748b', fontFamily: ff }}>{search ? 'No courses match your search.' : 'No courses available yet.'}</Typography></Box>
-          ) : (
-            <Grid container spacing={3} justifyContent="center">
-              {filtered.map(course => (
-                <Grid item xs={12} sm={6} md={4} key={course.id}>
-                  <Card onClick={() => navigate(`/public/course/${course.id}`)}
-                    sx={{ borderRadius: '16px', overflow: 'hidden', border: '1px solid #e2e8f0', boxShadow: 'none', height: '100%', display: 'flex', flexDirection: 'column', cursor: 'pointer', transition: 'all 0.25s', '&:hover': { borderColor: '#93c5fd', boxShadow: '0 8px 30px rgba(59,130,246,0.12)', transform: 'translateY(-4px)' } }}>
-                    <CardMedia sx={{ height: 150, background: course.thumbnail_url ? `url(${course.thumbnail_url}) center/cover` : 'linear-gradient(135deg, #1e293b, #334155)', display: 'flex', alignItems: 'flex-end', p: 2 }}>
-                      <Chip icon={course.price > 0 ? <LockIcon sx={{ fontSize: 14 }} /> : <LockOpenIcon sx={{ fontSize: 14 }} />} label={course.price > 0 ? `₹${course.price}` : 'Free'} size="small"
-                        sx={{ bgcolor: course.price > 0 ? 'rgba(234,179,8,0.9)' : 'rgba(34,197,94,0.9)', color: '#fff', fontWeight: 700, fontFamily: ff, '& .MuiChip-icon': { color: '#fff' } }} />
-                    </CardMedia>
-                    <CardContent sx={{ p: 2.5, flex: 1, display: 'flex', flexDirection: 'column' }}>
-                      <Typography sx={{ fontFamily: ff, fontSize: '1.05rem', fontWeight: 700, color: '#0f172a', mb: 1, lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{course.title}</Typography>
-                      <Typography sx={{ fontFamily: ff, fontSize: '0.82rem', color: '#64748b', lineHeight: 1.6, mb: 2, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{course.description || 'Explore this course to learn more.'}</Typography>
-                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 'auto' }}>
-                        <Typography sx={{ fontSize: '0.75rem', color: '#94a3b8', fontFamily: ff, fontWeight: 600 }}>{course.content_count || 0} Items</Typography>
-                        <ArrowForwardIcon sx={{ fontSize: 18, color: '#94a3b8' }} />
-                      </Box>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              ))}
-            </Grid>
-          )}
-        </Container>
-      </Box>
+      {/* Old catalog section removed — now appears as section 2 above */}
 
       {/* ═══════ 7. CTA FOOTER ═══════ */}
       <Box sx={{ py: { xs: 8, md: 10 }, background: 'linear-gradient(135deg, #2563eb, #1d4ed8)', textAlign: 'center' }}>

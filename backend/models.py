@@ -340,7 +340,7 @@ class StudentAnswer(db.Model):
     answer = db.Column(db.Text, nullable=True)
     is_correct = db.Column(db.Boolean, default=False)
     marks_awarded = db.Column(db.Integer, default=0)
-    attempt = db.relationship('StudentExamAttempt', backref=db.backref('answers', lazy=True))
+    attempt = db.relationship('StudentExamAttempt', backref=db.backref('answers', lazy=True, cascade='all, delete-orphan'))
 
 # -------------------- OTP FOR PASSWORD RESET --------------------
 
@@ -439,6 +439,9 @@ class CourseContent(db.Model):
     total_questions = db.Column(db.Integer, nullable=True)  # For exam PDFs/CBTs
     answer_key_json = db.Column(db.Text, nullable=True)  # JSON: {"1":"A","2":"C",...}
     duration_minutes = db.Column(db.Integer, nullable=True, default=60)
+    status = db.Column(db.String(20), default='published')  # 'draft' or 'published'
+    subject = db.Column(db.String(100), nullable=True)
+    is_previous_paper = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def to_dict(self, include_answers=False):
@@ -452,6 +455,9 @@ class CourseContent(db.Model):
             'order_index': self.order_index,
             'total_questions': self.total_questions,
             'duration_minutes': self.duration_minutes,
+            'status': self.status,
+            'subject': self.subject,
+            'is_previous_paper': self.is_previous_paper,
             'created_at': self.created_at.isoformat() if self.created_at else None,
         }
         if include_answers:
@@ -495,7 +501,7 @@ class CourseSubscription(db.Model):
     status = db.Column(db.String(20), default='active')  # 'active', 'expired', 'pending'
     enrolled_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    profile = db.relationship('PublicProfile', backref=db.backref('subscriptions', lazy=True))
+    profile = db.relationship('PublicProfile', backref=db.backref('subscriptions', lazy=True, cascade='all, delete-orphan'))
     __table_args__ = (db.UniqueConstraint('public_profile_id', 'course_id', name='uq_profile_course'),)
 
     def to_dict(self):
@@ -521,8 +527,8 @@ class PublicExamAttempt(db.Model):
     start_time = db.Column(db.DateTime, default=datetime.utcnow)
     submitted_at = db.Column(db.DateTime, nullable=True)
 
-    profile = db.relationship('PublicProfile', backref=db.backref('exam_attempts', lazy=True))
-    content = db.relationship('CourseContent', backref=db.backref('attempts', lazy=True))
+    profile = db.relationship('PublicProfile', backref=db.backref('exam_attempts', lazy=True, cascade='all, delete-orphan'))
+    content = db.relationship('CourseContent', backref=db.backref('attempts', lazy=True, cascade='all, delete-orphan'))
 
     def to_dict(self):
         return {
@@ -635,6 +641,8 @@ class QuickResponse(db.Model):
 @event.listens_for(QuestionRepository, 'before_insert')
 def auto_gen_id(mapper, connection, target):
     """Triggers on first save (CSV upload or UI creation)"""
+    if target.custom_id:
+        return
     target.custom_id = generate_short_id(target.class_number, target.subject, target.chapter)
 
 @event.listens_for(QuestionRepository, 'before_update')

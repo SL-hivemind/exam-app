@@ -2,8 +2,11 @@
 Create a test public user directly in the database for testing.
 Bypasses OTP verification.
 """
-import mysql.connector
-from werkzeug.security import generate_password_hash
+import pymysql
+import pymysql.cursors
+from flask_bcrypt import Bcrypt
+
+bcrypt = Bcrypt()
 
 DB_CONFIG = {
     'host': 'localhost',
@@ -19,8 +22,14 @@ PASSWORD = 'Test@123'
 PHONE = '9876543210'    
 
 def run():
-    conn = mysql.connector.connect(**DB_CONFIG)
-    cursor = conn.cursor(dictionary=True)
+    conn = pymysql.connect(
+        host=DB_CONFIG['host'],
+        user=DB_CONFIG['user'],
+        password=DB_CONFIG['password'],
+        database=DB_CONFIG['database'],
+        cursorclass=pymysql.cursors.DictCursor
+    )
+    cursor = conn.cursor()
 
     # Check if user already exists
     cursor.execute("SELECT id FROM user WHERE username = %s", (USERNAME,))
@@ -28,10 +37,13 @@ def run():
 
     if existing:
         user_id = existing['id']
-        print(f"[OK] User '{USERNAME}' already exists (id={user_id})")
+        pw_hash = bcrypt.generate_password_hash(PASSWORD).decode('utf-8')
+        cursor.execute("UPDATE user SET password_hash = %s WHERE id = %s", (pw_hash, user_id))
+        conn.commit()
+        print(f"[OK] User '{USERNAME}' already exists (id={user_id}), password updated.")
     else:
         # Create user with role 'public_user'
-        pw_hash = generate_password_hash(PASSWORD)
+        pw_hash = bcrypt.generate_password_hash(PASSWORD).decode('utf-8')
         cursor.execute(
             "INSERT INTO user (username, email, password_hash, role, is_verified) VALUES (%s, %s, %s, %s, %s)",
             (USERNAME, EMAIL, pw_hash, 'public_user', 1)

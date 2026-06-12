@@ -321,6 +321,9 @@ def register_public_routes(app, token_required, role_required):
         contents = CourseContent.query.filter_by(course_id=course_id).order_by(CourseContent.order_index).all()
         content_list = []
         for c in contents:
+            # Hide draft content from students
+            if c.status == 'draft':
+                continue
             d = c.to_dict()
             # Hide file_url for paid content if not subscribed
             if not c.is_free and not is_subscribed:
@@ -333,7 +336,7 @@ def register_public_routes(app, token_required, role_required):
             d['attempt_score'] = None
             d['attempt_total'] = None
             d['attempt_submitted'] = False
-            if profile and c.content_type == 'pdf_exam':
+            if profile and c.content_type in ('pdf_exam', 'cbt_exam'):
                 submitted_attempt = PublicExamAttempt.query.filter(
                     PublicExamAttempt.public_profile_id == profile.id,
                     PublicExamAttempt.content_id == c.id,
@@ -769,10 +772,12 @@ def register_public_routes(app, token_required, role_required):
                 
             is_subscribed = (sub.status == 'active')
             
-            # Fetch contents for this course
+            # Fetch published contents for this course (hide drafts from students)
             contents = CourseContent.query.filter_by(course_id=course.id).order_by(CourseContent.order_index).all()
             content_list = []
             for c in contents:
+                if c.status == 'draft':
+                    continue
                 d = c.to_dict()
                 
                 # Lock premium content if not fully subscribed
@@ -786,7 +791,7 @@ def register_public_routes(app, token_required, role_required):
                 d['attempt_score'] = None
                 d['attempt_total'] = None
                 d['attempt_submitted'] = False
-                if c.content_type == 'pdf_exam':
+                if c.content_type in ('pdf_exam', 'cbt_exam'):
                     submitted_attempt = PublicExamAttempt.query.filter(
                         PublicExamAttempt.public_profile_id == profile.id,
                         PublicExamAttempt.content_id == c.id,
@@ -904,6 +909,8 @@ def register_public_routes(app, token_required, role_required):
         answer_key_json = request.form.get('answer_key_json')
         duration_minutes = request.form.get('duration_minutes', '60')
         order_index = request.form.get('order_index', '0')
+        subject = request.form.get('subject', '').strip() or None
+        is_previous_paper = request.form.get('is_previous_paper', 'false').lower() == 'true'
 
         if not title:
             return jsonify({'message': 'Title is required'}), 400
@@ -929,6 +936,8 @@ def register_public_routes(app, token_required, role_required):
             answer_key_json=answer_key_json or None,
             duration_minutes=int(duration_minutes) if duration_minutes else 60,
             order_index=int(order_index) if order_index else 0,
+            subject=subject,
+            is_previous_paper=is_previous_paper,
         )
         db.session.add(content)
         db.session.commit()
@@ -957,6 +966,12 @@ def register_public_routes(app, token_required, role_required):
             content.duration_minutes = int(data['duration_minutes']) if data['duration_minutes'] else 60
         if 'order_index' in data:
             content.order_index = int(data['order_index'])
+        if 'status' in data and data['status'] in ('draft', 'published'):
+            content.status = data['status']
+        if 'subject' in data:
+            content.subject = (data['subject'] or '').strip() or None
+        if 'is_previous_paper' in data:
+            content.is_previous_paper = bool(data['is_previous_paper'])
         db.session.commit()
 
         return jsonify({'message': 'Content updated', 'content': content.to_dict(include_answers=True)}), 200
@@ -1087,6 +1102,82 @@ def register_public_routes(app, token_required, role_required):
             'total': len(questions),
         }), 200
 
+    # ═══════════════════════════════════════════════════
+    # 7. STUDY MODE (practice without recording attempt)
+    # ═══════════════════════════════════════════════════
+
+    @app.post('/public/content/<int:content_id>/study-session')
+    @token_required
+    def public_study_session(current_user, content_id):
+        """Return questions WITH answers for practice mode. No attempt created."""
+        profile = get_public_profile(current_user)
+        if not profile:
+            return jsonify({'message': 'Public profile required'}), 403
+
+        content = CourseContent.query.get(content_id)
+        if not content or content.content_type not in ('pdf_exam', 'cbt_exam'):
+            return jsonify({'message': 'Exam content not found'}), 404
+
+        # Check access
+        if not content.is_free:
+            sub = CourseSubscription.query.filter_by(
+                public_profile_id=profile.id, course_id=content.course_id, status='active'
+            ).first()
+            if not sub:
+                return jsonify({'message': 'Subscription required'}), 403
+
+        # For CBT: return native questions with answers
+        if content.content_type == 'cbt_exam':
+            questions = PublicQuestion.query.filter_by(content_id=content_id).order_by(PublicQuestion.order_index).all()
+            return jsonify({
+                'questions': [q.to_dict(include_answer=True) for q in questions],
+                'total': len(questions),
+                'answer_key': {str(q.order_index): q.correct_option for q in questions},
+                'duration_minutes': content.duration_minutes,
+                'mode': 'study',
+            }), 200
+
+        # For PDF: return the answer key so the student can self-check
+        answer_key = {}
+        if content.answer_key_json:
+            try:
+                answer_key = json.loads(content.answer_key_json)
+            except Exception:
+                pass
+
+        return jsonify({
+            'questions': [],
+            'total': content.total_questions or 0,
+            'answer_key': answer_key,
+            'duration_minutes': content.duration_minutes,
+            'mode': 'study',
+        }), 200
+
+    # ═══════════════════════════════════════════════════
+    # 8. BATCH REORDER CONTENT (drag-and-drop)
+    # ═══════════════════════════════════════════════════
+
+    @app.put('/admin/public/courses/<int:course_id>/reorder')
+    @role_required('admin')
+    def admin_public_reorder_contents(current_user, course_id):
+        """Batch-update order_index for all content items in a course."""
+        course = PublicCourse.query.get(course_id)
+        if not course:
+            return jsonify({'message': 'Course not found'}), 404
+
+        data = request.get_json(silent=True) or {}
+        ordered_ids = data.get('order', [])
+
+        if not ordered_ids or not isinstance(ordered_ids, list):
+            return jsonify({'message': 'order array is required'}), 400
+
+        for idx, content_id in enumerate(ordered_ids):
+            content = CourseContent.query.get(content_id)
+            if content and content.course_id == course_id:
+                content.order_index = idx
+        db.session.commit()
+
+        return jsonify({'message': f'Reordered {len(ordered_ids)} items'}), 200
 
 def _parse_questions_simple(raw_text):
     """Fallback line-by-line parser for simpler text formats."""

@@ -15,6 +15,8 @@ import PeopleIcon from '@mui/icons-material/People';
 import DescriptionIcon from '@mui/icons-material/Description';
 import ContentPasteIcon from '@mui/icons-material/ContentPaste';
 import QuizIcon from '@mui/icons-material/Quiz';
+import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import { publicApi } from '../../utils/api';
 
 const ff = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
@@ -38,10 +40,11 @@ export default function AdminPublicManager() {
 
   // Form
   const [courseForm, setCourseForm] = useState({ title: '', description: '', price: 0, status: 'draft', thumbnail_url: '' });
-  const [contentForm, setContentForm] = useState({ title: '', content_type: 'pdf_material', is_free: true, total_questions: '', answer_key_json: '', duration_minutes: '60', order_index: '0' });
+  const [contentForm, setContentForm] = useState({ title: '', content_type: 'pdf_material', is_free: true, total_questions: '', answer_key_json: '', duration_minutes: '60', order_index: '0', status: 'published' });
   const fileRef = useRef(null);
   const [selectedFile, setSelectedFile] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [dragIdx, setDragIdx] = useState(null);
 
   // Smart Paste
   const [smartPasteDialog, setSmartPasteDialog] = useState(false);
@@ -121,17 +124,33 @@ export default function AdminPublicManager() {
       loadCourses();
     } catch { setError('Failed to update status'); }
   };
-
   // ── CONTENT CRUD ──
   const openContentDialog = (content = null) => {
     setEditContent(content);
     setSelectedFile(null);
     setContentForm(content ? {
-      title: content.title, content_type: content.content_type,
-      is_free: content.is_free, total_questions: content.total_questions || '',
-      answer_key_json: content.answer_key_json || '', duration_minutes: content.duration_minutes || '60',
+      title: content.title,
+      content_type: content.content_type,
+      is_free: content.is_free,
+      total_questions: content.total_questions || '',
+      answer_key_json: content.answer_key_json || '',
+      duration_minutes: content.duration_minutes || '60',
       order_index: content.order_index || '0',
-    } : { title: '', content_type: 'pdf_material', is_free: true, total_questions: '', answer_key_json: '', duration_minutes: '60', order_index: '0' });
+      status: content.status || 'published',
+      subject: content.subject || '',
+      is_previous_paper: content.is_previous_paper || false,
+    } : {
+      title: '',
+      content_type: 'pdf_material',
+      is_free: true,
+      total_questions: '',
+      answer_key_json: '',
+      duration_minutes: '60',
+      order_index: '0',
+      status: 'published',
+      subject: '',
+      is_previous_paper: false,
+    });
     setContentDialog(true);
   };
 
@@ -151,6 +170,9 @@ export default function AdminPublicManager() {
         fd.append('answer_key_json', contentForm.answer_key_json);
         fd.append('duration_minutes', contentForm.duration_minutes);
         fd.append('order_index', contentForm.order_index);
+        fd.append('status', contentForm.status);
+        fd.append('subject', contentForm.subject);
+        fd.append('is_previous_paper', contentForm.is_previous_paper);
         if (selectedFile) fd.append('file', selectedFile);
         await publicApi.adminUploadContent(selectedCourse.id, fd);
         setMsg('Content uploaded');
@@ -160,9 +182,7 @@ export default function AdminPublicManager() {
     } catch (err) {
       setError(err.response?.data?.message || 'Failed');
     } finally { setBusy(false); }
-  };
-
-  const deleteContent = async (id) => {
+  };  const deleteContent = async (id) => {
     if (!window.confirm('Delete this content?')) return;
     try {
       await publicApi.adminDeleteContent(id);
@@ -171,6 +191,33 @@ export default function AdminPublicManager() {
     } catch (err) {
       setError(err.response?.data?.message || 'Delete failed');
     }
+  };
+
+  // Toggle content draft/published status
+  const toggleContentStatus = async (content) => {
+    const newStatus = content.status === 'published' ? 'draft' : 'published';
+    try {
+      await publicApi.adminUpdateContent(content.id, { status: newStatus });
+      setMsg(`Content ${newStatus === 'published' ? 'published' : 'set to draft'}`);
+      loadContents(selectedCourse.id);
+    } catch { setError('Failed to update content status'); }
+  };
+
+  // Drag and drop reorder
+  const handleDragStart = (idx) => { setDragIdx(idx); };
+  const handleDragOver = (e, idx) => { e.preventDefault(); };
+  const handleDrop = async (e, dropIdx) => {
+    e.preventDefault();
+    if (dragIdx === null || dragIdx === dropIdx) { setDragIdx(null); return; }
+    const reordered = [...contents];
+    const [moved] = reordered.splice(dragIdx, 1);
+    reordered.splice(dropIdx, 0, moved);
+    setContents(reordered);
+    setDragIdx(null);
+    try {
+      await publicApi.adminReorderContents(selectedCourse.id, reordered.map(c => c.id));
+      setMsg('Content order updated');
+    } catch { setError('Failed to save new order'); }
   };
 
   const openSmartPaste = (content) => {
@@ -311,27 +358,66 @@ export default function AdminPublicManager() {
                   </Box>
                 ) : (
                   contents.map((c, i) => (
-                    <Card key={c.id} sx={{ mb: 1.5, borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: 'none' }}>
+                    <Card key={c.id}
+                      draggable
+                      onDragStart={() => handleDragStart(i)}
+                      onDragOver={(e) => handleDragOver(e, i)}
+                      onDrop={(e) => handleDrop(e, i)}
+                      sx={{
+                        mb: 1.5, borderRadius: '12px',
+                        border: c.status === 'draft' ? '2px dashed #94a3b8' : '1px solid #e2e8f0',
+                        boxShadow: 'none',
+                        opacity: c.status === 'draft' ? 0.75 : 1,
+                        cursor: 'grab', '&:active': { cursor: 'grabbing' },
+                        transition: 'all 0.2s',
+                        '&:hover': { borderColor: '#93c5fd' },
+                      }}>
                       <CardContent sx={{ p: 2, '&:last-child': { pb: 2 }, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Box>
-                          <Typography sx={{ fontFamily: ff, fontWeight: 600, fontSize: '0.9rem', color: '#0f172a' }}>
-                            {c.title}
-                          </Typography>
-                          <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5 }}>
-                            <Chip label={c.content_type} size="small" sx={{ fontFamily: ff, fontSize: '0.68rem', bgcolor: '#f1f5f9', color: '#64748b' }} />
-                            <Chip label={c.is_free ? 'Free' : 'Paid'} size="small"
-                              sx={{
-                                fontFamily: ff, fontSize: '0.68rem',
-                                bgcolor: c.is_free ? 'rgba(34,197,94,0.1)' : 'rgba(168,85,247,0.1)',
-                                color: c.is_free ? '#16a34a' : '#a855f7',
-                              }} />
-                            {c.total_questions && (
-                              <Chip label={`${c.total_questions} Q`} size="small"
-                                sx={{ fontFamily: ff, fontSize: '0.68rem', bgcolor: 'rgba(59,130,246,0.1)', color: '#2563eb' }} />
-                            )}
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                          <DragIndicatorIcon sx={{ color: '#cbd5e1', fontSize: 20, cursor: 'grab' }} />
+                          <Box>
+                            <Typography sx={{ fontFamily: ff, fontWeight: 600, fontSize: '0.9rem', color: '#0f172a' }}>
+                              {c.title}
+                            </Typography>
+                            <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5, flexWrap: 'wrap' }}>
+                              <Chip label={c.content_type} size="small" sx={{ fontFamily: ff, fontSize: '0.68rem', bgcolor: '#f1f5f9', color: '#64748b' }} />
+                              <Chip label={c.is_free ? 'Free' : 'Paid'} size="small"
+                                sx={{
+                                  fontFamily: ff, fontSize: '0.68rem',
+                                  bgcolor: c.is_free ? 'rgba(34,197,94,0.1)' : 'rgba(168,85,247,0.1)',
+                                  color: c.is_free ? '#16a34a' : '#a855f7',
+                                }} />
+                              {c.total_questions && (
+                                <Chip label={`${c.total_questions} Q`} size="small"
+                                  sx={{ fontFamily: ff, fontSize: '0.68rem', bgcolor: 'rgba(59,130,246,0.1)', color: '#2563eb' }} />
+                              )}
+                              {c.subject && (
+                                <Chip label={c.subject} size="small"
+                                  sx={{ fontFamily: ff, fontSize: '0.68rem', bgcolor: 'rgba(234,179,8,0.1)', color: '#ca8a04', fontWeight: 600 }} />
+                              )}
+                              {c.is_previous_paper && (
+                                <Chip label="PREVIOUS PAPER" size="small"
+                                  sx={{ fontFamily: ff, fontSize: '0.62rem', fontWeight: 800, letterSpacing: 0.5, bgcolor: 'rgba(13,148,136,0.1)', color: '#0d9488' }} />
+                              )}
+                              <Chip
+                                label={c.status === 'draft' ? 'DRAFT' : 'LIVE'}
+                                size="small"
+                                sx={{
+                                  fontFamily: ff, fontSize: '0.62rem', fontWeight: 800, letterSpacing: 0.5,
+                                  bgcolor: c.status === 'draft' ? 'rgba(239,68,68,0.08)' : 'rgba(34,197,94,0.08)',
+                                  color: c.status === 'draft' ? '#ef4444' : '#16a34a',
+                                }} />
+                            </Box>
                           </Box>
                         </Box>
                         <Box sx={{ display: 'flex', gap: 0.5 }}>
+                          <Tooltip title={c.status === 'draft' ? 'Publish' : 'Set Draft'}>
+                            <IconButton size="small" onClick={() => toggleContentStatus(c)}>
+                              {c.status === 'draft'
+                                ? <PublishIcon fontSize="small" sx={{ color: '#16a34a' }} />
+                                : <VisibilityOffIcon fontSize="small" sx={{ color: '#94a3b8' }} />}
+                            </IconButton>
+                          </Tooltip>
                           {c.content_type === 'cbt_exam' && (
                             <Tooltip title="View Questions">
                               <IconButton size="small" onClick={() => viewQuestions(c.id)}>
@@ -483,6 +569,16 @@ export default function AdminPublicManager() {
                 helperText={'Format: {"1":"A","2":"B","3":"C",...}'} />
             </>
           )}
+          <TextField fullWidth label="Subject (e.g., Mathematics, General Knowledge)" value={contentForm.subject}
+            onChange={e => setContentForm({ ...contentForm, subject: e.target.value })}
+            sx={{ ...inputSx, mb: 2 }} size="small"
+            helperText="Leave blank if general or not subject-specific" />
+          <FormControlLabel
+            control={<Switch checked={contentForm.is_previous_paper}
+              onChange={e => setContentForm({ ...contentForm, is_previous_paper: e.target.checked })} />}
+            label={<Typography sx={{ fontFamily: ff, fontSize: '0.85rem' }}>Previous Year Question Paper (PQP)</Typography>}
+            sx={{ mb: 2, display: 'block' }}
+          />
           {!editContent && (
             <Box sx={{ mb: 2 }}>
               <input ref={fileRef} type="file" accept=".pdf" style={{ display: 'none' }}
@@ -493,9 +589,18 @@ export default function AdminPublicManager() {
               </Button>
             </Box>
           )}
+          <FormControlLabel
+            control={<Switch checked={contentForm.status === 'published'}
+              onChange={e => setContentForm({ ...contentForm, status: e.target.checked ? 'published' : 'draft' })} />}
+            label={<Typography sx={{ fontFamily: ff, fontSize: '0.85rem' }}>
+              {contentForm.status === 'published' ? 'Published (visible to students)' : 'Draft (hidden from students)'}
+            </Typography>}
+            sx={{ mb: 2 }}
+          />
           <TextField fullWidth label="Order Index" type="number" value={contentForm.order_index}
             onChange={e => setContentForm({ ...contentForm, order_index: e.target.value })}
-            sx={{ ...inputSx }} size="small" />
+            sx={{ ...inputSx }} size="small"
+            helperText="Or use drag-and-drop in the content list" />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setContentDialog(false)} sx={{ fontFamily: ff, textTransform: 'none' }}>Cancel</Button>

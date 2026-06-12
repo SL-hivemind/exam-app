@@ -30,6 +30,7 @@ export default function PublicLayout() {
   };
 
   const navLinks = [
+    { label: '← Home', path: '/', exact: true, isHome: true },
     { label: 'Explore Courses', path: '/public', exact: true },
     ...(isLoggedIn ? [{ label: 'My Dashboard', path: '/public/dashboard' }] : []),
   ];
@@ -85,13 +86,14 @@ export default function PublicLayout() {
                 {navLinks.map(link => (
                   <Button
                     key={link.path}
-                    component={RouterLink}
-                    to={link.path}
+                    component={link.isHome ? 'a' : RouterLink}
+                    href={link.isHome ? '/' : undefined}
+                    to={link.isHome ? undefined : link.path}
                     sx={{
                       fontFamily: ff, fontWeight: 600, fontSize: '0.8rem',
                       textTransform: 'none', px: 1.5, py: 0.6, borderRadius: '8px',
-                      color: isActive(link.path, link.exact) ? '#fff' : '#94a3b8',
-                      bgcolor: isActive(link.path, link.exact) ? 'rgba(59,130,246,0.15)' : 'transparent',
+                      color: link.isHome ? '#60a5fa' : isActive(link.path, link.exact) ? '#fff' : '#94a3b8',
+                      bgcolor: link.isHome ? 'transparent' : isActive(link.path, link.exact) ? 'rgba(59,130,246,0.15)' : 'transparent',
                       '&:hover': {
                         color: '#fff',
                         bgcolor: 'rgba(255,255,255,0.06)',
