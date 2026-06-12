@@ -3,7 +3,7 @@ import {
   Box, Typography, Button, Card, CardContent, Grid, TextField, Dialog,
   DialogTitle, DialogContent, DialogActions, Switch, FormControlLabel,
   IconButton, Chip, Divider, Alert, CircularProgress, Select, MenuItem,
-  InputLabel, FormControl, Tabs, Tab, Tooltip,
+  InputLabel, FormControl, Tabs, Tab, Tooltip, Pagination, Autocomplete,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
@@ -17,6 +17,8 @@ import ContentPasteIcon from '@mui/icons-material/ContentPaste';
 import QuizIcon from '@mui/icons-material/Quiz';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
+import LibraryBooksIcon from '@mui/icons-material/LibraryBooks';
+import SearchIcon from '@mui/icons-material/Search';
 import { publicApi } from '../../utils/api';
 
 const ff = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
@@ -46,13 +48,29 @@ export default function AdminPublicManager() {
   const [busy, setBusy] = useState(false);
   const [dragIdx, setDragIdx] = useState(null);
 
-  // Smart Paste
+  // Smart Paste (Course Content)
   const [smartPasteDialog, setSmartPasteDialog] = useState(false);
   const [smartPasteText, setSmartPasteText] = useState('');
   const [smartPasteTarget, setSmartPasteTarget] = useState(null);
   const [parsedPreview, setParsedPreview] = useState([]);
   const [questionPreview, setQuestionPreview] = useState({ open: false, contentId: null, questions: [] });
 
+  // ── QUESTION BANK (Central Repository) ──
+  const [repoQuestions, setRepoQuestions] = useState([]);
+  const [repoTotal, setRepoTotal] = useState(0);
+  const [repoPage, setRepoPage] = useState(1);
+  const [repoPages, setRepoPages] = useState(1);
+  const [repoLoading, setRepoLoading] = useState(false);
+  const [repoFilters, setRepoFilters] = useState({ subject: '', chapter: '', difficulty: '', search: '' });
+  const [repoMeta, setRepoMeta] = useState({ subjects: [], chapters: [], topics: [] });
+  const [repoSmartPasteDialog, setRepoSmartPasteDialog] = useState(false);
+  const [repoSmartPasteText, setRepoSmartPasteText] = useState('');
+  const [repoSmartPasteMeta, setRepoSmartPasteMeta] = useState({
+    subject: '', chapter: '', topic: '', course_tags: '', difficulty: 'Medium', is_pyq: false, pyq_year: '',
+  });
+  const [repoParsedCount, setRepoParsedCount] = useState(0);
+
+  // ── DATA LOADING ──
   const loadCourses = () => {
     setLoading(true);
     publicApi.adminListCourses()
@@ -247,6 +265,63 @@ export default function AdminPublicManager() {
     } catch { setError('Failed to load questions'); }
   };
 
+  // ── QUESTION BANK FUNCTIONS ──
+  const loadRepoQuestions = (page = 1) => {
+    setRepoLoading(true);
+    publicApi.adminRepoList({ page, per_page: 20, ...repoFilters })
+      .then(r => {
+        setRepoQuestions(r.data.questions || []);
+        setRepoTotal(r.data.total || 0);
+        setRepoPages(r.data.pages || 1);
+        setRepoPage(r.data.current_page || 1);
+      })
+      .catch(() => setError('Failed to load repository'))
+      .finally(() => setRepoLoading(false));
+  };
+
+  const loadRepoMeta = () => {
+    publicApi.adminRepoMeta()
+      .then(r => setRepoMeta(r.data))
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    if (tab === 2) { loadRepoQuestions(); loadRepoMeta(); }
+  }, [tab]);
+
+  const deleteRepoQuestion = async (id) => {
+    if (!window.confirm('Delete this question from the repository?')) return;
+    try {
+      await publicApi.adminRepoDelete(id);
+      setMsg('Question deleted');
+      loadRepoQuestions(repoPage);
+    } catch { setError('Failed to delete'); }
+  };
+
+  const openRepoSmartPaste = () => {
+    setRepoSmartPasteText('');
+    setRepoSmartPasteMeta({ subject: '', chapter: '', topic: '', course_tags: '', difficulty: 'Medium', is_pyq: false, pyq_year: '' });
+    setRepoParsedCount(0);
+    setRepoSmartPasteDialog(true);
+  };
+
+  const submitRepoSmartPaste = async () => {
+    if (!repoSmartPasteText.trim() || !repoSmartPasteMeta.subject.trim()) return;
+    setBusy(true);
+    try {
+      const r = await publicApi.adminRepoSmartPaste({
+        raw_text: repoSmartPasteText,
+        ...repoSmartPasteMeta,
+      });
+      setMsg(r.data.message || 'Questions added!');
+      setRepoParsedCount(r.data.questions?.length || 0);
+      loadRepoQuestions();
+      loadRepoMeta();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Parsing failed');
+    } finally { setBusy(false); }
+  };
+
   const inputSx = {
     '& .MuiOutlinedInput-root': {
       fontFamily: ff, borderRadius: '10px', fontSize: '0.9rem',
@@ -273,6 +348,7 @@ export default function AdminPublicManager() {
       }}>
         <Tab icon={<DescriptionIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Courses" />
         <Tab icon={<PeopleIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Subscriptions" />
+        <Tab icon={<LibraryBooksIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Question Bank" />
       </Tabs>
 
       {tab === 0 ? (
@@ -494,6 +570,209 @@ export default function AdminPublicManager() {
           )}
         </Box>
       )}
+
+      {/* ── TAB 2: CENTRAL QUESTION BANK ── */}
+      {tab === 2 && (
+        <Box>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
+            <Box>
+              <Typography variant="h5" sx={{ fontFamily: ff, fontWeight: 800, color: '#1e293b' }}>
+                Central Question Bank
+              </Typography>
+              <Typography sx={{ fontFamily: ff, fontSize: '0.9rem', color: '#64748b', mt: 0.5 }}>
+                Questions for Dynamic Practice & Daily Challenges. Completely isolated from B2B school exams.
+              </Typography>
+            </Box>
+            <Button variant="contained" startIcon={<ContentPasteIcon />} onClick={openRepoSmartPaste}
+              sx={{ fontFamily: ff, fontWeight: 700, textTransform: 'none', borderRadius: '10px', boxShadow: 'none', bgcolor: '#3b82f6', '&:hover': { bgcolor: '#2563eb' } }}>
+              Smart Paste Questions
+            </Button>
+          </Box>
+
+          <Card sx={{ borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: 'none', mb: 3 }}>
+            <CardContent sx={{ p: 2 }}>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={3}>
+                  <FormControl fullWidth size="small" sx={inputSx}>
+                    <InputLabel>Subject</InputLabel>
+                    <Select value={repoFilters.subject} label="Subject" onChange={e => { setRepoFilters({ ...repoFilters, subject: e.target.value }); setRepoPage(1); }}>
+                      <MenuItem value="">All Subjects</MenuItem>
+                      {repoMeta.subjects.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} sm={3}>
+                  <FormControl fullWidth size="small" sx={inputSx}>
+                    <InputLabel>Chapter</InputLabel>
+                    <Select value={repoFilters.chapter} label="Chapter" onChange={e => { setRepoFilters({ ...repoFilters, chapter: e.target.value }); setRepoPage(1); }}>
+                      <MenuItem value="">All Chapters</MenuItem>
+                      {repoMeta.chapters.map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} sm={3}>
+                  <FormControl fullWidth size="small" sx={inputSx}>
+                    <InputLabel>Difficulty</InputLabel>
+                    <Select value={repoFilters.difficulty} label="Difficulty" onChange={e => { setRepoFilters({ ...repoFilters, difficulty: e.target.value }); setRepoPage(1); }}>
+                      <MenuItem value="">Any Difficulty</MenuItem>
+                      <MenuItem value="Easy">Easy</MenuItem>
+                      <MenuItem value="Medium">Medium</MenuItem>
+                      <MenuItem value="Hard">Hard</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} sm={3}>
+                  <TextField fullWidth size="small" placeholder="Search text or ID..." value={repoFilters.search}
+                    onChange={e => { setRepoFilters({ ...repoFilters, search: e.target.value }); setRepoPage(1); }}
+                    InputProps={{ startAdornment: <SearchIcon sx={{ color: '#94a3b8', mr: 1, fontSize: 20 }} /> }} sx={inputSx} />
+                </Grid>
+              </Grid>
+            </CardContent>
+          </Card>
+
+          {repoLoading ? <CircularProgress /> : repoQuestions.length === 0 ? (
+            <Typography sx={{ fontFamily: ff, color: '#64748b' }}>No questions found.</Typography>
+          ) : (
+            <Box>
+              <Typography sx={{ fontFamily: ff, fontSize: '0.85rem', color: '#64748b', mb: 2, fontWeight: 600 }}>
+                Showing {repoQuestions.length} of {repoTotal} questions
+              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                {repoQuestions.map(q => (
+                  <Card key={q.id} sx={{ borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: 'none' }}>
+                    <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                      <Box sx={{ display: 'flex', gap: 2 }}>
+                        <Box sx={{ minWidth: 60 }}>
+                          <Typography sx={{ fontFamily: ff, fontWeight: 700, fontSize: '0.8rem', color: '#64748b' }}>{q.custom_id}</Typography>
+                          <Chip label={q.difficulty} size="small" sx={{ mt: 1, fontFamily: ff, fontSize: '0.7rem', height: 20, fontWeight: 600,
+                            bgcolor: q.difficulty === 'Easy' ? '#dcfce7' : q.difficulty === 'Medium' ? '#fef08a' : '#fee2e2',
+                            color: q.difficulty === 'Easy' ? '#166534' : q.difficulty === 'Medium' ? '#854d0e' : '#991b1b' }} />
+                        </Box>
+                        <Box sx={{ flex: 1 }}>
+                          <Box sx={{ display: 'flex', gap: 1, mb: 1, flexWrap: 'wrap' }}>
+                            <Chip label={q.subject} size="small" sx={{ fontFamily: ff, fontSize: '0.7rem', height: 20, bgcolor: '#f1f5f9', color: '#334155' }} />
+                            {q.chapter && <Chip label={q.chapter} size="small" sx={{ fontFamily: ff, fontSize: '0.7rem', height: 20, bgcolor: '#f1f5f9', color: '#334155' }} />}
+                            {q.course_tags && <Chip label={q.course_tags} size="small" sx={{ fontFamily: ff, fontSize: '0.7rem', height: 20, bgcolor: '#e0e7ff', color: '#4338ca' }} />}
+                            {q.is_pyq && <Chip label={`PYQ ${q.pyq_year || ''}`} size="small" sx={{ fontFamily: ff, fontSize: '0.7rem', height: 20, bgcolor: '#fce7f3', color: '#be185d' }} />}
+                          </Box>
+                          <Typography sx={{ fontFamily: ff, fontSize: '0.9rem', color: '#1e293b', fontWeight: 500 }}>{q.text}</Typography>
+                          <Box sx={{ mt: 1, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                            {['a', 'b', 'c', 'd'].map(opt => q[`option_${opt}`] && (
+                              <Typography key={opt} sx={{ fontFamily: ff, fontSize: '0.8rem', color: q.correct_answer.toLowerCase() === opt ? '#16a34a' : '#64748b', fontWeight: q.correct_answer.toLowerCase() === opt ? 700 : 400 }}>
+                                {opt.toUpperCase()}) {q[`option_${opt}`]}
+                              </Typography>
+                            ))}
+                          </Box>
+                        </Box>
+                        <IconButton size="small" color="error" onClick={() => deleteRepoQuestion(q.id)} sx={{ alignSelf: 'flex-start' }}>
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Box>
+                    </CardContent>
+                  </Card>
+                ))}
+              </Box>
+              <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+                <Pagination count={repoPages} page={repoPage} onChange={(e, p) => setRepoPage(p)} color="primary" />
+              </Box>
+            </Box>
+          )}
+        </Box>
+      )}
+
+      {/* ── Repo Smart Paste Dialog ── */}
+      <Dialog open={repoSmartPasteDialog} onClose={() => setRepoSmartPasteDialog(false)} maxWidth="md" fullWidth>
+        <DialogTitle sx={{ fontFamily: ff, fontWeight: 700 }}>Smart Paste to Central Question Bank</DialogTitle>
+        <DialogContent>
+          <Alert severity="info" sx={{ mb: 3, fontFamily: ff, borderRadius: '10px' }}>
+            Batch Metadata: Set the Subject, Chapter, and Tags below. All pasted questions will inherit these values.
+          </Alert>
+          <Grid container spacing={2} sx={{ mb: 3 }}>
+            <Grid item xs={12} sm={6} md={3}>
+              <Autocomplete
+                freeSolo
+                options={repoMeta.subjects}
+                inputValue={repoSmartPasteMeta.subject}
+                onInputChange={(e, newInputValue) => setRepoSmartPasteMeta({ ...repoSmartPasteMeta, subject: newInputValue || '' })}
+                renderInput={(params) => <TextField {...params} label="Subject *" size="small" required sx={inputSx} />}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <Autocomplete
+                freeSolo
+                options={repoMeta.chapters}
+                inputValue={repoSmartPasteMeta.chapter}
+                onInputChange={(e, newInputValue) => setRepoSmartPasteMeta({ ...repoSmartPasteMeta, chapter: newInputValue || '' })}
+                renderInput={(params) => <TextField {...params} label="Chapter" size="small" sx={inputSx} />}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <Autocomplete
+                freeSolo
+                options={repoMeta.topics}
+                inputValue={repoSmartPasteMeta.topic}
+                onInputChange={(e, newInputValue) => setRepoSmartPasteMeta({ ...repoSmartPasteMeta, topic: newInputValue || '' })}
+                renderInput={(params) => <TextField {...params} label="Topic" size="small" sx={inputSx} />}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <FormControl fullWidth size="small" sx={inputSx}>
+                <InputLabel>Difficulty</InputLabel>
+                <Select value={repoSmartPasteMeta.difficulty} label="Difficulty" onChange={e => setRepoSmartPasteMeta({...repoSmartPasteMeta, difficulty: e.target.value})}>
+                  <MenuItem value="Easy">Easy</MenuItem>
+                  <MenuItem value="Medium">Medium</MenuItem>
+                  <MenuItem value="Hard">Hard</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth size="small" sx={inputSx}>
+                <InputLabel>Course (Optional)</InputLabel>
+                <Select
+                  value={repoSmartPasteMeta.course_tags}
+                  label="Course (Optional)"
+                  onChange={e => setRepoSmartPasteMeta({...repoSmartPasteMeta, course_tags: e.target.value})}
+                >
+                  <MenuItem value="">None</MenuItem>
+                  {courses.map(c => (
+                    <MenuItem key={c.id} value={c.title}>{c.title}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={3}>
+               <FormControlLabel control={<Switch checked={repoSmartPasteMeta.is_pyq} onChange={e => setRepoSmartPasteMeta({...repoSmartPasteMeta, is_pyq: e.target.checked})} />} label={<Typography sx={{fontFamily: ff, fontSize: '0.85rem'}}>Is PYQ?</Typography>} />
+            </Grid>
+            {repoSmartPasteMeta.is_pyq && (
+              <Grid item xs={12} sm={3}>
+                <TextField fullWidth label="Year" type="number" size="small" value={repoSmartPasteMeta.pyq_year} onChange={e => setRepoSmartPasteMeta({...repoSmartPasteMeta, pyq_year: e.target.value})} sx={inputSx} />
+              </Grid>
+            )}
+          </Grid>
+
+          <TextField
+            fullWidth multiline rows={12}
+            placeholder={`Paste your questions here...\n\nExample:\n1. What is the unit of force?\nA) Joule\nB) Newton\nC) Watt\nD) Pascal\nAnswer: B\nExplanation: Force is measured in Newtons.`}
+            value={repoSmartPasteText}
+            onChange={(e) => setRepoSmartPasteText(e.target.value)}
+            sx={{ ...inputSx, fontFamily: 'monospace' }}
+          />
+          {repoParsedCount > 0 && (
+            <Alert severity="success" sx={{ mt: 2, fontFamily: ff, borderRadius: '8px' }}>
+              Successfully parsed and inserted {repoParsedCount} questions!
+            </Alert>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          <Button onClick={() => setRepoSmartPasteDialog(false)} sx={{ fontFamily: ff, color: '#64748b', textTransform: 'none' }}>
+            Done
+          </Button>
+          <Button onClick={submitRepoSmartPaste} disabled={busy || !repoSmartPasteText.trim() || !repoSmartPasteMeta.subject.trim()} variant="contained"
+            sx={{ fontFamily: ff, fontWeight: 700, textTransform: 'none', borderRadius: '10px', boxShadow: 'none' }}>
+            {busy ? <CircularProgress size={20} /> : 'Parse & Insert'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* ── Course Dialog ── */}
       <Dialog open={courseDialog} onClose={() => setCourseDialog(false)} maxWidth="sm" fullWidth>

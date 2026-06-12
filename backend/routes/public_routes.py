@@ -21,6 +21,8 @@ from models import (
     PublicProfile, PublicCourse, CourseContent,
     CourseSubscription, PublicExamAttempt, EmailVerificationOTP,
     PublicQuestion,
+    PublicQuestionRepo, PublicCourseContentQuestion,
+    PublicPracticeAttempt, PublicDailyChallengeAttempt,
 )
 
 # ── Upload directory for public PDFs ──
@@ -1178,6 +1180,490 @@ def register_public_routes(app, token_required, role_required):
         db.session.commit()
 
         return jsonify({'message': f'Reordered {len(ordered_ids)} items'}), 200
+
+    # ═══════════════════════════════════════════════════════════
+    # 9. CENTRAL PUBLIC QUESTION REPOSITORY (Admin CRUD)
+    # ═══════════════════════════════════════════════════════════
+
+    @app.get('/admin/public/repository')
+    @role_required('admin')
+    def admin_repo_list(current_user):
+        """List/filter questions in the central public repository."""
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
+        subject = request.args.get('subject', '').strip()
+        chapter = request.args.get('chapter', '').strip()
+        topic = request.args.get('topic', '').strip()
+        course_tags = request.args.get('course_tags', '').strip()
+        difficulty = request.args.get('difficulty', '').strip()
+        search = request.args.get('search', '').strip()
+
+        query = PublicQuestionRepo.query
+        if subject:
+            query = query.filter(PublicQuestionRepo.subject.ilike(subject))
+        if chapter:
+            query = query.filter(PublicQuestionRepo.chapter.ilike(f'%{chapter}%'))
+        if topic:
+            query = query.filter(PublicQuestionRepo.topic.ilike(f'%{topic}%'))
+        if course_tags:
+            query = query.filter(PublicQuestionRepo.course_tags.ilike(f'%{course_tags}%'))
+        if difficulty:
+            query = query.filter(PublicQuestionRepo.difficulty == difficulty)
+        if search:
+            like = f'%{search}%'
+            query = query.filter(
+                db.or_(
+                    PublicQuestionRepo.text.ilike(like),
+                    PublicQuestionRepo.custom_id.ilike(like),
+                )
+            )
+
+        pagination = query.order_by(PublicQuestionRepo.id.desc()).paginate(
+            page=page, per_page=per_page, error_out=False
+        )
+        return jsonify({
+            'questions': [q.to_dict(include_answer=True) for q in pagination.items],
+            'total': pagination.total,
+            'pages': pagination.pages,
+            'current_page': pagination.page,
+        }), 200
+
+    @app.get('/admin/public/repository/meta')
+    @role_required('admin')
+    def admin_repo_meta(current_user):
+        """Return distinct subjects, chapters, and topics for filter dropdowns."""
+        subjects = [r[0] for r in db.session.query(PublicQuestionRepo.subject).distinct().all() if r[0]]
+        chapters = [r[0] for r in db.session.query(PublicQuestionRepo.chapter).distinct().all() if r[0]]
+        topics = [r[0] for r in db.session.query(PublicQuestionRepo.topic).distinct().all() if r[0]]
+        return jsonify({'subjects': sorted(subjects), 'chapters': sorted(chapters), 'topics': sorted(topics)}), 200
+
+    @app.post('/admin/public/repository')
+    @role_required('admin')
+    def admin_repo_add(current_user):
+        """Add a single question to the central repository."""
+        data = request.get_json(silent=True) or {}
+        if not data.get('text') or not data.get('subject') or not data.get('correct_answer'):
+            return jsonify({'message': 'text, subject, and correct_answer are required'}), 400
+
+        q = PublicQuestionRepo(
+            course_tags=(data.get('course_tags') or '').strip() or None,
+            subject=data['subject'].strip(),
+            chapter=(data.get('chapter') or '').strip() or None,
+            topic=(data.get('topic') or '').strip() or None,
+            difficulty=data.get('difficulty', 'Medium'),
+            is_pyq=bool(data.get('is_pyq')),
+            pyq_year=int(data['pyq_year']) if data.get('pyq_year') else None,
+            text=data['text'].strip(),
+            option_a=(data.get('option_a') or '').strip(),
+            option_b=(data.get('option_b') or '').strip(),
+            option_c=(data.get('option_c') or '').strip(),
+            option_d=(data.get('option_d') or '').strip(),
+            correct_answer=data['correct_answer'].strip().upper(),
+            explanation=(data.get('explanation') or '').strip() or None,
+            marks=int(data.get('marks') or 1),
+        )
+        db.session.add(q)
+        db.session.commit()
+        return jsonify({'message': 'Question added', 'question': q.to_dict(include_answer=True)}), 201
+
+    @app.put('/admin/public/repository/<int:q_id>')
+    @role_required('admin')
+    def admin_repo_update(current_user, q_id):
+        """Edit a single question in the repository."""
+        q = PublicQuestionRepo.query.get(q_id)
+        if not q:
+            return jsonify({'message': 'Question not found'}), 404
+        data = request.get_json(silent=True) or {}
+        for field in ['text', 'option_a', 'option_b', 'option_c', 'option_d',
+                       'correct_answer', 'explanation', 'subject', 'chapter', 'topic',
+                       'difficulty', 'course_tags', 'image_path']:
+            if field in data:
+                setattr(q, field, (data[field] or '').strip() if isinstance(data[field], str) else data[field])
+        if 'marks' in data:
+            q.marks = int(data['marks'] or 1)
+        if 'is_pyq' in data:
+            q.is_pyq = bool(data['is_pyq'])
+        if 'pyq_year' in data:
+            q.pyq_year = int(data['pyq_year']) if data['pyq_year'] else None
+        db.session.commit()
+        return jsonify({'message': 'Question updated', 'question': q.to_dict(include_answer=True)}), 200
+
+    @app.delete('/admin/public/repository/<int:q_id>')
+    @role_required('admin')
+    def admin_repo_delete(current_user, q_id):
+        """Delete a single question from the repository."""
+        q = PublicQuestionRepo.query.get(q_id)
+        if not q:
+            return jsonify({'message': 'Question not found'}), 404
+        db.session.delete(q)
+        db.session.commit()
+        return jsonify({'message': 'Question deleted'}), 200
+
+    # ═══════════════════════════════════════════════════════════
+    # 10. ADVANCED SMART PASTE (Repo bulk upload with metadata)
+    # ═══════════════════════════════════════════════════════════
+
+    @app.post('/admin/public/repository/smart-paste')
+    @role_required('admin')
+    def admin_repo_smart_paste(current_user):
+        """
+        Parse raw pasted text and insert questions into the central repository.
+        Batch metadata (subject, chapter, topic, course_tags, difficulty) is applied to all parsed questions.
+        """
+        data = request.get_json(silent=True) or {}
+        raw_text = data.get('raw_text', '').strip()
+        if not raw_text:
+            return jsonify({'message': 'raw_text is required'}), 400
+
+        batch_subject = (data.get('subject') or '').strip()
+        if not batch_subject:
+            return jsonify({'message': 'subject is required for batch metadata'}), 400
+
+        batch_chapter = (data.get('chapter') or '').strip() or None
+        batch_topic = (data.get('topic') or '').strip() or None
+        batch_tags = (data.get('course_tags') or '').strip() or None
+        batch_difficulty = data.get('difficulty', 'Medium')
+        batch_is_pyq = bool(data.get('is_pyq'))
+        batch_pyq_year = int(data['pyq_year']) if data.get('pyq_year') else None
+
+        # Use the existing smart parser
+        pattern = re.compile(
+            r'(?:Q?\s*)(\d+)\s*[.)]\s*(.*?)\s*'
+            r'[Aa][.)]\s*(.*?)\s*'
+            r'[Bb][.)]\s*(.*?)\s*'
+            r'[Cc][.)]\s*(.*?)\s*'
+            r'[Dd][.)]\s*(.*?)\s*'
+            r'(?:Ans(?:wer)?\s*[:.)]\s*([A-Da-d]))?\s*'
+            r'(?:Explanation\s*[:.)]\s*(.*?))?'
+            r'(?=(?:Q?\s*\d+\s*[.)])|$)',
+            re.DOTALL | re.IGNORECASE
+        )
+        matches = pattern.findall(raw_text)
+        if not matches:
+            matches = _parse_questions_simple(raw_text)
+
+        if not matches:
+            return jsonify({'message': 'Could not parse any questions. Please check the format.'}), 400
+
+        created = []
+        for idx, m in enumerate(matches):
+            q_text = m[1].strip() if len(m) > 1 else ''
+            opt_a = m[2].strip() if len(m) > 2 else ''
+            opt_b = m[3].strip() if len(m) > 3 else ''
+            opt_c = m[4].strip() if len(m) > 4 else ''
+            opt_d = m[5].strip() if len(m) > 5 else ''
+            correct = m[6].strip().upper() if len(m) > 6 and m[6] else 'A'
+            explanation = m[7].strip() if len(m) > 7 and m[7] else None
+
+            if not q_text:
+                continue
+
+            q = PublicQuestionRepo(
+                course_tags=batch_tags,
+                subject=batch_subject,
+                chapter=batch_chapter,
+                topic=batch_topic,
+                difficulty=batch_difficulty,
+                is_pyq=batch_is_pyq,
+                pyq_year=batch_pyq_year,
+                text=q_text,
+                option_a=opt_a,
+                option_b=opt_b,
+                option_c=opt_c,
+                option_d=opt_d,
+                correct_answer=correct,
+                explanation=explanation,
+            )
+            db.session.add(q)
+            created.append(q)
+
+        db.session.commit()
+        return jsonify({
+            'message': f'{len(created)} questions added to the repository',
+            'questions': [q.to_dict(include_answer=True) for q in created],
+        }), 201
+
+    # ═══════════════════════════════════════════════════════════
+    # 11. DYNAMIC PRACTICE ENGINE (Student-facing)
+    # ═══════════════════════════════════════════════════════════
+
+    @app.post('/public/practice/start')
+    @token_required
+    def public_practice_start(current_user):
+        """
+        Generate a dynamic practice session from the central repository.
+        Accepts: course_tags, subject (optional), chapter (optional), difficulty (optional), count (default 20).
+        """
+        profile = get_public_profile(current_user)
+        if not profile:
+            return jsonify({'message': 'Public profile required'}), 403
+
+        data = request.get_json(silent=True) or {}
+        course_tags = (data.get('course_tags') or '').strip()
+        subject = (data.get('subject') or '').strip()
+        chapter = (data.get('chapter') or '').strip()
+        difficulty = (data.get('difficulty') or '').strip()
+        count = min(int(data.get('count', 20)), 50)
+
+        query = PublicQuestionRepo.query
+        if course_tags:
+            query = query.filter(PublicQuestionRepo.course_tags.ilike(f'%{course_tags}%'))
+        if subject:
+            query = query.filter(PublicQuestionRepo.subject.ilike(subject))
+        if chapter:
+            query = query.filter(PublicQuestionRepo.chapter.ilike(f'%{chapter}%'))
+        if difficulty and difficulty != 'Random':
+            query = query.filter(PublicQuestionRepo.difficulty == difficulty)
+
+        # Pull random questions
+        all_ids = [r[0] for r in query.with_entities(PublicQuestionRepo.id).all()]
+        if not all_ids:
+            return jsonify({'message': 'No questions found matching filters'}), 404
+
+        selected_ids = random.sample(all_ids, min(count, len(all_ids)))
+        questions = PublicQuestionRepo.query.filter(PublicQuestionRepo.id.in_(selected_ids)).all()
+
+        # Find a course_id to link (use first subscribed course or 0)
+        sub = CourseSubscription.query.filter_by(public_profile_id=profile.id, status='active').first()
+        course_id = sub.course_id if sub else 0
+
+        attempt = PublicPracticeAttempt(
+            public_profile_id=profile.id,
+            course_id=course_id,
+            subject=subject or None,
+            chapter=chapter or None,
+            difficulty=difficulty or 'Random',
+            questions_json=json.dumps(selected_ids),
+            total_questions=len(selected_ids),
+        )
+        db.session.add(attempt)
+        db.session.commit()
+
+        return jsonify({
+            'attempt_id': attempt.id,
+            'questions': [q.to_dict(include_answer=False) for q in questions],
+            'total': len(questions),
+        }), 200
+
+    @app.post('/public/practice/<int:attempt_id>/submit')
+    @token_required
+    def public_practice_submit(current_user, attempt_id):
+        """Submit answers for a practice session and get scored results."""
+        profile = get_public_profile(current_user)
+        if not profile:
+            return jsonify({'message': 'Public profile required'}), 403
+
+        attempt = PublicPracticeAttempt.query.get(attempt_id)
+        if not attempt or attempt.public_profile_id != profile.id:
+            return jsonify({'message': 'Attempt not found'}), 404
+        if attempt.submitted_at:
+            return jsonify({'message': 'Already submitted'}), 400
+
+        data = request.get_json(silent=True) or {}
+        answers = data.get('answers', {})  # {question_id: 'A'}
+
+        question_ids = json.loads(attempt.questions_json)
+        questions = PublicQuestionRepo.query.filter(PublicQuestionRepo.id.in_(question_ids)).all()
+        q_map = {q.id: q for q in questions}
+
+        score = 0
+        results = []
+        for qid in question_ids:
+            q = q_map.get(qid)
+            if not q:
+                continue
+            user_ans = answers.get(str(qid), '')
+            is_correct = user_ans.upper() == q.correct_answer.upper() if user_ans else False
+            if is_correct:
+                score += q.marks
+            results.append({
+                'question_id': qid,
+                'user_answer': user_ans,
+                'correct_answer': q.correct_answer,
+                'is_correct': is_correct,
+                'explanation': q.explanation,
+            })
+
+        attempt.answers_json = json.dumps(answers)
+        attempt.score = score
+        attempt.submitted_at = datetime.utcnow()
+        db.session.commit()
+
+        return jsonify({
+            'score': score,
+            'total': len(question_ids),
+            'results': results,
+        }), 200
+
+    @app.get('/public/practice/<int:attempt_id>/review')
+    @token_required
+    def public_practice_review(current_user, attempt_id):
+        """Review a completed practice attempt."""
+        profile = get_public_profile(current_user)
+        if not profile:
+            return jsonify({'message': 'Public profile required'}), 403
+
+        attempt = PublicPracticeAttempt.query.get(attempt_id)
+        if not attempt or attempt.public_profile_id != profile.id:
+            return jsonify({'message': 'Attempt not found'}), 404
+
+        question_ids = json.loads(attempt.questions_json)
+        questions = PublicQuestionRepo.query.filter(PublicQuestionRepo.id.in_(question_ids)).all()
+        answers = json.loads(attempt.answers_json) if attempt.answers_json else {}
+
+        return jsonify({
+            'attempt': attempt.to_dict(),
+            'questions': [q.to_dict(include_answer=True) for q in questions],
+            'answers': answers,
+        }), 200
+
+    # ═══════════════════════════════════════════════════════════
+    # 12. DAILY CHALLENGE & STREAK SYSTEM
+    # ═══════════════════════════════════════════════════════════
+
+    @app.post('/public/challenge/start')
+    @token_required
+    def public_challenge_start(current_user):
+        """
+        Start or resume today's daily challenge.
+        Pulls 5 random questions from the repository based on user's enrolled course tags.
+        """
+        profile = get_public_profile(current_user)
+        if not profile:
+            return jsonify({'message': 'Public profile required'}), 403
+
+        today = datetime.utcnow().date()
+
+        # Check if already started today
+        existing = PublicDailyChallengeAttempt.query.filter_by(
+            public_profile_id=profile.id, challenge_date=today
+        ).first()
+        if existing:
+            if existing.completed_at:
+                return jsonify({
+                    'message': 'Already completed today\'s challenge',
+                    'challenge': existing.to_dict(),
+                    'streak': profile.daily_streak or 0,
+                    'already_completed': True,
+                }), 200
+
+            # Resume: return the same questions
+            question_ids = json.loads(existing.questions_json)
+            questions = PublicQuestionRepo.query.filter(PublicQuestionRepo.id.in_(question_ids)).all()
+            return jsonify({
+                'challenge_id': existing.id,
+                'questions': [q.to_dict(include_answer=False) for q in questions],
+                'total': len(questions),
+                'streak': profile.daily_streak or 0,
+                'already_completed': False,
+            }), 200
+
+        # Determine which tags to pull from based on subscriptions
+        subs = CourseSubscription.query.filter_by(public_profile_id=profile.id, status='active').all()
+        course_tags = set()
+        for s in subs:
+            course = PublicCourse.query.get(s.course_id)
+            if course:
+                # Use course title keywords as tags
+                course_tags.add(course.title.strip().upper())
+
+        # Pull 5 random questions
+        query = PublicQuestionRepo.query
+        if course_tags:
+            tag_filters = [PublicQuestionRepo.course_tags.ilike(f'%{t}%') for t in course_tags]
+            query = query.filter(db.or_(*tag_filters))
+
+        all_ids = [r[0] for r in query.with_entities(PublicQuestionRepo.id).all()]
+
+        # If not enough tagged questions, fall back to any questions
+        if len(all_ids) < 5:
+            all_ids = [r[0] for r in db.session.query(PublicQuestionRepo.id).all()]
+
+        if not all_ids:
+            return jsonify({'message': 'No questions available in the repository yet'}), 404
+
+        selected_ids = random.sample(all_ids, min(5, len(all_ids)))
+        questions = PublicQuestionRepo.query.filter(PublicQuestionRepo.id.in_(selected_ids)).all()
+
+        challenge = PublicDailyChallengeAttempt(
+            public_profile_id=profile.id,
+            challenge_date=today,
+            questions_json=json.dumps(selected_ids),
+        )
+        db.session.add(challenge)
+        db.session.commit()
+
+        return jsonify({
+            'challenge_id': challenge.id,
+            'questions': [q.to_dict(include_answer=False) for q in questions],
+            'total': len(questions),
+            'streak': profile.daily_streak or 0,
+            'already_completed': False,
+        }), 200
+
+    @app.post('/public/challenge/<int:challenge_id>/submit')
+    @token_required
+    def public_challenge_submit(current_user, challenge_id):
+        """Submit daily challenge answers and update streak."""
+        profile = get_public_profile(current_user)
+        if not profile:
+            return jsonify({'message': 'Public profile required'}), 403
+
+        challenge = PublicDailyChallengeAttempt.query.get(challenge_id)
+        if not challenge or challenge.public_profile_id != profile.id:
+            return jsonify({'message': 'Challenge not found'}), 404
+        if challenge.completed_at:
+            return jsonify({'message': 'Already submitted'}), 400
+
+        data = request.get_json(silent=True) or {}
+        answers = data.get('answers', {})
+
+        question_ids = json.loads(challenge.questions_json)
+        questions = PublicQuestionRepo.query.filter(PublicQuestionRepo.id.in_(question_ids)).all()
+        q_map = {q.id: q for q in questions}
+
+        score = 0
+        results = []
+        for qid in question_ids:
+            q = q_map.get(qid)
+            if not q:
+                continue
+            user_ans = answers.get(str(qid), '')
+            is_correct = user_ans.upper() == q.correct_answer.upper() if user_ans else False
+            if is_correct:
+                score += 1
+            results.append({
+                'question_id': qid,
+                'text': q.text,
+                'user_answer': user_ans,
+                'correct_answer': q.correct_answer,
+                'is_correct': is_correct,
+                'explanation': q.explanation,
+            })
+
+        challenge.answers_json = json.dumps(answers)
+        challenge.score = score
+        challenge.completed_at = datetime.utcnow()
+
+        # Update streak
+        today = datetime.utcnow().date()
+        from datetime import timedelta as td
+        yesterday = today - td(days=1)
+
+        if profile.last_challenge_date == yesterday:
+            profile.daily_streak = (profile.daily_streak or 0) + 1
+        elif profile.last_challenge_date != today:
+            profile.daily_streak = 1
+        profile.last_challenge_date = today
+
+        db.session.commit()
+
+        return jsonify({
+            'score': score,
+            'total': len(question_ids),
+            'results': results,
+            'streak': profile.daily_streak,
+        }), 200
 
 def _parse_questions_simple(raw_text):
     """Fallback line-by-line parser for simpler text formats."""

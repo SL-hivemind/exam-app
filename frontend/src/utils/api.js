@@ -115,6 +115,14 @@ export const publicApi = {
   adminSmartPaste: (contentId, rawText) => api.post(`/admin/public/contents/${contentId}/smart-questions`, { raw_text: rawText }),
   adminListQuestions: (contentId) => api.get(`/admin/public/contents/${contentId}/questions`),
 
+  // Central Public Question Repository (Admin)
+  adminRepoList: (params) => api.get('/admin/public/repository', { params }),
+  adminRepoMeta: () => api.get('/admin/public/repository/meta'),
+  adminRepoAdd: (data) => api.post('/admin/public/repository', data),
+  adminRepoUpdate: (id, data) => api.put(`/admin/public/repository/${id}`, data),
+  adminRepoDelete: (id) => api.delete(`/admin/public/repository/${id}`),
+  adminRepoSmartPaste: (data) => api.post('/admin/public/repository/smart-paste', data),
+
   // CBT Questions (student-facing)
   getQuestions: (contentId) => api.get(`/public/content/${contentId}/questions`),
 

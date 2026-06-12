@@ -382,6 +382,8 @@ class PublicProfile(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), unique=True, nullable=False)
     phone_number = db.Column(db.String(20), nullable=True)
     address = db.Column(db.Text, nullable=True)
+    daily_streak = db.Column(db.Integer, default=0)
+    last_challenge_date = db.Column(db.Date, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     user = db.relationship('User', backref=db.backref('public_profile', uselist=False))
@@ -394,6 +396,8 @@ class PublicProfile(db.Model):
             'email': self.user.email if self.user else None,
             'phone_number': self.phone_number,
             'address': self.address,
+            'daily_streak': self.daily_streak or 0,
+            'last_challenge_date': self.last_challenge_date.isoformat() if self.last_challenge_date else None,
             'created_at': self.created_at.isoformat() if self.created_at else None,
         }
 
@@ -634,6 +638,123 @@ class QuickResponse(db.Model):
             'answers_json': self.answers_json,
         }
 
+# ==================== B2C PUBLIC QUESTION REPOSITORY (Isolated) ====================
+# These are completely separate from the B2B school QuestionRepository.
+
+# -------------------- PUBLIC QUESTION REPOSITORY --------------------
+class PublicQuestionRepo(db.Model):
+    """Centralized question bank for B2C competitive exams (NEET, Banking, SSC, etc.)."""
+    __tablename__ = 'public_question_repository'
+    id = db.Column(db.Integer, primary_key=True)
+    custom_id = db.Column(db.String(50), unique=True, nullable=True)
+    course_tags = db.Column(db.String(255), nullable=True)          # e.g. 'NEET,JEE' or 'BANKING,SSC'
+    subject = db.Column(db.String(100), nullable=False)             # e.g. 'Physics', 'Quantitative Aptitude'
+    chapter = db.Column(db.String(100), nullable=True)              # e.g. 'Kinematics', 'Time & Work'
+    topic = db.Column(db.String(150), nullable=True)                # e.g. 'Projectile Motion'
+    difficulty = db.Column(db.String(20), default='Medium')         # 'Easy', 'Medium', 'Hard'
+    is_pyq = db.Column(db.Boolean, default=False)
+    pyq_year = db.Column(db.Integer, nullable=True)
+    text = db.Column(db.Text, nullable=False)
+    option_a = db.Column(db.String(500))
+    option_b = db.Column(db.String(500))
+    option_c = db.Column(db.String(500))
+    option_d = db.Column(db.String(500))
+    correct_answer = db.Column(db.String(10), nullable=False)       # 'A', 'B', 'C', 'D'
+    explanation = db.Column(db.Text, nullable=True)
+    image_path = db.Column(db.String(255), nullable=True)
+    marks = db.Column(db.Integer, default=1)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self, include_answer=False):
+        d = {
+            'id': self.id,
+            'custom_id': self.custom_id,
+            'course_tags': self.course_tags,
+            'subject': self.subject,
+            'chapter': self.chapter,
+            'topic': self.topic,
+            'difficulty': self.difficulty,
+            'is_pyq': self.is_pyq,
+            'pyq_year': self.pyq_year,
+            'text': self.text,
+            'option_a': self.option_a,
+            'option_b': self.option_b,
+            'option_c': self.option_c,
+            'option_d': self.option_d,
+            'marks': self.marks,
+            'image_path': self.image_path,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+        }
+        if include_answer:
+            d['correct_answer'] = self.correct_answer
+            d['explanation'] = self.explanation
+        return d
+
+# -------------------- PUBLIC COURSE ↔ REPO JOIN TABLE --------------------
+class PublicCourseContentQuestion(db.Model):
+    """Links a CourseContent (mock test) to questions from the central repository."""
+    __tablename__ = 'public_course_content_questions'
+    content_id = db.Column(db.Integer, db.ForeignKey('course_contents.id', ondelete='CASCADE'), primary_key=True)
+    public_q_id = db.Column(db.Integer, db.ForeignKey('public_question_repository.id', ondelete='CASCADE'), primary_key=True)
+    order_index = db.Column(db.Integer, default=1)
+
+    content = db.relationship('CourseContent', backref=db.backref('repo_question_links', lazy=True))
+    question = db.relationship('PublicQuestionRepo', backref=db.backref('content_links', lazy=True))
+
+# -------------------- PUBLIC PRACTICE ATTEMPT --------------------
+class PublicPracticeAttempt(db.Model):
+    """Tracks dynamic practice sessions pulled from the central repository."""
+    __tablename__ = 'public_practice_attempts'
+    id = db.Column(db.Integer, primary_key=True)
+    public_profile_id = db.Column(db.Integer, db.ForeignKey('public_profiles.id', ondelete='CASCADE'), nullable=False)
+    course_id = db.Column(db.Integer, db.ForeignKey('public_courses.id', ondelete='CASCADE'), nullable=False)
+    subject = db.Column(db.String(100), nullable=True)
+    chapter = db.Column(db.String(100), nullable=True)
+    difficulty = db.Column(db.String(20), default='Random')
+    questions_json = db.Column(db.Text, nullable=False)  # JSON list of PublicQuestionRepo IDs
+    answers_json = db.Column(db.Text, nullable=True)
+    score = db.Column(db.Integer, nullable=True)
+    total_questions = db.Column(db.Integer, default=30)
+    is_adaptive = db.Column(db.Boolean, default=False)
+    current_index = db.Column(db.Integer, default=0)
+    start_time = db.Column(db.DateTime, default=datetime.utcnow)
+    submitted_at = db.Column(db.DateTime, nullable=True)
+
+    profile = db.relationship('PublicProfile', backref=db.backref('practice_attempts', lazy=True))
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'subject': self.subject,
+            'chapter': self.chapter,
+            'difficulty': self.difficulty,
+            'score': self.score,
+            'total_questions': self.total_questions,
+            'start_time': self.start_time.isoformat() if self.start_time else None,
+            'submitted_at': self.submitted_at.isoformat() if self.submitted_at else None,
+        }
+
+# -------------------- PUBLIC DAILY CHALLENGE ATTEMPT --------------------
+class PublicDailyChallengeAttempt(db.Model):
+    """Tracks daily 5-question challenge attempts for streak tracking."""
+    __tablename__ = 'public_daily_challenge_attempts'
+    id = db.Column(db.Integer, primary_key=True)
+    public_profile_id = db.Column(db.Integer, db.ForeignKey('public_profiles.id', ondelete='CASCADE'), nullable=False)
+    challenge_date = db.Column(db.Date, nullable=False)
+    questions_json = db.Column(db.Text, nullable=False)  # JSON list of PublicQuestionRepo IDs
+    answers_json = db.Column(db.Text, nullable=True)
+    score = db.Column(db.Integer, default=0)
+    completed_at = db.Column(db.DateTime, nullable=True)
+
+    profile = db.relationship('PublicProfile', backref=db.backref('daily_challenges', lazy=True))
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'challenge_date': self.challenge_date.isoformat() if self.challenge_date else None,
+            'score': self.score,
+            'completed_at': self.completed_at.isoformat() if self.completed_at else None,
+        }
 
 # -------------------- EVENT LISTENERS --------------------
 

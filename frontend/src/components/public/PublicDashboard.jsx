@@ -24,12 +24,17 @@ import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment';
 import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutline';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import ScienceIcon from '@mui/icons-material/Science';
+import AutoStoriesIcon from '@mui/icons-material/AutoStories';
+import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
+import SearchIcon from '@mui/icons-material/Search';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { useNavigate } from 'react-router-dom';
 import { publicApi } from '../../utils/api';
 import useAuth from '../../hooks/useAuth';
 
 const ff = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
-const SIDEBAR_W = 260;
+const SIDEBAR_W = 220;
 
 export default function PublicDashboard() {
   const { user, logout } = useAuth();
@@ -48,6 +53,8 @@ export default function PublicDashboard() {
   const [error, setError] = useState('');
   const [mobileOpen, setMobileOpen] = useState(false);
   const [expandedCourse, setExpandedCourse] = useState(null);
+  const [dailyStreak, setDailyStreak] = useState(0);
+  const [challengeCompleted, setChallengeCompleted] = useState(false);
 
   const loadData = () => {
     setLoading(true);
@@ -59,6 +66,10 @@ export default function PublicDashboard() {
       setAvailableCourses(d.data.available_courses || []);
       setAttempts(a.data.attempts || []);
     }).finally(() => setLoading(false));
+
+    publicApi.myProfile().then(r => {
+      setDailyStreak(r.data?.profile?.daily_streak || 0);
+    }).catch(() => {});
   };
 
   useEffect(() => {
@@ -213,17 +224,28 @@ export default function PublicDashboard() {
 
   /* ── OVERVIEW TAB ── */
   const renderOverview = () => {
+    const handleStartChallenge = async () => {
+      try {
+        const r = await publicApi.challengeStart();
+        if (r.data.already_completed) {
+          setChallengeCompleted(true);
+          setDailyStreak(r.data.streak || 0);
+          setMsg(`Already completed today! Score: ${r.data.score}/5`);
+        } else {
+          setMsg(`Daily Challenge started! ${r.data.questions?.length || 5} questions loaded.`);
+        }
+      } catch (err) {
+        setError(err.response?.data?.message || 'Could not start challenge');
+      }
+    };
+
     return (
     <>
       <Grid container spacing={2.5} sx={{ mb: 4 }}>
         {[
           { label: 'Enrolled', value: dashboardCourses.length, icon: <SchoolIcon />, color: '#2563eb', bg: 'rgba(37,99,235,0.08)' },
           { label: 'Exams Taken', value: completedAttempts.length, icon: <QuizIcon />, color: '#16a34a', bg: 'rgba(22,163,74,0.08)' },
-          { label: 'Completion', value: (() => {
-            const totalItems = dashboardCourses.reduce((sum, dc) => sum + dc.contents.filter(c => c.content_type === 'pdf_exam' || c.content_type === 'cbt_exam').length, 0);
-            const doneItems = dashboardCourses.reduce((sum, dc) => sum + dc.contents.filter(c => c.attempt_submitted).length, 0);
-            return totalItems > 0 ? `${Math.round((doneItems / totalItems) * 100)}%` : '—';
-          })(), icon: <LocalFireDepartmentIcon />, color: '#f97316', bg: 'rgba(249,115,22,0.1)' },
+          { label: 'Daily Streak', value: dailyStreak > 0 ? `${dailyStreak} Days` : '0 Days', icon: <LocalFireDepartmentIcon />, color: '#f97316', bg: 'rgba(249,115,22,0.1)' },
           { label: 'Best Score', value: bestScore != null ? bestScore : '—', icon: <TrendingUpIcon />, color: '#eab308', bg: 'rgba(234,179,8,0.08)' },
         ].map((s, i) => (
           <Grid item xs={12} sm={6} md={3} key={i}>
@@ -239,6 +261,84 @@ export default function PublicDashboard() {
           </Grid>
         ))}
       </Grid>
+
+      {/* ── Quick Prep Hub (Enhanced UI) ── */}
+      <Box sx={{ mb: 6 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+          <Box>
+            <Typography sx={{ fontFamily: ff, fontWeight: 800, fontSize: '1.4rem', color: '#0f172a', letterSpacing: '-0.02em' }}>
+              Quick Prep Hub
+            </Typography>
+            <Typography sx={{ fontFamily: ff, fontSize: '0.9rem', color: '#64748b', mt: 0.5 }}>
+              Choose your practice mode and sharpen your skills.
+            </Typography>
+          </Box>
+          <Button variant="outlined" endIcon={<ArrowForwardIcon />} sx={{ fontFamily: ff, textTransform: 'none', borderRadius: '10px', borderColor: '#e2e8f0', color: '#64748b' }}>
+            View All
+          </Button>
+        </Box>
+        <Grid container spacing={3}>
+          {[
+            {
+              label: 'Daily Challenge', desc: '5 handpicked questions daily to keep your streak alive.',
+              icon: <LocalFireDepartmentIcon sx={{ fontSize: 36 }} />,
+              color: '#f97316', bg1: '#fff7ed', bg2: '#ffedd5',
+              action: handleStartChallenge
+            },
+            {
+              label: 'Chapter Practice', desc: 'Focus on a specific chapter to build strong fundamentals.',
+              icon: <AutoStoriesIcon sx={{ fontSize: 36 }} />,
+              color: '#3b82f6', bg1: '#eff6ff', bg2: '#dbeafe',
+              action: () => setTab('courses')
+            },
+            {
+              label: 'Subject Mix', desc: 'Test your overall knowledge across multiple topics.',
+              icon: <ScienceIcon sx={{ fontSize: 36 }} />,
+              color: '#8b5cf6', bg1: '#f5f3ff', bg2: '#ede9fe',
+              action: () => setTab('courses')
+            },
+            {
+              label: 'PYQ Papers', desc: 'Practice with previous year questions for real exam feel.',
+              icon: <HistoryIcon sx={{ fontSize: 36 }} />,
+              color: '#10b981', bg1: '#ecfdf5', bg2: '#d1fae5',
+              action: () => setTab('courses')
+            },
+          ].map((item, i) => (
+            <Grid item xs={12} sm={6} md={3} key={i}>
+              <Card onClick={item.action} sx={{
+                borderRadius: '20px', border: '1px solid #e2e8f0', boxShadow: '0 4px 20px rgba(0,0,0,0.02)',
+                cursor: 'pointer', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', position: 'relative', overflow: 'hidden',
+                '&:hover': {
+                  borderColor: item.color, transform: 'translateY(-4px)',
+                  boxShadow: `0 12px 30px ${item.color}20`,
+                  '& .icon-bg': { transform: 'scale(1.2)' }
+                },
+              }}>
+                <Box className="icon-bg" sx={{
+                  position: 'absolute', top: -20, right: -20, width: 100, height: 100,
+                  borderRadius: '50%', background: `linear-gradient(135deg, ${item.bg1}, ${item.bg2})`,
+                  opacity: 0.5, transition: 'all 0.4s ease'
+                }} />
+                <CardContent sx={{ p: 3, position: 'relative', zIndex: 1, '&:last-child': { pb: 3 } }}>
+                  <Box sx={{
+                    width: 56, height: 56, borderRadius: '16px', background: `linear-gradient(135deg, ${item.bg1}, ${item.bg2})`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 2, color: item.color,
+                    boxShadow: `0 4px 12px ${item.color}15`
+                  }}>
+                    {item.icon}
+                  </Box>
+                  <Typography sx={{ fontFamily: ff, fontWeight: 800, fontSize: '1.05rem', color: '#0f172a', mb: 0.5 }}>
+                    {item.label}
+                  </Typography>
+                  <Typography sx={{ fontFamily: ff, fontSize: '0.8rem', color: '#64748b', lineHeight: 1.5 }}>
+                    {item.desc}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
+      </Box>
 
       <Grid container spacing={3} sx={{ mb: 4 }}>
         <Grid item xs={12} md={8}>
@@ -299,16 +399,20 @@ export default function PublicDashboard() {
               <LocalFireDepartmentIcon sx={{ fontSize: 100 }} />
             </Box>
             <CardContent sx={{ p: 3, position: 'relative', zIndex: 1 }}>
-              <Chip label="Quiz of the Day" size="small" sx={{ bgcolor: 'rgba(255,255,255,0.1)', color: '#60a5fa', fontWeight: 700, fontFamily: ff, mb: 2, fontSize: '0.7rem' }} />
-              <Typography sx={{ fontFamily: ff, fontSize: '1.15rem', fontWeight: 800, mb: 1, lineHeight: 1.3 }}>
-                General Knowledge Mini-Test
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                <Chip label="Quiz of the Day" size="small" sx={{ bgcolor: 'rgba(255,255,255,0.1)', color: '#60a5fa', fontWeight: 700, fontFamily: ff, fontSize: '0.7rem' }} />
+                {dailyStreak > 0 && <Chip label={`🔥 ${dailyStreak} Day Streak`} size="small" sx={{ bgcolor: 'rgba(249,115,22,0.2)', color: '#fb923c', fontWeight: 700, fontFamily: ff, fontSize: '0.7rem' }} />}
+              </Box>
+              <Typography sx={{ fontFamily: ff, fontSize: '1.1rem', fontWeight: 800, mb: 1, lineHeight: 1.3 }}>
+                5 Mixed Questions
               </Typography>
               <Typography sx={{ fontFamily: ff, fontSize: '0.8rem', color: '#94a3b8', mb: 3 }}>
-                5 Questions • 10 Minutes
+                Based on your enrolled courses
               </Typography>
-              <Button fullWidth onClick={() => navigate('/public')} variant="contained" endIcon={<PlayCircleOutlineIcon />}
-                sx={{ fontFamily: ff, fontWeight: 700, textTransform: 'none', borderRadius: '10px', background: 'linear-gradient(135deg, #3b82f6, #2563eb)', color: '#fff', '&:hover': { background: '#2563eb' } }}>
-                Start Challenge
+              <Button fullWidth onClick={handleStartChallenge} variant="contained" endIcon={challengeCompleted ? <CheckCircleIcon /> : <PlayCircleOutlineIcon />}
+                disabled={challengeCompleted}
+                sx={{ fontFamily: ff, fontWeight: 700, textTransform: 'none', borderRadius: '10px', background: challengeCompleted ? 'rgba(34,197,94,0.2)' : 'linear-gradient(135deg, #3b82f6, #2563eb)', color: '#fff', '&:hover': { background: challengeCompleted ? 'rgba(34,197,94,0.2)' : '#2563eb' }, '&.Mui-disabled': { color: '#22c55e' } }}>
+                {challengeCompleted ? 'Completed Today' : 'Start Challenge'}
               </Button>
             </CardContent>
           </Card>
@@ -525,7 +629,7 @@ export default function PublicDashboard() {
   const tabTitles = { overview: 'Dashboard Overview', courses: 'My Courses', history: 'Exam History' };
 
   return (
-    <Box sx={{ display: 'flex', minHeight: 'calc(100vh - 64px)', fontFamily: ff }}>
+    <Box sx={{ display: 'flex', minHeight: 'calc(100vh - 50px)', fontFamily: ff }}>
       {/* Desktop sidebar */}
       {!isMobile && <Box sx={{ width: SIDEBAR_W, flexShrink: 0 }}>{sidebar}</Box>}
 
