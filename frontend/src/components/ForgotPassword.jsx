@@ -29,7 +29,7 @@ if (!document.getElementById('fp-style-inject')) {
 
 export default function ForgotPassword() {
   const navigate = useNavigate();
-  const ff = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
+  const ff = "'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
 
   // Steps: 'username' → 'otp' → 'done' or 'student_done'
   const [step, setStep] = useState('username');
@@ -92,7 +92,7 @@ export default function ForgotPassword() {
   return (
     <Box sx={{
       minHeight: '100vh', fontFamily: ff,
-      background: 'linear-gradient(135deg, #eff6ff 0%, #f8faff 40%, #e0f2fe 100%)',
+      background: 'linear-gradient(135deg, transparent 0%, transparent 40%, transparent 100%)',
       position: 'relative', overflow: 'hidden',
     }}>
       <Toolbar />
@@ -117,7 +117,7 @@ export default function ForgotPassword() {
         px: 2,
       }}>
         <Box sx={{
-          width: '100%', maxWidth: 440, bgcolor: '#fff',
+          width: '100%', maxWidth: 440, bgcolor: 'rgba(255,255,255,0.05)',
           borderRadius: '20px', border: '1px solid rgba(0,0,0,0.06)',
           boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 12px 40px rgba(0,0,0,0.06)',
           p: { xs: 3.5, sm: 4.5 },
@@ -128,12 +128,12 @@ export default function ForgotPassword() {
           {step === 'username' && (
             <Box component="form" onSubmit={handleInit}>
               <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
-                <LockResetIcon sx={{ color: '#3b82f6', fontSize: 28 }} />
-                <Typography sx={{ fontFamily: ff, fontSize: '1.5rem', fontWeight: 800, color: '#0f172a' }}>
+                <LockResetIcon sx={{ color: '#9fc1ff', fontSize: 28 }} />
+                <Typography sx={{ fontFamily: ff, fontSize: '1.5rem', fontWeight: 800, color: '#eaf0ff' }}>
                   Forgot Password
                 </Typography>
               </Stack>
-              <Typography sx={{ fontFamily: ff, fontSize: '0.88rem', color: '#94a3b8', mb: 3 }}>
+              <Typography sx={{ fontFamily: ff, fontSize: '0.88rem', color: '#aeb9e0', mb: 3 }}>
                 Enter your username or student ID to get started
               </Typography>
 
@@ -152,10 +152,10 @@ export default function ForgotPassword() {
                   mb: 2.5,
                   '& .MuiOutlinedInput-root': {
                     fontFamily: ff, fontSize: '0.9rem', borderRadius: '10px',
-                    bgcolor: '#f8fafc', height: 46,
-                    '& fieldset': { borderColor: '#e2e8f0' },
+                    bgcolor: 'transparent', height: 46,
+                    '& fieldset': { borderColor: 'rgba(255,255,255,0.12)' },
                     '&:hover fieldset': { borderColor: '#93c5fd' },
-                    '&.Mui-focused': { bgcolor: '#fff', boxShadow: '0 0 0 3px rgba(59,130,246,0.1)' },
+                    '&.Mui-focused': { bgcolor: 'rgba(255,255,255,0.05)', boxShadow: '0 0 0 3px rgba(59,130,246,0.1)' },
                     '&.Mui-focused fieldset': { borderColor: '#3b82f6', borderWidth: 2 },
                   },
                 }}
@@ -173,7 +173,7 @@ export default function ForgotPassword() {
               </Button>
 
               <Button fullWidth onClick={() => navigate('/login')} startIcon={<ArrowBackIcon />}
-                sx={{ mt: 1.5, fontFamily: ff, textTransform: 'none', color: '#64748b' }}>
+                sx={{ mt: 1.5, fontFamily: ff, textTransform: 'none', color: '#a9b4dd' }}>
                 Back to Login
               </Button>
             </Box>
@@ -182,10 +182,10 @@ export default function ForgotPassword() {
           {/* ── Step 2: OTP + New Password (Admin roles) ── */}
           {step === 'otp' && (
             <Box component="form" onSubmit={handleReset}>
-              <Typography sx={{ fontFamily: ff, fontSize: '1.4rem', fontWeight: 800, color: '#0f172a', mb: 0.5 }}>
+              <Typography sx={{ fontFamily: ff, fontSize: '1.4rem', fontWeight: 800, color: '#eaf0ff', mb: 0.5 }}>
                 Verify OTP
               </Typography>
-              <Typography sx={{ fontFamily: ff, fontSize: '0.85rem', color: '#64748b', mb: 3 }}>
+              <Typography sx={{ fontFamily: ff, fontSize: '0.85rem', color: '#a9b4dd', mb: 3 }}>
                 We sent a 6-digit code to <strong>{emailHint}</strong>
               </Typography>
 
@@ -234,7 +234,7 @@ export default function ForgotPassword() {
               </Button>
 
               <Button fullWidth onClick={() => { setStep('username'); setError(''); }}
-                sx={{ mt: 1, fontFamily: ff, textTransform: 'none', color: '#64748b' }}>
+                sx={{ mt: 1, fontFamily: ff, textTransform: 'none', color: '#a9b4dd' }}>
                 ← Try a different username
               </Button>
             </Box>
@@ -244,10 +244,10 @@ export default function ForgotPassword() {
           {step === 'done' && (
             <Box sx={{ textAlign: 'center', py: 2 }}>
               <CheckCircleOutlineIcon sx={{ fontSize: 56, color: '#22c55e', mb: 2 }} />
-              <Typography sx={{ fontFamily: ff, fontSize: '1.3rem', fontWeight: 700, color: '#0f172a', mb: 1 }}>
+              <Typography sx={{ fontFamily: ff, fontSize: '1.3rem', fontWeight: 700, color: '#eaf0ff', mb: 1 }}>
                 Password Reset!
               </Typography>
-              <Typography sx={{ fontFamily: ff, color: '#64748b', mb: 3 }}>
+              <Typography sx={{ fontFamily: ff, color: '#a9b4dd', mb: 3 }}>
                 Your password has been updated. You can now log in with your new password.
               </Typography>
               <Button fullWidth variant="contained" onClick={() => navigate('/login')}
@@ -265,10 +265,10 @@ export default function ForgotPassword() {
           {step === 'student_done' && (
             <Box sx={{ textAlign: 'center', py: 2 }}>
               <CheckCircleOutlineIcon sx={{ fontSize: 56, color: '#f59e0b', mb: 2 }} />
-              <Typography sx={{ fontFamily: ff, fontSize: '1.3rem', fontWeight: 700, color: '#0f172a', mb: 1 }}>
+              <Typography sx={{ fontFamily: ff, fontSize: '1.3rem', fontWeight: 700, color: '#eaf0ff', mb: 1 }}>
                 Request Submitted
               </Typography>
-              <Typography sx={{ fontFamily: ff, color: '#64748b', mb: 3 }}>
+              <Typography sx={{ fontFamily: ff, color: '#a9b4dd', mb: 3 }}>
                 {successMsg || 'Your password reset request has been sent to your school admin. They will set a new password for you.'}
               </Typography>
               <Button fullWidth variant="contained" onClick={() => navigate('/login')}

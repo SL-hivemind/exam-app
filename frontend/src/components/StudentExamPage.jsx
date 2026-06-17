@@ -94,7 +94,7 @@ export default function StudentExamPage() {
   return (
     <Box sx={{ 
         minHeight: '100vh', 
-        bgcolor: '#f5f5f5', 
+        bgcolor: 'transparent', 
         display: 'flex', 
         alignItems: 'center', 
         justifyContent: 'center' 

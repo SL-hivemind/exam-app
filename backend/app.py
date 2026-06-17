@@ -25,7 +25,9 @@ from models import (
     Exam, Question, ExamStudent,
     StudentExamAttempt, StudentAnswer,
     QuestionRepository, QuestionAuditLog, AuditLog, QuestionReport, generate_short_id,
-    PasswordResetOTP, StudentRequest
+    PasswordResetOTP, StudentRequest,
+    PublicProfile, PublicCourse, CourseContent,
+    CourseSubscription, PublicExamAttempt, EmailVerificationOTP,
 )
 
 from utils.files import (
@@ -34,7 +36,7 @@ from utils.files import (
     IMAGES_DIR, CSV_DIR, export_student_attempts_to_excel
 )
 
-from routes import register_analysis_routes, register_repository_routes, register_student_routes
+from routes import register_analysis_routes, register_repository_routes, register_student_routes, register_public_routes, register_quick_routes
 
 # ------------------------------
 # Environment/bootstrap
@@ -98,6 +100,7 @@ CORS(
     resources={r"/*": {"origins": [
         "http://localhost:3000",
         "http://127.0.0.1:3000",
+        "http://192.168.1.18:3000",
         "https://sl-exam.onrender.com"
     ]}},
     supports_credentials=True,
@@ -121,6 +124,8 @@ def token_from_request():
             token = parts[1].strip()
     if not token:
         token = request.headers.get("auth_token")
+    if not token:
+        token = request.args.get("token") or request.args.get("auth_token")
     return token
 
 def token_required(f):
@@ -216,6 +221,8 @@ def _competition_rank(score, all_scores):
 register_repository_routes(app, token_required)
 register_student_routes(app, role_required, no_cache, to_utc_naive)
 register_analysis_routes(app, token_required, _competition_rank, _calculate_percentile)
+register_public_routes(app, token_required, role_required)
+register_quick_routes(app, token_required, role_required)
 
 # ------------------------------
 # DB init

@@ -232,7 +232,7 @@ export default function RepoQuestionsPage() {
         onReset={() => setFilters({ search: '', class_number: '', subject: '', chapter: '', topic: '' })}
       />
 
-      <Box sx={{ flexGrow: 1, p: 3, overflowY: 'auto', bgcolor: '#f5f7fa' }}>
+      <Box sx={{ flexGrow: 1, p: 3, overflowY: 'auto', bgcolor: 'transparent' }}>
         <Stack direction="row" justifyContent="space-between" mb={3}>
           <Box>
             <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(-1)} sx={{ mb: 1 }}>
@@ -354,7 +354,7 @@ export default function RepoQuestionsPage() {
                             maxHeight: 200,
                             maxWidth: '100%',
                             borderRadius: 8,
-                            border: '1px solid #e0e0e0',
+                            border: '1px solid rgba(255,255,255,0.08)',
                             objectFit: 'contain'
                           }}
                         />

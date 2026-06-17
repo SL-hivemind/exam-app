@@ -1,13 +1,81 @@
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto',
+    'Helvetica Neue', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background-color: #060a1f;
 }
 
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
+}
+
+/* ── Aurora Glass keyframes ───────────────────────────────── */
+@keyframes auroraDrift1 {
+  0%   { transform: translate3d(0, 0, 0) scale(1); }
+  50%  { transform: translate3d(6vw, 4vh, 0) scale(1.15); }
+  100% { transform: translate3d(0, 0, 0) scale(1); }
+}
+@keyframes auroraDrift2 {
+  0%   { transform: translate3d(0, 0, 0) scale(1.1); }
+  50%  { transform: translate3d(-7vw, 5vh, 0) scale(1); }
+  100% { transform: translate3d(0, 0, 0) scale(1.1); }
+}
+@keyframes auroraDrift3 {
+  0%   { transform: translate3d(0, 0, 0) scale(1); }
+  50%  { transform: translate3d(4vw, -6vh, 0) scale(1.2); }
+  100% { transform: translate3d(0, 0, 0) scale(1); }
+}
+
+/* Animated gradient text */
+@keyframes gradientShift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Sheen sweep used on glass cards */
+@keyframes glassSheen {
+  0%   { transform: translateX(-120%) rotate(8deg); opacity: 0; }
+  18%  { opacity: 0.6; }
+  40%  { transform: translateX(120%) rotate(8deg); opacity: 0; }
+  100% { transform: translateX(120%) rotate(8deg); opacity: 0; }
+}
+
+/* ── Recharts on dark theme (global, so every chart is readable) ── */
+.recharts-text,
+.recharts-cartesian-axis-tick-value tspan,
+.recharts-polar-angle-axis-tick-value tspan,
+.recharts-label {
+  fill: #aab4dd;
+}
+.recharts-cartesian-axis-line,
+.recharts-cartesian-axis-tick-line {
+  stroke: rgba(255, 255, 255, 0.16);
+}
+.recharts-cartesian-grid line,
+.recharts-polar-grid-angle line,
+.recharts-polar-grid-concentric circle {
+  stroke: rgba(255, 255, 255, 0.08);
+}
+.recharts-legend-item-text {
+  color: #aab4dd !important;
+}
+.recharts-default-tooltip {
+  background: rgba(11, 17, 48, 0.95) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 12px 30px rgba(2, 6, 23, 0.6);
+  color: #f5f8ff !important;
+}
+.recharts-tooltip-label { color: #aab4dd !important; }
+.recharts-tooltip-item { color: #f5f8ff !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }

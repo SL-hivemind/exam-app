@@ -1,9 +1,10 @@
 import React,{useEffect,useState} from 'react';
 import {useParams,useNavigate} from 'react-router-dom';
-import {Box,Typography,Button,Paper,Stack,IconButton,Dialog,DialogTitle,DialogContent,DialogActions,TextField,Grid,Chip,CircularProgress} from '@mui/material';
-import {Delete as DeleteIcon,CloudUpload as CloudUploadIcon,Add as AddIcon,ArrowBack as ArrowBackIcon,LibraryAdd as RepoIcon,Image as ImageIcon,Edit as EditIcon,Flag as FlagIcon} from '@mui/icons-material';
+import {Box,Typography,Button,Paper,Stack,IconButton,Dialog,DialogTitle,DialogContent,DialogActions,TextField,Grid,Chip,CircularProgress,Snackbar,Alert} from '@mui/material';
+import {Delete as DeleteIcon,CloudUpload as CloudUploadIcon,Add as AddIcon,LibraryAdd as RepoIcon,Image as ImageIcon,Edit as EditIcon,Flag as FlagIcon} from '@mui/icons-material';
 import api from '../../utils/api';
 import useAuth from '../../hooks/useAuth';
+import { PageHeader } from '../common';
 
 export default function AdminExamQuestions(){
 const {examId}=useParams();
@@ -19,6 +20,8 @@ const [editingQ,setEditingQ]=useState(null);
 const [reportDialog,setReportDialog]=useState(false);
 const [reportQId,setReportQId]=useState(null);
 const [reportMsg,setReportMsg]=useState('');
+const [toast,setToast]=useState({open:false,msg:'',severity:'success'});
+const notify=(msg,severity='success')=>setToast({open:true,msg,severity});
 
 const getBasePath=()=>user?.role==='school_admin'?'/school':'/admin';
 const basePath=getBasePath();
@@ -43,7 +46,7 @@ formData.append('file',file);
 try{
 const res=await api.post('/admin/upload/image',formData,{headers:{'Content-Type':'multipart/form-data'}});
 setNewQ(prev=>({...prev,image_path:res.data.url}));
-}catch(err){alert('Image upload failed');}
+}catch(err){notify('Image upload failed','error');}
 finally{setUploadingImg(false);}
 };
 
@@ -53,7 +56,8 @@ await api.post(`/admin/exams/${examId}/questions`,newQ);
 setOpenDialog(false);
 setNewQ({text:'',option_a:'',option_b:'',option_c:'',option_d:'',correct_answer:'',marks:1,image_path:''});
 fetchQuestions();
-}catch(err){alert('Failed to add question');}
+notify('Question added');
+}catch(err){notify('Failed to add question','error');}
 };
 
 const handleCsvUpload=async(e)=>{
@@ -64,9 +68,9 @@ formData.append('file',file);
 try{
 setLoading(true);
 const res=await api.post(`/admin/exams/${examId}/questions`,formData,{headers:{'Content-Type':'multipart/form-data'}});
-alert(res.data.message);
+notify(res.data.message);
 fetchQuestions();
-}catch(err){alert(err.response?.data?.message||'Upload failed');}
+}catch(err){notify(err.response?.data?.message||'Upload failed','error');}
 finally{setLoading(false);e.target.value=null;}
 };
 
@@ -75,7 +79,8 @@ if(!window.confirm('Remove question from exam?'))return;
 try{
 await api.delete(`/admin/exams/${examId}/questions/${id}`);
 fetchQuestions();
-}catch(err){alert('Delete failed');}
+notify('Question removed');
+}catch(err){notify('Delete failed','error');}
 };
 
 const handleEditSubmit=async()=>{
@@ -83,7 +88,8 @@ try{
 await api.put(`/admin/exams/${examId}/questions/${editingQ.id}`,editingQ);
 setEditDialog(false);
 fetchQuestions();
-}catch(err){alert('Edit failed');}
+notify('Question updated');
+}catch(err){notify('Edit failed','error');}
 };
 
 const handleReportSubmit=async()=>{
@@ -91,24 +97,22 @@ try{
 await api.post(`/admin/repository/questions/${reportQId}/report`,{message:reportMsg});
 setReportDialog(false);
 setReportMsg('');
-alert('Question reported successfully');
-}catch(err){alert('Report failed');}
+notify('Question reported successfully');
+}catch(err){notify('Report failed','error');}
 };
 
 return(
-<Box sx={{p:3,bgcolor:'#f5f7fa',minHeight:'100vh'}}>
-<Stack direction={{xs:'column',md:'row'}} justifyContent="space-between" alignItems="center" mb={4} spacing={2}>
 <Box>
-<Button startIcon={<ArrowBackIcon/>} onClick={()=>navigate(-1)} sx={{mb:1}}>Back</Button>
-<Typography variant="h4" fontWeight={700} color="primary.main">Exam Questions</Typography>
-<Typography variant="body2" color="text.secondary">Managing content for Exam #{examId}</Typography>
-</Box>
-<Stack direction="row" spacing={2}>
-<Button variant="outlined" component="label" startIcon={<CloudUploadIcon/>}>Upload CSV<input type="file" hidden accept=".csv" onChange={handleCsvUpload}/></Button>
-<Button variant="contained" color="secondary" startIcon={<RepoIcon/>} onClick={()=>navigate(`${basePath}/repository/questions?examId=${examId}`)}>Pick from Repo</Button>
-<Button variant="contained" startIcon={<AddIcon/>} onClick={()=>setOpenDialog(true)}>Add Question</Button>
-</Stack>
-</Stack>
+<PageHeader
+  onBack={()=>navigate(-1)}
+  title="Exam Questions"
+  subtitle={`Managing content for Exam #${examId}`}
+  actions={<>
+    <Button variant="outlined" component="label" startIcon={<CloudUploadIcon/>}>Upload CSV<input type="file" hidden accept=".csv" onChange={handleCsvUpload}/></Button>
+    <Button variant="outlined" color="secondary" startIcon={<RepoIcon/>} onClick={()=>navigate(`${basePath}/repository/questions?examId=${examId}`)}>Pick from Repo</Button>
+    <Button variant="contained" startIcon={<AddIcon/>} onClick={()=>setOpenDialog(true)}>Add Question</Button>
+  </>}
+/>
 
 {loading&&<Box display="flex" justifyContent="center" py={4}><CircularProgress/></Box>}
 
@@ -117,7 +121,7 @@ return(
 <Paper key={q.id} elevation={1} sx={{p:2,borderRadius:2,position:'relative'}}>
 <Box display="flex" alignItems="flex-start" justifyContent="space-between">
 <Box>
-<Typography variant="subtitle1" fontWeight={600} gutterBottom><Box component="span" color="primary.main" mr={1}>Q{index+1}.</Box>{q.text}</Typography>
+<Typography variant="subtitle1" fontWeight={600} gutterBottom><Box component="span" sx={{ color: '#cfe0ff' }} mr={1}>Q{index+1}.</Box>{q.text}</Typography>
 {q.image_path&&<Box sx={{my:1}}><img src={q.image_path} alt="Q" style={{maxHeight:100,borderRadius:4}}/></Box>}
 <Grid container spacing={2}>
 <Grid item xs={6} md={3}><Typography variant="body2">A) {q.option_a}</Typography></Grid>
@@ -212,6 +216,10 @@ Upload Image<input type="file" hidden accept="image/*" onChange={handleImageUplo
 <Button variant="contained" color="error" onClick={handleReportSubmit} disabled={!reportMsg.trim()}>Report Mistake</Button>
 </DialogActions>
 </Dialog>
+
+<Snackbar open={toast.open} autoHideDuration={3500} onClose={()=>setToast(t=>({...t,open:false}))} anchorOrigin={{vertical:'bottom',horizontal:'center'}}>
+<Alert severity={toast.severity} variant="filled" onClose={()=>setToast(t=>({...t,open:false}))}>{toast.msg}</Alert>
+</Snackbar>
 </Box>
 );
 }

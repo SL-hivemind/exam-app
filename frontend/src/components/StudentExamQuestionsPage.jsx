@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box, Typography, Paper, Button, Alert, RadioGroup,
   FormControlLabel, Radio, CircularProgress, Container, Stack, Dialog, DialogTitle, DialogContent, DialogActions,
-  Grid, Drawer, IconButton, useTheme, useMediaQuery, Divider
+  Grid, Drawer, IconButton, useTheme, useMediaQuery, Divider, Fab
 } from '@mui/material';
 import { AccessTime as TimerIcon, Apps as AppsIcon, Close as CloseIcon } from '@mui/icons-material';
 import api from '../utils/api';
@@ -318,10 +318,10 @@ export default function StudentExamQuestionsPage() {
                     })}
                 </Box>
                 
-                <Box mt={3} display="flex" flexDirection="column" gap={1}>
-                <Box display="flex" alignItems="center" gap={1}><Box width={16} height={16} borderRadius={1} bgcolor="#4caf50" /><Typography variant="body2">Attempted</Typography></Box>
-                <Box display="flex" alignItems="center" gap={1}><Box width={16} height={16} borderRadius={1} bgcolor="#ff9800" /><Typography variant="body2">Visited, Not Answered</Typography></Box>
-                <Box display="flex" alignItems="center" gap={1}><Box width={16} height={16} borderRadius={1} bgcolor="#e0e0e0" /><Typography variant="body2">Not Visited</Typography></Box>
+                <Box mt={3} display="flex" flexDirection={{ xs: 'column', md: 'row' }} flexWrap="wrap" gap={1}>
+                <Box display="flex" alignItems="center" gap={1} width={{ xs: '100%', md: '30%' }}><Box width={16} height={16} borderRadius={1} bgcolor="#4caf50" flexShrink={0} /><Typography variant="body2" noWrap>Attempted</Typography></Box>
+                <Box display="flex" alignItems="center" gap={1} width={{ xs: '100%', md: '30%' }}><Box width={16} height={16} borderRadius={1} bgcolor="#ff9800" flexShrink={0} /><Typography variant="body2" noWrap>Visited</Typography></Box>
+                <Box display="flex" alignItems="center" gap={1} width={{ xs: '100%', md: '30%' }}><Box width={16} height={16} borderRadius={1} bgcolor="#e0e0e0" flexShrink={0} /><Typography variant="body2" noWrap>Not Visited</Typography></Box>
                 </Box>
             </Paper>
         </Box>
@@ -332,7 +332,7 @@ export default function StudentExamQuestionsPage() {
     <Box 
         sx={{
             position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-            bgcolor: '#f5f5f5', zIndex: 1200, overflow: 'auto',
+            bgcolor: 'transparent', zIndex: 1200, overflow: 'auto',
             userSelect: 'none' 
         }}
         onContextMenu={(e) => e.preventDefault()}
@@ -342,11 +342,6 @@ export default function StudentExamQuestionsPage() {
         {/* HEADER BAR */}
         <Paper elevation={3} sx={{ p: 2, mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 10, zIndex: 100 }}>
             <Box display="flex" alignItems="center" gap={1}>
-                {isMobile && (
-                    <IconButton onClick={() => setMobileOpen(true)} color="primary">
-                        <AppsIcon />
-                    </IconButton>
-                )}
                 <Box>
                     <Typography variant="h6" fontWeight={700} sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>{exam.title}</Typography>
                     <Typography variant="caption" color="text.secondary">
@@ -358,7 +353,7 @@ export default function StudentExamQuestionsPage() {
             <Box display="flex" alignItems="center" gap={{ xs: 1, sm: 2 }}>
                 {violations > 0 && <Alert severity="warning" sx={{ py: 0, display: { xs: 'none', sm: 'flex' } }}>Warnings: {violations}</Alert>}
                 
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, bgcolor: timeLeft < 300 ? '#ffebee' : '#e3f2fd', px: { xs: 1, sm: 2 }, py: 1, borderRadius: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, bgcolor: timeLeft < 300 ? 'rgba(251,113,133,0.12)' : '#e3f2fd', px: { xs: 1, sm: 2 }, py: 1, borderRadius: 2 }}>
                     <TimerIcon color={timeLeft < 300 ? "error" : "primary"} fontSize={isMobile ? "small" : "medium"} />
                     <Typography variant="h6" fontWeight={700} color={timeLeft < 300 ? "error" : "primary"} sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
                         {formatTime(timeLeft)}
@@ -377,9 +372,19 @@ export default function StudentExamQuestionsPage() {
             </Box>
         </Paper>
 
+        {isMobile && (
+            <Fab 
+                color="primary" 
+                onClick={() => setMobileOpen(true)}
+                sx={{ position: 'fixed', bottom: 20, right: 20, zIndex: 1100 }}
+            >
+                <AppsIcon />
+            </Fab>
+        )}
+
         <Grid container spacing={3}>
             {/* MAIN QUESTIONS AREA */}
-            <Grid item xs={12} md={8}>
+            <Grid item xs={12} md={8} lg={9}>
                 {currentQuestions.map((q, idx) => (
                     <Paper key={q.id} elevation={1} sx={{ p: { xs: 2, sm: 3 }, mb: 3, borderRadius: 2 }}>
                         <Typography variant="subtitle1" fontWeight={600} gutterBottom>
@@ -410,7 +415,7 @@ export default function StudentExamQuestionsPage() {
                                                 {q[`option_${opt}`]}
                                             </Typography>
                                         } 
-                                        sx={{ mb: 1, p: 1, borderRadius: 1, '&:hover': { bgcolor: '#f5f5f5' } }}
+                                        sx={{ mb: 1, p: 1, borderRadius: 1, '&:hover': { bgcolor: 'transparent' } }}
                                     />
                                 )
                             ))}
@@ -434,7 +439,7 @@ export default function StudentExamQuestionsPage() {
 
             {/* DESKTOP SIDEBAR */}
             {!isMobile && (
-                <Grid item xs={12} md={4}>
+                <Grid item xs={12} md={4} lg={3}>
                     {renderQuestionPalette()}
                 </Grid>
             )}

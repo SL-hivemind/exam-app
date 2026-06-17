@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { 
   Box, Typography, Button, Dialog, DialogTitle, DialogContent, 
   DialogActions, TextField, MenuItem, Select, InputLabel, 
-  FormControl, Alert, IconButton, Stack, Paper, Grid, Chip, InputAdornment
+  FormControl, Alert, IconButton, Stack, Paper, Grid, Chip, InputAdornment,
+  TableRow, TableCell, Tooltip
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -11,6 +12,15 @@ import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import SearchIcon from '@mui/icons-material/Search';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
 import api from '../../utils/api';
+import { PageHeader, DataTableShell } from '../common';
+
+const SCHOOL_COLUMNS = [
+  { key: 'name', label: 'School' },
+  { key: 'code', label: 'Code' },
+  { key: 'students', label: 'Students' },
+  { key: 'id', label: 'System ID' },
+  { key: 'actions', label: 'Actions', align: 'right' },
+];
 
 export default function AdminSchools() {
   const [schools, setSchools] = useState([]);
@@ -139,33 +149,25 @@ export default function AdminSchools() {
   };
 
   return (
-    <Box sx={{ p: 3, bgcolor: '#f5f7fa', minHeight: '100vh' }}>
-      
-      {/* HEADER SECTION */}
-      <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems="center" mb={4} spacing={2}>
-        <Box>
-            <Typography variant="h4" fontWeight={700} color="primary.main">
-                School Management
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-                Manage registered schools and assign administrative roles.
-            </Typography>
-        </Box>
-        <Stack direction="row" spacing={2}>
-          <Button variant="contained" startIcon={<AddCircleIcon />} onClick={handleOpenAddSchool} sx={{ borderRadius: 2, px: 3 }}>
+    <Box>
+      <PageHeader
+        title="School Management"
+        subtitle="Manage registered schools and assign administrative roles."
+        actions={<>
+          <Button variant="contained" startIcon={<AddCircleIcon />} onClick={handleOpenAddSchool}>
             Add School
           </Button>
-          <Button variant="outlined" startIcon={<PersonAddIcon />} onClick={() => setOpenUserDialog(true)} sx={{ borderRadius: 2, px: 3 }}>
+          <Button variant="outlined" startIcon={<PersonAddIcon />} onClick={() => setOpenUserDialog(true)}>
             Create User
           </Button>
-        </Stack>
-      </Stack>
+        </>}
+      />
 
       {/* ALERTS */}
       {msg && <Alert severity={msg.type} onClose={() => setMsg(null)} sx={{ mb: 3, borderRadius: 2 }}>{msg.text}</Alert>}
 
       {/* SEARCH BAR */}
-      <Paper elevation={0} sx={{ p: 2, mb: 3, borderRadius: 3, border: '1px solid #eee' }}>
+      <Paper elevation={0} sx={{ p: 2, mb: 3, borderRadius: 3, border: '1px solid rgba(255,255,255,0.08)' }}>
         <TextField 
             fullWidth 
             placeholder="Search by school name or code..." 
@@ -180,47 +182,43 @@ export default function AdminSchools() {
         />
       </Paper>
 
-      {/* SCHOOLS GRID */}
-      <Grid container spacing={3}>
-        {filteredSchools.map(s => (
-          <Grid item xs={12} sm={6} md={4} key={s.id}>
-            <Paper elevation={2} sx={{ p: 3, borderRadius: 3, height: '100%', position: 'relative', transition: '0.3s', '&:hover': { transform: 'translateY(-4px)', boxShadow: 6 } }}>
-              <Box display="flex" alignItems="center" mb={2}>
-                <Box sx={{ bgcolor: 'primary.light', p: 1, borderRadius: 2, mr: 2, color: 'white' }}>
-                    <SchoolIcon />
+      {/* SCHOOLS TABLE */}
+      <DataTableShell
+        columns={SCHOOL_COLUMNS}
+        rows={filteredSchools}
+        emptyIcon={<SchoolIcon />}
+        emptyTitle="No schools found"
+        emptyMessage="Add a school to get started, or adjust your search."
+        renderRow={(s) => (
+          <TableRow key={s.id} hover>
+            <TableCell>
+              <Stack direction="row" alignItems="center" spacing={1.5}>
+                <Box sx={{
+                  width: 36, height: 36, borderRadius: 2, flexShrink: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: 'linear-gradient(135deg,#2f6bff,#f68914)', color: '#fff',
+                }}>
+                  <SchoolIcon fontSize="small" />
                 </Box>
-                <Box>
-                    <Typography variant="h6" fontWeight={600} lineHeight={1.2}>
-                        {s.name}
-                    </Typography>
-                    <Chip label={`Code: ${s.code}`} size="small" sx={{ mt: 0.5, bgcolor: '#e3f2fd', color: '#1565c0', fontWeight: 'bold' }} />
-                </Box>
-              </Box>
-              
-              <Typography variant="caption" color="text.secondary" display="block" mb={2}>
-                  System ID: #{s.id}
-              </Typography>
-
-              <Stack direction="row" justifyContent="flex-end" spacing={1} sx={{ pt: 2, borderTop: '1px solid #f0f0f0' }}>
-                <Button size="small" startIcon={<EditIcon />} onClick={() => handleOpenEditSchool(s)}>
-                    Edit
-                </Button>
-                <Button size="small" color="error" startIcon={<DeleteIcon />} onClick={() => handleDeleteSchool(s.id)}>
-                    Delete
-                </Button>
+                <Typography fontWeight={600}>{s.name}</Typography>
               </Stack>
-            </Paper>
-          </Grid>
-        ))}
-        
-        {filteredSchools.length === 0 && (
-            <Grid item xs={12}>
-                <Box textAlign="center" py={5}>
-                    <Typography variant="h6" color="text.secondary">No schools found matching your search.</Typography>
-                </Box>
-            </Grid>
+            </TableCell>
+            <TableCell>
+              <Chip label={s.code} size="small" sx={{ bgcolor: 'rgba(47,107,255,0.18)', color: '#cfe0ff', fontWeight: 700 }} />
+            </TableCell>
+            <TableCell>{s.total_students ?? '—'}</TableCell>
+            <TableCell><Typography variant="body2" color="text.secondary">#{s.id}</Typography></TableCell>
+            <TableCell align="right">
+              <Tooltip title="Edit">
+                <IconButton size="small" sx={{ color: '#93c5fd' }} onClick={() => handleOpenEditSchool(s)}><EditIcon fontSize="small" /></IconButton>
+              </Tooltip>
+              <Tooltip title="Delete">
+                <IconButton size="small" color="error" onClick={() => handleDeleteSchool(s.id)}><DeleteIcon fontSize="small" /></IconButton>
+              </Tooltip>
+            </TableCell>
+          </TableRow>
         )}
-      </Grid>
+      />
 
       {/* ======================= */}
       {/* DIALOG 1: SCHOOL FORM   */}

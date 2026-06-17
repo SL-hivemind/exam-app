@@ -39,6 +39,7 @@ export default function AnimatedText({
   type = 'split',
   className = '',
   color = 'inherit',
+  staticColor = '#0d1b2a',
   tag = 'p',
   delay = 0,
   interval = 3000
@@ -73,7 +74,7 @@ export default function AnimatedText({
           component="span"
           fontWeight={800}
           sx={{
-            color: '#0d1b2a',
+            color: staticColor,
             fontSize: { xs: '2.5rem', md: '4rem' },
             lineHeight: 1.2,
             whiteSpace: 'nowrap'

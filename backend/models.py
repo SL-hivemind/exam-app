@@ -64,10 +64,11 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), unique=True, nullable=False)
     password_hash = db.Column(db.String(128), nullable=False)
-    role = db.Column(db.String(30), nullable=False)  # 'admin', 'student', 'school_admin', 'subject_specialist'
+    role = db.Column(db.String(30), nullable=False)  # 'admin', 'student', 'school_admin', 'subject_specialist', 'public_user'
 
     email = db.Column(db.String(100), unique=True, nullable=True)
     mobile_number = db.Column(db.String(20), nullable=True)
+    is_verified = db.Column(db.Boolean, default=False)
 
     school_id = db.Column(db.Integer, db.ForeignKey('schools.id'), nullable=True)
     specialist_subject = db.Column(db.String(100), nullable=True)
@@ -87,7 +88,8 @@ class User(db.Model):
             "role": self.role,
             "email": self.email,
             "school_id": self.school_id,
-            "specialist_subject": self.specialist_subject
+            "specialist_subject": self.specialist_subject,
+            "is_verified": self.is_verified
         }
 
 # -------------------- SCHOOL --------------------
@@ -338,7 +340,7 @@ class StudentAnswer(db.Model):
     answer = db.Column(db.Text, nullable=True)
     is_correct = db.Column(db.Boolean, default=False)
     marks_awarded = db.Column(db.Integer, default=0)
-    attempt = db.relationship('StudentExamAttempt', backref=db.backref('answers', lazy=True))
+    attempt = db.relationship('StudentExamAttempt', backref=db.backref('answers', lazy=True, cascade='all, delete-orphan'))
 
 # -------------------- OTP FOR PASSWORD RESET --------------------
 
@@ -370,7 +372,392 @@ class StudentRequest(db.Model):
     student = db.relationship('User', foreign_keys=[student_user_id], backref=db.backref('requests_made', lazy=True))
     resolver = db.relationship('User', foreign_keys=[resolved_by])
 
+# ==================== PUBLIC PORTAL MODELS (B2C) ====================
+# These tables are completely isolated from the School/Student/Exam B2B system.
+
+# -------------------- PUBLIC PROFILE --------------------
+class PublicProfile(db.Model):
+    __tablename__ = 'public_profiles'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), unique=True, nullable=False)
+    phone_number = db.Column(db.String(20), nullable=True)
+    address = db.Column(db.Text, nullable=True)
+    daily_streak = db.Column(db.Integer, default=0)
+    last_challenge_date = db.Column(db.Date, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    user = db.relationship('User', backref=db.backref('public_profile', uselist=False))
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'username': self.user.username if self.user else None,
+            'email': self.user.email if self.user else None,
+            'phone_number': self.phone_number,
+            'address': self.address,
+            'daily_streak': self.daily_streak or 0,
+            'last_challenge_date': self.last_challenge_date.isoformat() if self.last_challenge_date else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+        }
+
+# -------------------- PUBLIC COURSE --------------------
+class PublicCourse(db.Model):
+    __tablename__ = 'public_courses'
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(250), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    thumbnail_url = db.Column(db.String(500), nullable=True)
+    price = db.Column(db.Float, default=0.0)  # 0 = Free course
+    status = db.Column(db.String(20), default='draft')  # 'draft', 'published'
+    created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    contents = db.relationship('CourseContent', backref='course', lazy=True, cascade='all, delete-orphan')
+    subscriptions = db.relationship('CourseSubscription', backref='course', lazy=True, cascade='all, delete-orphan')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'title': self.title,
+            'description': self.description,
+            'thumbnail_url': self.thumbnail_url,
+            'price': self.price,
+            'status': self.status,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'content_count': len(self.contents) if self.contents else 0,
+            'subscriber_count': len(self.subscriptions) if self.subscriptions else 0,
+        }
+
+# -------------------- COURSE CONTENT --------------------
+class CourseContent(db.Model):
+    __tablename__ = 'course_contents'
+    id = db.Column(db.Integer, primary_key=True)
+    course_id = db.Column(db.Integer, db.ForeignKey('public_courses.id', ondelete='CASCADE'), nullable=False)
+    title = db.Column(db.String(250), nullable=False)
+    content_type = db.Column(db.String(30), nullable=False)  # 'pdf_exam', 'cbt_exam', 'pdf_material', 'video'
+    file_url = db.Column(db.String(500), nullable=True)
+    is_free = db.Column(db.Boolean, default=False)
+    order_index = db.Column(db.Integer, default=0)
+    total_questions = db.Column(db.Integer, nullable=True)  # For exam PDFs/CBTs
+    answer_key_json = db.Column(db.Text, nullable=True)  # JSON: {"1":"A","2":"C",...}
+    duration_minutes = db.Column(db.Integer, nullable=True, default=60)
+    status = db.Column(db.String(20), default='published')  # 'draft' or 'published'
+    subject = db.Column(db.String(100), nullable=True)
+    is_previous_paper = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self, include_answers=False):
+        d = {
+            'id': self.id,
+            'course_id': self.course_id,
+            'title': self.title,
+            'content_type': self.content_type,
+            'file_url': self.file_url,
+            'is_free': self.is_free,
+            'order_index': self.order_index,
+            'total_questions': self.total_questions,
+            'duration_minutes': self.duration_minutes,
+            'status': self.status,
+            'subject': self.subject,
+            'is_previous_paper': self.is_previous_paper,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+        }
+        if include_answers:
+            d['answer_key_json'] = self.answer_key_json
+        return d
+
+# -------------------- PUBLIC QUESTION (CBT) --------------------
+class PublicQuestion(db.Model):
+    __tablename__ = 'public_questions'
+    id = db.Column(db.Integer, primary_key=True)
+    content_id = db.Column(db.Integer, db.ForeignKey('course_contents.id', ondelete='CASCADE'), nullable=False)
+    question_text = db.Column(db.Text, nullable=False)
+    options_json = db.Column(db.Text, nullable=False)  # JSON: {"A":"opt1", "B":"opt2", "C":"opt3", "D":"opt4"}
+    correct_option = db.Column(db.String(10), nullable=False)  # 'A', 'B', 'C', 'D'
+    explanation = db.Column(db.Text, nullable=True)
+    order_index = db.Column(db.Integer, default=1)
+
+    content = db.relationship('CourseContent', backref=db.backref('questions', lazy=True, cascade='all, delete-orphan'))
+
+    def to_dict(self, include_answer=False):
+        d = {
+            'id': self.id,
+            'content_id': self.content_id,
+            'question_text': self.question_text,
+            'options_json': self.options_json,
+            'order_index': self.order_index,
+        }
+        if include_answer:
+            d['correct_option'] = self.correct_option
+            d['explanation'] = self.explanation
+        return d
+
+# -------------------- COURSE SUBSCRIPTION --------------------
+class CourseSubscription(db.Model):
+    __tablename__ = 'course_subscriptions'
+    id = db.Column(db.Integer, primary_key=True)
+    public_profile_id = db.Column(db.Integer, db.ForeignKey('public_profiles.id', ondelete='CASCADE'), nullable=False)
+    course_id = db.Column(db.Integer, db.ForeignKey('public_courses.id', ondelete='CASCADE'), nullable=False)
+    razorpay_order_id = db.Column(db.String(100), nullable=True)
+    razorpay_payment_id = db.Column(db.String(100), nullable=True)
+    status = db.Column(db.String(20), default='active')  # 'active', 'expired', 'pending'
+    enrolled_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    profile = db.relationship('PublicProfile', backref=db.backref('subscriptions', lazy=True, cascade='all, delete-orphan'))
+    __table_args__ = (db.UniqueConstraint('public_profile_id', 'course_id', name='uq_profile_course'),)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'public_profile_id': self.public_profile_id,
+            'course_id': self.course_id,
+            'course_title': self.course.title if self.course else None,
+            'razorpay_payment_id': self.razorpay_payment_id,
+            'status': self.status,
+            'enrolled_at': self.enrolled_at.isoformat() if self.enrolled_at else None,
+        }
+
+# -------------------- PUBLIC EXAM ATTEMPT --------------------
+class PublicExamAttempt(db.Model):
+    __tablename__ = 'public_exam_attempts'
+    id = db.Column(db.Integer, primary_key=True)
+    public_profile_id = db.Column(db.Integer, db.ForeignKey('public_profiles.id', ondelete='CASCADE'), nullable=False)
+    content_id = db.Column(db.Integer, db.ForeignKey('course_contents.id', ondelete='CASCADE'), nullable=False)
+    answers_json = db.Column(db.Text, nullable=True)  # JSON: {"1":"B","2":"A",...}
+    score = db.Column(db.Integer, nullable=True)
+    total_questions = db.Column(db.Integer, nullable=True)
+    start_time = db.Column(db.DateTime, default=datetime.utcnow)
+    submitted_at = db.Column(db.DateTime, nullable=True)
+
+    profile = db.relationship('PublicProfile', backref=db.backref('exam_attempts', lazy=True, cascade='all, delete-orphan'))
+    content = db.relationship('CourseContent', backref=db.backref('attempts', lazy=True, cascade='all, delete-orphan'))
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'content_id': self.content_id,
+            'content_title': self.content.title if self.content else None,
+            'score': self.score,
+            'total_questions': self.total_questions,
+            'start_time': self.start_time.isoformat() if self.start_time else None,
+            'submitted_at': self.submitted_at.isoformat() if self.submitted_at else None,
+        }
+
+# -------------------- EMAIL VERIFICATION OTP --------------------
+class EmailVerificationOTP(db.Model):
+    __tablename__ = 'email_verification_otps'
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(100), nullable=False)
+    otp_code = db.Column(db.String(6), nullable=False)
+    purpose = db.Column(db.String(30), default='registration')  # 'registration', 'forgot_password'
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    used = db.Column(db.Boolean, default=False)
+
+# -------------------- MODULE 3: QUICK EXAM (Zero-Auth) --------------------
+
+class QuickExam(db.Model):
+    __tablename__ = 'quick_exams'
+    id = db.Column(db.Integer, primary_key=True)
+    code = db.Column(db.String(10), unique=True, nullable=False, index=True)
+    title = db.Column(db.String(250), nullable=False)
+    created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    duration_minutes = db.Column(db.Integer, default=30)
+    total_questions = db.Column(db.Integer, default=0)
+    is_active = db.Column(db.Boolean, default=True)
+    expires_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    questions = db.relationship('QuickQuestion', backref='exam', cascade='all, delete-orphan', lazy='dynamic')
+    responses = db.relationship('QuickResponse', backref='exam', cascade='all, delete-orphan', lazy='dynamic')
+
+    def is_expired(self):
+        if not self.expires_at:
+            return False
+        return datetime.utcnow() > self.expires_at
+
+    def to_dict(self, include_stats=False):
+        d = {
+            'id': self.id,
+            'code': self.code,
+            'title': self.title,
+            'duration_minutes': self.duration_minutes,
+            'total_questions': self.total_questions,
+            'is_active': self.is_active,
+            'expires_at': self.expires_at.isoformat() if self.expires_at else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'is_expired': self.is_expired(),
+        }
+        if include_stats:
+            d['response_count'] = self.responses.count()
+        return d
+
+
+class QuickQuestion(db.Model):
+    __tablename__ = 'quick_questions'
+    id = db.Column(db.Integer, primary_key=True)
+    exam_id = db.Column(db.Integer, db.ForeignKey('quick_exams.id', ondelete='CASCADE'), nullable=False)
+    question_text = db.Column(db.Text, nullable=False)
+    options_json = db.Column(db.Text, nullable=False)
+    correct_option = db.Column(db.String(5), nullable=False)
+    explanation = db.Column(db.Text, nullable=True)
+    order_index = db.Column(db.Integer, default=1)
+
+    def to_dict(self, include_answer=True):
+        d = {
+            'id': self.id,
+            'order_index': self.order_index,
+            'question_text': self.question_text,
+            'options_json': self.options_json,
+        }
+        if include_answer:
+            d['correct_option'] = self.correct_option
+            d['explanation'] = self.explanation
+        return d
+
+
+class QuickResponse(db.Model):
+    __tablename__ = 'quick_responses'
+    id = db.Column(db.Integer, primary_key=True)
+    exam_id = db.Column(db.Integer, db.ForeignKey('quick_exams.id', ondelete='CASCADE'), nullable=False)
+    participant_name = db.Column(db.String(100), nullable=False)
+    answers_json = db.Column(db.Text, nullable=True)
+    score = db.Column(db.Integer, default=0)
+    total = db.Column(db.Integer, default=0)
+    submitted_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'participant_name': self.participant_name,
+            'score': self.score,
+            'total': self.total,
+            'submitted_at': self.submitted_at.isoformat() if self.submitted_at else None,
+            'answers_json': self.answers_json,
+        }
+
+# ==================== B2C PUBLIC QUESTION REPOSITORY (Isolated) ====================
+# These are completely separate from the B2B school QuestionRepository.
+
+# -------------------- PUBLIC QUESTION REPOSITORY --------------------
+class PublicQuestionRepo(db.Model):
+    """Centralized question bank for B2C competitive exams (NEET, Banking, SSC, etc.)."""
+    __tablename__ = 'public_question_repository'
+    id = db.Column(db.Integer, primary_key=True)
+    custom_id = db.Column(db.String(50), unique=True, nullable=True)
+    course_tags = db.Column(db.String(255), nullable=True)          # e.g. 'NEET,JEE' or 'BANKING,SSC'
+    subject = db.Column(db.String(100), nullable=False)             # e.g. 'Physics', 'Quantitative Aptitude'
+    chapter = db.Column(db.String(100), nullable=True)              # e.g. 'Kinematics', 'Time & Work'
+    topic = db.Column(db.String(150), nullable=True)                # e.g. 'Projectile Motion'
+    difficulty = db.Column(db.String(20), default='Medium')         # 'Easy', 'Medium', 'Hard'
+    is_pyq = db.Column(db.Boolean, default=False)
+    pyq_year = db.Column(db.Integer, nullable=True)
+    text = db.Column(db.Text, nullable=False)
+    option_a = db.Column(db.String(500))
+    option_b = db.Column(db.String(500))
+    option_c = db.Column(db.String(500))
+    option_d = db.Column(db.String(500))
+    correct_answer = db.Column(db.String(10), nullable=False)       # 'A', 'B', 'C', 'D'
+    explanation = db.Column(db.Text, nullable=True)
+    image_path = db.Column(db.String(255), nullable=True)
+    marks = db.Column(db.Integer, default=1)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self, include_answer=False):
+        d = {
+            'id': self.id,
+            'custom_id': self.custom_id,
+            'course_tags': self.course_tags,
+            'subject': self.subject,
+            'chapter': self.chapter,
+            'topic': self.topic,
+            'difficulty': self.difficulty,
+            'is_pyq': self.is_pyq,
+            'pyq_year': self.pyq_year,
+            'text': self.text,
+            'option_a': self.option_a,
+            'option_b': self.option_b,
+            'option_c': self.option_c,
+            'option_d': self.option_d,
+            'marks': self.marks,
+            'image_path': self.image_path,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+        }
+        if include_answer:
+            d['correct_answer'] = self.correct_answer
+            d['explanation'] = self.explanation
+        return d
+
+# -------------------- PUBLIC COURSE ↔ REPO JOIN TABLE --------------------
+class PublicCourseContentQuestion(db.Model):
+    """Links a CourseContent (mock test) to questions from the central repository."""
+    __tablename__ = 'public_course_content_questions'
+    content_id = db.Column(db.Integer, db.ForeignKey('course_contents.id', ondelete='CASCADE'), primary_key=True)
+    public_q_id = db.Column(db.Integer, db.ForeignKey('public_question_repository.id', ondelete='CASCADE'), primary_key=True)
+    order_index = db.Column(db.Integer, default=1)
+
+    content = db.relationship('CourseContent', backref=db.backref('repo_question_links', lazy=True))
+    question = db.relationship('PublicQuestionRepo', backref=db.backref('content_links', lazy=True))
+
+# -------------------- PUBLIC PRACTICE ATTEMPT --------------------
+class PublicPracticeAttempt(db.Model):
+    """Tracks dynamic practice sessions pulled from the central repository."""
+    __tablename__ = 'public_practice_attempts'
+    id = db.Column(db.Integer, primary_key=True)
+    public_profile_id = db.Column(db.Integer, db.ForeignKey('public_profiles.id', ondelete='CASCADE'), nullable=False)
+    course_id = db.Column(db.Integer, db.ForeignKey('public_courses.id', ondelete='CASCADE'), nullable=False)
+    subject = db.Column(db.String(100), nullable=True)
+    chapter = db.Column(db.String(100), nullable=True)
+    difficulty = db.Column(db.String(20), default='Random')
+    questions_json = db.Column(db.Text, nullable=False)  # JSON list of PublicQuestionRepo IDs
+    answers_json = db.Column(db.Text, nullable=True)
+    score = db.Column(db.Integer, nullable=True)
+    total_questions = db.Column(db.Integer, default=30)
+    is_adaptive = db.Column(db.Boolean, default=False)
+    current_index = db.Column(db.Integer, default=0)
+    start_time = db.Column(db.DateTime, default=datetime.utcnow)
+    submitted_at = db.Column(db.DateTime, nullable=True)
+
+    profile = db.relationship('PublicProfile', backref=db.backref('practice_attempts', lazy=True))
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'subject': self.subject,
+            'chapter': self.chapter,
+            'difficulty': self.difficulty,
+            'score': self.score,
+            'total_questions': self.total_questions,
+            'start_time': self.start_time.isoformat() if self.start_time else None,
+            'submitted_at': self.submitted_at.isoformat() if self.submitted_at else None,
+        }
+
+# -------------------- PUBLIC DAILY CHALLENGE ATTEMPT --------------------
+class PublicDailyChallengeAttempt(db.Model):
+    """Tracks daily 5-question challenge attempts for streak tracking."""
+    __tablename__ = 'public_daily_challenge_attempts'
+    id = db.Column(db.Integer, primary_key=True)
+    public_profile_id = db.Column(db.Integer, db.ForeignKey('public_profiles.id', ondelete='CASCADE'), nullable=False)
+    challenge_date = db.Column(db.Date, nullable=False)
+    questions_json = db.Column(db.Text, nullable=False)  # JSON list of PublicQuestionRepo IDs
+    answers_json = db.Column(db.Text, nullable=True)
+    score = db.Column(db.Integer, default=0)
+    completed_at = db.Column(db.DateTime, nullable=True)
+
+    profile = db.relationship('PublicProfile', backref=db.backref('daily_challenges', lazy=True))
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'challenge_date': self.challenge_date.isoformat() if self.challenge_date else None,
+            'score': self.score,
+            'completed_at': self.completed_at.isoformat() if self.completed_at else None,
+        }
+
 # -------------------- EVENT LISTENERS --------------------
+
 
 @event.listens_for(QuestionRepository, 'before_insert')
 def auto_gen_id(mapper, connection, target):

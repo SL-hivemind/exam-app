@@ -2,7 +2,7 @@ import axios from 'axios';
 import useAuth from '../hooks/useAuth'; // if you have one; otherwise set header where you call.
 
 const api = axios.create({
-  baseURL: "https://sl-exams.onrender.com",
+  baseURL: process.env.REACT_APP_API_URL || "http://localhost:5000",
 });
 
 // attach token if you already do it globally; else keep as-is
@@ -51,7 +51,7 @@ export const schoolApi = {
   create: (payload) => api.post('/admin/schools', payload),
   update: (id, payload) => api.put(`/admin/schools/${id}`, payload),
   remove: (id) => api.delete(`/admin/schools/${id}`),
-}; 
+};
 
 // --- students (minor fix: default params) ---
 export const studentsApi = {
@@ -66,4 +66,103 @@ export const studentsApi = {
     fd.append('file', file);
     return api.post('/admin/students/import', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
   },
+};
+
+// --- public catalog ---
+export const publicApi = {
+  // Auth
+  registerInit: (data) => api.post('/public/register/init', data),
+  registerVerify: (data) => api.post('/public/register/verify', data),
+  login: (data) => api.post('/public/login', data),
+  forgotInit: (data) => api.post('/public/forgot-password/init', data),
+  forgotReset: (data) => api.post('/public/forgot-password/reset', data),
+
+  // Public catalog
+  listCourses: () => api.get('/public/courses'),
+  getCourse: (id) => api.get(`/public/courses/${id}`),
+
+  // Enrollment & Payment
+  enrollFree: (courseId) => api.post(`/public/courses/${courseId}/enroll`),
+  createOrder: (courseId) => api.post(`/public/courses/${courseId}/create-order`),
+  verifyPayment: (data) => api.post('/public/payment/verify', data),
+
+  // Content & Exams
+  getContentFile: (contentId) => api.get(`/public/content/${contentId}/file`, { responseType: 'blob' }),
+  startExam: (contentId) => api.post(`/public/content/${contentId}/start-exam`),
+  submitExam: (attemptId, answers) => api.post(`/public/attempts/${attemptId}/submit`, { answers }),
+  reviewExam: (attemptId) => api.get(`/public/attempts/${attemptId}/review`),
+
+  // User dashboard
+  myProfile: () => api.get('/public/me/profile'),
+  updateProfile: (data) => api.put('/public/me/profile', data),
+  mySubscriptions: () => api.get('/public/me/subscriptions'),
+  myAttempts: () => api.get('/public/me/attempts'),
+  myDashboardData: () => api.get('/public/me/dashboard-data'),
+
+  // Admin
+  adminListCourses: () => api.get('/admin/public/courses'),
+  adminCreateCourse: (data) => api.post('/admin/public/courses', data),
+  adminUpdateCourse: (id, data) => api.put(`/admin/public/courses/${id}`, data),
+  adminDeleteCourse: (id) => api.delete(`/admin/public/courses/${id}`),
+  adminListContents: (courseId) => api.get(`/admin/public/courses/${courseId}/contents`),
+  adminUploadContent: (courseId, formData) =>
+    api.post(`/admin/public/courses/${courseId}/contents`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
+  adminUpdateContent: (contentId, data) => api.put(`/admin/public/contents/${contentId}`, data),
+  adminDeleteContent: (contentId) => api.delete(`/admin/public/contents/${contentId}`),
+  adminSubscriptions: () => api.get('/admin/public/subscriptions'),
+  adminSmartPaste: (contentId, rawText) => api.post(`/admin/public/contents/${contentId}/smart-questions`, { raw_text: rawText }),
+  adminListQuestions: (contentId) => api.get(`/admin/public/contents/${contentId}/questions`),
+
+  // Central Public Question Repository (Admin)
+  adminRepoList: (params) => api.get('/admin/public/repository', { params }),
+  adminRepoMeta: () => api.get('/admin/public/repository/meta'),
+  adminRepoAdd: (data) => api.post('/admin/public/repository', data),
+  adminRepoUpdate: (id, data) => api.put(`/admin/public/repository/${id}`, data),
+  adminRepoDelete: (id) => api.delete(`/admin/public/repository/${id}`),
+  adminRepoSmartPaste: (data) => api.post('/admin/public/repository/smart-paste', data),
+
+  // CBT Questions (student-facing)
+  getQuestions: (contentId) => api.get(`/public/content/${contentId}/questions`),
+
+  // Dynamic Practice Engine
+  practiceStart: (data) => api.post('/public/practice/start', data),
+  practiceSubmit: (attemptId, answers) => api.post(`/public/practice/${attemptId}/submit`, { answers }),
+  practiceReview: (attemptId) => api.get(`/public/practice/${attemptId}/review`),
+
+  // Custom + Adaptive Practice (user-built sessions)
+  practiceMeta: () => api.get('/public/practice/meta'),
+  practiceAdaptiveStart: (data) => api.post('/public/practice/adaptive/start', data),
+  practiceAdaptiveSubmit: (attemptId, data) => api.post(`/public/practice/${attemptId}/submit-adaptive`, data),
+
+  // Daily Challenge & Streak
+  challengeStart: () => api.post('/public/challenge/start'),
+  challengeSubmit: (challengeId, answers) => api.post(`/public/challenge/${challengeId}/submit`, { answers }),
+
+  // Course Structure & Search
+  courseStructure: (courseId) => api.get(`/public/courses/${courseId}/structure`),
+  contentSearch: (params) => api.get('/public/content/search', { params }),
+
+  // Study mode (practice with answers, no attempt recorded)
+  studySession: (contentId) => api.post(`/public/content/${contentId}/study-session`),
+
+  // Admin: batch reorder content items
+  adminReorderContents: (courseId, orderedIds) => api.put(`/admin/public/courses/${courseId}/reorder`, { order: orderedIds }),
+};
+
+
+// ─── MODULE 3: QUICK EXAM (Zero-Auth) ───
+export const quickApi = {
+  // Admin
+  createExam: (data) => api.post('/admin/quick/exams', data),
+  listExams: () => api.get('/admin/quick/exams'),
+  getExam: (id) => api.get(`/admin/quick/exams/${id}`),
+  toggleExam: (id, data) => api.patch(`/admin/quick/exams/${id}`, data),
+  deleteExam: (id) => api.delete(`/admin/quick/exams/${id}`),
+
+  // Public (no auth needed — but axios will still send token if present, which is fine)
+  getInfo: (code) => api.get(`/quick/${code}`),
+  getQuestions: (code) => api.get(`/quick/${code}/questions`),
+  submit: (code, data) => api.post(`/quick/${code}/submit`, data),
 };

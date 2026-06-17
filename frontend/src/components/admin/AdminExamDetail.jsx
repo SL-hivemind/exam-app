@@ -46,6 +46,7 @@ import {
 } from "@mui/icons-material";
 import api from "../../utils/api";
 import useAuth from "../../hooks/useAuth";
+import { PageHeader } from "../common";
 
 export default function AdminExamDetail() {
   const { examId } = useParams();
@@ -352,12 +353,12 @@ export default function AdminExamDetail() {
 
 
     return (
-    <Box sx={{ p: 3, bgcolor: '#f5f7fa', minHeight: '100vh' }}>
-
-      <Stack direction="row" spacing={2} alignItems="center" mb={3}>
-        <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(`${basePath}/exams`)} sx={{ color: 'text.secondary' }}>Back</Button>
-        <Typography variant="h5" fontWeight={700} color="text.primary">Exam Details</Typography>
-      </Stack>
+    <Box>
+      <PageHeader
+        onBack={() => navigate(`${basePath}/exams`)}
+        title="Exam Details"
+        subtitle={exam?.title}
+      />
 
       {msg && <Alert severity={msg.type} onClose={() => setMsg(null)} sx={{ mb: 3 }}>{msg.text}</Alert>}
 
@@ -372,10 +373,10 @@ export default function AdminExamDetail() {
       {tabIndex === 0 && (
         <Grid container spacing={3}>
           <Grid item xs={12} md={8}>
-            <Paper elevation={0} sx={{ p: 3, borderRadius: 2, border: '1px solid #e0e0e0', height: '100%' }}>
+            <Paper elevation={0} sx={{ p: 3, borderRadius: 2, border: '1px solid rgba(255,255,255,0.08)', height: '100%' }}>
               <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
                 <Box>
-                  <Typography variant="h4" fontWeight={700} color="primary.main" gutterBottom>{exam.title}</Typography>
+                  <Typography variant="h4" fontWeight={700} sx={{ color: '#cfe0ff' }} gutterBottom>{exam.title}</Typography>
                   <Typography variant="body1" color="text.secondary" paragraph>{exam.description}</Typography>
                 </Box>
                 <Chip
@@ -403,7 +404,7 @@ export default function AdminExamDetail() {
           </Grid>
 
           <Grid item xs={12} md={4}>
-            <Paper elevation={0} sx={{ p: 3, borderRadius: 2, border: '1px solid #e0e0e0', height: '100%' }}>
+            <Paper elevation={0} sx={{ p: 3, borderRadius: 2, border: '1px solid rgba(255,255,255,0.08)', height: '100%' }}>
               <Typography variant="h6" fontWeight={700} gutterBottom>Actions</Typography>
               <Stack spacing={2}>
                 <Button variant="contained" color={exam.results_released ? "warning" : "success"} startIcon={exam.results_released ? <UnpublishIcon /> : <PublishIcon />} onClick={handleToggleRelease} fullWidth>

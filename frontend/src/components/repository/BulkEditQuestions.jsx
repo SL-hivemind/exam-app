@@ -196,7 +196,7 @@ export default function BulkEditQuestions() {
               height: 40,
               objectFit: 'cover',
               borderRadius: 1,
-              border: '1px solid #e0e0e0',
+              border: '1px solid rgba(255,255,255,0.08)',
               cursor: 'pointer'
             }}
             onClick={() => setEditingRow(params.row)}
@@ -371,7 +371,7 @@ export default function BulkEditQuestions() {
               {/* QUESTION IMAGE PREVIEW */}
               {editingRow.image_path && (
                 <Box sx={{
-                  border: '1px solid #e0e0e0',
+                  border: '1px solid rgba(255,255,255,0.08)',
                   borderRadius: 2,
                   overflow: 'hidden',
                   bgcolor: '#fafafa',

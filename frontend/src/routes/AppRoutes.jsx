@@ -6,6 +6,8 @@ import PublicOnlyRoute from "./PublicOnlyRoute";
 
 // NEW Unified Layout
 import DashboardLayout from "../components/layout/DashboardLayout";
+import DashboardHome from "../components/layout/DashboardHome";
+import PublicLayout from "../components/layout/PublicLayout";
 
 // Sub-pages (Keep these exactly as they are)
 import AdminExams from "../components/admin/AdminExams";
@@ -31,6 +33,23 @@ import Login from "../components/Login";
 import ForgotPassword from "../components/ForgotPassword";
 import Home from "../components/Home";
 
+// Public Exam Section
+import PublicCatalog from "../components/public/PublicCatalog";
+import PublicCourseDetail from "../components/public/PublicCourseDetail";
+import PublicLogin from "../components/public/PublicLogin";
+import PublicRegister from "../components/public/PublicRegister";
+import PublicForgotPassword from "../components/public/PublicForgotPassword";
+import PublicExamInterface from "../components/public/PublicExamInterface";
+import PublicDashboard from "../components/public/PublicDashboard";
+import PublicPractice from "../components/public/PublicPractice";
+import AdminPublicManager from "../components/public/AdminPublicManager";
+
+// Quick Exam Section (Module 3)
+import QuickLanding from "../components/quick/QuickLanding";
+import QuickExamInterface from "../components/quick/QuickExamInterface";
+import QuickResults from "../components/quick/QuickResults";
+import AdminQuickExams from "../components/quick/AdminQuickExams";
+
 export default function AppRoutes() {
   return (
     <Routes>
@@ -43,7 +62,7 @@ export default function AppRoutes() {
           <DashboardLayout />
         </ProtectedRoute>
       }>
-        <Route index element={<Navigate to="exams" replace />} />
+        <Route index element={<DashboardHome />} />
         <Route path="exams" element={<AdminExams />} />
         <Route path="exams/:examId" element={<AdminExamDetail />} />
         <Route path="exams/:examId/questions" element={<AdminExamQuestions />} />
@@ -56,6 +75,10 @@ export default function AppRoutes() {
         <Route path="repository/reports" element={<RepoReports />} />
         <Route path="activity-log" element={<SpecialistActivityLog />} />
         <Route path="requests" element={<StudentRequests />} />
+        <Route path="portal" element={<AdminPublicManager initialTab={0} />} />
+        <Route path="portal/subscriptions" element={<AdminPublicManager initialTab={1} />} />
+        <Route path="portal/question-bank" element={<AdminPublicManager initialTab={2} />} />
+        <Route path="quick" element={<AdminQuickExams />} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>
 
@@ -65,7 +88,7 @@ export default function AppRoutes() {
           <DashboardLayout />
         </ProtectedRoute>
       }>
-        <Route index element={<Navigate to="students" replace />} />
+        <Route index element={<DashboardHome />} />
         <Route path="students" element={<AdminStudents />} />
         <Route path="exams" element={<AdminExams />} />
         <Route path="exams/:examId" element={<AdminExamDetail />} />
@@ -83,7 +106,7 @@ export default function AppRoutes() {
           <DashboardLayout />
         </ProtectedRoute>
       }>
-        <Route index element={<Navigate to="repository/questions" replace />} />
+        <Route index element={<DashboardHome />} />
         <Route path="repository/questions" element={<RepoQuestionsPage />} />
         <Route path="repository/questions/new" element={<RepoQuestionEditPage />} />
         <Route path="repository/questions/:id/edit" element={<RepoQuestionEditPage />} />
@@ -127,9 +150,38 @@ export default function AppRoutes() {
 
       <Route path="/primary" element={<PrimaryExamFlow />} />
 
+      {/* --- 6. PUBLIC EXAM ROUTES (with shared top-nav layout) --- */}
+      <Route path="/public" element={<PublicLayout />}>
+        <Route index element={<PublicCatalog />} />
+        <Route path="course/:courseId" element={<PublicCourseDetail />} />
+        <Route path="login" element={<PublicLogin />} />
+        <Route path="register" element={<PublicRegister />} />
+        <Route path="forgot-password" element={<PublicForgotPassword />} />
+        <Route path="dashboard" element={
+          <ProtectedRoute roles={["public_user"]}>
+            <PublicDashboard />
+          </ProtectedRoute>
+        } />
+        <Route path="practice" element={
+          <ProtectedRoute roles={["public_user"]}>
+            <PublicPractice />
+          </ProtectedRoute>
+        } />
+      </Route>
+
+      {/* Public exam viewer (full-screen, no layout wrapper) */}
+      <Route path="/public/viewer/:contentId" element={<PublicExamInterface />} />
+
+      {/* --- 7. QUICK EXAM ROUTES (zero-auth, no layout) --- */}
+      <Route path="/quick" element={<QuickLanding />} />
+      <Route path="/quick/:code" element={<QuickLanding />} />
+      <Route path="/quick/:code/exam" element={<QuickExamInterface />} />
+      <Route path="/quick/:code/results" element={<QuickResults />} />
+
       {/* --- FALLBACKS --- */}
       <Route path="/" element={<Home />} />
       <Route path="*" element={<Home />} />
     </Routes>
   );
 }
+

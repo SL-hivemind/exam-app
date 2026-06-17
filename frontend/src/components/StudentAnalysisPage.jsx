@@ -135,7 +135,7 @@ export default function StudentAnalysisPage() {
           mb: 3,
           borderRadius: 3,
           color: "#fff",
-          background: "linear-gradient(120deg, #1f3b73 0%, #1f6ed4 50%, #3f9cff 100%)"
+          background: "linear-gradient(120deg, #1e3a8a 0%, #2563eb 50%, #60a5fa 100%)"
         }}
       >
         <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" alignItems={{ xs: "flex-start", md: "center" }} spacing={2}>
@@ -146,7 +146,7 @@ export default function StudentAnalysisPage() {
             </Typography>
           </Box>
           <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} alignItems={{ xs: "stretch", sm: "center" }}>
-            <FormControl size="small" sx={{ minWidth: 160, bgcolor: "#fff", borderRadius: 1 }}>
+            <FormControl size="small" sx={{ minWidth: 160, bgcolor: "rgba(255,255,255,0.05)", borderRadius: 1 }}>
               <InputLabel id="last-x-label">Window</InputLabel>
               <Select
                 labelId="last-x-label"
@@ -164,7 +164,7 @@ export default function StudentAnalysisPage() {
               startIcon={<ArrowBackIcon />}
               onClick={() => navigate("/student")}
               variant="contained"
-              sx={{ bgcolor: "#fff", color: "#1f3b73", "&:hover": { bgcolor: "#f2f6ff" } }}
+              sx={{ bgcolor: "rgba(255,255,255,0.05)", color: "#1e3a8a", "&:hover": { bgcolor: "#f2f6ff" } }}
             >
               Back to Exams
             </Button>
@@ -232,7 +232,7 @@ export default function StudentAnalysisPage() {
                 <YAxis domain={[0, 100]} />
                 <Tooltip />
                 {!isMdDown && <Legend verticalAlign="top" height={28} />}
-                <Line type="monotone" dataKey="percentage" stroke="#1976d2" strokeWidth={2} />
+                <Line type="monotone" dataKey="percentage" stroke="#2563eb" strokeWidth={2} />
               </LineChart>
             </ResponsiveContainer>
           </Paper>
@@ -332,7 +332,7 @@ export default function StudentAnalysisPage() {
                   <YAxis domain={[0, 100]} />
                   <Tooltip />
                   {!isMdDown && <Legend />}
-                  <Bar dataKey="percentage" fill="#1f6ed4" name="Score %" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="percentage" fill="#2563eb" name="Score %" radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </Paper>
