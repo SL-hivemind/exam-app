@@ -52,15 +52,15 @@ app = Flask(__name__)
 # Config: DB + Secrets
 # ------------------------------
 DB_ENGINE = os.getenv("DB_ENGINE", "mysql")
-DB_USER = os.getenv("DB_USER", os.getenv("DB_USERNAME", "root"))
-DB_PASSWORD_RAW = os.getenv("DB_PASSWORD", "")
-DB_PASSWORD = quote_plus(DB_PASSWORD_RAW)  # handle @/: etc
-DB_HOST = os.getenv("DB_HOST", "localhost")
+DB_USER = os.getenv("DB_USER", os.getenv("DB_USERNAME"))
+DB_PASSWORD_RAW = os.getenv("DB_PASSWORD")
+DB_PASSWORD = quote_plus(DB_PASSWORD_RAW) if DB_PASSWORD_RAW else None
+DB_HOST = os.getenv("DB_HOST")
 DB_PORT = os.getenv("DB_PORT", "3306")
-DB_NAME = os.getenv("DB_NAME", "online_exams")
+DB_NAME = os.getenv("DB_NAME")
 
-if not all([DB_USER, DB_HOST, DB_NAME]):
-    raise RuntimeError("Database environment variables are missing!")
+if not all([DB_USER, DB_HOST, DB_NAME, DB_ENGINE]):
+    raise RuntimeError("Database environment variables are missing! Please check your Render configuration.")
 
 if DB_ENGINE == "mysql":
     app.config["SQLALCHEMY_DATABASE_URI"] = (
