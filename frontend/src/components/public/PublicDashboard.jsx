@@ -3,7 +3,7 @@ import {
   Box, Typography, Grid, Card, CardContent, Chip, Button, Avatar, Divider,
   Skeleton, List, ListItem, ListItemIcon, ListItemText, Alert, CircularProgress,
   Select, MenuItem, FormControl, InputLabel, IconButton, Drawer, Collapse,
-  useMediaQuery, useTheme, LinearProgress, Badge, Chip as MuiChip,
+  useMediaQuery, useTheme, LinearProgress, Badge, Chip as MuiChip, Stack,
 } from '@mui/material';
 import SchoolIcon from '@mui/icons-material/School';
 import QuizIcon from '@mui/icons-material/Quiz';
@@ -27,13 +27,16 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ScienceIcon from '@mui/icons-material/Science';
 import AutoStoriesIcon from '@mui/icons-material/AutoStories';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
+import BoltIcon from '@mui/icons-material/Bolt';
 import SearchIcon from '@mui/icons-material/Search';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { publicApi } from '../../utils/api';
 import useAuth from '../../hooks/useAuth';
+import { StatCard, ActionCard } from '../common';
 
-const ff = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
+const ff = "'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
 const SIDEBAR_W = 220;
 
 export default function PublicDashboard() {
@@ -69,7 +72,7 @@ export default function PublicDashboard() {
 
     publicApi.myProfile().then(r => {
       setDailyStreak(r.data?.profile?.daily_streak || 0);
-    }).catch(() => {});
+    }).catch(() => { });
   };
 
   useEffect(() => {
@@ -102,7 +105,7 @@ export default function PublicDashboard() {
             setMsg('Payment successful!'); loadData();
           } catch { setError('Verification failed.'); }
         },
-        prefill: { email: user.email }, theme: { color: '#2563eb' },
+        prefill: { email: user.email }, theme: { color: '#cfe0ff' },
       };
       if (window.Razorpay) new window.Razorpay(opts).open();
       else setError('Payment SDK not loaded.');
@@ -128,12 +131,12 @@ export default function PublicDashboard() {
   ];
 
   const sidebar = (
-    <Box sx={{ width: SIDEBAR_W, height: '100%', bgcolor: '#0f172a', display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ width: SIDEBAR_W, height: '100%', bgcolor: 'rgba(13,18,48,0.65)', display: 'flex', flexDirection: 'column' }}>
       {/* Sidebar Header */}
       <Box sx={{ p: 2.5, display: 'flex', alignItems: 'center', gap: 1.2, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
         <Box sx={{
           width: 30, height: 30, borderRadius: '8px',
-          background: 'linear-gradient(135deg, #2563eb, #7c3aed)',
+          background: 'linear-gradient(135deg, #2563eb, #f68914)',
           display: 'flex', alignItems: 'center', justifyContent: 'center'
         }}>
           <SchoolIcon sx={{ color: '#fff', fontSize: 16 }} />
@@ -147,18 +150,22 @@ export default function PublicDashboard() {
       <Box sx={{ flex: 1, py: 1.5, px: 1.5, overflowY: 'auto' }}>
         {/* Overview */}
         <Box onClick={() => { setTab('overview'); setMobileOpen(false); }}
-          sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.2, borderRadius: '10px', cursor: 'pointer', mb: 0.5,
+          sx={{
+            display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.2, borderRadius: '10px', cursor: 'pointer', mb: 0.5,
             bgcolor: tab === 'overview' ? 'rgba(59,130,246,0.15)' : 'transparent', color: tab === 'overview' ? '#60a5fa' : '#94a3b8',
-            transition: 'all 0.15s', '&:hover': { bgcolor: 'rgba(255,255,255,0.05)', color: '#fff' } }}>
+            transition: 'all 0.15s', '&:hover': { bgcolor: 'rgba(255,255,255,0.05)', color: '#fff' }
+          }}>
           <DashboardIcon sx={{ fontSize: 20 }} />
           <Typography sx={{ fontFamily: ff, fontWeight: 600, fontSize: '0.85rem' }}>Overview</Typography>
         </Box>
 
         {/* My Courses — with expandable sub-items */}
         <Box onClick={() => { setTab('courses'); setMobileOpen(false); }}
-          sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.2, borderRadius: '10px', cursor: 'pointer', mb: 0.5,
+          sx={{
+            display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.2, borderRadius: '10px', cursor: 'pointer', mb: 0.5,
             bgcolor: tab === 'courses' ? 'rgba(59,130,246,0.15)' : 'transparent', color: tab === 'courses' ? '#60a5fa' : '#94a3b8',
-            transition: 'all 0.15s', '&:hover': { bgcolor: 'rgba(255,255,255,0.05)', color: '#fff' } }}>
+            transition: 'all 0.15s', '&:hover': { bgcolor: 'rgba(255,255,255,0.05)', color: '#fff' }
+          }}>
           <MenuBookIcon sx={{ fontSize: 20 }} />
           <Typography sx={{ fontFamily: ff, fontWeight: 600, fontSize: '0.85rem', flex: 1 }}>My Courses</Typography>
           {dashboardCourses.length > 0 && (
@@ -172,23 +179,27 @@ export default function PublicDashboard() {
             {dashboardCourses.map(dc => (
               <Box key={dc.subscription.id}>
                 <Box onClick={() => setExpandedCourse(expandedCourse === dc.course.id ? null : dc.course.id)}
-                  sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, py: 0.8, borderRadius: '8px', cursor: 'pointer', mb: 0.3,
-                    color: expandedCourse === dc.course.id ? '#93c5fd' : '#64748b', '&:hover': { color: '#e2e8f0', bgcolor: 'rgba(255,255,255,0.03)' }, transition: 'all 0.15s' }}>
+                  sx={{
+                    display: 'flex', alignItems: 'center', gap: 1, px: 1.5, py: 0.8, borderRadius: '8px', cursor: 'pointer', mb: 0.3,
+                    color: expandedCourse === dc.course.id ? '#93c5fd' : '#64748b', '&:hover': { color: 'rgba(255,255,255,0.10)', bgcolor: 'rgba(255,255,255,0.03)' }, transition: 'all 0.15s'
+                  }}>
                   <Typography sx={{ fontFamily: ff, fontWeight: 500, fontSize: '0.78rem', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dc.course.title}</Typography>
                   {expandedCourse === dc.course.id ? <ExpandLessIcon sx={{ fontSize: 16 }} /> : <ExpandMoreIcon sx={{ fontSize: 16 }} />}
                 </Box>
                 <Collapse in={expandedCourse === dc.course.id} timeout="auto">
                   <Box sx={{ pl: 1.5, pb: 1 }}>
                     {dc.contents.length === 0 ? (
-                      <Typography sx={{ fontFamily: ff, fontSize: '0.7rem', color: '#475569', px: 1.5, py: 0.5 }}>No content yet</Typography>
+                      <Typography sx={{ fontFamily: ff, fontSize: '0.7rem', color: '#9fb0d6', px: 1.5, py: 0.5 }}>No content yet</Typography>
                     ) : dc.contents.map(content => (
                       <Box key={content.id} onClick={() => handleContentClick(content)}
-                        sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, py: 0.6, borderRadius: '6px', cursor: content.locked ? 'not-allowed' : 'pointer',
-                          opacity: content.locked ? 0.5 : 1, color: '#94a3b8', '&:hover': { color: content.locked ? '#94a3b8' : '#e2e8f0', bgcolor: content.locked ? 'transparent' : 'rgba(255,255,255,0.03)' } }}>
+                        sx={{
+                          display: 'flex', alignItems: 'center', gap: 1, px: 1.5, py: 0.6, borderRadius: '6px', cursor: content.locked ? 'not-allowed' : 'pointer',
+                          opacity: content.locked ? 0.5 : 1, color: '#aeb9e0', '&:hover': { color: content.locked ? '#94a3b8' : 'rgba(255,255,255,0.10)', bgcolor: content.locked ? 'transparent' : 'rgba(255,255,255,0.03)' }
+                        }}>
                         {(content.content_type === 'pdf_exam' || content.content_type === 'cbt_exam')
                           ? <QuizIcon sx={{ fontSize: 14, color: content.locked ? '#475569' : '#60a5fa' }} />
                           : content.content_type === 'video'
-                            ? <OndemandVideoIcon sx={{ fontSize: 14, color: content.locked ? '#475569' : '#a855f7' }} />
+                            ? <OndemandVideoIcon sx={{ fontSize: 14, color: content.locked ? '#475569' : '#f68914' }} />
                             : <PictureAsPdfIcon sx={{ fontSize: 14, color: content.locked ? '#475569' : '#f87171' }} />}
                         <Typography sx={{ fontFamily: ff, fontSize: '0.72rem', fontWeight: 500, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{content.title}</Typography>
                         {content.attempt_submitted && <CheckCircleIcon sx={{ fontSize: 12, color: '#22c55e' }} />}
@@ -203,18 +214,30 @@ export default function PublicDashboard() {
 
         {/* History */}
         <Box onClick={() => { setTab('history'); setMobileOpen(false); }}
-          sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.2, borderRadius: '10px', cursor: 'pointer', mb: 0.5, mt: 0.5,
+          sx={{
+            display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.2, borderRadius: '10px', cursor: 'pointer', mb: 0.5, mt: 0.5,
             bgcolor: tab === 'history' ? 'rgba(59,130,246,0.15)' : 'transparent', color: tab === 'history' ? '#60a5fa' : '#94a3b8',
-            transition: 'all 0.15s', '&:hover': { bgcolor: 'rgba(255,255,255,0.05)', color: '#fff' } }}>
+            transition: 'all 0.15s', '&:hover': { bgcolor: 'rgba(255,255,255,0.05)', color: '#fff' }
+          }}>
           <HistoryIcon sx={{ fontSize: 20 }} />
           <Typography sx={{ fontFamily: ff, fontWeight: 600, fontSize: '0.85rem' }}>Exam History</Typography>
+        </Box>
+
+        {/* Practice (adaptive / subject / chapter) */}
+        <Box onClick={() => { navigate('/public/practice'); setMobileOpen(false); }}
+          sx={{
+            display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.2, borderRadius: '10px', cursor: 'pointer', mb: 0.5, mt: 0.5,
+            color: '#94a3b8', transition: 'all 0.15s', '&:hover': { bgcolor: 'rgba(246,137,20,0.12)', color: '#ffce9e' }
+          }}>
+          <BoltIcon sx={{ fontSize: 20, color: '#ffb054' }} />
+          <Typography sx={{ fontFamily: ff, fontWeight: 600, fontSize: '0.85rem' }}>Practice</Typography>
         </Box>
       </Box>
 
       {/* Bottom actions */}
       <Box sx={{ p: 1.5, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
         <Box onClick={() => navigate('/public')}
-          sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.2, borderRadius: '10px', cursor: 'pointer', color: '#94a3b8', '&:hover': { bgcolor: 'rgba(255,255,255,0.05)', color: '#fff' } }}>
+          sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.2, borderRadius: '10px', cursor: 'pointer', color: '#aeb9e0', '&:hover': { bgcolor: 'rgba(255,255,255,0.05)', color: '#fff' } }}>
           <ExploreIcon sx={{ fontSize: 20 }} />
           <Typography sx={{ fontFamily: ff, fontWeight: 600, fontSize: '0.85rem' }}>Browse Catalog</Typography>
         </Box>
@@ -239,217 +262,186 @@ export default function PublicDashboard() {
       }
     };
 
-    return (
-    <>
-      <Grid container spacing={2.5} sx={{ mb: 4 }}>
-        {[
-          { label: 'Enrolled', value: dashboardCourses.length, icon: <SchoolIcon />, color: '#2563eb', bg: 'rgba(37,99,235,0.08)' },
-          { label: 'Exams Taken', value: completedAttempts.length, icon: <QuizIcon />, color: '#16a34a', bg: 'rgba(22,163,74,0.08)' },
-          { label: 'Daily Streak', value: dailyStreak > 0 ? `${dailyStreak} Days` : '0 Days', icon: <LocalFireDepartmentIcon />, color: '#f97316', bg: 'rgba(249,115,22,0.1)' },
-          { label: 'Best Score', value: bestScore != null ? bestScore : '—', icon: <TrendingUpIcon />, color: '#eab308', bg: 'rgba(234,179,8,0.08)' },
-        ].map((s, i) => (
-          <Grid item xs={12} sm={6} md={3} key={i}>
-            <Card sx={{ borderRadius: '14px', border: '1px solid #e2e8f0', boxShadow: 'none' }}>
-              <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 2.5 }}>
-                <Box sx={{ width: 48, height: 48, borderRadius: '12px', bgcolor: s.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: s.color }}>{s.icon}</Box>
-                <Box>
-                  <Typography sx={{ fontFamily: ff, fontSize: '1.4rem', fontWeight: 800, color: '#0f172a', lineHeight: 1 }}>{s.value}</Typography>
-                  <Typography sx={{ fontFamily: ff, fontSize: '0.75rem', color: '#94a3b8', mt: 0.3 }}>{s.label}</Typography>
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
+    const statData = [
+      { label: 'Enrolled Courses', value: dashboardCourses.length, icon: <SchoolIcon />, color: 'blue' },
+      { label: 'Exams Taken', value: completedAttempts.length, icon: <QuizIcon />, color: 'success' },
+      { label: 'Day Streak', value: dailyStreak, icon: <LocalFireDepartmentIcon />, color: 'orange' },
+      { label: 'Best Score', value: bestScore != null ? bestScore : '—', icon: <TrendingUpIcon />, color: 'warning' },
+    ];
+    const prepModes = [
+      { label: 'Adaptive Practice', desc: 'Difficulty adapts to you — easy → medium → hard.', icon: <BoltIcon />, color: 'orange', action: () => navigate('/public/practice?mode=adaptive') },
+      { label: 'Chapter Practice', desc: 'Drill a specific chapter to build strong fundamentals.', icon: <AutoStoriesIcon />, color: 'blue', action: () => navigate('/public/practice?mode=chapter') },
+      { label: 'Subject-wise', desc: 'Focus questions from one subject you choose.', icon: <ScienceIcon />, color: 'indigo', action: () => navigate('/public/practice?mode=subject') },
+      { label: 'Mock Test', desc: 'A mixed full-length test across all subjects.', icon: <EmojiEventsIcon />, color: 'success', action: () => navigate('/public/practice?mode=mock') },
+    ];
 
-      {/* ── Quick Prep Hub (Enhanced UI) ── */}
-      <Box sx={{ mb: 6 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
-          <Box>
-            <Typography sx={{ fontFamily: ff, fontWeight: 800, fontSize: '1.4rem', color: '#0f172a', letterSpacing: '-0.02em' }}>
-              Quick Prep Hub
-            </Typography>
-            <Typography sx={{ fontFamily: ff, fontSize: '0.9rem', color: '#64748b', mt: 0.5 }}>
-              Choose your practice mode and sharpen your skills.
-            </Typography>
+    return (
+      <>
+        {/* ── Hero: welcome + streak + daily challenge ── */}
+        <Box
+          component={motion.div}
+          initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
+          sx={{
+            position: 'relative', overflow: 'hidden', borderRadius: '22px', mb: 3.5, p: { xs: 3, md: 3.5 },
+            background: 'linear-gradient(120deg, rgba(47,107,255,0.20), rgba(246,137,20,0.16))',
+            border: '1px solid rgba(255,255,255,0.10)', backdropFilter: 'blur(16px)',
+          }}
+        >
+          <Box sx={{ position: 'absolute', top: -50, right: -30, opacity: 0.15 }}>
+            <LocalFireDepartmentIcon sx={{ fontSize: 180, color: '#f68914' }} />
           </Box>
-          <Button variant="outlined" endIcon={<ArrowForwardIcon />} sx={{ fontFamily: ff, textTransform: 'none', borderRadius: '10px', borderColor: '#e2e8f0', color: '#64748b' }}>
-            View All
-          </Button>
+          <Box sx={{ position: 'relative', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 2.5 }}>
+            <Box sx={{ minWidth: 0 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                <Chip
+                  icon={<LocalFireDepartmentIcon sx={{ fontSize: 16 }} />}
+                  label={dailyStreak > 0 ? `${dailyStreak}-day streak` : 'Start your streak'}
+                  size="small"
+                  sx={{ bgcolor: 'rgba(246,137,20,0.18)', color: '#ffce9e', border: '1px solid rgba(246,137,20,0.30)', fontWeight: 700, '& .MuiChip-icon': { color: '#ffb054' } }}
+                />
+                {challengeCompleted && (
+                  <Chip icon={<CheckCircleIcon sx={{ fontSize: 16 }} />} label="Done today" size="small"
+                    sx={{ bgcolor: 'rgba(52,211,153,0.16)', color: '#6ee7b7', border: '1px solid rgba(52,211,153,0.30)', fontWeight: 700, '& .MuiChip-icon': { color: '#34d399' } }} />
+                )}
+              </Box>
+              <Typography sx={{ fontFamily: ff, fontWeight: 800, fontSize: { xs: '1.4rem', md: '1.7rem' }, color: '#f5f8ff' }}>
+                Hello, {user?.username || 'learner'} 👋
+              </Typography>
+              <Typography sx={{ fontFamily: ff, color: '#b4c0e4', mt: 0.5, fontSize: '0.92rem' }}>
+                5 mixed questions from your courses — keep the streak alive.
+              </Typography>
+            </Box>
+            <Button
+              onClick={handleStartChallenge} disabled={challengeCompleted} variant="gradient"
+              startIcon={challengeCompleted ? <CheckCircleIcon /> : <PlayCircleOutlineIcon />}
+              sx={{ fontFamily: ff, height: 48, px: 3, flexShrink: 0 }}
+            >
+              {challengeCompleted ? 'Completed Today' : 'Start Daily Challenge'}
+            </Button>
+          </Box>
         </Box>
-        <Grid container spacing={3}>
-          {[
-            {
-              label: 'Daily Challenge', desc: '5 handpicked questions daily to keep your streak alive.',
-              icon: <LocalFireDepartmentIcon sx={{ fontSize: 36 }} />,
-              color: '#f97316', bg1: '#fff7ed', bg2: '#ffedd5',
-              action: handleStartChallenge
-            },
-            {
-              label: 'Chapter Practice', desc: 'Focus on a specific chapter to build strong fundamentals.',
-              icon: <AutoStoriesIcon sx={{ fontSize: 36 }} />,
-              color: '#3b82f6', bg1: '#eff6ff', bg2: '#dbeafe',
-              action: () => setTab('courses')
-            },
-            {
-              label: 'Subject Mix', desc: 'Test your overall knowledge across multiple topics.',
-              icon: <ScienceIcon sx={{ fontSize: 36 }} />,
-              color: '#8b5cf6', bg1: '#f5f3ff', bg2: '#ede9fe',
-              action: () => setTab('courses')
-            },
-            {
-              label: 'PYQ Papers', desc: 'Practice with previous year questions for real exam feel.',
-              icon: <HistoryIcon sx={{ fontSize: 36 }} />,
-              color: '#10b981', bg1: '#ecfdf5', bg2: '#d1fae5',
-              action: () => setTab('courses')
-            },
-          ].map((item, i) => (
-            <Grid item xs={12} sm={6} md={3} key={i}>
-              <Card onClick={item.action} sx={{
-                borderRadius: '20px', border: '1px solid #e2e8f0', boxShadow: '0 4px 20px rgba(0,0,0,0.02)',
-                cursor: 'pointer', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', position: 'relative', overflow: 'hidden',
-                '&:hover': {
-                  borderColor: item.color, transform: 'translateY(-4px)',
-                  boxShadow: `0 12px 30px ${item.color}20`,
-                  '& .icon-bg': { transform: 'scale(1.2)' }
-                },
-              }}>
-                <Box className="icon-bg" sx={{
-                  position: 'absolute', top: -20, right: -20, width: 100, height: 100,
-                  borderRadius: '50%', background: `linear-gradient(135deg, ${item.bg1}, ${item.bg2})`,
-                  opacity: 0.5, transition: 'all 0.4s ease'
-                }} />
-                <CardContent sx={{ p: 3, position: 'relative', zIndex: 1, '&:last-child': { pb: 3 } }}>
-                  <Box sx={{
-                    width: 56, height: 56, borderRadius: '16px', background: `linear-gradient(135deg, ${item.bg1}, ${item.bg2})`,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 2, color: item.color,
-                    boxShadow: `0 4px 12px ${item.color}15`
-                  }}>
-                    {item.icon}
-                  </Box>
-                  <Typography sx={{ fontFamily: ff, fontWeight: 800, fontSize: '1.05rem', color: '#0f172a', mb: 0.5 }}>
-                    {item.label}
-                  </Typography>
-                  <Typography sx={{ fontFamily: ff, fontSize: '0.8rem', color: '#64748b', lineHeight: 1.5 }}>
-                    {item.desc}
-                  </Typography>
-                </CardContent>
-              </Card>
+
+        {/* ── Stats ── */}
+        <Grid container spacing={2.5} sx={{ mb: 4 }}>
+          {statData.map((s, i) => (
+            <Grid item xs={6} md={3} key={i}>
+              <StatCard icon={s.icon} value={s.value} label={s.label} color={s.color} />
             </Grid>
           ))}
         </Grid>
-      </Box>
 
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} md={8}>
-          {/* Quick access courses */}
-          <Typography sx={{ fontFamily: ff, fontWeight: 700, fontSize: '1rem', color: '#0f172a', mb: 2 }}>My Courses</Typography>
-          {dashboardCourses.length === 0 ? (
-            <Card sx={{ borderRadius: '14px', border: '1px solid #e2e8f0', boxShadow: 'none', textAlign: 'center', py: 5 }}>
-              <SchoolIcon sx={{ fontSize: 40, color: '#d1d5db', mb: 1 }} />
-              <Typography sx={{ fontFamily: ff, color: '#64748b', mb: 2 }}>No courses yet.</Typography>
-              <Button size="small" onClick={() => navigate('/public')} sx={{ fontFamily: ff, textTransform: 'none' }}>Browse Catalog</Button>
-            </Card>
-          ) : (
-            <Grid container spacing={2}>
-              {dashboardCourses.slice(0, 4).map(dc => {
-                const totalExams = dc.contents.filter(c => c.content_type === 'pdf_exam' || c.content_type === 'cbt_exam').length;
-                const doneExams = dc.contents.filter(c => c.attempt_submitted).length;
-                const totalAll = dc.contents.length;
-                const progressPct = totalExams > 0 ? Math.round((doneExams / totalExams) * 100) : 0;
-                return (
-                <Grid item xs={12} sm={6} key={dc.subscription.id}>
-                  <Card sx={{ borderRadius: '14px', border: '1px solid #e2e8f0', boxShadow: 'none', cursor: 'pointer', transition: 'all 0.2s', '&:hover': { borderColor: '#93c5fd', boxShadow: '0 4px 12px rgba(37,99,235,0.08)' } }}
-                    onClick={() => setTab('courses')}>
-                    <CardContent sx={{ p: 2.5 }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
-                        <Box sx={{ flex: 1 }}>
-                          <Typography sx={{ fontFamily: ff, fontWeight: 700, fontSize: '0.95rem', color: '#0f172a', mb: 1 }}>{dc.course.title}</Typography>
-                          <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
-                            <Chip label={dc.subscription.status === 'active' ? 'Full Access' : 'Free Only'} size="small"
-                              sx={{ fontFamily: ff, fontWeight: 600, fontSize: '0.7rem', bgcolor: dc.subscription.status === 'active' ? 'rgba(34,197,94,0.1)' : 'rgba(59,130,246,0.1)', color: dc.subscription.status === 'active' ? '#16a34a' : '#2563eb' }} />
-                            <Chip label={`${totalAll} items`} size="small" sx={{ fontFamily: ff, fontSize: '0.7rem', bgcolor: '#f1f5f9', color: '#64748b' }} />
-                          </Box>
-                        </Box>
-                        {/* Circular Progress Ring */}
-                        <Box sx={{ position: 'relative', display: 'inline-flex', flexShrink: 0 }}>
-                          <CircularProgress variant="determinate" value={progressPct} size={52} thickness={4}
-                            sx={{ color: progressPct >= 100 ? '#16a34a' : '#2563eb', '& .MuiCircularProgress-circle': { strokeLinecap: 'round' } }} />
-                          <Box sx={{ position: 'absolute', top: 0, left: 0, bottom: 0, right: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <Typography sx={{ fontFamily: ff, fontSize: '0.72rem', fontWeight: 800, color: progressPct >= 100 ? '#16a34a' : '#0f172a' }}>{progressPct}%</Typography>
-                          </Box>
-                        </Box>
-                      </Box>
-                      <LinearProgress variant="determinate" value={progressPct}
-                        sx={{ height: 4, borderRadius: 2, bgcolor: '#f1f5f9', '& .MuiLinearProgress-bar': { bgcolor: progressPct >= 100 ? '#16a34a' : '#2563eb', borderRadius: 2 } }} />
-                      <Typography sx={{ fontFamily: ff, fontSize: '0.72rem', color: '#94a3b8', mt: 0.8 }}>
-                        {doneExams} of {totalExams} exams completed
-                      </Typography>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              )})}
-            </Grid>
-          )}
-        </Grid>
-        <Grid item xs={12} md={4}>
-          <Typography sx={{ fontFamily: ff, fontWeight: 700, fontSize: '1rem', color: '#0f172a', mb: 2 }}>Daily Challenge</Typography>
-          <Card sx={{ borderRadius: '14px', border: 'none', background: 'linear-gradient(135deg, #1e293b, #0f172a)', color: '#fff', boxShadow: '0 10px 25px rgba(15,23,42,0.15)', position: 'relative', overflow: 'hidden' }}>
-            <Box sx={{ position: 'absolute', top: -20, right: -20, opacity: 0.1, transform: 'scale(2)' }}>
-              <LocalFireDepartmentIcon sx={{ fontSize: 100 }} />
-            </Box>
-            <CardContent sx={{ p: 3, position: 'relative', zIndex: 1 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                <Chip label="Quiz of the Day" size="small" sx={{ bgcolor: 'rgba(255,255,255,0.1)', color: '#60a5fa', fontWeight: 700, fontFamily: ff, fontSize: '0.7rem' }} />
-                {dailyStreak > 0 && <Chip label={`🔥 ${dailyStreak} Day Streak`} size="small" sx={{ bgcolor: 'rgba(249,115,22,0.2)', color: '#fb923c', fontWeight: 700, fontFamily: ff, fontSize: '0.7rem' }} />}
-              </Box>
-              <Typography sx={{ fontFamily: ff, fontSize: '1.1rem', fontWeight: 800, mb: 1, lineHeight: 1.3 }}>
-                5 Mixed Questions
-              </Typography>
-              <Typography sx={{ fontFamily: ff, fontSize: '0.8rem', color: '#94a3b8', mb: 3 }}>
-                Based on your enrolled courses
-              </Typography>
-              <Button fullWidth onClick={handleStartChallenge} variant="contained" endIcon={challengeCompleted ? <CheckCircleIcon /> : <PlayCircleOutlineIcon />}
-                disabled={challengeCompleted}
-                sx={{ fontFamily: ff, fontWeight: 700, textTransform: 'none', borderRadius: '10px', background: challengeCompleted ? 'rgba(34,197,94,0.2)' : 'linear-gradient(135deg, #3b82f6, #2563eb)', color: '#fff', '&:hover': { background: challengeCompleted ? 'rgba(34,197,94,0.2)' : '#2563eb' }, '&.Mui-disabled': { color: '#22c55e' } }}>
-                {challengeCompleted ? 'Completed Today' : 'Start Challenge'}
-              </Button>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-
-      {/* Recent attempts */}
-      {completedAttempts.length > 0 && (
-        <Box sx={{ mt: 0 }}>
-          <Typography sx={{ fontFamily: ff, fontWeight: 700, fontSize: '1rem', color: '#0f172a', mb: 2 }}>Recent Exam Results</Typography>
-          <Card sx={{ borderRadius: '14px', border: '1px solid #e2e8f0', boxShadow: 'none', overflow: 'hidden' }}>
-            {completedAttempts.slice(0, 5).map((a, i) => (
-              <Box key={a.id} sx={{ display: 'flex', alignItems: 'center', gap: 2, px: 2.5, py: 1.8, borderBottom: i < 4 ? '1px solid #f1f5f9' : 'none' }}>
-                <QuizIcon sx={{ color: '#2563eb', fontSize: 20 }} />
-                <Box sx={{ flex: 1 }}>
-                  <Typography sx={{ fontFamily: ff, fontWeight: 600, fontSize: '0.85rem', color: '#0f172a' }}>{a.content_title || 'Exam'}</Typography>
-                  <Typography sx={{ fontFamily: ff, fontSize: '0.72rem', color: '#94a3b8' }}>{a.submitted_at ? new Date(a.submitted_at).toLocaleDateString() : ''}</Typography>
-                </Box>
-                <Chip label={`${a.score ?? '?'}/${a.total_questions ?? '?'}`} size="small"
-                  sx={{ fontFamily: ff, fontWeight: 700, bgcolor: (a.score >= (a.total_questions * 0.6)) ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)', color: (a.score >= (a.total_questions * 0.6)) ? '#16a34a' : '#ef4444' }} />
-              </Box>
+        {/* ── Quick Prep Hub ── */}
+        <Box sx={{ mb: 4 }}>
+          <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 2 }}>
+            <Box sx={{ width: 4, height: 20, borderRadius: 2, background: 'linear-gradient(#2f6bff,#f68914)' }} />
+            <Typography sx={{ fontFamily: ff, fontWeight: 700, color: '#f5f8ff' }}>Quick Prep Hub</Typography>
+            <Box sx={{ flex: 1, height: '1px', bgcolor: 'rgba(255,255,255,0.08)' }} />
+          </Stack>
+          <Grid container spacing={2.5}>
+            {prepModes.map((item, i) => (
+              <Grid item xs={12} sm={6} md={3} key={i}>
+                <ActionCard icon={item.icon} title={item.label} description={item.desc} color={item.color} onClick={item.action} />
+              </Grid>
             ))}
-          </Card>
+          </Grid>
         </Box>
-      )}
-    </>
-  )};
+
+        {/* ── My Courses + Recent Results ── */}
+        <Grid container spacing={3}>
+          <Grid item xs={12} md={7}>
+            <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 2 }}>
+              <Box sx={{ width: 4, height: 20, borderRadius: 2, background: 'linear-gradient(#2f6bff,#f68914)' }} />
+              <Typography sx={{ fontFamily: ff, fontWeight: 700, color: '#f5f8ff' }}>My Courses</Typography>
+            </Stack>
+            {dashboardCourses.length === 0 ? (
+              <Card sx={{ textAlign: 'center', py: 5 }}>
+                <SchoolIcon sx={{ fontSize: 40, color: '#7e8abb', mb: 1 }} />
+                <Typography sx={{ fontFamily: ff, color: '#aeb9e0', mb: 2 }}>No courses yet.</Typography>
+                <Button size="small" variant="outlined" onClick={() => navigate('/public')} sx={{ fontFamily: ff, textTransform: 'none' }}>Browse Catalog</Button>
+              </Card>
+            ) : (
+              <Grid container spacing={2}>
+                {dashboardCourses.slice(0, 4).map(dc => {
+                  const totalExams = dc.contents.filter(c => c.content_type === 'pdf_exam' || c.content_type === 'cbt_exam').length;
+                  const doneExams = dc.contents.filter(c => c.attempt_submitted).length;
+                  const totalAll = dc.contents.length;
+                  const progressPct = totalExams > 0 ? Math.round((doneExams / totalExams) * 100) : 0;
+                  return (
+                    <Grid item xs={12} sm={6} key={dc.subscription.id}>
+                      <Card sx={{ cursor: 'pointer', transition: 'all 0.2s', '&:hover': { borderColor: 'rgba(246,137,20,0.4)', transform: 'translateY(-3px)' } }}
+                        onClick={() => setTab('courses')}>
+                        <CardContent sx={{ p: 2.5 }}>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
+                            <Box sx={{ flex: 1, minWidth: 0 }}>
+                              <Typography sx={{ fontFamily: ff, fontWeight: 700, fontSize: '0.95rem', color: '#eaf0ff', mb: 1 }} noWrap>{dc.course.title}</Typography>
+                              <Box sx={{ display: 'flex', gap: 1, mb: 1, flexWrap: 'wrap' }}>
+                                <Chip label={dc.subscription.status === 'active' ? 'Full Access' : 'Free Only'} size="small"
+                                  sx={{ fontFamily: ff, fontWeight: 600, fontSize: '0.7rem', bgcolor: dc.subscription.status === 'active' ? 'rgba(52,211,153,0.14)' : 'rgba(47,107,255,0.16)', color: dc.subscription.status === 'active' ? '#6ee7b7' : '#9fc1ff' }} />
+                                <Chip label={`${totalAll} items`} size="small" sx={{ fontFamily: ff, fontSize: '0.7rem', bgcolor: 'rgba(255,255,255,0.08)', color: '#a9b4dd' }} />
+                              </Box>
+                            </Box>
+                            <Box sx={{ position: 'relative', display: 'inline-flex', flexShrink: 0 }}>
+                              <CircularProgress variant="determinate" value={progressPct} size={52} thickness={4}
+                                sx={{ color: progressPct >= 100 ? '#34d399' : '#6f9bff', '& .MuiCircularProgress-circle': { strokeLinecap: 'round' } }} />
+                              <Box sx={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <Typography sx={{ fontFamily: ff, fontSize: '0.72rem', fontWeight: 800, color: '#eaf0ff' }}>{progressPct}%</Typography>
+                              </Box>
+                            </Box>
+                          </Box>
+                          <LinearProgress variant="determinate" value={progressPct}
+                            sx={{ height: 5, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.08)', '& .MuiLinearProgress-bar': { background: progressPct >= 100 ? '#34d399' : 'linear-gradient(90deg,#2f6bff,#f68914)', borderRadius: 2 } }} />
+                          <Typography sx={{ fontFamily: ff, fontSize: '0.72rem', color: '#aeb9e0', mt: 0.8 }}>
+                            {doneExams} of {totalExams} exams completed
+                          </Typography>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                  )
+                })}
+              </Grid>
+            )}
+          </Grid>
+
+          <Grid item xs={12} md={5}>
+            <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 2 }}>
+              <Box sx={{ width: 4, height: 20, borderRadius: 2, background: 'linear-gradient(#2f6bff,#f68914)' }} />
+              <Typography sx={{ fontFamily: ff, fontWeight: 700, color: '#f5f8ff' }}>Recent Results</Typography>
+            </Stack>
+            <Card sx={{ overflow: 'hidden' }}>
+              {completedAttempts.length === 0 ? (
+                <Box sx={{ textAlign: 'center', py: 5, px: 3 }}>
+                  <EmojiEventsIcon sx={{ fontSize: 38, color: '#7e8abb', mb: 1 }} />
+                  <Typography sx={{ fontFamily: ff, color: '#aeb9e0' }}>No results yet — take your first exam.</Typography>
+                </Box>
+              ) : completedAttempts.slice(0, 6).map((a, i, arr) => (
+                <Box key={a.id} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2.5, py: 1.6, borderBottom: i < arr.length - 1 ? '1px solid rgba(255,255,255,0.08)' : 'none' }}>
+                  <Box sx={{ width: 34, height: 34, borderRadius: 2, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'rgba(47,107,255,0.14)', color: '#9fc1ff' }}>
+                    <QuizIcon sx={{ fontSize: 18 }} />
+                  </Box>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography sx={{ fontFamily: ff, fontWeight: 600, fontSize: '0.85rem', color: '#eaf0ff' }} noWrap>{a.content_title || 'Exam'}</Typography>
+                    <Typography sx={{ fontFamily: ff, fontSize: '0.72rem', color: '#aeb9e0' }}>{a.submitted_at ? new Date(a.submitted_at).toLocaleDateString() : ''}</Typography>
+                  </Box>
+                  <Chip label={`${a.score ?? '?'}/${a.total_questions ?? '?'}`} size="small"
+                    sx={{ fontFamily: ff, fontWeight: 700, bgcolor: (a.score >= (a.total_questions * 0.6)) ? 'rgba(52,211,153,0.14)' : 'rgba(251,113,133,0.14)', color: (a.score >= (a.total_questions * 0.6)) ? '#6ee7b7' : '#fda4af' }} />
+                </Box>
+              ))}
+            </Card>
+          </Grid>
+        </Grid>
+      </>
+    )
+  };
 
   /* ── COURSES TAB ── */
   const renderCourses = () => (
     <>
       {availableCourses.length > 0 && (
-        <Card sx={{ borderRadius: '14px', border: '1px solid #e2e8f0', boxShadow: 'none', mb: 3, p: 2.5 }}>
+        <Card sx={{ borderRadius: '14px', border: '1px solid rgba(255,255,255,0.10)', boxShadow: 'none', mb: 3, p: 2.5 }}>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center' }}>
             <Box sx={{ flex: 1, minWidth: 200 }}>
-              <Typography sx={{ fontFamily: ff, fontWeight: 700, color: '#0f172a', fontSize: '0.95rem' }}>Add Another Course</Typography>
-              <Typography sx={{ fontFamily: ff, fontSize: '0.8rem', color: '#64748b' }}>Enroll in more public exams</Typography>
+              <Typography sx={{ fontFamily: ff, fontWeight: 700, color: '#eaf0ff', fontSize: '0.95rem' }}>Add Another Course</Typography>
+              <Typography sx={{ fontFamily: ff, fontSize: '0.8rem', color: '#a9b4dd' }}>Enroll in more public exams</Typography>
             </Box>
             <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', minWidth: { xs: '100%', sm: 300 } }}>
               <FormControl fullWidth size="small">
@@ -466,10 +458,10 @@ export default function PublicDashboard() {
       )}
 
       {dashboardCourses.map(dc => (
-        <Card key={dc.subscription.id} sx={{ borderRadius: '14px', border: '1px solid #e2e8f0', boxShadow: 'none', mb: 3, overflow: 'hidden' }}>
-          <Box sx={{ p: 2.5, borderBottom: '1px solid #f1f5f9', bgcolor: '#fafbfc', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 2 }}>
+        <Card key={dc.subscription.id} sx={{ borderRadius: '14px', border: '1px solid rgba(255,255,255,0.10)', boxShadow: 'none', mb: 3, overflow: 'hidden' }}>
+          <Box sx={{ p: 2.5, borderBottom: '1px solid rgba(255,255,255,0.08)', bgcolor: 'rgba(255,255,255,0.03)', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 2 }}>
             <Box>
-              <Typography sx={{ fontFamily: ff, fontWeight: 800, fontSize: '1.1rem', color: '#0f172a', mb: 0.5 }}>{dc.course.title}</Typography>
+              <Typography sx={{ fontFamily: ff, fontWeight: 800, fontSize: '1.1rem', color: '#eaf0ff', mb: 0.5 }}>{dc.course.title}</Typography>
               <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                 <Chip label={dc.subscription.status === 'active' ? 'Full Access' : dc.subscription.status === 'enrolled' ? 'Free Content' : 'Pending'} size="small"
                   sx={{ fontFamily: ff, fontWeight: 600, bgcolor: dc.subscription.status === 'active' ? 'rgba(34,197,94,0.1)' : 'rgba(59,130,246,0.1)', color: dc.subscription.status === 'active' ? '#16a34a' : '#2563eb' }} />
@@ -504,7 +496,7 @@ export default function PublicDashboard() {
 
             const renderContentItem = (content) => (
               <ListItem key={content.id} onClick={() => handleContentClick(content)}
-                sx={{ cursor: content.locked ? 'not-allowed' : 'pointer', py: 1.8, px: 2.5, opacity: content.locked ? 0.6 : 1, '&:hover': { bgcolor: content.locked ? 'transparent' : '#f8fafc' }, borderBottom: '1px solid #f1f5f9' }}>
+                sx={{ cursor: content.locked ? 'not-allowed' : 'pointer', py: 1.8, px: 2.5, opacity: content.locked ? 0.6 : 1, '&:hover': { bgcolor: content.locked ? 'transparent' : 'rgba(255,255,255,0.03)' }, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
                 <ListItemIcon sx={{ minWidth: 40 }}>
                   {(content.content_type === 'pdf_exam' || content.content_type === 'cbt_exam')
                     ? <QuizIcon sx={{ color: content.locked ? '#94a3b8' : '#2563eb', fontSize: 20 }} />
@@ -513,22 +505,22 @@ export default function PublicDashboard() {
                 <ListItemText primary={content.title}
                   secondary={
                     <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mt: 0.3, flexWrap: 'wrap' }}>
-                      <Typography sx={{ fontFamily: ff, fontSize: '0.75rem', color: '#64748b' }}>
+                      <Typography sx={{ fontFamily: ff, fontSize: '0.75rem', color: '#a9b4dd' }}>
                         {(content.content_type === 'pdf_exam' || content.content_type === 'cbt_exam') ? `${content.total_questions || '?'} Q · ${content.duration_minutes || 60} min` : 'Study Material'}
                       </Typography>
                       {content.subject && (
-                        <Chip label={content.subject} size="small" sx={{ fontFamily: ff, fontSize: '0.62rem', height: 16, bgcolor: '#f1f5f9', color: '#64748b' }} />
+                        <Chip label={content.subject} size="small" sx={{ fontFamily: ff, fontSize: '0.62rem', height: 16, bgcolor: 'rgba(255,255,255,0.08)', color: '#a9b4dd' }} />
                       )}
                     </Box>
                   }
-                  primaryTypographyProps={{ fontFamily: ff, fontWeight: 600, fontSize: '0.88rem', color: '#0f172a' }}
+                  primaryTypographyProps={{ fontFamily: ff, fontWeight: 600, fontSize: '0.88rem', color: '#eaf0ff' }}
                 />
                 <Box sx={{ display: 'flex', gap: 0.8, alignItems: 'center', flexShrink: 0, ml: 1 }}>
                   {content.attempt_submitted && <Chip icon={<CheckCircleIcon sx={{ fontSize: 14 }} />} label={`${content.attempt_score ?? '?'}/${content.attempt_total ?? '?'}`} size="small"
                     sx={{ bgcolor: (content.attempt_score >= (content.attempt_total * 0.6)) ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)', color: (content.attempt_score >= (content.attempt_total * 0.6)) ? '#16a34a' : '#ef4444', fontWeight: 700, fontFamily: ff, '& .MuiChip-icon': { color: 'inherit' } }} />}
                   {content.attempt_submitted && (content.content_type === 'pdf_exam' || content.content_type === 'cbt_exam') && (
                     <Button size="small" variant="outlined" onClick={(e) => { e.stopPropagation(); handleContentClick(content, 'study'); }}
-                      sx={{ fontFamily: ff, textTransform: 'none', borderRadius: '8px', fontSize: '0.72rem', borderColor: '#a855f7', color: '#a855f7', '&:hover': { bgcolor: 'rgba(168,85,247,0.06)', borderColor: '#9333ea' } }}>
+                      sx={{ fontFamily: ff, textTransform: 'none', borderRadius: '8px', fontSize: '0.72rem', borderColor: '#f68914', color: '#f68914', '&:hover': { bgcolor: 'rgba(246,137,20,0.08)', borderColor: '#f68914' } }}>
                       Practice Again
                     </Button>
                   )}
@@ -539,10 +531,12 @@ export default function PublicDashboard() {
                   )}
                   <Chip icon={content.is_free ? <LockOpenIcon sx={{ fontSize: 13 }} /> : content.locked ? <LockIcon sx={{ fontSize: 13 }} /> : <CheckCircleIcon sx={{ fontSize: 13 }} />}
                     label={content.is_free ? 'Free' : content.locked ? 'Premium' : 'Unlocked'} size="small"
-                    sx={{ fontFamily: ff, fontWeight: 600, fontSize: '0.68rem',
+                    sx={{
+                      fontFamily: ff, fontWeight: 600, fontSize: '0.68rem',
                       bgcolor: content.is_free ? 'rgba(34,197,94,0.08)' : content.locked ? 'rgba(168,85,247,0.08)' : 'rgba(34,197,94,0.08)',
-                      color: content.is_free ? '#16a34a' : content.locked ? '#a855f7' : '#16a34a',
-                      '& .MuiChip-icon': { color: 'inherit' } }} />
+                      color: content.is_free ? '#16a34a' : content.locked ? '#f68914' : '#16a34a',
+                      '& .MuiChip-icon': { color: 'inherit' }
+                    }} />
                 </Box>
               </ListItem>
             );
@@ -551,10 +545,10 @@ export default function PublicDashboard() {
               <>
                 {/* ── 1. PREVIOUS QUESTION PAPERS SECTION ── */}
                 {previousPapers.length > 0 && (
-                  <Box sx={{ borderBottom: '1px solid #e2e8f0' }}>
+                  <Box sx={{ borderBottom: '1px solid rgba(255,255,255,0.10)' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 2.5, py: 1.5, bgcolor: 'rgba(13,148,136,0.04)' }}>
                       <HistoryIcon sx={{ fontSize: 18, color: '#0d9488' }} />
-                      <Typography sx={{ fontFamily: ff, fontWeight: 700, fontSize: '0.82rem', color: '#115e59', letterSpacing: 0.3 }}>
+                      <Typography sx={{ fontFamily: ff, fontWeight: 700, fontSize: '0.82rem', color: '#5eead4', letterSpacing: 0.3 }}>
                         Previous Years\' Question Papers (PQP)
                       </Typography>
                       <Chip label={previousPapers.length} size="small" sx={{ fontFamily: ff, fontWeight: 800, fontSize: '0.68rem', height: 20, bgcolor: 'rgba(13,148,136,0.1)', color: '#0d9488' }} />
@@ -570,10 +564,10 @@ export default function PublicDashboard() {
                   const items = subjectGroups[sub];
                   const isGeneral = sub === 'General Materials & Practice';
                   return (
-                    <Box key={sub} sx={{ borderBottom: sIdx < subjects.length - 1 ? '1px solid #e2e8f0' : 'none' }}>
+                    <Box key={sub} sx={{ borderBottom: sIdx < subjects.length - 1 ? '1px solid rgba(255,255,255,0.10)' : 'none' }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 2.5, py: 1.5, bgcolor: isGeneral ? 'rgba(100,116,139,0.04)' : 'rgba(37,99,235,0.04)' }}>
                         <MenuBookIcon sx={{ fontSize: 18, color: isGeneral ? '#475569' : '#2563eb' }} />
-                        <Typography sx={{ fontFamily: ff, fontWeight: 700, fontSize: '0.82rem', color: isGeneral ? '#334155' : '#1e40af', letterSpacing: 0.3 }}>
+                        <Typography sx={{ fontFamily: ff, fontWeight: 700, fontSize: '0.82rem', color: isGeneral ? '#aeb9e0' : '#9fc1ff', letterSpacing: 0.3 }}>
                           {sub}
                         </Typography>
                         <Chip label={items.length} size="small" sx={{ fontFamily: ff, fontWeight: 800, fontSize: '0.68rem', height: 20, bgcolor: isGeneral ? 'rgba(100,116,139,0.08)' : 'rgba(37,99,235,0.08)', color: isGeneral ? '#475569' : '#2563eb' }} />
@@ -587,7 +581,7 @@ export default function PublicDashboard() {
 
                 {dc.contents.length === 0 && (
                   <Box sx={{ py: 4, textAlign: 'center' }}>
-                    <Typography sx={{ color: '#94a3b8', fontFamily: ff }}>No content yet.</Typography>
+                    <Typography sx={{ color: '#aeb9e0', fontFamily: ff }}>No content yet.</Typography>
                   </Box>
                 )}
               </>
@@ -600,21 +594,21 @@ export default function PublicDashboard() {
 
   /* ── HISTORY TAB ── */
   const renderHistory = () => (
-    <Card sx={{ borderRadius: '14px', border: '1px solid #e2e8f0', boxShadow: 'none', overflow: 'hidden' }}>
+    <Card sx={{ borderRadius: '14px', border: '1px solid rgba(255,255,255,0.10)', boxShadow: 'none', overflow: 'hidden' }}>
       {completedAttempts.length === 0 ? (
-        <Box sx={{ textAlign: 'center', py: 6 }}><Typography sx={{ fontFamily: ff, color: '#94a3b8' }}>No exam attempts yet.</Typography></Box>
+        <Box sx={{ textAlign: 'center', py: 6 }}><Typography sx={{ fontFamily: ff, color: '#aeb9e0' }}>No exam attempts yet.</Typography></Box>
       ) : (
         <>
-          <Box sx={{ display: 'flex', px: 2.5, py: 1.5, bgcolor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+          <Box sx={{ display: 'flex', px: 2.5, py: 1.5, bgcolor: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.10)' }}>
             {['Exam', 'Date', 'Score', 'Result'].map(h => (
-              <Typography key={h} sx={{ flex: 1, fontFamily: ff, fontWeight: 700, fontSize: '0.72rem', color: '#64748b', textTransform: 'uppercase' }}>{h}</Typography>
+              <Typography key={h} sx={{ flex: 1, fontFamily: ff, fontWeight: 700, fontSize: '0.72rem', color: '#a9b4dd', textTransform: 'uppercase' }}>{h}</Typography>
             ))}
           </Box>
           {completedAttempts.map(a => (
-            <Box key={a.id} sx={{ display: 'flex', px: 2.5, py: 1.5, borderBottom: '1px solid #f1f5f9', alignItems: 'center' }}>
-              <Typography sx={{ flex: 1, fontFamily: ff, fontSize: '0.85rem', fontWeight: 600, color: '#0f172a' }}>{a.content_title || 'Exam'}</Typography>
-              <Typography sx={{ flex: 1, fontFamily: ff, fontSize: '0.82rem', color: '#64748b' }}>{a.submitted_at ? new Date(a.submitted_at).toLocaleDateString() : '—'}</Typography>
-              <Typography sx={{ flex: 1, fontFamily: ff, fontSize: '0.85rem', fontWeight: 700, color: '#0f172a' }}>{a.score ?? '?'}/{a.total_questions ?? '?'}</Typography>
+            <Box key={a.id} sx={{ display: 'flex', px: 2.5, py: 1.5, borderBottom: '1px solid rgba(255,255,255,0.08)', alignItems: 'center' }}>
+              <Typography sx={{ flex: 1, fontFamily: ff, fontSize: '0.85rem', fontWeight: 600, color: '#eaf0ff' }}>{a.content_title || 'Exam'}</Typography>
+              <Typography sx={{ flex: 1, fontFamily: ff, fontSize: '0.82rem', color: '#a9b4dd' }}>{a.submitted_at ? new Date(a.submitted_at).toLocaleDateString() : '—'}</Typography>
+              <Typography sx={{ flex: 1, fontFamily: ff, fontSize: '0.85rem', fontWeight: 700, color: '#eaf0ff' }}>{a.score ?? '?'}/{a.total_questions ?? '?'}</Typography>
               <Box sx={{ flex: 1 }}>
                 <Chip label={(a.score >= (a.total_questions * 0.6)) ? 'Pass' : 'Needs Work'} size="small"
                   sx={{ fontFamily: ff, fontWeight: 600, bgcolor: (a.score >= (a.total_questions * 0.6)) ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)', color: (a.score >= (a.total_questions * 0.6)) ? '#16a34a' : '#ef4444' }} />
@@ -640,26 +634,26 @@ export default function PublicDashboard() {
       </Drawer>
 
       {/* Main content */}
-      <Box sx={{ flex: 1, bgcolor: '#f8fafc', overflow: 'auto' }}>
+      <Box sx={{ flex: 1, bgcolor: 'rgba(255,255,255,0.03)', overflow: 'auto' }}>
         {/* Transparent Page Header (removes double header background) */}
         <Box sx={{ px: { xs: 2, md: 3.5 }, pt: 3, pb: 1, display: 'flex', alignItems: 'center', gap: 2 }}>
           {isMobile && (
             <IconButton onClick={() => setMobileOpen(true)}
-              sx={{ color: '#0f172a', bgcolor: '#fff', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', '&:hover': { bgcolor: '#f1f5f9' } }}>
+              sx={{ color: '#eaf0ff', bgcolor: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', '&:hover': { bgcolor: 'rgba(255,255,255,0.08)' } }}>
               <MenuIcon />
             </IconButton>
           )}
-          <Typography sx={{ fontFamily: ff, fontWeight: 800, fontSize: '1.5rem', color: '#0f172a' }}>
+          <Typography sx={{ fontFamily: ff, fontWeight: 800, fontSize: '1.5rem', color: '#eaf0ff' }}>
             {tabTitles[tab]}
           </Typography>
         </Box>
 
-        <Box sx={{ p: { xs: 2, md: 3.5 }, maxWidth: 960 }}>
+        <Box sx={{ p: { xs: 2, md: 3.5 }, maxWidth: 1200, mx: 'auto', width: '100%' }}>
           {error && <Alert severity="error" onClose={() => setError('')} sx={{ mb: 2.5, borderRadius: '12px' }}>{error}</Alert>}
           {msg && <Alert severity="success" onClose={() => setMsg('')} sx={{ mb: 2.5, borderRadius: '12px' }}>{msg}</Alert>}
 
           {loading ? (
-            <Box>{[1,2,3].map(i => <Skeleton key={i} variant="rounded" height={120} sx={{ mb: 2, borderRadius: '14px' }} />)}</Box>
+            <Box>{[1, 2, 3].map(i => <Skeleton key={i} variant="rounded" height={120} sx={{ mb: 2, borderRadius: '14px' }} />)}</Box>
           ) : (
             <>
               {tab === 'overview' && renderOverview()}

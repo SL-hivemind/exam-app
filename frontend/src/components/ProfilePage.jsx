@@ -477,8 +477,8 @@ export default function ProfilePage() {
                             r.status === "pending"
                               ? "#fff8e1"
                               : r.status === "approved"
-                              ? "#e8f5e9"
-                              : "#ffebee",
+                              ? "rgba(52,211,153,0.12)"
+                              : "rgba(251,113,133,0.12)",
                         }}
                       >
                         {statusIcon(r.status)}

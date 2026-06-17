@@ -19,8 +19,10 @@ export default function Footer() {
       <Box
         component="footer"
         sx={{
-          backgroundColor: '#0d1b2a', // Dark Navy for contrast with the Blue Navbar
-          color: 'rgba(255,255,255,0.8)',
+          position: 'relative',
+          background: 'linear-gradient(180deg, rgba(7,11,29,0) 0%, rgba(5,8,20,0.65) 100%)',
+          borderTop: '1px solid rgba(255,255,255,0.08)',
+          color: 'rgba(230,236,255,0.72)',
           py: 8,
           mt: 'auto'
         }}
@@ -30,9 +32,19 @@ export default function Footer() {
 
             {/* Column 1: Brand and Mission */}
             <Grid item xs={12} md={4}>
-              <Box display="flex" alignItems="center" mb={2}>
-                <SchoolIcon sx={{ fontSize: 40, mr: 1, color: 'white' }} />
-                <Typography variant="h5" fontWeight={800} color="white">
+              <Box display="flex" alignItems="center" mb={2} sx={{ gap: 1.25 }}>
+                <Box sx={{
+                  width: 42, height: 42, borderRadius: '12px',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: 'linear-gradient(135deg,#2f6bff,#f68914)',
+                  boxShadow: '0 8px 22px rgba(246,137,20,0.4)',
+                }}>
+                  <SchoolIcon sx={{ fontSize: 24, color: 'white' }} />
+                </Box>
+                <Typography variant="h5" fontWeight={800} sx={{
+                  background: 'linear-gradient(120deg,#ffffff,#ffce9e)',
+                  WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+                }}>
                   SL EXAMS
                 </Typography>
               </Box>
@@ -93,7 +105,7 @@ export default function Footer() {
                 directorops@e2eindia.org<br />
                 <strong>Phone:</strong> 040 45632683
               </Typography>
-              <Button variant="outlined" color="inherit" size="small" href="mailto:directorops@e2eindia.org">
+              <Button variant="gradient" size="small" href="mailto:directorops@e2eindia.org">
                 Send Message
               </Button>
             </Grid>

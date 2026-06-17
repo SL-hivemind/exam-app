@@ -1,129 +1,144 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Typography, Paper, Table, TableBody, TableCell, TableHead, TableRow, Chip, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField } from '@mui/material';
-import { CheckCircle as CheckCircleIcon } from '@mui/icons-material';
+import {
+  Box, Typography, TableCell, TableRow, IconButton, TextField, Tooltip, Snackbar, Alert,
+} from '@mui/material';
+import {
+  CheckCircle as CheckCircleIcon,
+  FlagOutlined as FlagIcon,
+} from '@mui/icons-material';
 import api from '../../utils/api';
-import useAuth from '../../hooks/useAuth';
+import { PageHeader, DataTableShell, StatusChip, FormDialog } from '../common';
+
+const COLUMNS = [
+  { key: 'id', label: 'Report' },
+  { key: 'question', label: 'Question' },
+  { key: 'detail', label: 'Report Detail' },
+  { key: 'by', label: 'Reported By' },
+  { key: 'status', label: 'Status' },
+  { key: 'actions', label: 'Actions', align: 'right' },
+];
 
 export default function RepoReports() {
-    const { user } = useAuth();
-    const [reports, setReports] = useState([]);
-    const [loading, setLoading] = useState(false);
-    
-    const [resolveDialog, setResolveDialog] = useState(false);
-    const [selectedReport, setSelectedReport] = useState(null);
-    const [notes, setNotes] = useState('');
+  const [reports, setReports] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [resolveDialog, setResolveDialog] = useState(false);
+  const [selectedReport, setSelectedReport] = useState(null);
+  const [notes, setNotes] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [toast, setToast] = useState({ open: false, msg: '', severity: 'success' });
 
-    useEffect(() => {
-        fetchReports();
-    }, []);
+  const notify = (msg, severity = 'success') => setToast({ open: true, msg, severity });
 
-    const fetchReports = async () => {
-        try {
-            setLoading(true);
-            const res = await api.get('/admin/repository/reports');
-            setReports(res.data.reports || []);
-        } catch (err) {
-            console.error('Failed to fetch reports');
-        } finally {
-            setLoading(false);
-        }
-    };
+  useEffect(() => { fetchReports(); }, []);
 
-    const handleResolve = async () => {
-        try {
-            await api.post(`/admin/repository/reports/${selectedReport.id}/resolve`, { notes });
-            setResolveDialog(false);
-            setNotes('');
-            fetchReports();
-        } catch (err) {
-            alert('Failed to resolve report');
-        }
-    };
+  const fetchReports = async () => {
+    try {
+      setLoading(true);
+      const res = await api.get('/admin/repository/reports');
+      setReports(res.data.reports || []);
+    } catch (err) {
+      notify('Failed to fetch reports', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    if (loading) return <Box p={3}><Typography>Loading reports...</Typography></Box>;
+  const handleResolve = async () => {
+    try {
+      setBusy(true);
+      await api.post(`/admin/repository/reports/${selectedReport.id}/resolve`, { notes });
+      setResolveDialog(false);
+      setNotes('');
+      notify('Report marked as resolved');
+      fetchReports();
+    } catch (err) {
+      notify('Failed to resolve report', 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
 
-    return (
-        <Box sx={{ p: 3 }}>
-            <Typography variant="h4" fontWeight={700} color="primary.main" mb={1}>
-                Question Reports
-            </Typography>
-            <Typography variant="body2" color="text.secondary" mb={4}>
-                Review and resolve mistakes reported by School Admins
-            </Typography>
+  return (
+    <Box>
+      <PageHeader
+        icon={<FlagIcon />}
+        title="Question Reports"
+        subtitle="Review and resolve issues reported on repository questions"
+      />
 
-            <Paper sx={{ width: '100%', overflowX: 'auto' }}>
-                <Table>
-                    <TableHead sx={{ bgcolor: '#f8fafc' }}>
-                        <TableRow>
-                            <TableCell>ID / Repo ID</TableCell>
-                            <TableCell>Question Snippet</TableCell>
-                            <TableCell>Report Detail</TableCell>
-                            <TableCell>Reported By</TableCell>
-                            <TableCell>Status</TableCell>
-                            <TableCell align="right">Actions</TableCell>
-                        </TableRow>
-                    </TableHead>
-                    <TableBody>
-                        {reports.map((r) => (
-                            <TableRow key={r.id}>
-                                <TableCell>
-                                    <Typography variant="body2" fontWeight={600}>#{r.id}</Typography>
-                                    <Typography variant="caption" color="text.secondary">{r.question_custom_id}</Typography>
-                                </TableCell>
-                                <TableCell sx={{ maxWidth: 200, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                    {r.question_text}
-                                </TableCell>
-                                <TableCell>{r.message}</TableCell>
-                                <TableCell>{r.reporter_name}</TableCell>
-                                <TableCell>
-                                    <Chip 
-                                        size="small" 
-                                        label={r.status.toUpperCase()} 
-                                        color={r.status === 'resolved' ? 'success' : 'warning'} 
-                                    />
-                                    {r.status === 'resolved' && (
-                                        <Typography variant="caption" display="block" color="text.secondary" mt={0.5}>
-                                            by {r.resolver_name}
-                                        </Typography>
-                                    )}
-                                </TableCell>
-                                <TableCell align="right">
-                                    {r.status === 'pending' && (
-                                        <IconButton size="small" color="primary" onClick={() => { setSelectedReport(r); setResolveDialog(true); }}>
-                                            <CheckCircleIcon />
-                                        </IconButton>
-                                    )}
-                                </TableCell>
-                            </TableRow>
-                        ))}
-                        {reports.length === 0 && (
-                            <TableRow><TableCell colSpan={6} align="center">No reports found.</TableCell></TableRow>
-                        )}
-                    </TableBody>
-                </Table>
-            </Paper>
+      <DataTableShell
+        columns={COLUMNS}
+        rows={reports}
+        loading={loading}
+        emptyIcon={<FlagIcon />}
+        emptyTitle="No reports"
+        emptyMessage="Reported question issues will appear here for review."
+        renderRow={(r) => (
+          <TableRow key={r.id} hover>
+            <TableCell>
+              <Typography variant="body2" fontWeight={700}>#{r.id}</Typography>
+              <Typography variant="caption" color="text.secondary">{r.question_custom_id}</Typography>
+            </TableCell>
+            <TableCell sx={{ maxWidth: 220, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {r.question_text}
+            </TableCell>
+            <TableCell sx={{ maxWidth: 260 }}>{r.message}</TableCell>
+            <TableCell>{r.reporter_name}</TableCell>
+            <TableCell>
+              <StatusChip status={r.status} />
+              {r.status === 'resolved' && r.resolver_name && (
+                <Typography variant="caption" display="block" color="text.secondary" mt={0.5}>
+                  by {r.resolver_name}
+                </Typography>
+              )}
+            </TableCell>
+            <TableCell align="right">
+              {r.status === 'pending' && (
+                <Tooltip title="Mark resolved">
+                  <IconButton
+                    size="small"
+                    color="success"
+                    onClick={() => { setSelectedReport(r); setNotes(''); setResolveDialog(true); }}
+                  >
+                    <CheckCircleIcon />
+                  </IconButton>
+                </Tooltip>
+              )}
+            </TableCell>
+          </TableRow>
+        )}
+      />
 
-            <Dialog open={resolveDialog} onClose={() => setResolveDialog(false)} fullWidth maxWidth="sm">
-                <DialogTitle>Resolve Report #{selectedReport?.id}</DialogTitle>
-                <DialogContent dividers>
-                    <Typography variant="body2" gutterBottom>
-                        Marking this report as resolved. Please ensure you have fixed the question in the repository.
-                    </Typography>
-                    <TextField
-                        fullWidth
-                        multiline
-                        rows={3}
-                        label="Resolution Notes (Optional)"
-                        value={notes}
-                        onChange={(e) => setNotes(e.target.value)}
-                        sx={{ mt: 2 }}
-                    />
-                </DialogContent>
-                <DialogActions sx={{ p: 2 }}>
-                    <Button onClick={() => setResolveDialog(false)}>Cancel</Button>
-                    <Button variant="contained" color="success" onClick={handleResolve}>Mark Resolved</Button>
-                </DialogActions>
-            </Dialog>
-        </Box>
-    );
+      <FormDialog
+        open={resolveDialog}
+        onClose={() => setResolveDialog(false)}
+        title={`Resolve Report #${selectedReport?.id || ''}`}
+        subtitle="Confirm you have fixed the underlying question in the repository."
+        submitLabel="Mark Resolved"
+        submitColor="success"
+        loading={busy}
+        onSubmit={handleResolve}
+      >
+        <TextField
+          fullWidth
+          multiline
+          rows={3}
+          label="Resolution notes (optional)"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+        />
+      </FormDialog>
+
+      <Snackbar
+        open={toast.open}
+        autoHideDuration={3500}
+        onClose={() => setToast((t) => ({ ...t, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity={toast.severity} variant="filled" onClose={() => setToast((t) => ({ ...t, open: false }))}>
+          {toast.msg}
+        </Alert>
+      </Snackbar>
+    </Box>
+  );
 }

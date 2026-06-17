@@ -12,6 +12,7 @@ import VisibilityOff from "@mui/icons-material/VisibilityOff";
 import NotificationsActiveIcon from "@mui/icons-material/NotificationsActive";
 import api from "../../utils/api";
 import useAuth from "../../hooks/useAuth";
+import { PageHeader } from "../common";
 
 export default function StudentRequests() {
   const { authToken } = useAuth();
@@ -102,37 +103,31 @@ export default function StudentRequests() {
   };
 
   return (
-    <Box sx={{ p: 3, bgcolor: "#f5f7fa", minHeight: "100vh" }}>
-      <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" alignItems="center" mb={3} spacing={2}>
-        <Box>
-          <Stack direction="row" alignItems="center" spacing={1}>
-            <NotificationsActiveIcon color="primary" />
-            <Typography variant="h4" fontWeight={700} color="primary.main">
-              Student Requests
-            </Typography>
-          </Stack>
-          <Typography variant="body2" color="text.secondary">
-            Review and manage student password reset and profile update requests.
-          </Typography>
-        </Box>
-        <ToggleButtonGroup
-          value={statusFilter}
-          exclusive
-          onChange={(e, v) => v && setStatusFilter(v)}
-          size="small"
-        >
-          <ToggleButton value="pending">Pending</ToggleButton>
-          <ToggleButton value="approved">Approved</ToggleButton>
-          <ToggleButton value="rejected">Rejected</ToggleButton>
-        </ToggleButtonGroup>
-      </Stack>
+    <Box>
+      <PageHeader
+        icon={<NotificationsActiveIcon />}
+        title="Student Requests"
+        subtitle="Review and manage student password reset and profile update requests."
+        actions={
+          <ToggleButtonGroup
+            value={statusFilter}
+            exclusive
+            onChange={(e, v) => v && setStatusFilter(v)}
+            size="small"
+          >
+            <ToggleButton value="pending">Pending</ToggleButton>
+            <ToggleButton value="approved">Approved</ToggleButton>
+            <ToggleButton value="rejected">Rejected</ToggleButton>
+          </ToggleButtonGroup>
+        }
+      />
 
       {error && <Alert severity="error" onClose={() => setError("")} sx={{ mb: 2 }}>{error}</Alert>}
       {success && <Alert severity="success" onClose={() => setSuccess("")} sx={{ mb: 2 }}>{success}</Alert>}
 
       <Paper elevation={1} sx={{ borderRadius: 2, overflowX: "auto" }}>
         <Table>
-          <TableHead sx={{ bgcolor: "#f8f9fa" }}>
+          <TableHead sx={{ bgcolor: "transparent" }}>
             <TableRow>
               <TableCell><strong>Student</strong></TableCell>
               <TableCell><strong>Type</strong></TableCell>
@@ -165,7 +160,7 @@ export default function StudentRequests() {
                       {r.student_name}
                     </Typography>
                     {r.student_id && (
-                      <Chip label={r.student_id} size="small" sx={{ mt: 0.5, bgcolor: "#e3f2fd", color: "#1565c0" }} />
+                      <Chip label={r.student_id} size="small" sx={{ mt: 0.5, bgcolor: "rgba(99,102,241,0.20)", color: "#c7d2fe" }} />
                     )}
                   </TableCell>
                   <TableCell>

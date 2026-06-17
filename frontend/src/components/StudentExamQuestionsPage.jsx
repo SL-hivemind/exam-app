@@ -332,7 +332,7 @@ export default function StudentExamQuestionsPage() {
     <Box 
         sx={{
             position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-            bgcolor: '#f5f5f5', zIndex: 1200, overflow: 'auto',
+            bgcolor: 'transparent', zIndex: 1200, overflow: 'auto',
             userSelect: 'none' 
         }}
         onContextMenu={(e) => e.preventDefault()}
@@ -353,7 +353,7 @@ export default function StudentExamQuestionsPage() {
             <Box display="flex" alignItems="center" gap={{ xs: 1, sm: 2 }}>
                 {violations > 0 && <Alert severity="warning" sx={{ py: 0, display: { xs: 'none', sm: 'flex' } }}>Warnings: {violations}</Alert>}
                 
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, bgcolor: timeLeft < 300 ? '#ffebee' : '#e3f2fd', px: { xs: 1, sm: 2 }, py: 1, borderRadius: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, bgcolor: timeLeft < 300 ? 'rgba(251,113,133,0.12)' : '#e3f2fd', px: { xs: 1, sm: 2 }, py: 1, borderRadius: 2 }}>
                     <TimerIcon color={timeLeft < 300 ? "error" : "primary"} fontSize={isMobile ? "small" : "medium"} />
                     <Typography variant="h6" fontWeight={700} color={timeLeft < 300 ? "error" : "primary"} sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
                         {formatTime(timeLeft)}
@@ -415,7 +415,7 @@ export default function StudentExamQuestionsPage() {
                                                 {q[`option_${opt}`]}
                                             </Typography>
                                         } 
-                                        sx={{ mb: 1, p: 1, borderRadius: 1, '&:hover': { bgcolor: '#f5f5f5' } }}
+                                        sx={{ mb: 1, p: 1, borderRadius: 1, '&:hover': { bgcolor: 'transparent' } }}
                                     />
                                 )
                             ))}

@@ -18,6 +18,7 @@ import {
     PieChart,
     Pie,
     Cell,
+    Sector,
     Tooltip,
     Legend,
     BarChart,
@@ -26,6 +27,19 @@ import {
     YAxis,
     CartesianGrid
 } from 'recharts';
+
+// Interactive donut active slice: pops out + shows the value/percent in the centre.
+const renderActiveSlice = (props) => {
+    const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, payload, percent, value } = props;
+    return (
+        <g>
+            <text x={cx} y={cy - 6} textAnchor="middle" fill="#f5f8ff" fontSize={22} fontWeight={800} style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{value}</text>
+            <text x={cx} y={cy + 16} textAnchor="middle" fill="#aeb9e0" fontSize={12} style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{payload.name} · {(percent * 100).toFixed(0)}%</text>
+            <Sector cx={cx} cy={cy} innerRadius={innerRadius} outerRadius={outerRadius + 8} startAngle={startAngle} endAngle={endAngle} fill={fill} />
+            <Sector cx={cx} cy={cy} innerRadius={outerRadius + 11} outerRadius={outerRadius + 14} startAngle={startAngle} endAngle={endAngle} fill={fill} opacity={0.5} />
+        </g>
+    );
+};
 
 export default function StudentResultsPage() {
     const { examId } = useParams();
@@ -37,6 +51,7 @@ export default function StudentResultsPage() {
     const [results, setResults] = useState(null);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(true);
+    const [activeSlice, setActiveSlice] = useState(0);
 
     useEffect(() => {
         fetchResults();
@@ -102,9 +117,9 @@ export default function StudentResultsPage() {
         : null;
 
     const correctnessData = [
-        { name: 'Correct', value: correctCount, color: '#2e7d32' },
-        { name: 'Incorrect', value: incorrectCount, color: '#d32f2f' },
-        { name: 'Skipped', value: skippedCount, color: '#ed6c02' },
+        { name: 'Correct', value: correctCount, color: '#34d399' },
+        { name: 'Incorrect', value: incorrectCount, color: '#fb7185' },
+        { name: 'Skipped', value: skippedCount, color: '#fbbf24' },
     ];
 
     const subjectMap = {};
@@ -162,16 +177,16 @@ export default function StudentResultsPage() {
     if (weakChapters.length > 0) insights.push(`Focus chapters: ${weakChapters.map((c) => `${c.chapter} (${c.percentage}%)`).join(', ')}.`);
 
     return (
-        <Box sx={{ bgcolor: '#f5f7fa', minHeight: '100vh', py: { xs: 2, md: 4 } }}>
+        <Box sx={{ bgcolor: 'transparent', minHeight: '100vh', py: { xs: 2, md: 4 } }}>
             <Container maxWidth="xl">
                 <Button startIcon={<BackIcon />} onClick={() => navigate('/student')} sx={{ mb: 2 }}>
                     Back to Dashboard
                 </Button>
 
-                <Paper elevation={0} sx={{ p: { xs: 2, md: 4 }, borderRadius: 3, mb: 3, bgcolor: '#fff', border: '1px solid #eee' }}>
+                <Paper elevation={0} sx={{ p: { xs: 2, md: 4 }, borderRadius: 3, mb: 3, bgcolor: 'rgba(255,255,255,0.05)', border: '1px solid #eee' }}>
                     <Grid container spacing={4} alignItems="center">
                         <Grid item xs={12} md={8}>
-                            <Typography variant="h4" fontWeight={800} color="primary.main">
+                            <Typography variant="h4" fontWeight={800} sx={{ color: '#cfe0ff' }}>
                                 {exam.title}
                             </Typography>
                             <Typography variant="body1" color="text.secondary" sx={{ mt: 1 }}>
@@ -220,7 +235,7 @@ export default function StudentResultsPage() {
                                     p: 3,
                                     borderRadius: 3,
                                     textAlign: 'center',
-                                    bgcolor: percentage >= 70 ? '#e8f5e9' : percentage >= 40 ? '#fff3e0' : '#ffebee',
+                                    bgcolor: percentage >= 70 ? 'rgba(52,211,153,0.12)' : percentage >= 40 ? 'rgba(251,191,36,0.12)' : 'rgba(251,113,133,0.12)',
                                     border: '1px solid',
                                     borderColor: percentage >= 70 ? '#c8e6c9' : percentage >= 40 ? '#ffe0b2' : '#ffcdd2'
                                 }}
@@ -283,9 +298,9 @@ export default function StudentResultsPage() {
                             sx={{
                                 p: 2.5,
                                 borderRadius: 3,
-                                border: '1px solid #dfe5ef',
+                                border: '1px solid rgba(255,255,255,0.10)',
                                 height: 360,
-                                bgcolor: '#fff',
+                                bgcolor: 'rgba(255,255,255,0.05)',
                                 boxShadow: '0 8px 24px rgba(16,24,40,0.05)'
                             }}
                         >
@@ -301,11 +316,16 @@ export default function StudentResultsPage() {
                                         nameKey="name"
                                         cx="50%"
                                         cy="50%"
-                                        outerRadius={95}
-                                        label
+                                        innerRadius={62}
+                                        outerRadius={92}
+                                        paddingAngle={3}
+                                        activeIndex={activeSlice}
+                                        activeShape={renderActiveSlice}
+                                        onMouseEnter={(_, idx) => setActiveSlice(idx)}
+                                        animationDuration={700}
                                     >
                                         {correctnessData.map((entry) => (
-                                            <Cell key={entry.name} fill={entry.color} />
+                                            <Cell key={entry.name} fill={entry.color} stroke="rgba(7,11,29,0.6)" strokeWidth={2} />
                                         ))}
                                     </Pie>
                                     <Tooltip />
@@ -322,9 +342,9 @@ export default function StudentResultsPage() {
                                 sx={{
                                     p: 2.5,
                                     borderRadius: 3,
-                                    border: '1px solid #dfe5ef',
+                                    border: '1px solid rgba(255,255,255,0.10)',
                                     height: 360,
-                                    bgcolor: '#fff',
+                                    bgcolor: 'rgba(255,255,255,0.05)',
                                     boxShadow: '0 8px 24px rgba(16,24,40,0.05)'
                                 }}
                             >
@@ -339,7 +359,7 @@ export default function StudentResultsPage() {
                                         <YAxis domain={[0, 100]} />
                                         <Tooltip />
                                         {!isMdDown && <Legend />}
-                                        <Bar dataKey="percentage" fill="#1976d2" name="Score %" />
+                                        <Bar dataKey="percentage" fill="#6f9bff" name="Score %" radius={[8, 8, 0, 0]} animationDuration={800} />
                                     </BarChart>
                                 </ResponsiveContainer>
                             </Paper>
@@ -360,7 +380,7 @@ export default function StudentResultsPage() {
                             p: 2.5,
                             borderRadius: 3,
                             mb: 4,
-                            border: '1px solid #dfe5ef',
+                            border: '1px solid rgba(255,255,255,0.10)',
                             boxShadow: '0 8px 24px rgba(16,24,40,0.05)'
                         }}
                     >
@@ -398,7 +418,7 @@ export default function StudentResultsPage() {
                             p: 2.5,
                             borderRadius: 3,
                             mb: 4,
-                            border: '1px solid #dfe5ef',
+                            border: '1px solid rgba(255,255,255,0.10)',
                             boxShadow: '0 8px 24px rgba(16,24,40,0.05)'
                         }}
                     >
@@ -412,7 +432,7 @@ export default function StudentResultsPage() {
                                 <YAxis type="category" dataKey="chapter" width={isMdDown ? 120 : 170} interval={0} tick={{ fontSize: isMdDown ? 10 : 12 }} />
                                 <Tooltip />
                                 {!isMdDown && <Legend />}
-                                <Bar dataKey="percentage" fill="#2e7d32" name="Score %" />
+                                <Bar dataKey="percentage" fill="#34d399" name="Score %" radius={[0, 8, 8, 0]} animationDuration={800} />
                             </BarChart>
                         </ResponsiveContainer>
                     </Paper>
@@ -458,18 +478,18 @@ export default function StudentResultsPage() {
                                         const isSelected = studentAnswer === currentOption;
                                         const isCorrectOption = correctAnswer === currentOption;
 
-                                        let bgColor = '#fff';
-                                        let borderColor = '#e0e0e0';
-                                        let textColor = 'text.primary';
+                                        let bgColor = 'rgba(255,255,255,0.04)';
+                                        let borderColor = 'rgba(255,255,255,0.12)';
+                                        let textColor = '#dbe3ff';
 
                                         if (isCorrectOption) {
-                                            bgColor = '#edf7ed';
-                                            borderColor = '#2e7d32';
-                                            textColor = '#1b5e20';
+                                            bgColor = 'rgba(52,211,153,0.12)';
+                                            borderColor = '#34d399';
+                                            textColor = '#a7f3d0';
                                         } else if (isSelected && !isCorrectOption) {
-                                            bgColor = '#fdeded';
-                                            borderColor = '#d32f2f';
-                                            textColor = '#c62828';
+                                            bgColor = 'rgba(251,113,133,0.12)';
+                                            borderColor = '#fb7185';
+                                            textColor = '#fecdd3';
                                         }
 
                                         const borderThickness = (isSelected || isCorrectOption) ? 2 : 1;
@@ -513,7 +533,7 @@ export default function StudentResultsPage() {
                                     <Typography variant="caption" sx={{ color: ans.answer ? 'text.secondary' : 'warning.main' }}>
                                         Your Answer: <b>{ans.answer ? ans.answer.toUpperCase() : 'Skipped'}</b>
                                     </Typography>
-                                    <Typography variant="caption" color="primary.main">
+                                    <Typography variant="caption" sx={{ color: '#cfe0ff' }}>
                                         Correct Answer: <b>{ans.correct_answer ? ans.correct_answer.toUpperCase() : 'N/A'}</b>
                                     </Typography>
                                 </Box>

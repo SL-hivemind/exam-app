@@ -13,7 +13,7 @@ import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { quickApi } from '../../utils/api';
 
-const ff = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
+const ff = "'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
 
 export default function QuickExamInterface() {
   const { code } = useParams();
@@ -96,7 +96,7 @@ export default function QuickExamInterface() {
 
   if (loading) {
     return (
-      <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: '#f8fafc' }}>
+      <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'transparent' }}>
         <CircularProgress />
       </Box>
     );
@@ -104,7 +104,7 @@ export default function QuickExamInterface() {
 
   if (error && questions.length === 0) {
     return (
-      <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: '#f8fafc', p: 3 }}>
+      <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'transparent', p: 3 }}>
         <Alert severity="error" sx={{ fontFamily: ff, borderRadius: '14px', maxWidth: 450 }}>{error}</Alert>
       </Box>
     );
@@ -120,21 +120,21 @@ export default function QuickExamInterface() {
     const n = String(num);
     if (marked[n]) return { bg: '#eab308', color: '#fff' };
     if (answers[n]) return { bg: '#22c55e', color: '#fff' };
-    return { bg: '#e2e8f0', color: '#64748b' };
+    return { bg: 'rgba(255,255,255,0.12)', color: '#a9b4dd' };
   };
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#f8fafc', display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'transparent', display: 'flex', flexDirection: 'column' }}>
       {/* Top Bar */}
       <Box sx={{
-        px: { xs: 2, md: 3 }, py: 1.5, bgcolor: '#fff', borderBottom: '1px solid #e2e8f0',
+        px: { xs: 2, md: 3 }, py: 1.5, bgcolor: 'rgba(255,255,255,0.05)', borderBottom: '1px solid rgba(255,255,255,0.12)',
         display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1,
       }}>
         <Box>
-          <Typography sx={{ fontFamily: ff, fontWeight: 800, fontSize: { xs: '0.95rem', md: '1.1rem' }, color: '#0f172a' }}>
+          <Typography sx={{ fontFamily: ff, fontWeight: 800, fontSize: { xs: '0.95rem', md: '1.1rem' }, color: '#eaf0ff' }}>
             {examMeta.title || 'Quick Exam'}
           </Typography>
-          <Typography sx={{ fontFamily: ff, fontSize: '0.75rem', color: '#64748b' }}>
+          <Typography sx={{ fontFamily: ff, fontSize: '0.75rem', color: '#a9b4dd' }}>
             {participantName} · Code: {code}
           </Typography>
         </Box>
@@ -164,16 +164,16 @@ export default function QuickExamInterface() {
               {/* Question Header */}
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                 <Chip label={`Question ${currentQ} of ${totalQuestions}`}
-                  sx={{ fontFamily: ff, fontWeight: 700, bgcolor: '#f1f5f9', color: '#334155' }} />
+                  sx={{ fontFamily: ff, fontWeight: 700, bgcolor: 'rgba(255,255,255,0.06)', color: '#c7d2fe' }} />
                 <Tooltip title={marked[qNum] ? 'Unmark' : 'Mark for Review'}>
                   <IconButton onClick={() => toggleMark(qNum)}>
-                    {marked[qNum] ? <BookmarkIcon sx={{ color: '#eab308' }} /> : <BookmarkBorderIcon sx={{ color: '#94a3b8' }} />}
+                    {marked[qNum] ? <BookmarkIcon sx={{ color: '#eab308' }} /> : <BookmarkBorderIcon sx={{ color: '#aeb9e0' }} />}
                   </IconButton>
                 </Tooltip>
               </Box>
 
               {/* Question Text */}
-              <Typography sx={{ fontFamily: ff, fontSize: { xs: '1rem', md: '1.15rem' }, fontWeight: 700, color: '#0f172a', mb: 3, lineHeight: 1.6 }}>
+              <Typography sx={{ fontFamily: ff, fontSize: { xs: '1rem', md: '1.15rem' }, fontWeight: 700, color: '#eaf0ff', mb: 3, lineHeight: 1.6 }}>
                 {qData.question_text}
               </Typography>
 
@@ -186,20 +186,20 @@ export default function QuickExamInterface() {
                       sx={{
                         display: 'flex', alignItems: 'center', gap: 2, p: { xs: 1.5, md: 2 },
                         borderRadius: '14px',
-                        border: `2px solid ${isSelected ? '#2563eb' : '#e2e8f0'}`,
+                        border: `2px solid ${isSelected ? '#2563eb' : 'rgba(255,255,255,0.12)'}`,
                         bgcolor: isSelected ? 'rgba(37,99,235,0.06)' : '#fff',
                         cursor: 'pointer', transition: 'all 0.2s',
                         '&:hover': { borderColor: '#93c5fd', bgcolor: 'rgba(37,99,235,0.03)' },
                       }}>
                       <Radio checked={isSelected}
-                        sx={{ p: 0, color: isSelected ? '#2563eb' : '#cbd5e1', '&.Mui-checked': { color: '#2563eb' } }} />
+                        sx={{ p: 0, color: isSelected ? '#2563eb' : '#cbd5e1', '&.Mui-checked': { color: '#cfe0ff' } }} />
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1 }}>
                         <Chip label={letter} size="small"
                           sx={{ fontFamily: ff, fontWeight: 800, width: 30, height: 28,
-                            bgcolor: isSelected ? '#eff6ff' : '#f8fafc',
+                            bgcolor: isSelected ? 'transparent' : '#f8fafc',
                             color: isSelected ? '#2563eb' : '#64748b',
                             border: 'none' }} />
-                        <Typography sx={{ fontFamily: ff, fontSize: { xs: '0.9rem', md: '0.95rem' }, color: '#334155', fontWeight: isSelected ? 600 : 400 }}>
+                        <Typography sx={{ fontFamily: ff, fontSize: { xs: '0.9rem', md: '0.95rem' }, color: '#c7d2fe', fontWeight: isSelected ? 600 : 400 }}>
                           {opts[letter] || ''}
                         </Typography>
                       </Box>
@@ -232,21 +232,21 @@ export default function QuickExamInterface() {
             </Box>
           ) : (
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-              <Typography sx={{ color: '#94a3b8' }}>No questions loaded</Typography>
+              <Typography sx={{ color: '#aeb9e0' }}>No questions loaded</Typography>
             </Box>
           )}
         </Box>
 
         {/* Desktop: Side Panel */}
         {!isMobile && (
-          <Box sx={{ width: 280, borderLeft: '1px solid #e2e8f0', bgcolor: '#fff', overflow: 'auto', p: 2 }}>
-            <Typography sx={{ fontFamily: ff, fontWeight: 700, fontSize: '0.9rem', color: '#0f172a', mb: 1 }}>
+          <Box sx={{ width: 280, borderLeft: '1px solid rgba(255,255,255,0.12)', bgcolor: 'rgba(255,255,255,0.05)', overflow: 'auto', p: 2 }}>
+            <Typography sx={{ fontFamily: ff, fontWeight: 700, fontSize: '0.9rem', color: '#eaf0ff', mb: 1 }}>
               Question Map
             </Typography>
-            <Typography sx={{ fontFamily: ff, fontSize: '0.75rem', color: '#64748b', mb: 1.5 }}>
+            <Typography sx={{ fontFamily: ff, fontSize: '0.75rem', color: '#a9b4dd', mb: 1.5 }}>
               {answeredCount}/{totalQuestions} answered{markedCount > 0 ? ` · ${markedCount} marked` : ''}
             </Typography>
-            <Box sx={{ height: 6, borderRadius: 3, bgcolor: '#e2e8f0', overflow: 'hidden', mb: 2 }}>
+            <Box sx={{ height: 6, borderRadius: 3, bgcolor: 'rgba(255,255,255,0.12)', overflow: 'hidden', mb: 2 }}>
               <Box sx={{ height: '100%', borderRadius: 3, width: `${totalQuestions > 0 ? (answeredCount / totalQuestions) * 100 : 0}%`,
                 background: 'linear-gradient(90deg, #2563eb, #3b82f6)', transition: 'width 0.3s ease' }} />
             </Box>
@@ -264,10 +264,10 @@ export default function QuickExamInterface() {
               })}
             </Box>
             <Box sx={{ display: 'flex', gap: 1.5, mt: 2, flexWrap: 'wrap' }}>
-              {[{ label: 'Answered', bg: '#22c55e' }, { label: 'Marked', bg: '#eab308' }, { label: 'Unanswered', bg: '#e2e8f0' }].map(l => (
+              {[{ label: 'Answered', bg: '#22c55e' }, { label: 'Marked', bg: '#eab308' }, { label: 'Unanswered', bg: 'rgba(255,255,255,0.12)' }].map(l => (
                 <Box key={l.label} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                   <Box sx={{ width: 10, height: 10, borderRadius: '3px', bgcolor: l.bg }} />
-                  <Typography sx={{ fontFamily: ff, fontSize: '0.65rem', color: '#94a3b8' }}>{l.label}</Typography>
+                  <Typography sx={{ fontFamily: ff, fontSize: '0.65rem', color: '#aeb9e0' }}>{l.label}</Typography>
                 </Box>
               ))}
             </Box>
@@ -279,7 +279,7 @@ export default function QuickExamInterface() {
       <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)}>
         <DialogTitle sx={{ fontFamily: ff, fontWeight: 700 }}>Submit Exam?</DialogTitle>
         <DialogContent>
-          <Typography sx={{ fontFamily: ff, color: '#64748b' }}>
+          <Typography sx={{ fontFamily: ff, color: '#a9b4dd' }}>
             You have answered <strong>{answeredCount}</strong> of <strong>{totalQuestions}</strong> questions.
             {markedCount > 0 && <> (<strong>{markedCount}</strong> marked for review.)</>}
             {answeredCount < totalQuestions && ' Unanswered questions will be marked as unattempted.'}

@@ -130,7 +130,7 @@ export default function RepoQuestionEditPage() {
   if (!q) return <Alert severity="error">Question not found</Alert>;
 
   return (
-    <Box sx={{ p: 3, bgcolor: '#f5f7fa', minHeight: '100vh' }}>
+    <Box sx={{ p: 3, bgcolor: 'transparent', minHeight: '100vh' }}>
       <Stack direction="row" spacing={2} mb={3} alignItems="center">
         <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(-1)}>Back</Button>
         <Typography variant="h5" fontWeight={700}>

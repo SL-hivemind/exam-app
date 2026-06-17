@@ -2,7 +2,6 @@
 import React from 'react';
 import {
   ThemeProvider,
-  createTheme,
   CssBaseline,
   Container,
   Box,
@@ -15,15 +14,8 @@ import Footer from './components/Footer';
 import AppRoutes from './routes/AppRoutes';
 import { AuthProvider } from './context/AuthContext';
 import useAuth from './hooks/useAuth';
-
-const theme = createTheme({
-  palette: {
-    mode: 'light',
-    primary: { main: '#1976d2' },
-    secondary: { main: '#9c27b0' },
-  },
-  shape: { borderRadius: 12 },
-});
+import theme from './theme';
+import AuroraBackground from './components/common/AuroraBackground';
 
 // Pages that should show the shared Navbar (not managed by a layout)
 const NAVBAR_PATHS = ['/', '/login', '/register', '/forgot-password'];
@@ -56,6 +48,7 @@ export default function App() {
     <LocalizationProvider dateAdapter={AdapterDateFns}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
+        <AuroraBackground />
         <AuthProvider>
           <AppContent />
         </AuthProvider>

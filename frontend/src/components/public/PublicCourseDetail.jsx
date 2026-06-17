@@ -16,7 +16,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { publicApi } from '../../utils/api';
 import useAuth from '../../hooks/useAuth';
 
-const ff = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
+const ff = "'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
 
 export default function PublicCourseDetail() {
   const { courseId } = useParams();
@@ -93,7 +93,7 @@ export default function PublicCourseDetail() {
           }
         },
         prefill: { email: user?.email },
-        theme: { color: '#2563eb' },
+        theme: { color: '#cfe0ff' },
       };
 
       if (window.Razorpay) {
@@ -132,7 +132,7 @@ export default function PublicCourseDetail() {
   if (!course) {
     return (
       <Container maxWidth="lg" sx={{ py: 6, textAlign: 'center' }}>
-        <Typography sx={{ fontFamily: ff, color: '#64748b', fontSize: '1.1rem' }}>Course not found.</Typography>
+        <Typography sx={{ fontFamily: ff, color: '#a9b4dd', fontSize: '1.1rem' }}>Course not found.</Typography>
         <Button onClick={() => navigate('/public')} sx={{ mt: 2, fontFamily: ff, textTransform: 'none' }}>
           ← Back to Catalog
         </Button>
@@ -153,7 +153,7 @@ export default function PublicCourseDetail() {
             onClick={() => navigate('/public')}
             sx={{
               fontFamily: ff, fontWeight: 500, textTransform: 'none',
-              color: '#94a3b8', mb: 3, borderRadius: '8px',
+              color: '#aeb9e0', mb: 3, borderRadius: '8px',
               '&:hover': { color: '#fff', bgcolor: 'rgba(255,255,255,0.05)' },
             }}
           >
@@ -169,7 +169,7 @@ export default function PublicCourseDetail() {
                 {course.title}
               </Typography>
               <Typography sx={{
-                fontFamily: ff, fontSize: '1rem', color: '#94a3b8',
+                fontFamily: ff, fontSize: '1rem', color: '#aeb9e0',
                 lineHeight: 1.7, mb: 3, maxWidth: 600,
               }}>
                 {course.description || 'No description available.'}
@@ -262,21 +262,21 @@ export default function PublicCourseDetail() {
         {error && <Alert severity="error" onClose={() => setError('')} sx={{ mb: 3, borderRadius: '12px' }}>{error}</Alert>}
         {msg && <Alert severity="success" onClose={() => setMsg('')} sx={{ mb: 3, borderRadius: '12px' }}>{msg}</Alert>}
 
-        <Typography sx={{ fontFamily: ff, fontWeight: 800, fontSize: '1.3rem', color: '#0f172a', mb: 3 }}>
+        <Typography sx={{ fontFamily: ff, fontWeight: 800, fontSize: '1.3rem', color: '#eaf0ff', mb: 3 }}>
           Course Syllabus
         </Typography>
 
         {contents.length === 0 ? (
           <Box sx={{
-            textAlign: 'center', py: 8, bgcolor: '#fff', borderRadius: '16px',
-            border: '1px solid #e2e8f0',
+            textAlign: 'center', py: 8, bgcolor: 'rgba(255,255,255,0.05)', borderRadius: '16px',
+            border: '1px solid rgba(255,255,255,0.12)',
           }}>
-            <Typography sx={{ fontFamily: ff, color: '#94a3b8' }}>
+            <Typography sx={{ fontFamily: ff, color: '#aeb9e0' }}>
               No content has been added to this course yet.
             </Typography>
           </Box>
         ) : (
-          <Card sx={{ borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: 'none', overflow: 'hidden' }}>
+          <Card sx={{ borderRadius: '16px', border: '1px solid rgba(255,255,255,0.12)', boxShadow: 'none', overflow: 'hidden' }}>
             <List sx={{ p: 0 }}>
               {contents.map((content, i) => (
                 <React.Fragment key={content.id}>
@@ -295,7 +295,7 @@ export default function PublicCourseDetail() {
                       {content.content_type === 'pdf_exam' ? (
                         <Box sx={{
                           width: 38, height: 38, borderRadius: '10px',
-                          bgcolor: content.locked ? '#f1f5f9' : 'rgba(59,130,246,0.08)',
+                          bgcolor: content.locked ? 'rgba(255,255,255,0.06)' : 'rgba(59,130,246,0.08)',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                         }}>
                           <QuizIcon sx={{ color: content.locked ? '#94a3b8' : '#2563eb', fontSize: 20 }} />
@@ -303,7 +303,7 @@ export default function PublicCourseDetail() {
                       ) : (
                         <Box sx={{
                           width: 38, height: 38, borderRadius: '10px',
-                          bgcolor: content.locked ? '#f1f5f9' : 'rgba(239,68,68,0.08)',
+                          bgcolor: content.locked ? 'rgba(255,255,255,0.06)' : 'rgba(239,68,68,0.08)',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                         }}>
                           <PictureAsPdfIcon sx={{ color: content.locked ? '#94a3b8' : '#ef4444', fontSize: 20 }} />
@@ -318,10 +318,10 @@ export default function PublicCourseDetail() {
                           : 'Study Material'
                       }
                       primaryTypographyProps={{
-                        fontFamily: ff, fontWeight: 600, fontSize: '0.92rem', color: '#0f172a',
+                        fontFamily: ff, fontWeight: 600, fontSize: '0.92rem', color: '#eaf0ff',
                       }}
                       secondaryTypographyProps={{
-                        fontFamily: ff, fontSize: '0.78rem', color: '#64748b',
+                        fontFamily: ff, fontSize: '0.78rem', color: '#a9b4dd',
                       }}
                     />
                     <Box sx={{ ml: 2, display: 'flex', gap: 1, alignItems: 'center', flexShrink: 0 }}>
@@ -346,9 +346,9 @@ export default function PublicCourseDetail() {
                           label={content.locked ? 'Premium' : 'Unlocked'} size="small"
                           sx={{
                             bgcolor: content.locked ? 'rgba(168,85,247,0.1)' : 'rgba(34,197,94,0.1)',
-                            color: content.locked ? '#a855f7' : '#16a34a',
+                            color: content.locked ? '#f68914' : '#16a34a',
                             fontWeight: 600, fontFamily: ff,
-                            '& .MuiChip-icon': { color: content.locked ? '#a855f7' : '#16a34a' },
+                            '& .MuiChip-icon': { color: content.locked ? '#f68914' : '#16a34a' },
                           }} />
                       )}
                     </Box>
@@ -364,7 +364,7 @@ export default function PublicCourseDetail() {
       <Dialog open={loginPrompt} onClose={() => setLoginPrompt(false)} maxWidth="xs" fullWidth>
         <DialogTitle sx={{ fontFamily: ff, fontWeight: 700 }}>Sign In Required</DialogTitle>
         <DialogContent>
-          <Typography sx={{ fontFamily: ff, color: '#64748b' }}>
+          <Typography sx={{ fontFamily: ff, color: '#a9b4dd' }}>
             Please sign in or create an account to access course content and enroll.
           </Typography>
         </DialogContent>

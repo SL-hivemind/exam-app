@@ -43,9 +43,9 @@ const examInstructions = [
 ];
 
 export default function StudentDashboard() {
-  const { authToken, user } = useAuth(); 
+  const { authToken, user } = useAuth();
   const navigate = useNavigate();
-  
+
   // --- DATA STATE ---
   const [exams, setExams] = useState([]);
   const [error, setError] = useState('');
@@ -80,7 +80,7 @@ export default function StudentDashboard() {
 
   const getExamStatus = (examObj) => {
     if (!examObj.assigned) return { label: 'Not Assigned', color: 'default', bg: '#e0e0e0', icon: <LockIcon /> };
-    
+
     const exam = examObj.exam;
     const now = new Date();
     const accessStart = exam.access_start ? new Date(exam.access_start) : null;
@@ -96,11 +96,11 @@ export default function StudentDashboard() {
       if (accessEnd && now > accessEnd) return { label: 'Missed', color: 'error', bg: '#d32f2f', icon: <LockIcon /> };
       return { label: 'Active', color: 'success', bg: '#2e7d32', icon: <PlayArrowIcon /> };
     }
-    
+
     if (!exam.results_released) {
-        return { label: 'Results Pending', color: 'warning', bg: '#ed6c02', icon: <PendingIcon /> };
+      return { label: 'Results Pending', color: 'warning', bg: '#ed6c02', icon: <PendingIcon /> };
     }
-    
+
     return { label: 'Completed', color: 'success', bg: '#2e7d32', icon: <CheckCircleIcon /> };
   };
 
@@ -121,10 +121,10 @@ export default function StudentDashboard() {
     setLoading(true);
     try {
       // Use query params for pagination
-      const res = await api.get(`/student/exams?page=${page + 1}&per_page=${rowsPerPage}`, { 
-          headers: { auth_token: authToken } 
+      const res = await api.get(`/student/exams?page=${page + 1}&per_page=${rowsPerPage}`, {
+        headers: { auth_token: authToken }
       });
-      
+
       const fetchedExams = res.data.exams || [];
       const totalCount = res.data.total || 0;
 
@@ -144,7 +144,7 @@ export default function StudentDashboard() {
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to fetch exams');
     } finally {
-        setLoading(false);
+      setLoading(false);
     }
   };
 
@@ -162,7 +162,7 @@ export default function StudentDashboard() {
     setStartingExamId(examId);
     try {
       const canStart = await api.get(`/student/exams/${examId}/can_start`, { headers: { auth_token: authToken } });
-      
+
       if (!canStart.data.assigned) return alert('Exam not assigned.');
       if (!canStart.data.within_window) return alert('Exam is not accessible now.');
       if (canStart.data.already_submitted) return alert('Already submitted.');
@@ -182,79 +182,86 @@ export default function StudentDashboard() {
   const activeNowCount = exams.filter((e) => isExamAvailable(e)).length;
 
   return (
-    <Box sx={{ width: '100%', minHeight: '100vh', bgcolor: '#f5f7fa' }}>
-      
-      <Toolbar /> 
+    <Box sx={{ width: '100%', minHeight: '100vh', bgcolor: 'transparent' }}>
+
+      <Toolbar />
 
       <Container maxWidth="lg" sx={{ py: 4 }}>
-        
+
         {/* DASHBOARD HEADER */}
-        <Paper 
+        <Paper
           elevation={0}
-          sx={{ 
-            p: 3, mb: 4, borderRadius: 3, 
-            bgcolor: 'white', 
-            border: '1px solid #e0e0e0',
+          sx={{
+            p: 4, mb: 4, borderRadius: '20px',
+            background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
+            color: '#fff',
+            boxShadow: '0 8px 32px rgba(15,23,42,0.15)',
             display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2
           }}
         >
           <Box>
-            <Box sx={{ color: 'primary.main', mb: 1 }}>
-                <AnimatedText 
-                    text={`Hello, ${user?.username || 'Student'}!`} 
-                    type="split" 
-                    tag="h1"
-                    className="MuiTypography-root MuiTypography-h4"
-                    color="#1976d2"
-                />
+            <Box sx={{ mb: 1 }}>
+              <AnimatedText
+                text={`Hello, ${user?.username || 'Student'}!`}
+                type="split"
+                tag="h1"
+                className="MuiTypography-root MuiTypography-h4"
+                color="#fff"
+              />
             </Box>
-            <Typography variant="body1" color="text.secondary">
+            <Typography variant="body1" sx={{ color: '#94a3b8' }}>
               View your schedule and take assessments.
             </Typography>
           </Box>
 
           <Stack direction="row" spacing={2}>
-             <Button
-               startIcon={<TrendingUpIcon />}
-               variant="contained"
-               onClick={() => navigate("/student/analysis")}
-               sx={{
-                 bgcolor: '#1f6ed4',
-                 '&:hover': { bgcolor: '#155bb4' }
-               }}
-             >
-               Analysis
-             </Button>
-             <Button 
-               startIcon={<PersonIcon />}
-               variant="outlined"
-               onClick={() => navigate("/student/profile")}
-             >
-               Profile
-             </Button>
-             <Button 
-               startIcon={<InfoIcon />} 
-               variant="outlined" 
-               onClick={() => setIsInstructionsOpen(true)}
-             >
-               Rules
-             </Button>
-             <Tooltip title="Refresh List" arrow>
-                <IconButton onClick={fetchExams} color="primary" sx={{ border: '1px solid #e0e0e0' }}>
-                  <RefreshIcon />
-                </IconButton>
-             </Tooltip>
+            <Button
+              startIcon={<TrendingUpIcon />}
+              variant="contained"
+              onClick={() => navigate("/student/analysis")}
+              sx={{
+                bgcolor: '#3b82f6',
+                color: '#fff',
+                borderRadius: '10px',
+                textTransform: 'none',
+                fontWeight: 600,
+                '&:hover': { bgcolor: '#2563eb' }
+              }}
+            >
+              Analysis
+            </Button>
+            <Button
+              startIcon={<PersonIcon />}
+              variant="outlined"
+              onClick={() => navigate("/student/profile")}
+              sx={{ borderColor: 'rgba(255,255,255,0.2)', color: '#fff', borderRadius: '10px', textTransform: 'none', fontWeight: 600, '&:hover': { borderColor: '#fff', bgcolor: 'rgba(255,255,255,0.05)' } }}
+            >
+              Profile
+            </Button>
+            <Button
+              startIcon={<InfoIcon />}
+              variant="outlined"
+              onClick={() => setIsInstructionsOpen(true)}
+              sx={{ borderColor: 'rgba(255,255,255,0.2)', color: '#fff', borderRadius: '10px', textTransform: 'none', fontWeight: 600, '&:hover': { borderColor: '#fff', bgcolor: 'rgba(255,255,255,0.05)' } }}
+            >
+              Rules
+            </Button>
+            <Tooltip title="Refresh List" arrow>
+              <IconButton onClick={fetchExams} sx={{ color: '#fff', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '10px', '&:hover': { bgcolor: 'rgba(255,255,255,0.05)' } }}>
+                <RefreshIcon />
+              </IconButton>
+            </Tooltip>
           </Stack>
         </Paper>
 
         {error && <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>{error}</Alert>}
 
         <Grid container spacing={3}>
-          
+
           {/* EXAM LIST COLUMN */}
           <Grid item xs={12} md={8}>
             {loading ? (
-                <Box display="flex" justifyContent="center" py={5}><CircularProgress /></Box>
+              <Box display="flex" justifyContent="center" py={5}><CircularProgress /></Box>
             ) : exams.length === 0 && !error ? (
               <Paper sx={{ p: 5, textAlign: 'center', borderRadius: 3, bgcolor: 'white', border: '1px solid #e0e0e0' }}>
                 <AssignmentIcon sx={{ fontSize: 60, color: 'text.disabled', mb: 2 }} />
@@ -263,220 +270,130 @@ export default function StudentDashboard() {
             ) : (
               <Stack spacing={3}>
                 <Grid container spacing={3}>
-                    {exams.map((examObj) => {
+                  {exams.map((examObj) => {
                     const exam = examObj.exam;
                     const status = getExamStatus(examObj);
                     const active = isExamAvailable(examObj);
 
                     return (
-                        <Grid item xs={12} sm={6} key={exam.id}>
-                        <Card 
-                            elevation={0}
-                            sx={{ 
-                            height: '100%', 
-                            display: 'flex', flexDirection: 'column', 
+                      <Grid item xs={12} sm={6} key={exam.id}>
+                        <Card
+                          elevation={0}
+                          sx={{
+                            height: '100%',
+                            display: 'flex', flexDirection: 'column',
                             borderRadius: 3,
                             border: '1px solid #e0e0e0',
                             overflow: 'hidden',
                             transition: 'transform 0.2s, box-shadow 0.2s',
                             '&:hover': { transform: 'translateY(-4px)', boxShadow: 4 }
-                            }}
+                          }}
                         >
-                            <Box sx={{ bgcolor: status.bg, height: 6, width: '100%' }} />
-                            
-                            <CardContent sx={{ flexGrow: 1, p: 3 }}>
+                          <Box sx={{ bgcolor: status.bg, height: 6, width: '100%' }} />
+
+                          <CardContent sx={{ flexGrow: 1, p: 3 }}>
                             <Stack direction="row" justifyContent="space-between" alignItems="start" mb={2}>
-                                <Chip 
-                                icon={status.icon} 
-                                label={status.label} 
-                                color={status.color} 
-                                size="small" 
-                                sx={{ fontWeight: 'bold' }} 
-                                />
-                                <Typography variant="caption" fontWeight={600} color="text.secondary">
+                              <Chip
+                                icon={status.icon}
+                                label={status.label}
+                                color={status.color}
+                                size="small"
+                                sx={{ fontWeight: 'bold' }}
+                              />
+                              <Typography variant="caption" fontWeight={600} color="text.secondary">
                                 ID: {exam.id}
-                                </Typography>
+                              </Typography>
                             </Stack>
 
                             <Typography variant="h6" fontWeight={700} gutterBottom lineHeight={1.2}>
-                                {exam.title}
+                              {exam.title}
                             </Typography>
-                            
+
                             <Divider sx={{ my: 1.5 }} />
 
                             <Stack spacing={1}>
-                                <Stack direction="row" alignItems="center" spacing={1}>
+                              <Stack direction="row" alignItems="center" spacing={1}>
                                 <AccessTimeIcon fontSize="small" color="action" />
                                 <Typography variant="body2" color="text.secondary">
-                                    Start: <strong>{formatDateTime(exam.access_start)}</strong>
+                                  Start: <strong>{formatDateTime(exam.access_start)}</strong>
                                 </Typography>
-                                </Stack>
-                                <Stack direction="row" alignItems="center" spacing={1}>
+                              </Stack>
+                              <Stack direction="row" alignItems="center" spacing={1}>
                                 <TimerIcon fontSize="small" color="action" />
                                 <Typography variant="body2" color="text.secondary">
-                                    Duration: <strong>{exam.duration_minutes} mins</strong>
+                                  Duration: <strong>{exam.duration_minutes} mins</strong>
                                 </Typography>
-                                </Stack>
-                                <Stack direction="row" alignItems="center" spacing={1}>
+                              </Stack>
+                              <Stack direction="row" alignItems="center" spacing={1}>
                                 <AssignmentIcon fontSize="small" color="action" />
                                 <Typography variant="body2" color="text.secondary">
-                                    Total Marks: <strong>{exam.total_marks}</strong>
+                                  Total Marks: <strong>{exam.total_marks}</strong>
                                 </Typography>
-                                </Stack>
+                              </Stack>
                             </Stack>
-                            </CardContent>
+                          </CardContent>
 
-                            <CardActions sx={{ p: 2, pt: 0, bgcolor: '#fafafa' }}>
+                          <CardActions sx={{ p: 2, pt: 0, bgcolor: 'transparent' }}>
                             {examObj.in_progress ? (
-                                <Button 
-                                fullWidth 
-                                variant="contained" 
+                              <Button
+                                fullWidth
+                                variant="contained"
                                 color="warning"
                                 size="large"
                                 onClick={() => handleStartExam(exam.id)}
                                 disabled={startingExamId === exam.id}
-                                startIcon={startingExamId === exam.id ? <CircularProgress size={20} color="inherit"/> : <PlayArrowIcon />}
-                                >
+                                startIcon={startingExamId === exam.id ? <CircularProgress size={20} color="inherit" /> : <PlayArrowIcon />}
+                              >
                                 {startingExamId === exam.id ? 'Loading...' : 'Resume Exam'}
-                                </Button>
+                              </Button>
                             ) : active ? (
-                                <Button 
-                                fullWidth 
-                                variant="contained" 
+                              <Button
+                                fullWidth
+                                variant="contained"
                                 color="primary"
                                 size="large"
                                 onClick={() => handleStartExam(exam.id)}
                                 disabled={startingExamId === exam.id}
-                                startIcon={startingExamId === exam.id ? <CircularProgress size={20} color="inherit"/> : <PlayArrowIcon />}
-                                >
+                                startIcon={startingExamId === exam.id ? <CircularProgress size={20} color="inherit" /> : <PlayArrowIcon />}
+                              >
                                 {startingExamId === exam.id ? 'Loading...' : 'Start Exam'}
-                                </Button>
+                              </Button>
                             ) : examObj.assigned && exam.results_released ? (
-                                <Button 
-                                fullWidth 
-                                variant="outlined" 
+                              <Button
+                                fullWidth
+                                variant="outlined"
                                 color="success"
                                 onClick={() => navigate(`/exam/${exam.id}/results`)}
-                                >
+                              >
                                 View Results
-                                </Button>
+                              </Button>
                             ) : (
-                                <Button fullWidth variant="outlined" disabled>
+                              <Button fullWidth variant="outlined" disabled>
                                 {status.label}
-                                </Button>
+                              </Button>
                             )}
-                            </CardActions>
+                          </CardActions>
                         </Card>
-                        </Grid>
+                      </Grid>
                     );
-                    })}
+                  })}
                 </Grid>
 
                 {/* PAGINATION */}
                 <Paper sx={{ p: 1, display: 'flex', justifyContent: 'center', borderRadius: 2 }}>
-                    <TablePagination
-                        component="div"
-                        count={totalExams}
-                        page={page}
-                        onPageChange={handlePageChange}
-                        rowsPerPage={rowsPerPage}
-                        onRowsPerPageChange={handleRowsPerPageChange}
-                        rowsPerPageOptions={[5, 10, 20]}
-                        labelRowsPerPage="Exams per page:"
-                    />
+                  <TablePagination
+                    component="div"
+                    count={totalExams}
+                    page={page}
+                    onPageChange={handlePageChange}
+                    rowsPerPage={rowsPerPage}
+                    onRowsPerPageChange={handleRowsPerPageChange}
+                    rowsPerPageOptions={[5, 10, 20]}
+                    labelRowsPerPage="Exams per page:"
+                  />
                 </Paper>
               </Stack>
             )}
-          </Grid>
-
-          {/* SIDEBAR COLUMN */}
-          <Grid item xs={12} md={4}>
-            <Paper 
-              elevation={0} 
-              sx={{ 
-                p: 3, borderRadius: 3, 
-                bgcolor: 'white', 
-                border: '1px solid #e0e0e0',
-                position: 'sticky', top: 90 
-              }}
-            >
-              <Paper
-                elevation={0}
-                sx={{
-                  p: 2,
-                  mb: 3,
-                  borderRadius: 2.5,
-                  color: '#fff',
-                  background: 'linear-gradient(120deg, #1f3b73 0%, #1f6ed4 55%, #50a3ff 100%)'
-                }}
-              >
-                <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-                  <Box>
-                    <Typography variant="subtitle2" sx={{ opacity: 0.9 }}>Analysis Hub</Typography>
-                    <Typography variant="h6" fontWeight={800}>Your Progress</Typography>
-                  </Box>
-                  <InsightsIcon />
-                </Stack>
-
-                <Grid container spacing={1} sx={{ mt: 1.5, mb: 1 }}>
-                  <Grid item xs={6}>
-                    <Typography variant="caption" sx={{ opacity: 0.85 }}>Attempted</Typography>
-                    <Typography variant="h6" fontWeight={700}>{attemptedCount}</Typography>
-                  </Grid>
-                  <Grid item xs={6}>
-                    <Typography variant="caption" sx={{ opacity: 0.85 }}>Results</Typography>
-                    <Typography variant="h6" fontWeight={700}>{releasedCount}</Typography>
-                  </Grid>
-                  <Grid item xs={6}>
-                    <Typography variant="caption" sx={{ opacity: 0.85 }}>Pending</Typography>
-                    <Typography variant="h6" fontWeight={700}>{pendingCount}</Typography>
-                  </Grid>
-                  <Grid item xs={6}>
-                    <Typography variant="caption" sx={{ opacity: 0.85 }}>Active Now</Typography>
-                    <Typography variant="h6" fontWeight={700}>{activeNowCount}</Typography>
-                  </Grid>
-                </Grid>
-
-                <Button
-                  variant="contained"
-                  fullWidth
-                  startIcon={<TrendingUpIcon />}
-                  onClick={() => navigate("/student/analysis")}
-                  sx={{ bgcolor: '#fff', color: '#1f3b73', '&:hover': { bgcolor: '#edf4ff' } }}
-                >
-                  Open Analysis Dashboard
-                </Button>
-              </Paper>
-
-              <Typography variant="h6" fontWeight={700} gutterBottom display="flex" alignItems="center">
-                <EventNoteIcon sx={{ mr: 1, color: 'primary.main' }} /> 
-                Upcoming
-              </Typography>
-              <Divider sx={{ mb: 2 }} />
-              
-              <List disablePadding>
-                {upcomingAssessments.map((assessment, index) => (
-                  <ListItem key={index} sx={{ px: 0 }}>
-                    <ListItemIcon sx={{ minWidth: 36 }}>
-                      <CheckCircleIcon color="success" fontSize="small" />
-                    </ListItemIcon>
-                    <ListItemText 
-                      primary={assessment} 
-                      primaryTypographyProps={{ variant: 'body2', fontWeight: 500 }} 
-                    />
-                  </ListItem>
-                ))}
-              </List>
-
-              <Box mt={4} p={2} bgcolor="#e3f2fd" borderRadius={2}>
-                <Typography variant="subtitle2" color="primary.main" gutterBottom fontWeight={700}>
-                  Did you know?
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  Exams are auto-submitted when the timer runs out when you are attempting. Ensure you save your answers frequently.
-                </Typography>
-              </Box>
-            </Paper>
           </Grid>
 
         </Grid>
@@ -508,7 +425,7 @@ export default function StudentDashboard() {
             ))}
           </List>
         </DialogContent>
-        <DialogActions sx={{ p: 2, bgcolor: '#f5f5f5' }}>
+        <DialogActions sx={{ p: 2, bgcolor: 'transparent' }}>
           <Button onClick={() => setIsInstructionsOpen(false)} variant="contained" size="large" fullWidth>
             I Understand & Agree
           </Button>

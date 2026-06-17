@@ -1,49 +1,53 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Box, Typography, Card, CardContent, CardMedia, Chip, Button,
-  Container, Grid, TextField, InputAdornment, Skeleton, Divider,
+  Box, Typography, Container, Grid, TextField, InputAdornment, Chip, Button,
+  Skeleton, Stack, Divider,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
-import SchoolIcon from '@mui/icons-material/School';
 import LockIcon from '@mui/icons-material/Lock';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import AutoStoriesIcon from '@mui/icons-material/AutoStories';
+import BoltIcon from '@mui/icons-material/Bolt';
 import QuizIcon from '@mui/icons-material/Quiz';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
-import PaymentIcon from '@mui/icons-material/Payment';
 import TimerIcon from '@mui/icons-material/Timer';
-import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import StarIcon from '@mui/icons-material/Star';
-import PersonAddIcon from '@mui/icons-material/PersonAdd';
+import InsightsIcon from '@mui/icons-material/Insights';
+import WorkspacePremiumIcon from '@mui/icons-material/WorkspacePremium';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import MenuBookIcon from '@mui/icons-material/MenuBook';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { publicApi } from '../../utils/api';
 import useAuth from '../../hooks/useAuth';
+import { GlassCard } from '../common';
 
-const ff = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
+const ff = "'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
 
-/* ── reusable section heading ── */
-const SectionTitle = ({ overline, title, subtitle, light }) => (
-  <Box sx={{ textAlign: 'center', mb: 6 }}>
-    {overline && (
-      <Typography sx={{
-        fontSize: '0.72rem', fontWeight: 700, letterSpacing: 2, fontFamily: ff,
-        color: light ? '#60a5fa' : '#3b82f6', mb: 1.5, textTransform: 'uppercase',
-      }}>{overline}</Typography>
-    )}
-    <Typography sx={{
-      fontFamily: ff, fontSize: { xs: '1.6rem', md: '2rem' }, fontWeight: 800,
-      color: light ? '#fff' : '#0f172a', mb: 1.5, lineHeight: 1.25,
-    }}>{title}</Typography>
-    {subtitle && (
-      <Typography sx={{
-        fontFamily: ff, fontSize: '0.95rem', color: light ? '#94a3b8' : '#64748b',
-        maxWidth: 560, mx: 'auto', lineHeight: 1.7,
-      }}>{subtitle}</Typography>
-    )}
-  </Box>
-);
+const CATEGORIES = ['NEET', 'JEE', 'UPSC', 'SSC', 'Banking', 'Railways', 'GATE', 'CAT'];
+
+const FLOATING = [
+  { t: 'UPSC', top: '12%', left: '6%', s: '2.6rem', o: 0.06 },
+  { t: 'NEET', top: '22%', left: '82%', s: '3rem', o: 0.05 },
+  { t: 'SSC CGL', top: '64%', left: '10%', s: '2.4rem', o: 0.05 },
+  { t: 'JEE', top: '74%', left: '86%', s: '2.8rem', o: 0.06 },
+  { t: 'IBPS PO', top: '40%', left: '90%', s: '2rem', o: 0.05 },
+  { t: 'GATE', top: '80%', left: '44%', s: '2.2rem', o: 0.05 },
+  { t: 'CAT', top: '14%', left: '46%', s: '2.4rem', o: 0.05 },
+];
+
+const FEATURES = [
+  { icon: <PictureAsPdfIcon />, title: 'Real question papers', desc: 'Authentic PDF papers shown beside a digital OMR sheet — exactly like the real exam.', color: 'blue' },
+  { icon: <TimerIcon />, title: 'Timed mock tests', desc: 'Practice under real conditions with countdown timers and auto-submit.', color: 'orange' },
+  { icon: <InsightsIcon />, title: 'Instant scoring & analytics', desc: 'Get your score the moment you submit and track progress on your dashboard.', color: 'indigo' },
+  { icon: <BoltIcon />, title: 'Daily challenge + streaks', desc: '5 fresh questions every day from your courses to keep momentum going.', color: 'success' },
+];
+
+const STEPS = [
+  { icon: <MenuBookIcon />, title: 'Pick your exam', desc: 'Choose a course for your target exam — enrollment is free.' },
+  { icon: <PlayArrowIcon />, title: 'Practice free', desc: 'Attempt free papers and study materials. Unlock premium when ready.' },
+  { icon: <QuizIcon />, title: 'Test & improve', desc: 'Take timed mocks, get instant results, and track your growth.' },
+];
 
 export default function PublicCatalog() {
   const [courses, setCourses] = useState([]);
@@ -62,365 +66,314 @@ export default function PublicCatalog() {
   }, []);
 
   const filtered = courses.filter(c => {
-    const matchesSearch = c.title.toLowerCase().includes(search.toLowerCase()) ||
-      (c.description || '').toLowerCase().includes(search.toLowerCase());
-    if (filter === 'free') return matchesSearch && (!c.price || c.price === 0);
-    if (filter === 'premium') return matchesSearch && c.price > 0;
-    return matchesSearch;
+    const q = search.toLowerCase();
+    const matches = c.title.toLowerCase().includes(q) || (c.description || '').toLowerCase().includes(q);
+    if (filter === 'free') return matches && (!c.price || c.price === 0);
+    if (filter === 'premium') return matches && c.price > 0;
+    return matches;
   });
 
-  /* ── how-it-works steps ── */
-  const steps = [
-    { icon: <PersonAddIcon />, title: 'Create Account', desc: 'Register with your email & pick a course to get started instantly.' },
-    { icon: <AutoStoriesIcon />, title: 'Explore Content', desc: 'Browse study materials and exam papers. Free content is available with 1 attempt.' },
-    { icon: <PaymentIcon />, title: 'Unlock Premium', desc: 'Pay once per course to get unlimited access to all premium content.' },
-    { icon: <QuizIcon />, title: 'Take Exams', desc: 'Attempt timed exams with a real PDF paper + digital OMR. Get instant results.' },
-  ];
+  const freeCount = courses.filter(c => !c.price || c.price === 0).length;
+  const scrollToCatalog = () => document.getElementById('catalog')?.scrollIntoView({ behavior: 'smooth' });
 
-  /* ── feature cards ── */
-  const features = [
-    { icon: <PictureAsPdfIcon sx={{ fontSize: 28 }} />, title: 'Real Question Papers', desc: 'Authentic PDF question papers displayed alongside a digital answer sheet.', color: '#ef4444' },
-    { icon: <TimerIcon sx={{ fontSize: 28 }} />, title: 'Timed Mock Tests', desc: 'Practice under real exam conditions with countdown timers and auto-submit.', color: '#2563eb' },
-    { icon: <LockOpenIcon sx={{ fontSize: 28 }} />, title: 'Free Content Access', desc: 'Every course has free sample papers. One attempt per free exam — make it count!', color: '#16a34a' },
-    { icon: <StarIcon sx={{ fontSize: 28 }} />, title: 'Premium Unlimited', desc: 'Unlock all content in a course with a single payment. No recurring fees.', color: '#eab308' },
-    { icon: <WarningAmberIcon sx={{ fontSize: 28 }} />, title: '1-Attempt Free Exams', desc: 'Free exams allow only 1 attempt. Upgrade to premium for re-attempts.', color: '#f97316' },
-    { icon: <CheckCircleOutlineIcon sx={{ fontSize: 28 }} />, title: 'Instant Scoring', desc: 'Get your score immediately after submission. Track progress on your dashboard.', color: '#8b5cf6' },
-  ];
-
-  /* ── floating background exams ── */
-  const backgroundExams = [
-    { text: 'UPSC', top: '10%', left: '5%', size: '3rem', opacity: 0.08 },
-    { text: 'SSC CGL', top: '25%', left: '80%', size: '2.5rem', opacity: 0.06 },
-    { text: 'NEET', top: '60%', left: '10%', size: '3.5rem', opacity: 0.05 },
-    { text: 'JEE MAIN', top: '75%', left: '85%', size: '3rem', opacity: 0.07 },
-    { text: 'RRB NTPC', top: '15%', left: '40%', size: '2.2rem', opacity: 0.05 },
-    { text: 'GATE', top: '45%', left: '8%', size: '2.8rem', opacity: 0.06 },
-    { text: 'CAT', top: '50%', left: '70%', size: '3.2rem', opacity: 0.08 },
-    { text: 'IBPS PO', top: '80%', left: '40%', size: '2.5rem', opacity: 0.06 },
-    { text: 'SBI CLERK', top: '35%', left: '60%', size: '2.2rem', opacity: 0.05 },
-    { text: 'NDA', top: '10%', left: '70%', size: '2.6rem', opacity: 0.07 },
-    { text: 'STATE PSC', top: '90%', left: '60%', size: '2.8rem', opacity: 0.06 },
-    { text: 'CLAT', top: '30%', left: '20%', size: '2.4rem', opacity: 0.05 },
-    { text: 'RBI GRADE B', top: '65%', left: '30%', size: '2.3rem', opacity: 0.04 },
-    { text: 'CTET', top: '85%', left: '20%', size: '2.6rem', opacity: 0.07 },
-    { text: 'AFCAT', top: '20%', left: '25%', size: '2.2rem', opacity: 0.06 },  
-  ];
+  const sectionLabel = (overline, title) => (
+    <Box sx={{ textAlign: 'center', mb: 5 }}>
+      <Typography sx={{ fontFamily: ff, fontWeight: 800, fontSize: '0.72rem', letterSpacing: 2.5, color: '#ffb054', textTransform: 'uppercase', mb: 1.5 }}>
+        {overline}
+      </Typography>
+      <Typography sx={{
+        fontFamily: ff, fontWeight: 800, fontSize: { xs: '1.7rem', md: '2.2rem' }, lineHeight: 1.2,
+        background: 'linear-gradient(120deg,#ffffff,#c7d2fe 78%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+      }}>
+        {title}
+      </Typography>
+    </Box>
+  );
 
   return (
     <Box sx={{ fontFamily: ff }}>
 
-      {/* ═══════ 1. HERO ═══════ */}
-      <Box sx={{
-        background: 'linear-gradient(160deg, #0f172a 0%, #1e293b 40%, #0f172a 100%)',
-        py: { xs: 8, md: 14 }, px: 3, textAlign: 'center', position: 'relative', overflow: 'hidden',
-      }}>
-        {/* floating text background */}
-        <Box sx={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden', pointerEvents: 'none' }}>
-          {backgroundExams.map((exam, i) => (
-            <Typography key={i} sx={{
-              position: 'absolute', top: exam.top, left: exam.left,
-              fontSize: exam.size, fontWeight: 900, color: '#fff',
-              opacity: exam.opacity, fontFamily: ff, letterSpacing: 2,
-              whiteSpace: 'nowrap', userSelect: 'none',
-              transform: 'translate(-50%, -50%)',
-            }}>
-              {exam.text}
+      {/* ═══════════ HERO ═══════════ */}
+      <Box sx={{ position: 'relative', overflow: 'hidden', py: { xs: 7, md: 12 }, px: 3 }}>
+        <Box sx={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+          {FLOATING.map((e, i) => (
+            <Typography key={i} sx={{ position: 'absolute', top: e.top, left: e.left, fontSize: e.s, fontWeight: 900, color: '#fff', opacity: e.o, letterSpacing: 2, whiteSpace: 'nowrap', transform: 'translate(-50%,-50%)' }}>
+              {e.t}
             </Typography>
           ))}
         </Box>
 
-        {/* decorative circles */}
-        <Box sx={{ position: 'absolute', width: 500, height: 500, borderRadius: '50%', background: 'radial-gradient(circle, rgba(59,130,246,0.10), transparent 70%)', top: '-20%', right: '-8%' }} />
-        <Box sx={{ position: 'absolute', width: 350, height: 350, borderRadius: '50%', background: 'radial-gradient(circle, rgba(124,58,237,0.08), transparent 70%)', bottom: '-12%', left: '5%' }} />
-
-        <Container maxWidth="md" sx={{ position: 'relative', zIndex: 1 }}>
-          <Box sx={{
-            display: 'inline-flex', alignItems: 'center', gap: 1, px: 2, py: 0.5,
-            borderRadius: '100px', bgcolor: 'rgba(59,130,246,0.12)', border: '1px solid rgba(59,130,246,0.25)', mb: 3,
-          }}>
-            <AutoStoriesIcon sx={{ fontSize: 16, color: '#60a5fa' }} />
-            <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: '#60a5fa', letterSpacing: 1.5, fontFamily: ff }}>
-              PUBLIC EXAMINATION PLATFORM
-            </Typography>
-          </Box>
-
-          <Typography sx={{
-            fontSize: { xs: '2rem', md: '3.2rem' }, fontWeight: 800, color: '#fff',
-            lineHeight: 1.15, mb: 2.5, letterSpacing: '-0.025em', fontFamily: ff,
-          }}>
-            Prepare. Practice.{' '}
-            <Box component="span" sx={{ background: 'linear-gradient(135deg, #60a5fa, #a78bfa)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-              Succeed.
-            </Box>
-          </Typography>
-
-          <Typography sx={{ fontSize: { xs: '1rem', md: '1.15rem' }, color: '#94a3b8', fontFamily: ff, maxWidth: 560, mx: 'auto', lineHeight: 1.7, mb: 5 }}>
-            Access real question papers, study materials, and timed mock tests for competitive exams. 
-            Register, pick a course, and start preparing — free content included.
-          </Typography>
-
-          <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
-            {isLoggedIn ? (
-              <Button variant="contained" size="large" onClick={() => navigate('/public/dashboard')}
-                sx={{ fontFamily: ff, fontWeight: 700, borderRadius: '12px', px: 4, py: 1.5, background: 'linear-gradient(135deg, #2563eb, #3b82f6)', boxShadow: '0 8px 24px rgba(59,130,246,0.3)', textTransform: 'none', fontSize: '1.05rem', '&:hover': { transform: 'translateY(-2px)' }, transition: 'all 0.2s' }}>
-                Go to Dashboard →
-              </Button>
-            ) : (
-              <>
-                <Button variant="contained" size="large" onClick={() => navigate('/public/register')}
-                  sx={{ fontFamily: ff, fontWeight: 700, borderRadius: '12px', px: 4, py: 1.5, bgcolor: '#fff', color: '#0f172a', '&:hover': { bgcolor: '#f8fafc', transform: 'translateY(-2px)' }, textTransform: 'none', fontSize: '1.05rem', transition: 'all 0.2s', boxShadow: '0 8px 24px rgba(255,255,255,0.15)' }}>
-                  Create Free Account
-                </Button>
-                <Button variant="outlined" size="large" onClick={() => navigate('/public/login')}
-                  sx={{ fontFamily: ff, fontWeight: 600, borderRadius: '12px', px: 4, py: 1.5, borderColor: 'rgba(255,255,255,0.2)', color: '#fff', '&:hover': { borderColor: 'rgba(255,255,255,0.4)', bgcolor: 'rgba(255,255,255,0.05)' }, textTransform: 'none', fontSize: '1.05rem' }}>
-                  Sign In
-                </Button>
-              </>
-            )}
-          </Box>
-
-          {/* trust badges */}
-          <Box sx={{ display: 'flex', gap: 3, justifyContent: 'center', mt: 6, flexWrap: 'wrap' }}>
-            {['Free Content Included', 'Instant Results', 'Secure Payments'].map(t => (
-              <Box key={t} sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
-                <CheckCircleOutlineIcon sx={{ fontSize: 16, color: '#34d399' }} />
-                <Typography sx={{ fontSize: '0.78rem', color: '#94a3b8', fontFamily: ff, fontWeight: 500 }}>{t}</Typography>
+        <Container maxWidth="md" sx={{ position: 'relative', textAlign: 'center' }}>
+          <Box
+            component={motion.div}
+            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}
+          >
+            <Chip
+              icon={<WorkspacePremiumIcon sx={{ fontSize: 16 }} />}
+              label="Competitive exam preparation, done right"
+              sx={{ mb: 3, px: 1, py: 2, bgcolor: 'rgba(246,137,20,0.14)', color: '#ffce9e', border: '1px solid rgba(246,137,20,0.30)', fontWeight: 700, '& .MuiChip-icon': { color: '#ffb054' } }}
+            />
+            <Typography sx={{ fontFamily: ff, fontWeight: 800, fontSize: { xs: '2.1rem', md: '3.3rem' }, lineHeight: 1.12, letterSpacing: '-0.025em', color: '#f5f8ff', mb: 2 }}>
+              Crack your exam with{' '}
+              <Box component="span" sx={{ background: 'linear-gradient(120deg,#6f9bff,#f68914)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                real papers & mock tests
               </Box>
-            ))}
+            </Typography>
+            <Typography sx={{ fontFamily: ff, fontSize: { xs: '1rem', md: '1.15rem' }, color: '#b4c0e4', maxWidth: 600, mx: 'auto', lineHeight: 1.7, mb: 4 }}>
+              Browse courses for NEET, JEE, UPSC, SSC, Banking and more. Start free, practice with
+              authentic PDF papers + digital OMR, and get instant results.
+            </Typography>
+
+            {/* Search */}
+            <TextField
+              fullWidth placeholder="Search exams or courses…" value={search}
+              onChange={e => setSearch(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') scrollToCatalog(); }}
+              InputProps={{
+                startAdornment: <InputAdornment position="start"><SearchIcon sx={{ color: '#aeb9e0' }} /></InputAdornment>,
+                endAdornment: <InputAdornment position="end"><Button variant="gradient" onClick={scrollToCatalog} sx={{ borderRadius: '10px' }}>Search</Button></InputAdornment>,
+              }}
+              sx={{ maxWidth: 560, mx: 'auto', mb: 3, '& .MuiOutlinedInput-root': { borderRadius: '14px', bgcolor: 'rgba(255,255,255,0.05)', height: 56, fontFamily: ff } }}
+            />
+
+            {/* Category quick chips */}
+            <Stack direction="row" spacing={1} justifyContent="center" flexWrap="wrap" useFlexGap sx={{ mb: 4 }}>
+              {CATEGORIES.map(c => (
+                <Chip key={c} label={c} clickable onClick={() => { setSearch(c); scrollToCatalog(); }}
+                  sx={{ fontFamily: ff, fontWeight: 600, bgcolor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', color: '#cdd6f4', '&:hover': { bgcolor: 'rgba(246,137,20,0.14)', borderColor: 'rgba(246,137,20,0.4)', color: '#ffce9e' } }} />
+              ))}
+            </Stack>
+
+            {/* Primary CTAs */}
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} justifyContent="center">
+              {isLoggedIn ? (
+                <Button variant="gradient" size="large" onClick={() => navigate('/public/dashboard')} sx={{ px: 4, height: 50, fontSize: '1.02rem' }} endIcon={<ArrowForwardIcon />}>
+                  Go to Dashboard
+                </Button>
+              ) : (
+                <>
+                  <Button variant="gradient" size="large" onClick={() => navigate('/public/register')} sx={{ px: 4, height: 50, fontSize: '1.02rem' }}>
+                    Create free account
+                  </Button>
+                  <Button variant="outlined" size="large" onClick={() => navigate('/public/login')} sx={{ px: 4, height: 50, fontSize: '1.02rem' }}>
+                    Sign in
+                  </Button>
+                </>
+              )}
+            </Stack>
+
+            {/* Trust row */}
+            <Stack direction="row" spacing={4} justifyContent="center" flexWrap="wrap" useFlexGap sx={{ mt: 5 }}>
+              {[`${courses.length || '50'}+ courses`, `${freeCount || '20'}+ free papers`, 'Instant results'].map(t => (
+                <Stack key={t} direction="row" alignItems="center" spacing={0.8}>
+                  <CheckCircleIcon sx={{ fontSize: 17, color: '#34d399' }} />
+                  <Typography sx={{ fontFamily: ff, fontSize: '0.82rem', color: '#b4c0e4', fontWeight: 600 }}>{t}</Typography>
+                </Stack>
+              ))}
+            </Stack>
           </Box>
         </Container>
       </Box>
 
-      {/* ═══════ 2. COURSE CATALOG (moved up for accessibility) ═══════ */}
-      <Box sx={{ py: { xs: 6, md: 8 }, bgcolor: '#f8fafc' }}>
+      {/* ═══════════ CATALOG ═══════════ */}
+      <Box id="catalog" sx={{ py: { xs: 5, md: 7 } }}>
         <Container maxWidth="lg">
-          <SectionTitle overline="AVAILABLE COURSES" title="Browse Our Exam Catalog" subtitle="Click any course to explore its syllabus, free papers, and premium content." />
+          {sectionLabel('Explore courses', 'Find your exam, start in minutes')}
 
-          {/* Filter Chips */}
-          <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1.5, mb: 3, flexWrap: 'wrap' }}>
-            {[{ key: 'all', label: 'All Courses' }, { key: 'free', label: 'Free' }, { key: 'premium', label: 'Premium' }].map(f => (
-              <Chip key={f.key} label={f.label} clickable onClick={() => setFilter(f.key)}
-                sx={{ fontFamily: ff, fontWeight: 600, fontSize: '0.82rem', px: 1, borderRadius: '10px',
-                  bgcolor: filter === f.key ? '#2563eb' : '#fff', color: filter === f.key ? '#fff' : '#475569',
-                  border: filter === f.key ? 'none' : '1px solid #e2e8f0',
-                  boxShadow: filter === f.key ? '0 2px 8px rgba(37,99,235,0.25)' : 'none',
-                  '&:hover': { bgcolor: filter === f.key ? '#1d4ed8' : '#f8fafc' },
-                  transition: 'all 0.2s' }} />
+          {/* Filter row */}
+          <Stack direction="row" spacing={1.25} justifyContent="center" sx={{ mb: 3 }} flexWrap="wrap" useFlexGap>
+            {[{ k: 'all', l: 'All' }, { k: 'free', l: 'Free' }, { k: 'premium', l: 'Premium' }].map(f => (
+              <Chip key={f.k} label={f.l} clickable onClick={() => setFilter(f.k)}
+                sx={{ fontFamily: ff, fontWeight: 700, px: 1.5, py: 2, borderRadius: '10px',
+                  background: filter === f.k ? 'linear-gradient(135deg,#2f6bff,#f68914)' : 'rgba(255,255,255,0.05)',
+                  color: filter === f.k ? '#fff' : '#aeb9e0', border: filter === f.k ? 'none' : '1px solid rgba(255,255,255,0.12)',
+                  boxShadow: filter === f.k ? '0 6px 18px rgba(246,137,20,0.30)' : 'none',
+                  '&:hover': { background: filter === f.k ? 'linear-gradient(135deg,#2f6bff,#f68914)' : 'rgba(255,255,255,0.10)' } }} />
             ))}
-          </Box>
-
-          <Box sx={{ display: 'flex', justifyContent: 'center', mb: 4 }}>
-            <TextField fullWidth placeholder="Search courses..." value={search} onChange={e => setSearch(e.target.value)}
-              InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon sx={{ color: '#94a3b8' }} /></InputAdornment> }}
-              sx={{ maxWidth: 480, '& .MuiOutlinedInput-root': { borderRadius: '14px', bgcolor: '#fff', fontFamily: ff, '& fieldset': { borderColor: '#e2e8f0' }, '&:hover fieldset': { borderColor: '#93c5fd' }, '&.Mui-focused fieldset': { borderColor: '#3b82f6' } } }}
-            />
-          </Box>
+          </Stack>
 
           {loading ? (
-            <Grid container spacing={3} justifyContent="center">{[1,2,3].map(i => <Grid item xs={12} sm={6} md={4} key={i}><Skeleton variant="rounded" height={300} sx={{ borderRadius: '16px' }} /></Grid>)}</Grid>
+            <Grid container spacing={3}>{[1, 2, 3, 4, 5, 6].map(i => (
+              <Grid item xs={12} sm={6} md={4} key={i}><Skeleton variant="rounded" height={260} sx={{ borderRadius: '20px', bgcolor: 'rgba(255,255,255,0.05)' }} /></Grid>
+            ))}</Grid>
           ) : filtered.length === 0 ? (
-            <Box sx={{ textAlign: 'center', py: 8 }}><Typography sx={{ fontSize: '1.1rem', color: '#64748b', fontFamily: ff }}>{search ? 'No courses match your search.' : 'No courses available yet.'}</Typography></Box>
+            <Box sx={{ textAlign: 'center', py: 8 }}>
+              <MenuBookIcon sx={{ fontSize: 44, color: '#7e8abb', mb: 1 }} />
+              <Typography sx={{ fontFamily: ff, color: '#aeb9e0', fontSize: '1.05rem' }}>
+                {search ? `No courses match “${search}”.` : 'No courses available yet.'}
+              </Typography>
+              {search && <Button onClick={() => setSearch('')} sx={{ mt: 1, color: '#ffb054' }}>Clear search</Button>}
+            </Box>
           ) : (
-            <Grid container spacing={3} justifyContent="center">
-              {filtered.map(course => (
-                <Grid item xs={12} sm={6} md={4} key={course.id}>
-                  <Card onClick={() => navigate(`/public/course/${course.id}`)}
-                    sx={{ borderRadius: '16px', overflow: 'hidden', border: '1px solid #e2e8f0', boxShadow: 'none', height: '100%', display: 'flex', flexDirection: 'column', cursor: 'pointer', transition: 'all 0.25s', '&:hover': { borderColor: '#93c5fd', boxShadow: '0 8px 30px rgba(59,130,246,0.12)', transform: 'translateY(-4px)' } }}>
-                    <CardMedia sx={{ height: 150, background: course.thumbnail_url ? `url(${course.thumbnail_url}) center/cover` : 'linear-gradient(135deg, #1e293b, #334155)', display: 'flex', alignItems: 'flex-end', p: 2 }}>
-                      <Chip icon={course.price > 0 ? <LockIcon sx={{ fontSize: 14 }} /> : <LockOpenIcon sx={{ fontSize: 14 }} />} label={course.price > 0 ? `₹${course.price}` : 'Free'} size="small"
-                        sx={{ bgcolor: course.price > 0 ? 'rgba(234,179,8,0.9)' : 'rgba(34,197,94,0.9)', color: '#fff', fontWeight: 700, fontFamily: ff, '& .MuiChip-icon': { color: '#fff' } }} />
-                    </CardMedia>
-                    <CardContent sx={{ p: 2.5, flex: 1, display: 'flex', flexDirection: 'column' }}>
-                      <Typography sx={{ fontFamily: ff, fontSize: '1.05rem', fontWeight: 700, color: '#0f172a', mb: 1, lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{course.title}</Typography>
-                      <Typography sx={{ fontFamily: ff, fontSize: '0.82rem', color: '#64748b', lineHeight: 1.6, mb: 2, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{course.description || 'Explore this course to learn more.'}</Typography>
-                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 'auto' }}>
-                        <Typography sx={{ fontSize: '0.75rem', color: '#94a3b8', fontFamily: ff, fontWeight: 600 }}>{course.content_count || 0} Items</Typography>
-                        <ArrowForwardIcon sx={{ fontSize: 18, color: '#94a3b8' }} />
-                      </Box>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              ))}
+            <Grid container spacing={3}>
+              {filtered.map((course, i) => {
+                const isFree = !course.price || course.price === 0;
+                return (
+                  <Grid item xs={12} sm={6} md={4} key={course.id}>
+                    <Box component={motion.div} initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.35, delay: (i % 3) * 0.05 }} sx={{ height: '100%' }}>
+                      <GlassCard interactive glow={isFree ? 'success' : 'orange'} onClick={() => navigate(`/public/course/${course.id}`)} sx={{ p: 0, height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                        {/* Media */}
+                        <Box sx={{
+                          height: 130, position: 'relative', display: 'flex', alignItems: 'flex-end', p: 2,
+                          background: course.thumbnail_url ? `url(${course.thumbnail_url}) center/cover` : 'linear-gradient(135deg, rgba(47,107,255,0.4), rgba(246,137,20,0.35))',
+                        }}>
+                          <Box sx={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, transparent, rgba(7,11,29,0.55))' }} />
+                          <Chip
+                            icon={isFree ? <LockOpenIcon sx={{ fontSize: 14 }} /> : <LockIcon sx={{ fontSize: 14 }} />}
+                            label={isFree ? 'Free' : `₹${course.price}`}
+                            size="small"
+                            sx={{ position: 'relative', fontFamily: ff, fontWeight: 800, color: '#fff',
+                              bgcolor: isFree ? 'rgba(16,185,129,0.92)' : 'rgba(246,137,20,0.95)', '& .MuiChip-icon': { color: '#fff' } }}
+                          />
+                        </Box>
+                        {/* Body */}
+                        <Box sx={{ p: 2.5, flex: 1, display: 'flex', flexDirection: 'column' }}>
+                          <Typography sx={{ fontFamily: ff, fontWeight: 700, fontSize: '1.05rem', color: '#f5f8ff', mb: 1, lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                            {course.title}
+                          </Typography>
+                          <Typography sx={{ fontFamily: ff, fontSize: '0.83rem', color: '#a9b4dd', lineHeight: 1.6, mb: 2, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                            {course.description || 'Explore papers, materials and mock tests for this exam.'}
+                          </Typography>
+                          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mt: 'auto' }}>
+                            <Stack direction="row" alignItems="center" spacing={0.7}>
+                              <MenuBookIcon sx={{ fontSize: 16, color: '#9fc1ff' }} />
+                              <Typography sx={{ fontFamily: ff, fontSize: '0.78rem', color: '#aeb9e0', fontWeight: 600 }}>{course.content_count || 0} items</Typography>
+                            </Stack>
+                            <Stack direction="row" alignItems="center" spacing={0.5} sx={{ color: '#ffb054' }}>
+                              <Typography sx={{ fontFamily: ff, fontSize: '0.8rem', fontWeight: 700 }}>View</Typography>
+                              <ArrowForwardIcon sx={{ fontSize: 16 }} />
+                            </Stack>
+                          </Stack>
+                        </Box>
+                      </GlassCard>
+                    </Box>
+                  </Grid>
+                );
+              })}
             </Grid>
           )}
         </Container>
       </Box>
 
-      {/* ═══════ 3. HOW IT WORKS ═══════ */}
-      <Box sx={{ py: { xs: 8, md: 10 }, bgcolor: '#fff' }}>
+      {/* ═══════════ FEATURES ═══════════ */}
+      <Box sx={{ py: { xs: 6, md: 9 } }}>
         <Container maxWidth="lg">
-          <SectionTitle overline="HOW IT WORKS" title="Get Started in 4 Simple Steps" subtitle="From registration to taking your first exam — it only takes a few minutes." />
-          <Grid container spacing={3} justifyContent="center">
-            {steps.map((s, i) => (
+          {sectionLabel('Why SL Exams', 'Built for serious preparation')}
+          <Grid container spacing={3}>
+            {FEATURES.map((f, i) => (
               <Grid item xs={12} sm={6} md={3} key={i}>
-                <Box sx={{ textAlign: 'center', px: 2 }}>
-                  <Box sx={{
-                    width: 64, height: 64, borderRadius: '16px', mx: 'auto', mb: 2,
-                    background: 'linear-gradient(135deg, #2563eb, #3b82f6)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: '#fff', boxShadow: '0 6px 20px rgba(59,130,246,0.25)',
-                    position: 'relative',
-                  }}>
-                    {s.icon}
-                    <Box sx={{
-                      position: 'absolute', top: -8, right: -8, width: 24, height: 24, borderRadius: '50%',
-                      bgcolor: '#0f172a', color: '#fff', fontSize: '0.7rem', fontWeight: 800,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: ff,
-                    }}>{i + 1}</Box>
-                  </Box>
-                  <Typography sx={{ fontFamily: ff, fontWeight: 700, fontSize: '0.95rem', color: '#0f172a', mb: 0.8 }}>{s.title}</Typography>
-                  <Typography sx={{ fontFamily: ff, fontSize: '0.82rem', color: '#64748b', lineHeight: 1.6 }}>{s.desc}</Typography>
-                </Box>
-              </Grid>
-            ))}
-          </Grid>
-        </Container>
-      </Box>
-
-      {/* ═══════ 3. PLATFORM FEATURES ═══════ */}
-      <Box sx={{ py: { xs: 8, md: 10 }, bgcolor: '#f8fafc' }}>
-        <Container maxWidth="lg">
-          <SectionTitle overline="PLATFORM FEATURES" title="Everything You Need to Prepare" subtitle="Real papers, timed exams, instant scoring — all in one place." />
-          <Grid container spacing={3} justifyContent="center">
-            {features.map((f, i) => (
-              <Grid item xs={12} sm={6} md={4} key={i}>
-                <Card sx={{
-                  borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: 'none',
-                  height: '100%', transition: 'all 0.25s', p: 3, textAlign: 'center',
-                  '&:hover': { borderColor: '#93c5fd', boxShadow: '0 8px 30px rgba(59,130,246,0.08)', transform: 'translateY(-3px)' },
-                }}>
-                  <Box sx={{ width: 48, height: 48, borderRadius: '12px', bgcolor: `${f.color}10`, color: f.color, display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 2, mx: 'auto' }}>
+                <GlassCard glow={f.color} sx={{ height: '100%' }}>
+                  <Box sx={{ width: 50, height: 50, borderRadius: '14px', mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff',
+                    background: f.color === 'orange' ? 'linear-gradient(135deg,#f68914,#ff7a00)' : f.color === 'success' ? 'linear-gradient(135deg,#10b981,#34d399)' : f.color === 'indigo' ? 'linear-gradient(135deg,#5b6cff,#818cf8)' : 'linear-gradient(135deg,#2f6bff,#60a5fa)',
+                    boxShadow: '0 8px 22px rgba(47,107,255,0.3)' }}>
                     {f.icon}
                   </Box>
-                  <Typography sx={{ fontFamily: ff, fontWeight: 700, fontSize: '1rem', color: '#0f172a', mb: 1 }}>{f.title}</Typography>
-                  <Typography sx={{ fontFamily: ff, fontSize: '0.82rem', color: '#64748b', lineHeight: 1.7 }}>{f.desc}</Typography>
-                </Card>
+                  <Typography sx={{ fontFamily: ff, fontWeight: 700, fontSize: '1rem', color: '#f5f8ff', mb: 0.75 }}>{f.title}</Typography>
+                  <Typography sx={{ fontFamily: ff, fontSize: '0.83rem', color: '#a9b4dd', lineHeight: 1.6 }}>{f.desc}</Typography>
+                </GlassCard>
               </Grid>
             ))}
           </Grid>
         </Container>
       </Box>
 
-      {/* ═══════ 4. PREVIEW SCREENSHOTS ═══════ */}
-      <Box sx={{ py: { xs: 8, md: 10 }, bgcolor: '#0f172a' }}>
-        <Container maxWidth="lg">
-          <SectionTitle light overline="PLATFORM PREVIEW" title="See How It Works" subtitle="A real PDF question paper on the left, your digital answer sheet on the right. Timed, scored, and instant results." />
-          <Grid container spacing={4} justifyContent="center">
-            <Grid item xs={12} md={6}>
-              <Box sx={{
-                borderRadius: '16px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)',
-                bgcolor: 'rgba(255,255,255,0.03)', p: 2.5, textAlign: 'center'
-              }}>
-                <Box sx={{ borderRadius: '12px', overflow: 'hidden', boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}>
-                  <Box component="img" src="/images/previews/exam-interface.png" alt="Exam Interface" sx={{ width: '100%', display: 'block' }} />
-                </Box>
-                <Typography sx={{ fontFamily: ff, fontWeight: 700, color: '#fff', mt: 2.5, fontSize: '1rem' }}>
-                  📝 Exam Interface
-                </Typography>
-                <Typography sx={{ fontFamily: ff, fontSize: '0.82rem', color: '#94a3b8', lineHeight: 1.6, mt: 0.5, mx: 'auto', maxWidth: 400 }}>
-                  PDF question paper displayed alongside a digital OMR sheet. Navigate questions, mark answers, and submit — all timed.
-                </Typography>
-              </Box>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <Box sx={{
-                borderRadius: '16px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)',
-                bgcolor: 'rgba(255,255,255,0.03)', p: 2.5, textAlign: 'center'
-              }}>
-                <Box sx={{ borderRadius: '12px', overflow: 'hidden', boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}>
-                  <Box component="img" src="/images/previews/content-access.png" alt="Content Access" sx={{ width: '100%', display: 'block' }} />
-                </Box>
-                <Typography sx={{ fontFamily: ff, fontWeight: 700, color: '#fff', mt: 2.5, fontSize: '1rem' }}>
-                  🔓 Freemium Content Access
-                </Typography>
-                <Typography sx={{ fontFamily: ff, fontSize: '0.82rem', color: '#94a3b8', lineHeight: 1.6, mt: 0.5, mx: 'auto', maxWidth: 400 }}>
-                  Free content is accessible with 1 attempt. Premium content requires a one-time payment per course to unlock unlimited access.
-                </Typography>
-              </Box>
-            </Grid>
-          </Grid>
-        </Container>
-      </Box>
-
-      {/* ═══════ 5. FREE vs PREMIUM ═══════ */}
-      <Box sx={{ py: { xs: 8, md: 10 }, bgcolor: '#fff' }}>
+      {/* ═══════════ HOW IT WORKS ═══════════ */}
+      <Box sx={{ py: { xs: 6, md: 9 } }}>
         <Container maxWidth="md">
-          <SectionTitle overline="ACCESS MODEL" title="Free vs Premium" subtitle="Start with free content. Upgrade when you're ready." />
-          <Grid container spacing={3} justifyContent="center">
-            {/* Free Tier */}
+          {sectionLabel('How it works', 'From sign-up to your first score')}
+          <Grid container spacing={3}>
+            {STEPS.map((s, i) => (
+              <Grid item xs={12} md={4} key={i}>
+                <GlassCard sx={{ textAlign: 'center', height: '100%' }}>
+                  <Box sx={{ position: 'relative', width: 60, height: 60, mx: 'auto', mb: 2, borderRadius: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', background: 'linear-gradient(135deg,#2f6bff,#f68914)', boxShadow: '0 8px 22px rgba(246,137,20,0.35)' }}>
+                    {s.icon}
+                    <Box sx={{ position: 'absolute', top: -8, right: -8, width: 24, height: 24, borderRadius: '50%', bgcolor: 'rgba(9,14,42,0.95)', border: '1px solid rgba(255,255,255,0.15)', color: '#ffb054', fontSize: '0.72rem', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{i + 1}</Box>
+                  </Box>
+                  <Typography sx={{ fontFamily: ff, fontWeight: 700, fontSize: '1rem', color: '#f5f8ff', mb: 0.75 }}>{s.title}</Typography>
+                  <Typography sx={{ fontFamily: ff, fontSize: '0.83rem', color: '#a9b4dd', lineHeight: 1.6 }}>{s.desc}</Typography>
+                </GlassCard>
+              </Grid>
+            ))}
+          </Grid>
+        </Container>
+      </Box>
+
+      {/* ═══════════ FREE vs PREMIUM ═══════════ */}
+      <Box sx={{ py: { xs: 6, md: 9 } }}>
+        <Container maxWidth="md">
+          {sectionLabel('Access model', 'Start free, upgrade when ready')}
+          <Grid container spacing={3}>
             <Grid item xs={12} md={6}>
-              <Card sx={{ borderRadius: '16px', border: '2px solid #e2e8f0', boxShadow: 'none', height: '100%' }}>
-                <CardContent sx={{ p: 3.5 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2.5 }}>
-                    <Box sx={{ width: 40, height: 40, borderRadius: '10px', bgcolor: 'rgba(34,197,94,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <LockOpenIcon sx={{ color: '#16a34a' }} />
-                    </Box>
-                    <Box>
-                      <Typography sx={{ fontFamily: ff, fontWeight: 800, fontSize: '1.1rem', color: '#0f172a' }}>Free Access</Typography>
-                      <Typography sx={{ fontFamily: ff, fontSize: '0.78rem', color: '#64748b' }}>₹0 — No payment required</Typography>
-                    </Box>
+              <GlassCard glow="success" sx={{ height: '100%' }}>
+                <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 2 }}>
+                  <Box sx={{ width: 40, height: 40, borderRadius: '12px', bgcolor: 'rgba(16,185,129,0.16)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <LockOpenIcon sx={{ color: '#34d399' }} />
                   </Box>
-                  <Divider sx={{ mb: 2 }} />
-                  {['Access free study materials', 'Attempt free exam papers', '1 attempt per free exam', 'View your score instantly', 'Course enrollment included'].map((f, i) => (
-                    <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 1.2, mb: 1.2 }}>
-                      <CheckCircleOutlineIcon sx={{ fontSize: 18, color: '#16a34a' }} />
-                      <Typography sx={{ fontFamily: ff, fontSize: '0.85rem', color: '#334155' }}>{f}</Typography>
-                    </Box>
-                  ))}
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2, mt: 1, mb: 1.2 }}>
-                    <WarningAmberIcon sx={{ fontSize: 18, color: '#f97316' }} />
-                    <Typography sx={{ fontFamily: ff, fontSize: '0.85rem', color: '#f97316', fontWeight: 600 }}>No re-attempts on free exams</Typography>
+                  <Box>
+                    <Typography sx={{ fontFamily: ff, fontWeight: 800, fontSize: '1.1rem', color: '#f5f8ff' }}>Free</Typography>
+                    <Typography sx={{ fontFamily: ff, fontSize: '0.78rem', color: '#a9b4dd' }}>₹0 — no payment needed</Typography>
                   </Box>
-                </CardContent>
-              </Card>
+                </Stack>
+                <Divider sx={{ mb: 2 }} />
+                {['Free study materials', 'Free exam papers', '1 attempt per free exam', 'Instant score', 'Course enrollment included'].map(t => (
+                  <Stack key={t} direction="row" alignItems="center" spacing={1.2} sx={{ mb: 1.2 }}>
+                    <CheckCircleIcon sx={{ fontSize: 18, color: '#34d399' }} />
+                    <Typography sx={{ fontFamily: ff, fontSize: '0.86rem', color: '#cdd6f4' }}>{t}</Typography>
+                  </Stack>
+                ))}
+              </GlassCard>
             </Grid>
-            {/* Premium Tier */}
             <Grid item xs={12} md={6}>
-              <Card sx={{ borderRadius: '16px', border: '2px solid #2563eb', boxShadow: '0 8px 30px rgba(37,99,235,0.12)', height: '100%', position: 'relative', overflow: 'visible' }}>
-                <Box sx={{ position: 'absolute', top: -12, right: 20, px: 2, py: 0.4, bgcolor: '#2563eb', borderRadius: '8px' }}>
-                  <Typography sx={{ fontFamily: ff, fontSize: '0.7rem', fontWeight: 700, color: '#fff', letterSpacing: 1 }}>RECOMMENDED</Typography>
+              <GlassCard glow="orange" sx={{ height: '100%', border: '1px solid rgba(246,137,20,0.45)' }}>
+                <Box sx={{ position: 'absolute', top: 14, right: 14 }}>
+                  <Chip label="RECOMMENDED" size="small" sx={{ fontFamily: ff, fontWeight: 800, fontSize: '0.62rem', letterSpacing: 1, color: '#1a1206', background: 'linear-gradient(135deg,#f68914,#ffb054)' }} />
                 </Box>
-                <CardContent sx={{ p: 3.5 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2.5 }}>
-                    <Box sx={{ width: 40, height: 40, borderRadius: '10px', bgcolor: 'rgba(37,99,235,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <StarIcon sx={{ color: '#2563eb' }} />
-                    </Box>
-                    <Box>
-                      <Typography sx={{ fontFamily: ff, fontWeight: 800, fontSize: '1.1rem', color: '#0f172a' }}>Premium Access</Typography>
-                      <Typography sx={{ fontFamily: ff, fontSize: '0.78rem', color: '#64748b' }}>One-time payment per course</Typography>
-                    </Box>
+                <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 2 }}>
+                  <Box sx={{ width: 40, height: 40, borderRadius: '12px', bgcolor: 'rgba(246,137,20,0.16)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <WorkspacePremiumIcon sx={{ color: '#ffb054' }} />
                   </Box>
-                  <Divider sx={{ mb: 2 }} />
-                  {['Everything in Free tier', 'All premium study materials', 'All premium exam papers', 'Unlimited re-attempts', 'Full course content unlocked', 'Priority support'].map((f, i) => (
-                    <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 1.2, mb: 1.2 }}>
-                      <CheckCircleOutlineIcon sx={{ fontSize: 18, color: '#2563eb' }} />
-                      <Typography sx={{ fontFamily: ff, fontSize: '0.85rem', color: '#334155' }}>{f}</Typography>
-                    </Box>
-                  ))}
-                </CardContent>
-              </Card>
+                  <Box>
+                    <Typography sx={{ fontFamily: ff, fontWeight: 800, fontSize: '1.1rem', color: '#f5f8ff' }}>Premium</Typography>
+                    <Typography sx={{ fontFamily: ff, fontSize: '0.78rem', color: '#a9b4dd' }}>One-time payment per course</Typography>
+                  </Box>
+                </Stack>
+                <Divider sx={{ mb: 2 }} />
+                {['Everything in Free', 'All premium materials & papers', 'Unlimited re-attempts', 'Full course unlocked', 'Priority support'].map(t => (
+                  <Stack key={t} direction="row" alignItems="center" spacing={1.2} sx={{ mb: 1.2 }}>
+                    <CheckCircleIcon sx={{ fontSize: 18, color: '#ffb054' }} />
+                    <Typography sx={{ fontFamily: ff, fontSize: '0.86rem', color: '#cdd6f4' }}>{t}</Typography>
+                  </Stack>
+                ))}
+              </GlassCard>
             </Grid>
           </Grid>
         </Container>
       </Box>
 
-      {/* Old catalog section removed — now appears as section 2 above */}
-
-      {/* ═══════ 7. CTA FOOTER ═══════ */}
-      <Box sx={{ py: { xs: 8, md: 10 }, background: 'linear-gradient(135deg, #2563eb, #1d4ed8)', textAlign: 'center' }}>
-        <Container maxWidth="sm">
-          <Typography sx={{ fontFamily: ff, fontSize: { xs: '1.5rem', md: '2rem' }, fontWeight: 800, color: '#fff', mb: 2 }}>
-            Ready to Start Preparing?
-          </Typography>
-          <Typography sx={{ fontFamily: ff, fontSize: '1rem', color: 'rgba(255,255,255,0.8)', mb: 4, lineHeight: 1.7 }}>
-            Create a free account, choose a course, and access study materials and exam papers right away.
-          </Typography>
-          {!isLoggedIn && (
-            <Button variant="contained" size="large" onClick={() => navigate('/public/register')}
-              sx={{ fontFamily: ff, fontWeight: 700, borderRadius: '12px', px: 5, py: 1.5, bgcolor: '#fff', color: '#1d4ed8', textTransform: 'none', fontSize: '1.05rem', boxShadow: '0 8px 24px rgba(0,0,0,0.2)', '&:hover': { bgcolor: '#f8fafc', transform: 'translateY(-2px)' }, transition: 'all 0.2s' }}>
-              Get Started — It's Free →
-            </Button>
-          )}
+      {/* ═══════════ CTA ═══════════ */}
+      <Box sx={{ py: { xs: 7, md: 10 }, px: 3 }}>
+        <Container maxWidth="md">
+          <Box sx={{
+            position: 'relative', overflow: 'hidden', borderRadius: '26px', textAlign: 'center', p: { xs: 4, md: 6 },
+            background: 'linear-gradient(120deg, rgba(47,107,255,0.28), rgba(246,137,20,0.24))',
+            border: '1px solid rgba(255,255,255,0.12)', backdropFilter: 'blur(16px)',
+          }}>
+            <Box sx={{ position: 'absolute', top: -60, right: -40, width: 240, height: 240, borderRadius: '50%', background: 'radial-gradient(circle, rgba(246,137,20,0.4), transparent 65%)', filter: 'blur(24px)' }} />
+            <Typography sx={{ fontFamily: ff, fontWeight: 800, fontSize: { xs: '1.6rem', md: '2.2rem' }, color: '#f5f8ff', mb: 1.5, position: 'relative' }}>
+              Ready to start preparing?
+            </Typography>
+            <Typography sx={{ fontFamily: ff, fontSize: '1rem', color: '#dbe3ff', mb: 4, maxWidth: 480, mx: 'auto', lineHeight: 1.7, position: 'relative' }}>
+              Create a free account, pick your exam, and access papers and study material right away.
+            </Typography>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} justifyContent="center" sx={{ position: 'relative' }}>
+              <Button variant="gradient" size="large" onClick={() => navigate(isLoggedIn ? '/public/dashboard' : '/public/register')} sx={{ px: 4, height: 50, fontSize: '1.02rem' }} endIcon={<ArrowForwardIcon />}>
+                {isLoggedIn ? 'Go to Dashboard' : 'Get started — it’s free'}
+              </Button>
+              <Button variant="outlined" size="large" onClick={scrollToCatalog} sx={{ px: 4, height: 50, fontSize: '1.02rem' }}>
+                Browse courses
+              </Button>
+            </Stack>
+          </Box>
         </Container>
       </Box>
     </Box>

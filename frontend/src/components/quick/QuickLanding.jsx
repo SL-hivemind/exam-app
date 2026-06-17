@@ -11,7 +11,7 @@ import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { useParams, useNavigate } from 'react-router-dom';
 import { quickApi } from '../../utils/api';
 
-const ff = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
+const ff = "'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
 
 export default function QuickLanding() {
   const { code: urlCode } = useParams();
@@ -64,15 +64,15 @@ export default function QuickLanding() {
         <Box sx={{ textAlign: 'center', mb: 4 }}>
           <Box sx={{
             width: 64, height: 64, borderRadius: '18px', mx: 'auto', mb: 2,
-            background: 'linear-gradient(135deg, #2563eb, #7c3aed)',
+            background: 'linear-gradient(135deg, #2563eb, #f68914)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
             <QuizIcon sx={{ fontSize: 32, color: '#fff' }} />
           </Box>
-          <Typography sx={{ fontFamily: ff, fontWeight: 800, fontSize: '1.5rem', color: '#0f172a' }}>
+          <Typography sx={{ fontFamily: ff, fontWeight: 800, fontSize: '1.5rem', color: '#eaf0ff' }}>
             Quick Exam
           </Typography>
-          <Typography sx={{ fontFamily: ff, fontSize: '0.85rem', color: '#64748b', mt: 0.5 }}>
+          <Typography sx={{ fontFamily: ff, fontSize: '0.85rem', color: '#a9b4dd', mt: 0.5 }}>
             No sign-up needed. Enter the code and start.
           </Typography>
         </Box>
@@ -90,7 +90,7 @@ export default function QuickLanding() {
               onChange={e => setCode(e.target.value.toUpperCase())}
               onKeyDown={e => e.key === 'Enter' && lookupExam()}
               InputProps={{
-                startAdornment: <InputAdornment position="start"><LinkIcon sx={{ color: '#94a3b8' }} /></InputAdornment>,
+                startAdornment: <InputAdornment position="start"><LinkIcon sx={{ color: '#aeb9e0' }} /></InputAdornment>,
                 sx: { fontFamily: ff, fontWeight: 700, fontSize: '1.2rem', letterSpacing: 3, borderRadius: '14px', textAlign: 'center' },
               }}
               sx={{ mb: 3 }}
@@ -118,18 +118,18 @@ export default function QuickLanding() {
               background: 'linear-gradient(135deg, rgba(37,99,235,0.06), rgba(124,58,237,0.06))',
               border: '1px solid rgba(37,99,235,0.12)',
             }}>
-              <Typography sx={{ fontFamily: ff, fontWeight: 800, fontSize: '1.1rem', color: '#0f172a', mb: 1.5 }}>
+              <Typography sx={{ fontFamily: ff, fontWeight: 800, fontSize: '1.1rem', color: '#eaf0ff', mb: 1.5 }}>
                 {examInfo.title}
               </Typography>
               <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
                 <Chip icon={<QuizIcon sx={{ fontSize: 16 }} />}
                   label={`${examInfo.total_questions} Questions`} size="small"
-                  sx={{ fontFamily: ff, fontWeight: 600, bgcolor: 'rgba(37,99,235,0.1)', color: '#2563eb' }} />
+                  sx={{ fontFamily: ff, fontWeight: 600, bgcolor: 'rgba(37,99,235,0.1)', color: '#cfe0ff' }} />
                 <Chip icon={<TimerIcon sx={{ fontSize: 16 }} />}
                   label={`${examInfo.duration_minutes} min`} size="small"
                   sx={{ fontFamily: ff, fontWeight: 600, bgcolor: 'rgba(245,158,11,0.1)', color: '#d97706' }} />
                 <Chip label={`Code: ${examInfo.code}`} size="small"
-                  sx={{ fontFamily: ff, fontWeight: 700, bgcolor: '#f1f5f9', color: '#475569' }} />
+                  sx={{ fontFamily: ff, fontWeight: 700, bgcolor: 'rgba(255,255,255,0.06)', color: '#9fb0d6' }} />
               </Box>
             </Box>
 
@@ -142,7 +142,7 @@ export default function QuickLanding() {
               onChange={e => setName(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && startExam()}
               InputProps={{
-                startAdornment: <InputAdornment position="start"><PersonIcon sx={{ color: '#94a3b8' }} /></InputAdornment>,
+                startAdornment: <InputAdornment position="start"><PersonIcon sx={{ color: '#aeb9e0' }} /></InputAdornment>,
                 sx: { fontFamily: ff, fontWeight: 600, borderRadius: '14px' },
               }}
               sx={{ mb: 3 }}
@@ -164,7 +164,7 @@ export default function QuickLanding() {
             <Button
               fullWidth size="small"
               onClick={() => { setExamInfo(null); setCode(''); }}
-              sx={{ fontFamily: ff, textTransform: 'none', mt: 1.5, color: '#64748b' }}
+              sx={{ fontFamily: ff, textTransform: 'none', mt: 1.5, color: '#a9b4dd' }}
             >
               Use a different code
             </Button>

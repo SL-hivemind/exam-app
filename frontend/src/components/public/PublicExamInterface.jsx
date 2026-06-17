@@ -21,7 +21,7 @@ import SchoolIcon from '@mui/icons-material/School';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { publicApi } from '../../utils/api';
 
-const ff = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
+const ff = "'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
 
 export default function PublicExamInterface() {
   const { contentId } = useParams();
@@ -296,16 +296,16 @@ export default function PublicExamInterface() {
   const statusColors = {
     answered: { bg: '#22c55e', color: '#fff' },
     marked: { bg: '#eab308', color: '#fff' },
-    unanswered: { bg: '#e2e8f0', color: '#64748b' },
+    unanswered: { bg: 'rgba(255,255,255,0.12)', color: '#a9b4dd' },
     correct: { bg: '#22c55e', color: '#fff' },
     wrong: { bg: '#ef4444', color: '#fff' },
   };
 
   // ── BUBBLE SHEET RENDERER ──
   const renderBubbleSheet = (inDrawer = false) => (
-    <Box sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column', bgcolor: inDrawer ? '#fff' : '#f8fafc' }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5, pb: 1.5, borderBottom: '1px solid #e2e8f0', flexShrink: 0 }}>
-        <Typography sx={{ fontFamily: ff, fontWeight: 700, fontSize: '1rem', color: '#0f172a' }}>
+    <Box sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column', bgcolor: inDrawer ? 'rgba(11,16,42,0.97)' : 'rgba(255,255,255,0.03)', backdropFilter: 'blur(14px)', borderLeft: inDrawer ? 'none' : '1px solid rgba(255,255,255,0.08)' }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5, pb: 1.5, borderBottom: '1px solid rgba(255,255,255,0.12)', flexShrink: 0 }}>
+        <Typography sx={{ fontFamily: ff, fontWeight: 700, fontSize: '1rem', color: '#eaf0ff' }}>
           {isStudyMode ? '📚 Study Mode' : reviewMode ? '📋 Review Mode' : 'Answer Sheet'}
         </Typography>
         {!reviewMode && !isStudyMode && (
@@ -314,20 +314,20 @@ export default function PublicExamInterface() {
         )}
         {isStudyMode && (
           <Chip icon={<SchoolIcon sx={{ fontSize: 16 }} />} label={`${studyScore.correct}✓ ${studyScore.wrong}✗`} size="small"
-            sx={{ fontFamily: ff, fontWeight: 700, bgcolor: 'rgba(168,85,247,0.1)', color: '#a855f7', '& .MuiChip-icon': { color: 'inherit' } }} />
+            sx={{ fontFamily: ff, fontWeight: 700, bgcolor: 'rgba(168,85,247,0.1)', color: '#f68914', '& .MuiChip-icon': { color: 'inherit' } }} />
         )}
       </Box>
       <Box sx={{ mb: 1.5, flexShrink: 0 }}>
-        <Typography sx={{ fontFamily: ff, fontSize: '0.78rem', color: '#64748b', mb: 0.5 }}>
+        <Typography sx={{ fontFamily: ff, fontSize: '0.78rem', color: '#a9b4dd', mb: 0.5 }}>
           {reviewMode ? `Score: ${reviewData?.attempt?.score ?? '?'} / ${totalQuestions}` : `Answered ${answeredCount} of ${totalQuestions}`}{markedCount > 0 && !reviewMode ? ` · ${markedCount} marked` : ''}
         </Typography>
-        <Box sx={{ height: 6, borderRadius: 3, bgcolor: '#e2e8f0', overflow: 'hidden' }}>
+        <Box sx={{ height: 6, borderRadius: 3, bgcolor: 'rgba(255,255,255,0.12)', overflow: 'hidden' }}>
           <Box sx={{ height: '100%', borderRadius: 3, width: `${totalQuestions > 0 ? (answeredCount / totalQuestions) * 100 : 0}%`, background: reviewMode ? 'linear-gradient(90deg, #22c55e, #16a34a)' : 'linear-gradient(90deg, #2563eb, #3b82f6)', transition: 'width 0.3s ease' }} />
         </Box>
       </Box>
       {/* Navigation Grid */}
       <Box sx={{ mb: 1.5, flexShrink: 0 }}>
-        <Typography sx={{ fontFamily: ff, fontSize: '0.72rem', fontWeight: 600, color: '#94a3b8', mb: 1, textTransform: 'uppercase', letterSpacing: 1 }}>Question Map</Typography>
+        <Typography sx={{ fontFamily: ff, fontSize: '0.72rem', fontWeight: 600, color: '#aeb9e0', mb: 1, textTransform: 'uppercase', letterSpacing: 1 }}>Question Map</Typography>
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.6 }}>
           {Array.from({ length: totalQuestions }, (_, i) => i + 1).map(qNum => {
             const sc = statusColors[getQStatus(qNum)];
@@ -337,12 +337,12 @@ export default function PublicExamInterface() {
         </Box>
         <Box sx={{ display: 'flex', gap: 1.5, mt: 1, flexWrap: 'wrap' }}>
           {(reviewMode
-            ? [{ label: 'Correct', bg: '#22c55e' }, { label: 'Wrong', bg: '#ef4444' }, { label: 'Skipped', bg: '#e2e8f0' }]
-            : [{ label: 'Answered', bg: '#22c55e' }, { label: 'Marked', bg: '#eab308' }, { label: 'Unanswered', bg: '#e2e8f0' }]
+            ? [{ label: 'Correct', bg: '#22c55e' }, { label: 'Wrong', bg: '#ef4444' }, { label: 'Skipped', bg: 'rgba(255,255,255,0.12)' }]
+            : [{ label: 'Answered', bg: '#22c55e' }, { label: 'Marked', bg: '#eab308' }, { label: 'Unanswered', bg: 'rgba(255,255,255,0.12)' }]
           ).map(l => (
             <Box key={l.label} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
               <Box sx={{ width: 10, height: 10, borderRadius: '3px', bgcolor: l.bg }} />
-              <Typography sx={{ fontFamily: ff, fontSize: '0.65rem', color: '#64748b' }}>{l.label}</Typography>
+              <Typography sx={{ fontFamily: ff, fontSize: '0.65rem', color: '#a9b4dd' }}>{l.label}</Typography>
             </Box>
           ))}
         </Box>
@@ -357,12 +357,12 @@ export default function PublicExamInterface() {
           const rowBorder = showReveal ? (answers[qStr] ? (answers[qStr]?.toUpperCase() === correctAns?.toUpperCase() ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)') : 'transparent') : (marked[qStr] ? 'rgba(234,179,8,0.2)' : answers[qStr] ? 'rgba(59,130,246,0.15)' : 'transparent');
           return (
             <Box key={qNum} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5, p: 1, borderRadius: '10px', bgcolor: rowBg, border: '1px solid', borderColor: rowBorder }}>
-              <Typography sx={{ fontFamily: ff, fontWeight: 700, fontSize: '0.82rem', color: '#64748b', minWidth: 32, textAlign: 'right' }}>Q{qNum}</Typography>
+              <Typography sx={{ fontFamily: ff, fontWeight: 700, fontSize: '0.82rem', color: '#a9b4dd', minWidth: 32, textAlign: 'right' }}>Q{qNum}</Typography>
               {options.map(opt => {
                 const isSelected = answers[qStr] === opt;
                 const isCorrect = showReveal && correctAns?.toUpperCase() === opt;
                 const isWrong = showReveal && isSelected && !isCorrect;
-                let bg = '#fff', clr = '#334155', border = '#d1d5db', shadow = 'none';
+                let bg = 'rgba(255,255,255,0.05)', clr = '#aeb9e0', border = 'rgba(255,255,255,0.16)', shadow = 'none';
                 if (showReveal) {
                   if (isCorrect) { bg = '#22c55e'; clr = '#fff'; border = '#22c55e'; shadow = '0 2px 8px rgba(34,197,94,0.3)'; }
                   else if (isWrong) { bg = '#ef4444'; clr = '#fff'; border = '#ef4444'; shadow = '0 2px 8px rgba(239,68,68,0.3)'; }
@@ -388,18 +388,18 @@ export default function PublicExamInterface() {
           );
         })}
       </Box>
-      <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid #e2e8f0', flexShrink: 0 }}>
+      <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid rgba(255,255,255,0.12)', flexShrink: 0 }}>
         {isStudyMode ? (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
             {studyFinished && (
               <Box sx={{ textAlign: 'center', mb: 1, p: 1.5, bgcolor: 'rgba(168,85,247,0.06)', borderRadius: '10px' }}>
-                <Typography sx={{ fontFamily: ff, fontWeight: 700, fontSize: '0.85rem', color: '#7c3aed' }}>
+                <Typography sx={{ fontFamily: ff, fontWeight: 700, fontSize: '0.85rem', color: '#f68914' }}>
                   {studyScore.correct} correct, {studyScore.wrong} wrong of {totalQuestions}
                 </Typography>
               </Box>
             )}
             <Button fullWidth onClick={handleStudyReset} startIcon={<ReplayIcon />} variant="outlined"
-              sx={{ fontFamily: ff, fontWeight: 700, textTransform: 'none', borderRadius: '12px', py: 1.2, borderColor: '#a855f7', color: '#a855f7', '&:hover': { bgcolor: 'rgba(168,85,247,0.06)', borderColor: '#9333ea' } }}>
+              sx={{ fontFamily: ff, fontWeight: 700, textTransform: 'none', borderRadius: '12px', py: 1.2, borderColor: '#f68914', color: '#f68914', '&:hover': { bgcolor: 'rgba(168,85,247,0.06)', borderColor: '#9333ea' } }}>
               Reset & Try Again
             </Button>
             <Button fullWidth onClick={() => navigate('/public/dashboard')} variant="contained"
@@ -425,7 +425,7 @@ export default function PublicExamInterface() {
   // ── LOADING STATE ──
   if (loading) {
     return (
-      <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: '#f8fafc' }}>
+      <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'transparent' }}>
         <CircularProgress />
       </Box>
     );
@@ -434,19 +434,19 @@ export default function PublicExamInterface() {
   // ── SUBMITTED / RESULT STATE (skip in study mode) ──
   if (!isStudyMode && submitted && result && !reviewMode) {
     return (
-      <Box sx={{ minHeight: '100vh', bgcolor: '#f8fafc', fontFamily: ff, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      <Box sx={{ minHeight: '100vh', bgcolor: 'transparent', fontFamily: ff, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         <Toolbar />
         <Box sx={{ maxWidth: 480, width: '100%', mt: { xs: 3, md: 8 }, px: 2, textAlign: 'center' }}>
-          <Box sx={{ bgcolor: '#fff', borderRadius: '20px', p: 5, border: '1px solid #e2e8f0', boxShadow: '0 12px 40px rgba(0,0,0,0.06)' }}>
+          <Box sx={{ bgcolor: 'rgba(255,255,255,0.05)', borderRadius: '20px', p: 5, border: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 12px 40px rgba(0,0,0,0.06)' }}>
             <CheckCircleIcon sx={{ fontSize: 64, color: '#22c55e', mb: 2 }} />
-            <Typography sx={{ fontFamily: ff, fontSize: '1.5rem', fontWeight: 800, color: '#0f172a', mb: 1 }}>Exam Submitted!</Typography>
+            <Typography sx={{ fontFamily: ff, fontSize: '1.5rem', fontWeight: 800, color: '#eaf0ff', mb: 1 }}>Exam Submitted!</Typography>
             {result.score !== null && result.score !== undefined ? (
               <Box sx={{ display: 'inline-flex', alignItems: 'baseline', gap: 0.5, bgcolor: 'rgba(34,197,94,0.08)', borderRadius: '16px', px: 4, py: 2, mt: 2, mb: 3 }}>
                 <Typography sx={{ fontFamily: ff, fontSize: '2.5rem', fontWeight: 800, color: '#16a34a' }}>{result.score}</Typography>
-                <Typography sx={{ fontFamily: ff, fontSize: '1rem', color: '#64748b' }}>/ {result.total_questions}</Typography>
+                <Typography sx={{ fontFamily: ff, fontSize: '1rem', color: '#a9b4dd' }}>/ {result.total_questions}</Typography>
               </Box>
             ) : (
-              <Typography sx={{ fontFamily: ff, color: '#64748b', mt: 2, mb: 3 }}>Your answers have been recorded.</Typography>
+              <Typography sx={{ fontFamily: ff, color: '#a9b4dd', mt: 2, mb: 3 }}>Your answers have been recorded.</Typography>
             )}
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
               <Button onClick={() => loadReview(result.id)} startIcon={<VisibilityIcon />}
@@ -454,7 +454,7 @@ export default function PublicExamInterface() {
                 Review Answers
               </Button>
               <Button onClick={() => navigate('/public/dashboard')}
-                sx={{ fontFamily: ff, fontWeight: 600, textTransform: 'none', borderRadius: '12px', px: 4, py: 1, color: '#64748b', '&:hover': { bgcolor: '#f1f5f9' } }}>
+                sx={{ fontFamily: ff, fontWeight: 600, textTransform: 'none', borderRadius: '12px', px: 4, py: 1, color: '#a9b4dd', '&:hover': { bgcolor: 'rgba(255,255,255,0.06)' } }}>
                 Go to Dashboard
               </Button>
             </Box>
@@ -466,11 +466,11 @@ export default function PublicExamInterface() {
 
   // ── MAIN EXAM INTERFACE ──
   return (
-    <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column', fontFamily: ff, bgcolor: '#f8fafc' }}>
+    <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column', fontFamily: ff, bgcolor: 'transparent' }}>
       {/* Top Bar */}
-      <Box sx={{ height: 56, bgcolor: '#0f172a', display: 'flex', alignItems: 'center', px: 2, justifyContent: 'space-between', flexShrink: 0 }}>
+      <Box sx={{ height: 56, bgcolor: 'rgba(13,18,48,0.65)', display: 'flex', alignItems: 'center', px: 2, justifyContent: 'space-between', flexShrink: 0 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <IconButton onClick={() => navigate(-1)} sx={{ color: '#94a3b8' }}><ArrowBackIcon /></IconButton>
+          <IconButton onClick={() => navigate(-1)} sx={{ color: '#aeb9e0' }}><ArrowBackIcon /></IconButton>
           <Typography sx={{ fontFamily: ff, fontWeight: 700, color: '#fff', fontSize: '0.9rem' }} noWrap>
             {isStudyMode ? '📚 Study: ' : reviewMode ? '📋 Review: ' : ''}{content?.title || 'Course Content'}
           </Typography>
@@ -478,7 +478,7 @@ export default function PublicExamInterface() {
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           {isStudyMode && (
             <Chip icon={<SchoolIcon sx={{ fontSize: 14 }} />} label="Practice" size="small"
-              sx={{ fontFamily: ff, fontWeight: 700, fontSize: '0.72rem', bgcolor: 'rgba(168,85,247,0.2)', color: '#d8b4fe', '& .MuiChip-icon': { color: 'inherit' } }} />
+              sx={{ fontFamily: ff, fontWeight: 700, fontSize: '0.72rem', bgcolor: 'rgba(168,85,247,0.2)', color: '#ffce9e', '& .MuiChip-icon': { color: 'inherit' } }} />
           )}
           {tabWarning > 0 && !reviewMode && !isStudyMode && (
             <Chip label={`⚠ ${tabWarning} tab switches`} size="small" sx={{ fontFamily: ff, fontWeight: 600, bgcolor: 'rgba(239,68,68,0.2)', color: '#fca5a5', fontSize: '0.72rem' }} />
@@ -488,7 +488,7 @@ export default function PublicExamInterface() {
               sx={{ fontFamily: ff, fontWeight: 700, fontSize: '0.85rem', bgcolor: timeLeft !== null && timeLeft < 300 ? 'rgba(239,68,68,0.2)' : 'rgba(59,130,246,0.2)', color: timeLeft !== null && timeLeft < 300 ? '#fca5a5' : '#93c5fd', '& .MuiChip-icon': { color: 'inherit' } }} />
           )}
           <Tooltip title={isFullscreen ? 'Exit Fullscreen' : 'Go Fullscreen'} arrow>
-            <IconButton onClick={isFullscreen ? exitFullscreen : enterFullscreen} sx={{ color: '#94a3b8' }}>
+            <IconButton onClick={isFullscreen ? exitFullscreen : enterFullscreen} sx={{ color: '#aeb9e0' }}>
               {isFullscreen ? <FullscreenExitIcon /> : <FullscreenIcon />}
             </IconButton>
           </Tooltip>
@@ -516,11 +516,11 @@ export default function PublicExamInterface() {
                   {/* Question number & mark */}
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                     <Chip label={`Question ${currentQ} of ${totalQuestions || cbtQuestions.length}`}
-                      sx={{ fontFamily: ff, fontWeight: 700, bgcolor: isStudyMode ? 'rgba(168,85,247,0.08)' : '#f1f5f9', color: isStudyMode ? '#7c3aed' : '#334155' }} />
+                      sx={{ fontFamily: ff, fontWeight: 700, bgcolor: isStudyMode ? 'rgba(246,137,20,0.12)' : 'rgba(255,255,255,0.06)', color: isStudyMode ? '#ffce9e' : '#aeb9e0' }} />
                     {!reviewMode && !isStudyMode && (
                       <Tooltip title={marked[qNum] ? 'Unmark' : 'Mark for Review'}>
                         <IconButton onClick={() => toggleMark(qNum)}>
-                          {marked[qNum] ? <BookmarkIcon sx={{ color: '#eab308' }} /> : <BookmarkBorderIcon sx={{ color: '#94a3b8' }} />}
+                          {marked[qNum] ? <BookmarkIcon sx={{ color: '#eab308' }} /> : <BookmarkBorderIcon sx={{ color: '#aeb9e0' }} />}
                         </IconButton>
                       </Tooltip>
                     )}
@@ -532,7 +532,7 @@ export default function PublicExamInterface() {
                     )}
                   </Box>
                   {/* Question text */}
-                  <Typography sx={{ fontFamily: ff, fontSize: { xs: '1rem', md: '1.15rem' }, fontWeight: 700, color: '#0f172a', mb: 3, lineHeight: 1.6 }}>
+                  <Typography sx={{ fontFamily: ff, fontSize: { xs: '1rem', md: '1.15rem' }, fontWeight: 700, color: '#eaf0ff', mb: 3, lineHeight: 1.6 }}>
                     {qData.question_text}
                   </Typography>
                   {/* Options */}
@@ -542,8 +542,8 @@ export default function PublicExamInterface() {
                       const isCorrect = showRevealQ && correctAns?.toUpperCase() === letter;
                       const isWrong = showRevealQ && isSelected && !isCorrect;
                       const isLocked = showRevealQ || (isStudyMode && studyRevealed[qNum]);
-                      let borderColor = '#e2e8f0';
-                      let bgColor = '#fff';
+                      let borderColor = 'rgba(255,255,255,0.12)';
+                      let bgColor = 'rgba(255,255,255,0.04)';
                       if (showRevealQ) {
                         if (isCorrect) { borderColor = '#16a34a'; bgColor = 'rgba(34,197,94,0.06)'; }
                         else if (isWrong) { borderColor = '#ef4444'; bgColor = 'rgba(239,68,68,0.06)'; }
@@ -563,10 +563,10 @@ export default function PublicExamInterface() {
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1 }}>
                             <Chip label={letter} size="small"
                               sx={{ fontFamily: ff, fontWeight: 800, width: 30, height: 28,
-                                bgcolor: isSelected ? (showRevealQ ? (isWrong ? '#fef2f2' : '#f0fdf4') : '#eff6ff') : '#f8fafc',
-                                color: isSelected ? (showRevealQ ? (isWrong ? '#ef4444' : '#16a34a') : '#2563eb') : '#64748b',
+                                bgcolor: isSelected ? (showRevealQ ? (isWrong ? 'rgba(251,113,133,0.16)' : 'rgba(52,211,153,0.16)') : 'rgba(47,107,255,0.18)') : 'rgba(255,255,255,0.06)',
+                                color: isSelected ? (showRevealQ ? (isWrong ? '#fda4af' : '#6ee7b7') : '#9fc1ff') : '#aeb9e0',
                                 border: 'none' }} />
-                            <Typography sx={{ fontFamily: ff, fontSize: { xs: '0.9rem', md: '0.95rem' }, color: '#334155', fontWeight: isSelected ? 600 : 400 }}>
+                            <Typography sx={{ fontFamily: ff, fontSize: { xs: '0.9rem', md: '0.95rem' }, color: '#c7d2fe', fontWeight: isSelected ? 600 : 400 }}>
                               {opts[letter] || ''}
                             </Typography>
                           </Box>
@@ -577,8 +577,8 @@ export default function PublicExamInterface() {
                   </Box>
                   {/* Explanation in review/study mode */}
                   {showRevealQ && qData.explanation && (
-                    <Box sx={{ mt: 3, p: 2, bgcolor: '#fffbeb', borderRadius: '12px', border: '1px solid #fde68a' }}>
-                      <Typography sx={{ fontFamily: ff, fontSize: '0.85rem', color: '#92400e', fontWeight: 600 }}>
+                    <Box sx={{ mt: 3, p: 2, bgcolor: 'rgba(251,191,36,0.10)', borderRadius: '12px', border: '1px solid rgba(251,191,36,0.30)' }}>
+                      <Typography sx={{ fontFamily: ff, fontSize: '0.85rem', color: '#fcd34d', fontWeight: 600 }}>
                         Explanation: {qData.explanation}
                       </Typography>
                     </Box>
@@ -604,7 +604,7 @@ export default function PublicExamInterface() {
                       </Button>
                     ) : isStudyMode && studyFinished ? (
                       <Button onClick={handleStudyReset} startIcon={<ReplayIcon />} variant="outlined"
-                        sx={{ fontFamily: ff, fontWeight: 700, textTransform: 'none', borderRadius: '12px', flex: 1, borderColor: '#a855f7', color: '#a855f7' }}>
+                        sx={{ fontFamily: ff, fontWeight: 700, textTransform: 'none', borderRadius: '12px', flex: 1, borderColor: '#f68914', color: '#f68914' }}>
                         Reset & Try Again
                       </Button>
                     ) : null}
@@ -617,7 +617,7 @@ export default function PublicExamInterface() {
               style={{ width: '100%', height: '100%', border: 'none' }} />
           ) : (
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-              <Typography sx={{ color: '#94a3b8' }}>Content not available</Typography>
+              <Typography sx={{ color: '#aeb9e0' }}>Content not available</Typography>
             </Box>
           )}
         </Box>
@@ -625,7 +625,7 @@ export default function PublicExamInterface() {
         {/* Desktop: Side Panel */}
         {!isMobile && (content?.content_type === 'pdf_exam' || content?.content_type === 'cbt_exam') && (
           <Box sx={{
-            width: 340, borderLeft: '1px solid #e2e8f0', bgcolor: '#f8fafc',
+            width: 340, borderLeft: '1px solid rgba(255,255,255,0.12)', bgcolor: 'transparent',
             overflow: 'hidden', display: 'flex', flexDirection: 'column',
           }}>
             {renderBubbleSheet()}
@@ -650,7 +650,7 @@ export default function PublicExamInterface() {
           <Drawer anchor="bottom" open={drawerOpen} onClose={() => setDrawerOpen(false)}
             PaperProps={{ sx: { borderTopLeftRadius: '20px', borderTopRightRadius: '20px', maxHeight: '80vh' } }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 2, pt: 1.5 }}>
-              <Typography sx={{ fontFamily: ff, fontWeight: 700, color: '#0f172a' }}>Answer Sheet</Typography>
+              <Typography sx={{ fontFamily: ff, fontWeight: 700, color: '#eaf0ff' }}>Answer Sheet</Typography>
               <IconButton onClick={() => setDrawerOpen(false)}><CloseIcon /></IconButton>
             </Box>
             {renderBubbleSheet(true)}
@@ -662,7 +662,7 @@ export default function PublicExamInterface() {
       <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)}>
         <DialogTitle sx={{ fontFamily: ff, fontWeight: 700 }}>Submit Exam?</DialogTitle>
         <DialogContent>
-          <Typography sx={{ fontFamily: ff, color: '#64748b' }}>
+          <Typography sx={{ fontFamily: ff, color: '#a9b4dd' }}>
             You have answered <strong>{answeredCount}</strong> of <strong>{totalQuestions}</strong> questions.
             {markedCount > 0 && <> (<strong>{markedCount}</strong> marked for review.)</>}
             {answeredCount < totalQuestions && ' Unanswered questions will be marked as unattempted.'}

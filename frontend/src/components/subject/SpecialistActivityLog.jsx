@@ -27,7 +27,7 @@ export default function SpecialistActivityLog() {
   };
 
   return (
-    <Box sx={{ p: 3, bgcolor: '#f5f7fa', minHeight: '100vh' }}>
+    <Box sx={{ p: 3, bgcolor: 'transparent', minHeight: '100vh' }}>
         <Stack direction="row" alignItems="center" spacing={2} mb={3}>
             <Button startIcon={<ArrowBackIcon/>} onClick={() => navigate(-1)}>Back</Button>
             <Typography variant="h5" fontWeight={700}>System Activity Log</Typography>
@@ -35,7 +35,7 @@ export default function SpecialistActivityLog() {
 
         <Paper elevation={2} sx={{ overflowX: 'auto' }}>
             <Table>
-                <TableHead sx={{ bgcolor: '#e3f2fd' }}>
+                <TableHead sx={{ bgcolor: 'rgba(99,102,241,0.20)' }}>
                     <TableRow>
                         <TableCell><strong>Time</strong></TableCell>
                         <TableCell><strong>Author</strong></TableCell>

@@ -1517,6 +1517,126 @@ def register_public_routes(app, token_required, role_required):
             'answers': answers,
         }), 200
 
+    # ── Practice meta: subjects + chapters for building a custom session ──
+    @app.get('/public/practice/meta')
+    @token_required
+    def public_practice_meta(current_user):
+        profile = get_public_profile(current_user)
+        if not profile:
+            return jsonify({'message': 'Public profile required'}), 403
+
+        subjects = sorted([r[0] for r in db.session.query(PublicQuestionRepo.subject).distinct().all() if r[0]])
+        rows = db.session.query(PublicQuestionRepo.subject, PublicQuestionRepo.chapter).distinct().all()
+        chapters_by_subject = {}
+        for subj, chap in rows:
+            if not subj or not chap:
+                continue
+            chapters_by_subject.setdefault(subj, set()).add(chap)
+        chapters_by_subject = {k: sorted(v) for k, v in chapters_by_subject.items()}
+        total = db.session.query(PublicQuestionRepo.id).count()
+        return jsonify({
+            'subjects': subjects,
+            'chapters_by_subject': chapters_by_subject,
+            'total_questions': total,
+        }), 200
+
+    # ── Interactive practice pool (powers adaptive + fixed difficulty) ──
+    @app.post('/public/practice/adaptive/start')
+    @token_required
+    def public_practice_adaptive_start(current_user):
+        """
+        Build a practice pool grouped by difficulty (WITH answers, for immediate
+        feedback). The client serves questions one-by-one — adapting difficulty
+        (easy→medium→hard on correct, the reverse on wrong) or fixed/random.
+        Accepts: subject, chapter, course_tags (optional), count (default 15).
+        """
+        profile = get_public_profile(current_user)
+        if not profile:
+            return jsonify({'message': 'Public profile required'}), 403
+
+        data = request.get_json(silent=True) or {}
+        subject = (data.get('subject') or '').strip()
+        chapter = (data.get('chapter') or '').strip()
+        course_tags = (data.get('course_tags') or '').strip()
+        count = min(max(int(data.get('count', 15)), 5), 50)
+
+        query = PublicQuestionRepo.query
+        if course_tags:
+            query = query.filter(PublicQuestionRepo.course_tags.ilike(f'%{course_tags}%'))
+        if subject:
+            query = query.filter(PublicQuestionRepo.subject.ilike(subject))
+        if chapter:
+            query = query.filter(PublicQuestionRepo.chapter.ilike(f'%{chapter}%'))
+
+        questions = query.all()
+        if not questions:
+            return jsonify({'message': 'No questions found for this selection'}), 404
+
+        random.shuffle(questions)
+        pool = {'easy': [], 'medium': [], 'hard': []}
+        for q in questions:
+            d = (q.difficulty or 'Medium').strip().lower()
+            bucket = 'easy' if d == 'easy' else 'hard' if d == 'hard' else 'medium'
+            pool[bucket].append(q.to_dict(include_answer=True))
+
+        sub = CourseSubscription.query.filter_by(public_profile_id=profile.id, status='active').first()
+        course_id = sub.course_id if sub else 0
+        attempt = PublicPracticeAttempt(
+            public_profile_id=profile.id,
+            course_id=course_id,
+            subject=subject or None,
+            chapter=chapter or None,
+            difficulty='Adaptive',
+            questions_json=json.dumps([]),
+            total_questions=count,
+            is_adaptive=True,
+        )
+        db.session.add(attempt)
+        db.session.commit()
+
+        return jsonify({
+            'attempt_id': attempt.id,
+            'count': count,
+            'pool': pool,
+            'available': {k: len(v) for k, v in pool.items()},
+        }), 200
+
+    # ── Persist an interactive practice run (graded server-side) ──
+    @app.post('/public/practice/<int:attempt_id>/submit-adaptive')
+    @token_required
+    def public_practice_submit_adaptive(current_user, attempt_id):
+        profile = get_public_profile(current_user)
+        if not profile:
+            return jsonify({'message': 'Public profile required'}), 403
+        attempt = PublicPracticeAttempt.query.get(attempt_id)
+        if not attempt or attempt.public_profile_id != profile.id:
+            return jsonify({'message': 'Attempt not found'}), 404
+        if attempt.submitted_at:
+            return jsonify({'message': 'Already submitted'}), 400
+
+        data = request.get_json(silent=True) or {}
+        asked_ids = data.get('asked_ids', []) or []
+        answers = data.get('answers', {}) or {}
+
+        questions = PublicQuestionRepo.query.filter(PublicQuestionRepo.id.in_(asked_ids)).all()
+        q_map = {q.id: q for q in questions}
+        score = 0
+        for qid in asked_ids:
+            q = q_map.get(qid)
+            if not q:
+                continue
+            ua = (answers.get(str(qid)) or '').upper()
+            if ua and ua == (q.correct_answer or '').upper():
+                score += q.marks or 1
+
+        attempt.questions_json = json.dumps(asked_ids)
+        attempt.answers_json = json.dumps(answers)
+        attempt.score = score
+        attempt.total_questions = len(asked_ids)
+        attempt.submitted_at = datetime.utcnow()
+        db.session.commit()
+        return jsonify({'score': score, 'total': len(asked_ids)}), 200
+
     # ═══════════════════════════════════════════════════════════
     # 12. DAILY CHALLENGE & STREAK SYSTEM
     # ═══════════════════════════════════════════════════════════

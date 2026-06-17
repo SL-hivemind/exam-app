@@ -45,13 +45,13 @@ onFilterChange(next);
 };
 
 return(
-<Box sx={{width:280,height:'100%',borderRight:'1px solid #e0e0e0',bgcolor:'#fff',display:'flex',flexDirection:'column'}}>
-<Box sx={{p:2,display:'flex',alignItems:'center',justifyContent:'space-between',bgcolor:'#f8f9fa'}}>
+<Box sx={{width:280,height:'100%',borderRadius:'18px',border:'1px solid rgba(255,255,255,0.10)',bgcolor:'rgba(255,255,255,0.04)',backdropFilter:'blur(16px)',display:'flex',flexDirection:'column',overflow:'hidden',boxShadow:'0 12px 40px rgba(2,6,23,0.5)'}}>
+<Box sx={{p:2,display:'flex',alignItems:'center',justifyContent:'space-between',background:'linear-gradient(135deg, rgba(47,107,255,0.16), rgba(246,137,20,0.14))',borderBottom:'1px solid rgba(255,255,255,0.08)'}}>
 <Stack direction="row" spacing={1} alignItems="center">
-<FilterIcon color="primary" fontSize="small"/>
-<Typography variant="subtitle1" fontWeight={700}>Filters</Typography>
+<FilterIcon sx={{color:'#ffb054'}} fontSize="small"/>
+<Typography variant="subtitle1" fontWeight={700} sx={{color:'#f5f8ff'}}>Filters</Typography>
 </Stack>
-<IconButton size="small" onClick={onReset} title="Reset All"><ResetIcon fontSize="small"/></IconButton>
+<IconButton size="small" onClick={onReset} title="Reset All" sx={{color:'#aab4dd'}}><ResetIcon fontSize="small"/></IconButton>
 </Box>
 
 <Divider/>

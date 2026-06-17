@@ -19,12 +19,21 @@ import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import LibraryBooksIcon from '@mui/icons-material/LibraryBooks';
 import SearchIcon from '@mui/icons-material/Search';
+import { useNavigate } from 'react-router-dom';
 import { publicApi } from '../../utils/api';
 
-const ff = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
+const ff = "'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
 
-export default function AdminPublicManager() {
-  const [tab, setTab] = useState(0);
+// Route per tab — keeps the admin "Public" workspace sidebar in sync with the
+// in-page tabs (Courses / Subscriptions / Question Bank).
+const TAB_ROUTES = ['/admin/portal', '/admin/portal/subscriptions', '/admin/portal/question-bank'];
+
+export default function AdminPublicManager({ initialTab = 0 }) {
+  const navigate = useNavigate();
+  const [tab, setTab] = useState(initialTab);
+
+  // Sync the active tab when the route (initialTab prop) changes.
+  useEffect(() => { setTab(initialTab); }, [initialTab]);
   const [courses, setCourses] = useState([]);
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [contents, setContents] = useState([]);
@@ -330,20 +339,20 @@ export default function AdminPublicManager() {
 
   return (
     <Box sx={{ fontFamily: ff }}>
-      <Typography sx={{ fontFamily: ff, fontSize: '1.4rem', fontWeight: 800, color: '#0f172a', mb: 0.5 }}>
+      <Typography sx={{ fontFamily: ff, fontSize: '1.4rem', fontWeight: 800, color: '#eaf0ff', mb: 0.5 }}>
         Public Exam Manager
       </Typography>
-      <Typography sx={{ fontFamily: ff, fontSize: '0.85rem', color: '#64748b', mb: 3 }}>
+      <Typography sx={{ fontFamily: ff, fontSize: '0.85rem', color: '#a9b4dd', mb: 3 }}>
         Create courses, upload content, and manage public exams.
       </Typography>
 
       {msg && <Alert severity="success" onClose={() => setMsg('')} sx={{ mb: 2, borderRadius: '12px' }}>{msg}</Alert>}
       {error && <Alert severity="error" onClose={() => setError('')} sx={{ mb: 2, borderRadius: '12px' }}>{error}</Alert>}
 
-      <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{
+      <Tabs value={tab} onChange={(_, v) => navigate(TAB_ROUTES[v])} sx={{
         mb: 3,
         '& .MuiTab-root': { fontFamily: ff, fontWeight: 600, textTransform: 'none' },
-        '& .Mui-selected': { color: '#2563eb' },
+        '& .Mui-selected': { color: '#cfe0ff' },
         '& .MuiTabs-indicator': { bgcolor: '#2563eb' },
       }}>
         <Tab icon={<DescriptionIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Courses" />
@@ -366,21 +375,21 @@ export default function AdminPublicManager() {
             {loading ? (
               <CircularProgress size={28} />
             ) : courses.length === 0 ? (
-              <Typography sx={{ color: '#94a3b8', textAlign: 'center', py: 4 }}>No courses yet</Typography>
+              <Typography sx={{ color: '#aeb9e0', textAlign: 'center', py: 4 }}>No courses yet</Typography>
             ) : (
               courses.map(c => (
                 <Card key={c.id}
                   onClick={() => setSelectedCourse(c)}
                   sx={{
                     mb: 1.5, borderRadius: '12px', cursor: 'pointer',
-                    border: selectedCourse?.id === c.id ? '2px solid #2563eb' : '1px solid #e2e8f0',
+                    border: selectedCourse?.id === c.id ? '2px solid #2563eb' : '1px solid rgba(255,255,255,0.12)',
                     boxShadow: 'none', transition: 'all 0.2s',
                     '&:hover': { borderColor: '#93c5fd' },
                   }}>
                   <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                       <Box sx={{ flex: 1 }}>
-                        <Typography sx={{ fontFamily: ff, fontWeight: 700, fontSize: '0.9rem', color: '#0f172a', mb: 0.5 }}>
+                        <Typography sx={{ fontFamily: ff, fontWeight: 700, fontSize: '0.9rem', color: '#eaf0ff', mb: 0.5 }}>
                           {c.title}
                         </Typography>
                         <Box sx={{ display: 'flex', gap: 0.5 }}>
@@ -391,7 +400,7 @@ export default function AdminPublicManager() {
                               color: c.status === 'published' ? '#16a34a' : '#eab308',
                             }} />
                           <Chip label={c.price > 0 ? `₹${c.price}` : 'Free'} size="small"
-                            sx={{ fontFamily: ff, fontWeight: 600, fontSize: '0.7rem', bgcolor: '#f1f5f9', color: '#64748b' }} />
+                            sx={{ fontFamily: ff, fontWeight: 600, fontSize: '0.7rem', bgcolor: 'rgba(255,255,255,0.06)', color: '#a9b4dd' }} />
                         </Box>
                       </Box>
                       <Box sx={{ display: 'flex', gap: 0.5 }}>
@@ -401,7 +410,7 @@ export default function AdminPublicManager() {
                           </IconButton>
                         </Tooltip>
                         <IconButton size="small" onClick={e => { e.stopPropagation(); openCourseDialog(c); }}>
-                          <EditIcon fontSize="small" sx={{ color: '#64748b' }} />
+                          <EditIcon fontSize="small" sx={{ color: '#a9b4dd' }} />
                         </IconButton>
                         <IconButton size="small" onClick={e => { e.stopPropagation(); deleteCourse(c.id); }}>
                           <DeleteIcon fontSize="small" sx={{ color: '#ef4444' }} />
@@ -419,7 +428,7 @@ export default function AdminPublicManager() {
             {selectedCourse ? (
               <>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                  <Typography sx={{ fontFamily: ff, fontWeight: 700, fontSize: '1.1rem', color: '#0f172a' }}>
+                  <Typography sx={{ fontFamily: ff, fontWeight: 700, fontSize: '1.1rem', color: '#eaf0ff' }}>
                     Content — {selectedCourse.title}
                   </Typography>
                   <Button startIcon={<UploadFileIcon />} onClick={() => openContentDialog()} variant="outlined"
@@ -428,9 +437,9 @@ export default function AdminPublicManager() {
                   </Button>
                 </Box>
                 {contents.length === 0 ? (
-                  <Box sx={{ textAlign: 'center', py: 6, bgcolor: '#fff', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
+                  <Box sx={{ textAlign: 'center', py: 6, bgcolor: 'rgba(255,255,255,0.05)', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.12)' }}>
                     <UploadFileIcon sx={{ fontSize: 40, color: '#d1d5db', mb: 1 }} />
-                    <Typography sx={{ color: '#94a3b8', fontFamily: ff }}>No content yet. Upload a PDF or use Smart Paste.</Typography>
+                    <Typography sx={{ color: '#aeb9e0', fontFamily: ff }}>No content yet. Upload a PDF or use Smart Paste.</Typography>
                   </Box>
                 ) : (
                   contents.map((c, i) => (
@@ -441,7 +450,7 @@ export default function AdminPublicManager() {
                       onDrop={(e) => handleDrop(e, i)}
                       sx={{
                         mb: 1.5, borderRadius: '12px',
-                        border: c.status === 'draft' ? '2px dashed #94a3b8' : '1px solid #e2e8f0',
+                        border: c.status === 'draft' ? '2px dashed #94a3b8' : '1px solid rgba(255,255,255,0.12)',
                         boxShadow: 'none',
                         opacity: c.status === 'draft' ? 0.75 : 1,
                         cursor: 'grab', '&:active': { cursor: 'grabbing' },
@@ -452,20 +461,20 @@ export default function AdminPublicManager() {
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                           <DragIndicatorIcon sx={{ color: '#cbd5e1', fontSize: 20, cursor: 'grab' }} />
                           <Box>
-                            <Typography sx={{ fontFamily: ff, fontWeight: 600, fontSize: '0.9rem', color: '#0f172a' }}>
+                            <Typography sx={{ fontFamily: ff, fontWeight: 600, fontSize: '0.9rem', color: '#eaf0ff' }}>
                               {c.title}
                             </Typography>
                             <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5, flexWrap: 'wrap' }}>
-                              <Chip label={c.content_type} size="small" sx={{ fontFamily: ff, fontSize: '0.68rem', bgcolor: '#f1f5f9', color: '#64748b' }} />
+                              <Chip label={c.content_type} size="small" sx={{ fontFamily: ff, fontSize: '0.68rem', bgcolor: 'rgba(255,255,255,0.06)', color: '#a9b4dd' }} />
                               <Chip label={c.is_free ? 'Free' : 'Paid'} size="small"
                                 sx={{
                                   fontFamily: ff, fontSize: '0.68rem',
                                   bgcolor: c.is_free ? 'rgba(34,197,94,0.1)' : 'rgba(168,85,247,0.1)',
-                                  color: c.is_free ? '#16a34a' : '#a855f7',
+                                  color: c.is_free ? '#16a34a' : '#f68914',
                                 }} />
                               {c.total_questions && (
                                 <Chip label={`${c.total_questions} Q`} size="small"
-                                  sx={{ fontFamily: ff, fontSize: '0.68rem', bgcolor: 'rgba(59,130,246,0.1)', color: '#2563eb' }} />
+                                  sx={{ fontFamily: ff, fontSize: '0.68rem', bgcolor: 'rgba(59,130,246,0.1)', color: '#cfe0ff' }} />
                               )}
                               {c.subject && (
                                 <Chip label={c.subject} size="small"
@@ -491,13 +500,13 @@ export default function AdminPublicManager() {
                             <IconButton size="small" onClick={() => toggleContentStatus(c)}>
                               {c.status === 'draft'
                                 ? <PublishIcon fontSize="small" sx={{ color: '#16a34a' }} />
-                                : <VisibilityOffIcon fontSize="small" sx={{ color: '#94a3b8' }} />}
+                                : <VisibilityOffIcon fontSize="small" sx={{ color: '#aeb9e0' }} />}
                             </IconButton>
                           </Tooltip>
                           {c.content_type === 'cbt_exam' && (
                             <Tooltip title="View Questions">
                               <IconButton size="small" onClick={() => viewQuestions(c.id)}>
-                                <QuizIcon fontSize="small" sx={{ color: '#2563eb' }} />
+                                <QuizIcon fontSize="small" sx={{ color: '#cfe0ff' }} />
                               </IconButton>
                             </Tooltip>
                           )}
@@ -507,7 +516,7 @@ export default function AdminPublicManager() {
                             </IconButton>
                           </Tooltip>
                           <IconButton size="small" onClick={() => openContentDialog(c)}>
-                            <EditIcon fontSize="small" sx={{ color: '#64748b' }} />
+                            <EditIcon fontSize="small" sx={{ color: '#a9b4dd' }} />
                           </IconButton>
                           <IconButton size="small" onClick={() => deleteContent(c.id)}>
                             <DeleteIcon fontSize="small" sx={{ color: '#ef4444' }} />
@@ -519,38 +528,38 @@ export default function AdminPublicManager() {
                 )}
               </>
             ) : (
-              <Box sx={{ textAlign: 'center', py: 10, bgcolor: '#fff', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
+              <Box sx={{ textAlign: 'center', py: 10, bgcolor: 'rgba(255,255,255,0.05)', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.12)' }}>
                 <VisibilityIcon sx={{ fontSize: 40, color: '#d1d5db', mb: 1 }} />
-                <Typography sx={{ color: '#94a3b8', fontFamily: ff }}>Select a course to manage its content</Typography>
+                <Typography sx={{ color: '#aeb9e0', fontFamily: ff }}>Select a course to manage its content</Typography>
               </Box>
             )}
           </Box>
         </Box>
       ) : (
         /* ── Subscriptions Tab ── */
-        <Box sx={{ bgcolor: '#fff', borderRadius: '14px', border: '1px solid #e2e8f0', overflow: 'auto' }}>
+        <Box sx={{ bgcolor: 'rgba(255,255,255,0.05)', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.12)', overflow: 'auto' }}>
           {subs.length === 0 ? (
             <Box sx={{ textAlign: 'center', py: 6 }}>
-              <Typography sx={{ color: '#94a3b8', fontFamily: ff }}>No subscriptions yet</Typography>
+              <Typography sx={{ color: '#aeb9e0', fontFamily: ff }}>No subscriptions yet</Typography>
             </Box>
           ) : (
             <Box sx={{ minWidth: 600 }}>
-              <Box sx={{ display: 'flex', px: 2.5, py: 1.5, bgcolor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+              <Box sx={{ display: 'flex', px: 2.5, py: 1.5, bgcolor: 'transparent', borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
                 {['User', 'Email', 'Course', 'Status', 'Date'].map(h => (
-                  <Typography key={h} sx={{ flex: 1, fontFamily: ff, fontWeight: 700, fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase' }}>
+                  <Typography key={h} sx={{ flex: 1, fontFamily: ff, fontWeight: 700, fontSize: '0.75rem', color: '#a9b4dd', textTransform: 'uppercase' }}>
                     {h}
                   </Typography>
                 ))}
               </Box>
               {subs.map(s => (
-                <Box key={s.id} sx={{ display: 'flex', px: 2.5, py: 1.5, borderBottom: '1px solid #f1f5f9', alignItems: 'center' }}>
-                  <Typography sx={{ flex: 1, fontFamily: ff, fontSize: '0.85rem', fontWeight: 600, color: '#0f172a' }}>
+                <Box key={s.id} sx={{ display: 'flex', px: 2.5, py: 1.5, borderBottom: '1px solid rgba(255,255,255,0.06)', alignItems: 'center' }}>
+                  <Typography sx={{ flex: 1, fontFamily: ff, fontSize: '0.85rem', fontWeight: 600, color: '#eaf0ff' }}>
                     {s.username || '—'}
                   </Typography>
-                  <Typography sx={{ flex: 1, fontFamily: ff, fontSize: '0.82rem', color: '#64748b' }}>
+                  <Typography sx={{ flex: 1, fontFamily: ff, fontSize: '0.82rem', color: '#a9b4dd' }}>
                     {s.email || '—'}
                   </Typography>
-                  <Typography sx={{ flex: 1, fontFamily: ff, fontSize: '0.82rem', color: '#0f172a' }}>
+                  <Typography sx={{ flex: 1, fontFamily: ff, fontSize: '0.82rem', color: '#eaf0ff' }}>
                     {s.course_title || '—'}
                   </Typography>
                   <Box sx={{ flex: 1 }}>
@@ -561,7 +570,7 @@ export default function AdminPublicManager() {
                         color: s.status === 'active' ? '#16a34a' : '#eab308',
                       }} />
                   </Box>
-                  <Typography sx={{ flex: 1, fontFamily: ff, fontSize: '0.78rem', color: '#94a3b8' }}>
+                  <Typography sx={{ flex: 1, fontFamily: ff, fontSize: '0.78rem', color: '#aeb9e0' }}>
                     {s.enrolled_at ? new Date(s.enrolled_at).toLocaleDateString() : '—'}
                   </Typography>
                 </Box>
@@ -576,10 +585,10 @@ export default function AdminPublicManager() {
         <Box>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
             <Box>
-              <Typography variant="h5" sx={{ fontFamily: ff, fontWeight: 800, color: '#1e293b' }}>
+              <Typography variant="h5" sx={{ fontFamily: ff, fontWeight: 800, color: '#dbe3ff' }}>
                 Central Question Bank
               </Typography>
-              <Typography sx={{ fontFamily: ff, fontSize: '0.9rem', color: '#64748b', mt: 0.5 }}>
+              <Typography sx={{ fontFamily: ff, fontSize: '0.9rem', color: '#a9b4dd', mt: 0.5 }}>
                 Questions for Dynamic Practice & Daily Challenges. Completely isolated from B2B school exams.
               </Typography>
             </Box>
@@ -589,7 +598,7 @@ export default function AdminPublicManager() {
             </Button>
           </Box>
 
-          <Card sx={{ borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: 'none', mb: 3 }}>
+          <Card sx={{ borderRadius: '16px', border: '1px solid rgba(255,255,255,0.12)', boxShadow: 'none', mb: 3 }}>
             <CardContent sx={{ p: 2 }}>
               <Grid container spacing={2}>
                 <Grid item xs={12} sm={3}>
@@ -624,38 +633,38 @@ export default function AdminPublicManager() {
                 <Grid item xs={12} sm={3}>
                   <TextField fullWidth size="small" placeholder="Search text or ID..." value={repoFilters.search}
                     onChange={e => { setRepoFilters({ ...repoFilters, search: e.target.value }); setRepoPage(1); }}
-                    InputProps={{ startAdornment: <SearchIcon sx={{ color: '#94a3b8', mr: 1, fontSize: 20 }} /> }} sx={inputSx} />
+                    InputProps={{ startAdornment: <SearchIcon sx={{ color: '#aeb9e0', mr: 1, fontSize: 20 }} /> }} sx={inputSx} />
                 </Grid>
               </Grid>
             </CardContent>
           </Card>
 
           {repoLoading ? <CircularProgress /> : repoQuestions.length === 0 ? (
-            <Typography sx={{ fontFamily: ff, color: '#64748b' }}>No questions found.</Typography>
+            <Typography sx={{ fontFamily: ff, color: '#a9b4dd' }}>No questions found.</Typography>
           ) : (
             <Box>
-              <Typography sx={{ fontFamily: ff, fontSize: '0.85rem', color: '#64748b', mb: 2, fontWeight: 600 }}>
+              <Typography sx={{ fontFamily: ff, fontSize: '0.85rem', color: '#a9b4dd', mb: 2, fontWeight: 600 }}>
                 Showing {repoQuestions.length} of {repoTotal} questions
               </Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                 {repoQuestions.map(q => (
-                  <Card key={q.id} sx={{ borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: 'none' }}>
+                  <Card key={q.id} sx={{ borderRadius: '12px', border: '1px solid rgba(255,255,255,0.12)', boxShadow: 'none' }}>
                     <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
                       <Box sx={{ display: 'flex', gap: 2 }}>
                         <Box sx={{ minWidth: 60 }}>
-                          <Typography sx={{ fontFamily: ff, fontWeight: 700, fontSize: '0.8rem', color: '#64748b' }}>{q.custom_id}</Typography>
+                          <Typography sx={{ fontFamily: ff, fontWeight: 700, fontSize: '0.8rem', color: '#a9b4dd' }}>{q.custom_id}</Typography>
                           <Chip label={q.difficulty} size="small" sx={{ mt: 1, fontFamily: ff, fontSize: '0.7rem', height: 20, fontWeight: 600,
                             bgcolor: q.difficulty === 'Easy' ? '#dcfce7' : q.difficulty === 'Medium' ? '#fef08a' : '#fee2e2',
                             color: q.difficulty === 'Easy' ? '#166534' : q.difficulty === 'Medium' ? '#854d0e' : '#991b1b' }} />
                         </Box>
                         <Box sx={{ flex: 1 }}>
                           <Box sx={{ display: 'flex', gap: 1, mb: 1, flexWrap: 'wrap' }}>
-                            <Chip label={q.subject} size="small" sx={{ fontFamily: ff, fontSize: '0.7rem', height: 20, bgcolor: '#f1f5f9', color: '#334155' }} />
-                            {q.chapter && <Chip label={q.chapter} size="small" sx={{ fontFamily: ff, fontSize: '0.7rem', height: 20, bgcolor: '#f1f5f9', color: '#334155' }} />}
+                            <Chip label={q.subject} size="small" sx={{ fontFamily: ff, fontSize: '0.7rem', height: 20, bgcolor: 'rgba(255,255,255,0.06)', color: '#c7d2fe' }} />
+                            {q.chapter && <Chip label={q.chapter} size="small" sx={{ fontFamily: ff, fontSize: '0.7rem', height: 20, bgcolor: 'rgba(255,255,255,0.06)', color: '#c7d2fe' }} />}
                             {q.course_tags && <Chip label={q.course_tags} size="small" sx={{ fontFamily: ff, fontSize: '0.7rem', height: 20, bgcolor: '#e0e7ff', color: '#4338ca' }} />}
                             {q.is_pyq && <Chip label={`PYQ ${q.pyq_year || ''}`} size="small" sx={{ fontFamily: ff, fontSize: '0.7rem', height: 20, bgcolor: '#fce7f3', color: '#be185d' }} />}
                           </Box>
-                          <Typography sx={{ fontFamily: ff, fontSize: '0.9rem', color: '#1e293b', fontWeight: 500 }}>{q.text}</Typography>
+                          <Typography sx={{ fontFamily: ff, fontSize: '0.9rem', color: '#dbe3ff', fontWeight: 500 }}>{q.text}</Typography>
                           <Box sx={{ mt: 1, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                             {['a', 'b', 'c', 'd'].map(opt => q[`option_${opt}`] && (
                               <Typography key={opt} sx={{ fontFamily: ff, fontSize: '0.8rem', color: q.correct_answer.toLowerCase() === opt ? '#16a34a' : '#64748b', fontWeight: q.correct_answer.toLowerCase() === opt ? 700 : 400 }}>
@@ -764,7 +773,7 @@ export default function AdminPublicManager() {
           )}
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 3 }}>
-          <Button onClick={() => setRepoSmartPasteDialog(false)} sx={{ fontFamily: ff, color: '#64748b', textTransform: 'none' }}>
+          <Button onClick={() => setRepoSmartPasteDialog(false)} sx={{ fontFamily: ff, color: '#a9b4dd', textTransform: 'none' }}>
             Done
           </Button>
           <Button onClick={submitRepoSmartPaste} disabled={busy || !repoSmartPasteText.trim() || !repoSmartPasteMeta.subject.trim()} variant="contained"
@@ -896,8 +905,8 @@ export default function AdminPublicManager() {
           <ContentPasteIcon sx={{ color: '#f59e0b' }} /> Smart Paste {smartPasteTarget ? `— ${smartPasteTarget.title}` : ''}
         </DialogTitle>
         <DialogContent>
-          <Typography sx={{ fontFamily: ff, fontSize: '0.82rem', color: '#64748b', mb: 2 }}>
-            Paste raw question text below. Supported format: <code style={{ fontSize: '0.78rem', background: '#f1f5f9', padding: '2px 6px', borderRadius: 4 }}>1. Question? A) opt B) opt C) opt D) opt Answer: B</code>
+          <Typography sx={{ fontFamily: ff, fontSize: '0.82rem', color: '#a9b4dd', mb: 2 }}>
+            Paste raw question text below. Supported format: <code style={{ fontSize: '0.78rem', background: 'rgba(255,255,255,0.06)', padding: '2px 6px', borderRadius: 4 }}>1. Question? A) opt B) opt C) opt D) opt Answer: B</code>
           </Typography>
           <TextField fullWidth multiline rows={14} placeholder={"1. What is the capital of India?\nA) Mumbai\nB) New Delhi\nC) Chennai\nD) Kolkata\nAnswer: B\nExplanation: New Delhi is the capital.\n\n2. Who wrote Hamlet?\nA) Dickens\nB) Shakespeare\nC) Austen\nD) Twain\nAnswer: B"}
             value={smartPasteText} onChange={e => setSmartPasteText(e.target.value)}
@@ -928,8 +937,8 @@ export default function AdminPublicManager() {
           {questionPreview.questions.map((q) => {
             const opts = typeof q.options_json === 'string' ? JSON.parse(q.options_json) : q.options_json;
             return (
-              <Box key={q.id} sx={{ mb: 2.5, p: 2, bgcolor: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                <Typography sx={{ fontFamily: ff, fontWeight: 700, fontSize: '0.9rem', color: '#0f172a', mb: 1 }}>
+              <Box key={q.id} sx={{ mb: 2.5, p: 2, bgcolor: 'transparent', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.12)' }}>
+                <Typography sx={{ fontFamily: ff, fontWeight: 700, fontSize: '0.9rem', color: '#eaf0ff', mb: 1 }}>
                   Q{q.order_index}. {q.question_text}
                 </Typography>
                 {['A', 'B', 'C', 'D'].map(letter => (
@@ -938,14 +947,14 @@ export default function AdminPublicManager() {
                       sx={{ fontFamily: ff, fontWeight: 700, width: 28, height: 24,
                         bgcolor: q.correct_option === letter ? 'rgba(34,197,94,0.15)' : '#fff',
                         color: q.correct_option === letter ? '#16a34a' : '#64748b',
-                        border: q.correct_option === letter ? '1.5px solid #16a34a' : '1px solid #e2e8f0' }} />
-                    <Typography sx={{ fontFamily: ff, fontSize: '0.85rem', color: '#334155' }}>
+                        border: q.correct_option === letter ? '1.5px solid #16a34a' : '1px solid rgba(255,255,255,0.12)' }} />
+                    <Typography sx={{ fontFamily: ff, fontSize: '0.85rem', color: '#c7d2fe' }}>
                       {opts[letter] || ''}
                     </Typography>
                   </Box>
                 ))}
                 {q.explanation && (
-                  <Typography sx={{ fontFamily: ff, fontSize: '0.78rem', color: '#64748b', mt: 1, fontStyle: 'italic' }}>
+                  <Typography sx={{ fontFamily: ff, fontSize: '0.78rem', color: '#a9b4dd', mt: 1, fontStyle: 'italic' }}>
                     Explanation: {q.explanation}
                   </Typography>
                 )}

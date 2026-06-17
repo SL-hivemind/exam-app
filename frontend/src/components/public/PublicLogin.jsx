@@ -9,7 +9,7 @@ import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import { publicApi } from '../../utils/api';
 import useAuth from '../../hooks/useAuth';
 
-const ff = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
+const ff = "'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
 
 export default function PublicLogin() {
   const navigate = useNavigate();
@@ -45,10 +45,10 @@ export default function PublicLogin() {
   const inputSx = {
     '& .MuiOutlinedInput-root': {
       fontFamily: ff, fontSize: '0.9rem', borderRadius: '10px',
-      bgcolor: '#f8fafc', height: 46,
-      '& fieldset': { borderColor: '#e2e8f0' },
+      bgcolor: 'transparent', height: 46,
+      '& fieldset': { borderColor: 'rgba(255,255,255,0.12)' },
       '&:hover fieldset': { borderColor: '#93c5fd' },
-      '&.Mui-focused': { bgcolor: '#fff', boxShadow: '0 0 0 3px rgba(59,130,246,0.1)' },
+      '&.Mui-focused': { bgcolor: 'rgba(255,255,255,0.05)', boxShadow: '0 0 0 3px rgba(59,130,246,0.1)' },
       '&.Mui-focused fieldset': { borderColor: '#3b82f6', borderWidth: 2 },
     },
   };
@@ -59,7 +59,7 @@ export default function PublicLogin() {
         <Box
           component="form" onSubmit={handleSubmit}
           sx={{
-            bgcolor: '#fff', borderRadius: '20px', p: { xs: 3.5, sm: 4.5 },
+            bgcolor: 'rgba(255,255,255,0.05)', borderRadius: '20px', p: { xs: 3.5, sm: 4.5 },
             border: '1px solid rgba(0,0,0,0.06)',
             boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 12px 40px rgba(0,0,0,0.06)',
           }}
@@ -73,10 +73,10 @@ export default function PublicLogin() {
             <Typography sx={{ color: '#fff', fontWeight: 800, fontSize: '1rem' }}>SL</Typography>
           </Box>
 
-          <Typography sx={{ fontFamily: ff, fontSize: '1.5rem', fontWeight: 800, color: '#0f172a', mb: 0.5 }}>
+          <Typography sx={{ fontFamily: ff, fontSize: '1.5rem', fontWeight: 800, color: '#eaf0ff', mb: 0.5 }}>
             Sign In
           </Typography>
-          <Typography sx={{ fontFamily: ff, fontSize: '0.85rem', color: '#94a3b8', mb: 3 }}>
+          <Typography sx={{ fontFamily: ff, fontSize: '0.85rem', color: '#aeb9e0', mb: 3 }}>
             Access your public exam dashboard
           </Typography>
 
@@ -84,7 +84,7 @@ export default function PublicLogin() {
 
           <Box sx={{ mb: 2 }}>
             <Typography component="label" htmlFor="public-email" sx={{
-              fontFamily: ff, fontSize: '0.82rem', fontWeight: 600, color: '#334155', display: 'block', mb: 0.8,
+              fontFamily: ff, fontSize: '0.82rem', fontWeight: 600, color: '#c7d2fe', display: 'block', mb: 0.8,
             }}>Email</Typography>
             <TextField id="public-email" fullWidth placeholder="your@email.com" type="email"
               value={email} onChange={e => setEmail(e.target.value)} required size="small" sx={inputSx} />
@@ -92,14 +92,14 @@ export default function PublicLogin() {
 
           <Box sx={{ mb: 1 }}>
             <Typography component="label" htmlFor="public-pw" sx={{
-              fontFamily: ff, fontSize: '0.82rem', fontWeight: 600, color: '#334155', display: 'block', mb: 0.8,
+              fontFamily: ff, fontSize: '0.82rem', fontWeight: 600, color: '#c7d2fe', display: 'block', mb: 0.8,
             }}>Password</Typography>
             <TextField id="public-pw" fullWidth placeholder="••••••••" type={showPw ? 'text' : 'password'}
               value={password} onChange={e => setPassword(e.target.value)} required size="small" sx={inputSx}
               InputProps={{
                 endAdornment: (
                   <InputAdornment position="end">
-                    <IconButton onClick={() => setShowPw(!showPw)} edge="end" size="small" sx={{ color: '#94a3b8' }}>
+                    <IconButton onClick={() => setShowPw(!showPw)} edge="end" size="small" sx={{ color: '#aeb9e0' }}>
                       {showPw ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
                     </IconButton>
                   </InputAdornment>
@@ -110,7 +110,7 @@ export default function PublicLogin() {
 
           <Box sx={{ textAlign: 'right', mt: 0.5 }}>
             <RouterLink to="/public/forgot-password" style={{ textDecoration: 'none' }}>
-              <Typography sx={{ fontFamily: ff, fontSize: '0.82rem', color: '#3b82f6', fontWeight: 500, cursor: 'pointer' }}>
+              <Typography sx={{ fontFamily: ff, fontSize: '0.82rem', color: '#9fc1ff', fontWeight: 500, cursor: 'pointer' }}>
                 Forgot password?
               </Typography>
             </RouterLink>
@@ -128,9 +128,9 @@ export default function PublicLogin() {
           </Button>
 
           <Box sx={{ mt: 3, textAlign: 'center' }}>
-            <Typography sx={{ fontFamily: ff, fontSize: '0.82rem', color: '#94a3b8' }}>
+            <Typography sx={{ fontFamily: ff, fontSize: '0.82rem', color: '#aeb9e0' }}>
               Don't have an account?{' '}
-              <RouterLink to="/public/register" style={{ color: '#3b82f6', fontWeight: 600, textDecoration: 'none' }}>
+              <RouterLink to="/public/register" style={{ color: '#9fc1ff', fontWeight: 600, textDecoration: 'none' }}>
                 Create one
               </RouterLink>
             </Typography>

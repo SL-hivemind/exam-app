@@ -10,7 +10,7 @@ import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import { publicApi } from '../../utils/api';
 import useAuth from '../../hooks/useAuth';
 
-const ff = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
+const ff = "'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
 
 export default function PublicRegister() {
   const navigate = useNavigate();
@@ -71,10 +71,10 @@ export default function PublicRegister() {
   const inputSx = {
     '& .MuiOutlinedInput-root': {
       fontFamily: ff, fontSize: '0.9rem', borderRadius: '10px',
-      bgcolor: '#f8fafc', height: 46,
-      '& fieldset': { borderColor: '#e2e8f0' },
+      bgcolor: 'transparent', height: 46,
+      '& fieldset': { borderColor: 'rgba(255,255,255,0.12)' },
       '&:hover fieldset': { borderColor: '#93c5fd' },
-      '&.Mui-focused': { bgcolor: '#fff', boxShadow: '0 0 0 3px rgba(59,130,246,0.1)' },
+      '&.Mui-focused': { bgcolor: 'rgba(255,255,255,0.05)', boxShadow: '0 0 0 3px rgba(59,130,246,0.1)' },
       '&.Mui-focused fieldset': { borderColor: '#3b82f6', borderWidth: 2 },
     },
   };
@@ -83,7 +83,7 @@ export default function PublicRegister() {
     <Container maxWidth="sm" sx={{ py: { xs: 4, md: 6 } }}>
       <Box sx={{ maxWidth: 440, mx: 'auto' }}>
         <Box sx={{
-          bgcolor: '#fff', borderRadius: '20px', p: { xs: 3, sm: 4.5 },
+          bgcolor: 'rgba(255,255,255,0.05)', borderRadius: '20px', p: { xs: 3, sm: 4.5 },
           border: '1px solid rgba(0,0,0,0.06)',
           boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 12px 40px rgba(0,0,0,0.06)',
         }}>
@@ -96,10 +96,10 @@ export default function PublicRegister() {
             <Typography sx={{ color: '#fff', fontWeight: 800, fontSize: '1rem' }}>SL</Typography>
           </Box>
 
-          <Typography sx={{ fontFamily: ff, fontSize: '1.5rem', fontWeight: 800, color: '#0f172a', mb: 0.5 }}>
+          <Typography sx={{ fontFamily: ff, fontSize: '1.5rem', fontWeight: 800, color: '#eaf0ff', mb: 0.5 }}>
             Create Account
           </Typography>
-          <Typography sx={{ fontFamily: ff, fontSize: '0.85rem', color: '#94a3b8', mb: 3 }}>
+          <Typography sx={{ fontFamily: ff, fontSize: '0.85rem', color: '#aeb9e0', mb: 3 }}>
             Join the Public Exam Platform
           </Typography>
 
@@ -124,7 +124,7 @@ export default function PublicRegister() {
                 InputProps={{
                   endAdornment: (
                     <InputAdornment position="end">
-                      <IconButton onClick={() => setShowPw(!showPw)} edge="end" size="small" sx={{ color: '#94a3b8' }}>
+                      <IconButton onClick={() => setShowPw(!showPw)} edge="end" size="small" sx={{ color: '#aeb9e0' }}>
                         {showPw ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
                       </IconButton>
                     </InputAdornment>
@@ -151,7 +151,7 @@ export default function PublicRegister() {
             </Box>
           ) : (
             <Box component="form" onSubmit={handleVerify}>
-              <Typography sx={{ fontFamily: ff, fontSize: '0.85rem', color: '#64748b', mb: 2, textAlign: 'center' }}>
+              <Typography sx={{ fontFamily: ff, fontSize: '0.85rem', color: '#a9b4dd', mb: 2, textAlign: 'center' }}>
                 Enter the 6-digit code sent to <strong>{emailHint}</strong>
               </Typography>
               <TextField fullWidth placeholder="Enter OTP" value={otp}
@@ -168,7 +168,7 @@ export default function PublicRegister() {
                 {busy ? <CircularProgress size={22} sx={{ color: '#fff' }} /> : 'Verify & Create Account'}
               </Button>
               <Button fullWidth onClick={() => { setStep(0); setSuccess(''); }} sx={{
-                mt: 1.5, fontFamily: ff, fontWeight: 500, textTransform: 'none', color: '#64748b',
+                mt: 1.5, fontFamily: ff, fontWeight: 500, textTransform: 'none', color: '#a9b4dd',
               }}>
                 ← Back to details
               </Button>
@@ -176,9 +176,9 @@ export default function PublicRegister() {
           )}
 
           <Box sx={{ mt: 3, textAlign: 'center' }}>
-            <Typography sx={{ fontFamily: ff, fontSize: '0.82rem', color: '#94a3b8' }}>
+            <Typography sx={{ fontFamily: ff, fontSize: '0.82rem', color: '#aeb9e0' }}>
               Already have an account?{' '}
-              <RouterLink to="/public/login" style={{ color: '#3b82f6', fontWeight: 600, textDecoration: 'none' }}>
+              <RouterLink to="/public/login" style={{ color: '#9fc1ff', fontWeight: 600, textDecoration: 'none' }}>
                 Sign in
               </RouterLink>
             </Typography>

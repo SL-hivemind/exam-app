@@ -12,7 +12,7 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import { Outlet, useNavigate, useLocation, Link as RouterLink } from 'react-router-dom';
 import useAuth from '../../hooks/useAuth';
 
-const ff = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
+const ff = "'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
 
 export default function PublicLayout() {
   const navigate = useNavigate();
@@ -41,7 +41,7 @@ export default function PublicLayout() {
   };
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#f8fafc', fontFamily: ff }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'transparent', fontFamily: ff }}>
       {/* ── Top Navigation Bar ── */}
       <AppBar
         position="sticky"
@@ -63,14 +63,7 @@ export default function PublicLayout() {
                 textDecoration: 'none', mr: 4,
               }}
             >
-              <Box sx={{
-                width: 30, height: 30, borderRadius: '8px',
-                background: 'linear-gradient(135deg, #2563eb, #7c3aed)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                boxShadow: '0 4px 12px rgba(37,99,235,0.3)',
-              }}>
-                <SchoolIcon sx={{ color: '#fff', fontSize: 17 }} />
-              </Box>
+              <Box component="img" src="https://sl-exam-images.s3.ap-south-2.amazonaws.com/SL+LOGO.png" alt="SL Logo" sx={{ height: 34, width: 'auto' }} />
               <Typography sx={{
                 fontFamily: ff, fontWeight: 800, fontSize: '1rem',
                 color: '#fff', letterSpacing: '-0.02em',
@@ -202,7 +195,7 @@ export default function PublicLayout() {
         }}
       >
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', p: 1.5 }}>
-          <IconButton onClick={() => setMobileOpen(false)} sx={{ color: '#94a3b8' }}>
+          <IconButton onClick={() => setMobileOpen(false)} sx={{ color: '#aeb9e0' }}>
             <CloseIcon />
           </IconButton>
         </Box>
@@ -220,7 +213,7 @@ export default function PublicLayout() {
                 <Typography sx={{ fontFamily: ff, fontWeight: 700, fontSize: '0.9rem', color: '#fff' }}>
                   {user?.username}
                 </Typography>
-                <Typography sx={{ fontFamily: ff, fontSize: '0.75rem', color: '#64748b' }}>
+                <Typography sx={{ fontFamily: ff, fontSize: '0.75rem', color: '#a9b4dd' }}>
                   {user?.email}
                 </Typography>
               </Box>

@@ -6,6 +6,7 @@ import PublicOnlyRoute from "./PublicOnlyRoute";
 
 // NEW Unified Layout
 import DashboardLayout from "../components/layout/DashboardLayout";
+import DashboardHome from "../components/layout/DashboardHome";
 import PublicLayout from "../components/layout/PublicLayout";
 
 // Sub-pages (Keep these exactly as they are)
@@ -40,6 +41,7 @@ import PublicRegister from "../components/public/PublicRegister";
 import PublicForgotPassword from "../components/public/PublicForgotPassword";
 import PublicExamInterface from "../components/public/PublicExamInterface";
 import PublicDashboard from "../components/public/PublicDashboard";
+import PublicPractice from "../components/public/PublicPractice";
 import AdminPublicManager from "../components/public/AdminPublicManager";
 
 // Quick Exam Section (Module 3)
@@ -60,7 +62,7 @@ export default function AppRoutes() {
           <DashboardLayout />
         </ProtectedRoute>
       }>
-        <Route index element={<Navigate to="exams" replace />} />
+        <Route index element={<DashboardHome />} />
         <Route path="exams" element={<AdminExams />} />
         <Route path="exams/:examId" element={<AdminExamDetail />} />
         <Route path="exams/:examId/questions" element={<AdminExamQuestions />} />
@@ -73,7 +75,9 @@ export default function AppRoutes() {
         <Route path="repository/reports" element={<RepoReports />} />
         <Route path="activity-log" element={<SpecialistActivityLog />} />
         <Route path="requests" element={<StudentRequests />} />
-        <Route path="portal" element={<AdminPublicManager />} />
+        <Route path="portal" element={<AdminPublicManager initialTab={0} />} />
+        <Route path="portal/subscriptions" element={<AdminPublicManager initialTab={1} />} />
+        <Route path="portal/question-bank" element={<AdminPublicManager initialTab={2} />} />
         <Route path="quick" element={<AdminQuickExams />} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>
@@ -84,7 +88,7 @@ export default function AppRoutes() {
           <DashboardLayout />
         </ProtectedRoute>
       }>
-        <Route index element={<Navigate to="students" replace />} />
+        <Route index element={<DashboardHome />} />
         <Route path="students" element={<AdminStudents />} />
         <Route path="exams" element={<AdminExams />} />
         <Route path="exams/:examId" element={<AdminExamDetail />} />
@@ -102,7 +106,7 @@ export default function AppRoutes() {
           <DashboardLayout />
         </ProtectedRoute>
       }>
-        <Route index element={<Navigate to="repository/questions" replace />} />
+        <Route index element={<DashboardHome />} />
         <Route path="repository/questions" element={<RepoQuestionsPage />} />
         <Route path="repository/questions/new" element={<RepoQuestionEditPage />} />
         <Route path="repository/questions/:id/edit" element={<RepoQuestionEditPage />} />
@@ -156,6 +160,11 @@ export default function AppRoutes() {
         <Route path="dashboard" element={
           <ProtectedRoute roles={["public_user"]}>
             <PublicDashboard />
+          </ProtectedRoute>
+        } />
+        <Route path="practice" element={
+          <ProtectedRoute roles={["public_user"]}>
+            <PublicPractice />
           </ProtectedRoute>
         } />
       </Route>

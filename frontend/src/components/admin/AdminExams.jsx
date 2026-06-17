@@ -38,6 +38,7 @@ import api from "../../utils/api";
 import useAuth from "../../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
+import { PageHeader } from "../common";
 
 
 export default function AdminExams() {
@@ -188,19 +189,19 @@ export default function AdminExams() {
 
 
   return (
-    <Box sx={{ p: 3, bgcolor: '#f5f7fa' }}>
+    <Box>
+      <PageHeader
+        icon={<QuizIcon />}
+        title="Exam Management"
+        subtitle="Create and manage assessments."
+        actions={
+          <Button variant="contained" startIcon={<AddIcon />} onClick={openCreateDialog}>
+            Create New Exam
+          </Button>
+        }
+      />
 
-      <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems="center" mb={4} spacing={2}>
-        <Box>
-          <Typography variant="h4" fontWeight={700} color="primary.main">Exam Management</Typography>
-          <Typography variant="body2" color="text.secondary">Create and manage assessments.</Typography>
-        </Box>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={openCreateDialog} sx={{ px: 3, py: 1, borderRadius: 2 }}>
-          Create New Exam
-        </Button>
-      </Stack>
-
-      <Paper elevation={0} sx={{ p: 2, mb: 3, borderRadius: 2, border: '1px solid #e0e0e0' }}>
+      <Paper elevation={0} sx={{ p: 2, mb: 3, borderRadius: 3 }}>
         <TextField
           fullWidth
           size="small"
@@ -215,7 +216,7 @@ export default function AdminExams() {
 
       <Paper elevation={1} sx={{ borderRadius: 2, overflowX: 'auto' }}>
         <Table>
-          <TableHead sx={{ bgcolor: '#f8f9fa' }}>
+          <TableHead>
             <TableRow>
               <TableCell><strong>Title & Description</strong></TableCell>
               <TableCell><strong>Duration</strong></TableCell>
@@ -233,7 +234,7 @@ export default function AdminExams() {
               filteredExams.map((e) => (
                 <TableRow key={e.id} hover>
                   <TableCell>
-                    <Typography variant="subtitle1" fontWeight={600} color="primary.main">
+                    <Typography variant="subtitle1" fontWeight={600} sx={{ color: '#cfe0ff' }}>
                       {e.title}
                     </Typography>
                     <Typography variant="caption" color="text.secondary" noWrap display="block" sx={{ maxWidth: 300 }}>
@@ -408,7 +409,7 @@ export default function AdminExams() {
           </Stack>
         </DialogContent>
 
-        <DialogActions sx={{ px: 4, py: 3, borderTop: '1px solid #f0f0f0' }}>
+        <DialogActions sx={{ px: 4, py: 3, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
           <Button
             onClick={closeCreate}
             sx={{ color: 'text.secondary', fontWeight: 500 }}

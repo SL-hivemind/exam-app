@@ -51,7 +51,7 @@ export const schoolApi = {
   create: (payload) => api.post('/admin/schools', payload),
   update: (id, payload) => api.put(`/admin/schools/${id}`, payload),
   remove: (id) => api.delete(`/admin/schools/${id}`),
-}; 
+};
 
 // --- students (minor fix: default params) ---
 export const studentsApi = {
@@ -130,6 +130,11 @@ export const publicApi = {
   practiceStart: (data) => api.post('/public/practice/start', data),
   practiceSubmit: (attemptId, answers) => api.post(`/public/practice/${attemptId}/submit`, { answers }),
   practiceReview: (attemptId) => api.get(`/public/practice/${attemptId}/review`),
+
+  // Custom + Adaptive Practice (user-built sessions)
+  practiceMeta: () => api.get('/public/practice/meta'),
+  practiceAdaptiveStart: (data) => api.post('/public/practice/adaptive/start', data),
+  practiceAdaptiveSubmit: (attemptId, data) => api.post(`/public/practice/${attemptId}/submit-adaptive`, data),
 
   // Daily Challenge & Streak
   challengeStart: () => api.post('/public/challenge/start'),

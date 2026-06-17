@@ -16,6 +16,7 @@ import VisibilityIcon from "@mui/icons-material/Visibility";
 import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
 import api from "../../utils/api";
 import useAuth from "../../hooks/useAuth";
+import { PageHeader } from "../common";
 
 export default function AdminStudents() {
   const { user } = useAuth();
@@ -221,15 +222,11 @@ export default function AdminStudents() {
   };
 
   return (
-    <Box sx={{ p: 3, bgcolor: '#f5f7fa', minHeight: '100vh' }}>
-
-      {/* HEADER */}
-      <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems="center" mb={3} spacing={2}>
-        <Box>
-          <Typography variant="h4" fontWeight={700} color="primary.main">Students</Typography>
-          <Typography variant="body2" color="text.secondary">Manage student accounts and enrollments.</Typography>
-        </Box>
-        <Stack direction="row" spacing={2}>
+    <Box>
+      <PageHeader
+        title="Students"
+        subtitle="Manage student accounts and enrollments."
+        actions={<>
           <Button variant="outlined" component="label" startIcon={<UploadFileIcon />}>
             Import CSV
             <input type="file" accept=".csv" hidden onChange={handleCsvUpload} />
@@ -237,15 +234,15 @@ export default function AdminStudents() {
           <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpen()}>
             Add Student
           </Button>
-        </Stack>
-      </Stack>
+        </>}
+      />
 
       {/* ALERTS */}
       {error && <Alert severity="error" onClose={() => setError("")} sx={{ mb: 3 }}>{error}</Alert>}
       {success && <Alert severity="success" onClose={() => setSuccess("")} sx={{ mb: 3 }}>{success}</Alert>}
 
       {/* FILTERS */}
-      <Paper elevation={0} sx={{ p: 2, mb: 3, borderRadius: 2, border: '1px solid #e0e0e0' }}>
+      <Paper elevation={0} sx={{ p: 2, mb: 3, borderRadius: 2, border: '1px solid rgba(255,255,255,0.08)' }}>
         <Grid container spacing={2} alignItems="center">
 
           <Grid item xs={12} md={4}>
@@ -299,7 +296,7 @@ export default function AdminStudents() {
       {/* TABLE */}
       <Paper elevation={1} sx={{ borderRadius: 2, overflowX: 'auto' }}>
         <Table>
-          <TableHead sx={{ bgcolor: '#f8f9fa' }}>
+          <TableHead sx={{ bgcolor: 'transparent' }}>
             <TableRow>
               <TableCell><strong>Student Info</strong></TableCell>
               <TableCell><strong>Contact</strong></TableCell>
@@ -318,7 +315,7 @@ export default function AdminStudents() {
                 <TableRow key={s.id} hover>
                   <TableCell>
                     <Typography variant="subtitle2" fontWeight={600}>{s.username}</Typography>
-                    <Chip label={s.student_id || "No ID"} size="small" sx={{ mt: 0.5, bgcolor: '#e3f2fd', fontWeight: 'bold', color: '#1565c0' }} />
+                    <Chip label={s.student_id || "No ID"} size="small" sx={{ mt: 0.5, bgcolor: 'rgba(99,102,241,0.20)', fontWeight: 'bold', color: '#c7d2fe' }} />
                   </TableCell>
                   <TableCell>{s.mobile_number || "—"}</TableCell>
                   <TableCell>

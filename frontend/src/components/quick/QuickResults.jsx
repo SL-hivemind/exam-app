@@ -9,7 +9,7 @@ import HomeIcon from '@mui/icons-material/Home';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 
-const ff = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
+const ff = "'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
 
 export default function QuickResults() {
   const { code } = useParams();
@@ -21,7 +21,7 @@ export default function QuickResults() {
 
   if (!result) {
     return (
-      <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: '#f8fafc', p: 3 }}>
+      <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'transparent', p: 3 }}>
         <Card sx={{ maxWidth: 400, p: 4, borderRadius: '20px', textAlign: 'center' }}>
           <Typography sx={{ fontFamily: ff, fontWeight: 700, mb: 2 }}>No results found</Typography>
           <Button onClick={() => navigate(`/quick/${code}`)} variant="outlined"
@@ -57,29 +57,29 @@ export default function QuickResults() {
           {passed ? <EmojiEventsIcon sx={{ fontSize: 40, color: '#fff' }} /> : <CancelIcon sx={{ fontSize: 40, color: '#fff' }} />}
         </Box>
 
-        <Typography sx={{ fontFamily: ff, fontWeight: 800, fontSize: '1.3rem', color: '#0f172a', mb: 0.5 }}>
+        <Typography sx={{ fontFamily: ff, fontWeight: 800, fontSize: '1.3rem', color: '#eaf0ff', mb: 0.5 }}>
           {passed ? 'Congratulations!' : 'Keep Trying!'}
         </Typography>
-        <Typography sx={{ fontFamily: ff, fontSize: '0.85rem', color: '#64748b', mb: 3 }}>
+        <Typography sx={{ fontFamily: ff, fontSize: '0.85rem', color: '#a9b4dd', mb: 3 }}>
           {name}
         </Typography>
 
         {/* Score Display */}
         <Box sx={{
           p: 3, borderRadius: '18px', mb: 3,
-          background: 'linear-gradient(135deg, #f8fafc, #f1f5f9)',
-          border: '1px solid #e2e8f0',
+          background: 'linear-gradient(135deg, #f8fafc, rgba(255,255,255,0.06))',
+          border: '1px solid rgba(255,255,255,0.12)',
         }}>
           <Typography sx={{ fontFamily: ff, fontWeight: 900, fontSize: '3rem', color: passed ? '#16a34a' : '#ef4444', lineHeight: 1 }}>
             {score}/{total}
           </Typography>
-          <Typography sx={{ fontFamily: ff, fontSize: '0.85rem', color: '#64748b', mt: 1 }}>
+          <Typography sx={{ fontFamily: ff, fontSize: '0.85rem', color: '#a9b4dd', mt: 1 }}>
             {percentage}%
           </Typography>
           <LinearProgress
             variant="determinate" value={percentage}
             sx={{
-              mt: 2, height: 10, borderRadius: 5, bgcolor: '#e2e8f0',
+              mt: 2, height: 10, borderRadius: 5, bgcolor: 'rgba(255,255,255,0.12)',
               '& .MuiLinearProgress-bar': {
                 borderRadius: 5,
                 background: passed ? 'linear-gradient(90deg, #16a34a, #22c55e)' : 'linear-gradient(90deg, #dc2626, #ef4444)',
@@ -98,7 +98,7 @@ export default function QuickResults() {
 
       {/* Answer Review */}
       <Card sx={{ maxWidth: 700, width: '100%', borderRadius: '20px', p: { xs: 2, md: 3 }, boxShadow: '0 10px 40px rgba(0,0,0,0.15)' }}>
-        <Typography sx={{ fontFamily: ff, fontWeight: 800, fontSize: '1.1rem', color: '#0f172a', mb: 2 }}>
+        <Typography sx={{ fontFamily: ff, fontWeight: 800, fontSize: '1.1rem', color: '#eaf0ff', mb: 2 }}>
           Answer Review
         </Typography>
         {questions.map((q) => {
@@ -118,7 +118,7 @@ export default function QuickResults() {
                 {isCorrect
                   ? <CheckCircleIcon sx={{ fontSize: 20, color: '#16a34a', mt: 0.3 }} />
                   : <CancelIcon sx={{ fontSize: 20, color: '#ef4444', mt: 0.3 }} />}
-                <Typography sx={{ fontFamily: ff, fontWeight: 700, fontSize: '0.88rem', color: '#0f172a', flex: 1 }}>
+                <Typography sx={{ fontFamily: ff, fontWeight: 700, fontSize: '0.88rem', color: '#eaf0ff', flex: 1 }}>
                   Q{q.order_index}. {q.question_text}
                 </Typography>
               </Box>
@@ -137,7 +137,7 @@ export default function QuickResults() {
                   );
                 })}
                 {!userA && (
-                  <Typography sx={{ fontFamily: ff, fontSize: '0.78rem', color: '#94a3b8', fontStyle: 'italic' }}>
+                  <Typography sx={{ fontFamily: ff, fontSize: '0.78rem', color: '#aeb9e0', fontStyle: 'italic' }}>
                     Not answered — Correct: {correctA}
                   </Typography>
                 )}
