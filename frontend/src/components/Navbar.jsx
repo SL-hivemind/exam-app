@@ -42,14 +42,14 @@ const ScrollHandler = (props) => {
     elevation: trigger ? 4 : 0,
     sx: {
       backgroundColor: trigger
-        ? "rgba(255, 255, 255, 0.97)"
-        : "rgba(255, 255, 255, 0.92)",
+        ? "rgba(10, 16, 46, 0.72)"
+        : "rgba(10, 16, 46, 0.45)",
       backdropFilter: "blur(20px)",
-      color: "#0f172a",
+      color: "#eaf0ff",
       transition: "all 0.3s ease",
       borderBottom: trigger
-        ? "1px solid rgba(0,0,0,0.08)"
-        : "1px solid rgba(0,0,0,0.03)",
+        ? "1px solid rgba(255,255,255,0.10)"
+        : "1px solid rgba(255,255,255,0.05)",
     },
   });
 };
@@ -119,14 +119,14 @@ export default function Navbar(props) {
 
   // Mobile Drawer Content
   const drawer = (
-    <Box sx={{ width: 300, height: '100%', display: 'flex', flexDirection: 'column', bgcolor: '#fff' }} role="presentation">
+    <Box sx={{ width: 300, height: '100%', display: 'flex', flexDirection: 'column', bgcolor: 'rgba(255,255,255,0.05)' }} role="presentation">
       {/* Drawer Header */}
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 2.5, py: 2, borderBottom: '1px solid #f1f5f9' }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 2.5, py: 2, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
         <Stack direction="row" alignItems="center" spacing={1} onClick={() => { navigate("/"); setMobileOpen(false); }} sx={{ cursor: 'pointer' }}>
-          <SchoolIcon sx={{ color: '#2563eb', fontSize: 28 }} />
-          <Typography sx={{ fontFamily: ff, fontWeight: 800, fontSize: '1.1rem', color: '#0f172a', letterSpacing: '-0.02em' }}>SL EXAMS</Typography>
+          <Box component="img" src="https://sl-exam-images.s3.ap-south-2.amazonaws.com/SL+LOGO.png" alt="SL Logo" sx={{ height: 32, width: 'auto' }} />
+          <Typography sx={{ fontFamily: ff, fontWeight: 800, fontSize: '1.1rem', color: '#eaf0ff', letterSpacing: '-0.02em' }}>SL EXAMS</Typography>
         </Stack>
-        <IconButton onClick={() => setMobileOpen(false)} sx={{ color: '#64748b' }}>
+        <IconButton onClick={() => setMobileOpen(false)} sx={{ color: '#a9b4dd' }}>
           <CloseIcon />
         </IconButton>
       </Box>
@@ -241,14 +241,7 @@ export default function Navbar(props) {
                 onClick={() => navigate("/")}
                 sx={{ cursor: "pointer", '&:hover': { opacity: 0.85 }, transition: 'opacity 0.2s' }}
               >
-                <Box sx={{
-                  width: 34, height: 34, borderRadius: '10px',
-                  background: 'linear-gradient(135deg, #2563eb, #3b82f6)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  boxShadow: '0 2px 8px rgba(37,99,235,0.25)',
-                }}>
-                  <SchoolIcon sx={{ color: '#fff', fontSize: 20 }} />
-                </Box>
+                <Box component="img" src="https://sl-exam-images.s3.ap-south-2.amazonaws.com/SL+LOGO.png" alt="SL Logo" sx={{ height: 38, width: 'auto' }} />
                 <Typography
                   noWrap
                   sx={{

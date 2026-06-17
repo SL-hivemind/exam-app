@@ -71,6 +71,13 @@ export default function PublicCatalog() {
     if (filter === 'free') return matches && (!c.price || c.price === 0);
     if (filter === 'premium') return matches && c.price > 0;
     return matches;
+  }).sort((a, b) => {
+    // Sort Free first, then alphabetically
+    const aFree = !a.price || a.price === 0;
+    const bFree = !b.price || b.price === 0;
+    if (aFree && !bFree) return -1;
+    if (!aFree && bFree) return 1;
+    return a.title.localeCompare(b.title);
   });
 
   const freeCount = courses.filter(c => !c.price || c.price === 0).length;
@@ -209,9 +216,9 @@ export default function PublicCatalog() {
               {filtered.map((course, i) => {
                 const isFree = !course.price || course.price === 0;
                 return (
-                  <Grid item xs={12} sm={6} md={4} key={course.id}>
-                    <Box component={motion.div} initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.35, delay: (i % 3) * 0.05 }} sx={{ height: '100%' }}>
-                      <GlassCard interactive glow={isFree ? 'success' : 'orange'} onClick={() => navigate(`/public/course/${course.id}`)} sx={{ p: 0, height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                  <Grid item xs={12} sm={6} md={4} key={course.id} sx={{ display: 'flex' }}>
+                    <Box component={motion.div} initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.35, delay: (i % 3) * 0.05 }} sx={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
+                      <GlassCard interactive glow={isFree ? 'success' : 'orange'} onClick={() => navigate(`/public/course/${course.id}`)} sx={{ p: 0, flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                         {/* Media */}
                         <Box sx={{
                           height: 130, position: 'relative', display: 'flex', alignItems: 'flex-end', p: 2,
@@ -259,21 +266,21 @@ export default function PublicCatalog() {
       <Box sx={{ py: { xs: 6, md: 9 } }}>
         <Container maxWidth="lg">
           {sectionLabel('Why SL Exams', 'Built for serious preparation')}
-          <Grid container spacing={3}>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 3 }}>
             {FEATURES.map((f, i) => (
-              <Grid item xs={12} sm={6} md={3} key={i}>
-                <GlassCard glow={f.color} sx={{ height: '100%' }}>
+              <Box key={i} sx={{ width: { xs: '100%', sm: 320, md: 260 }, display: 'flex' }}>
+                <GlassCard glow={f.color} sx={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 240 }}>
                   <Box sx={{ width: 50, height: 50, borderRadius: '14px', mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff',
                     background: f.color === 'orange' ? 'linear-gradient(135deg,#f68914,#ff7a00)' : f.color === 'success' ? 'linear-gradient(135deg,#10b981,#34d399)' : f.color === 'indigo' ? 'linear-gradient(135deg,#5b6cff,#818cf8)' : 'linear-gradient(135deg,#2f6bff,#60a5fa)',
                     boxShadow: '0 8px 22px rgba(47,107,255,0.3)' }}>
                     {f.icon}
                   </Box>
                   <Typography sx={{ fontFamily: ff, fontWeight: 700, fontSize: '1rem', color: '#f5f8ff', mb: 0.75 }}>{f.title}</Typography>
-                  <Typography sx={{ fontFamily: ff, fontSize: '0.83rem', color: '#a9b4dd', lineHeight: 1.6 }}>{f.desc}</Typography>
+                  <Typography sx={{ fontFamily: ff, fontSize: '0.83rem', color: '#a9b4dd', lineHeight: 1.6, flex: 1 }}>{f.desc}</Typography>
                 </GlassCard>
-              </Grid>
+              </Box>
             ))}
-          </Grid>
+          </Box>
         </Container>
       </Box>
 
@@ -281,20 +288,20 @@ export default function PublicCatalog() {
       <Box sx={{ py: { xs: 6, md: 9 } }}>
         <Container maxWidth="md">
           {sectionLabel('How it works', 'From sign-up to your first score')}
-          <Grid container spacing={3}>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 3 }}>
             {STEPS.map((s, i) => (
-              <Grid item xs={12} md={4} key={i}>
-                <GlassCard sx={{ textAlign: 'center', height: '100%' }}>
+              <Box key={i} sx={{ width: { xs: '100%', sm: 320, md: 260 }, display: 'flex' }}>
+                <GlassCard sx={{ textAlign: 'center', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 250 }}>
                   <Box sx={{ position: 'relative', width: 60, height: 60, mx: 'auto', mb: 2, borderRadius: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', background: 'linear-gradient(135deg,#2f6bff,#f68914)', boxShadow: '0 8px 22px rgba(246,137,20,0.35)' }}>
                     {s.icon}
                     <Box sx={{ position: 'absolute', top: -8, right: -8, width: 24, height: 24, borderRadius: '50%', bgcolor: 'rgba(9,14,42,0.95)', border: '1px solid rgba(255,255,255,0.15)', color: '#ffb054', fontSize: '0.72rem', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{i + 1}</Box>
                   </Box>
                   <Typography sx={{ fontFamily: ff, fontWeight: 700, fontSize: '1rem', color: '#f5f8ff', mb: 0.75 }}>{s.title}</Typography>
-                  <Typography sx={{ fontFamily: ff, fontSize: '0.83rem', color: '#a9b4dd', lineHeight: 1.6 }}>{s.desc}</Typography>
+                  <Typography sx={{ fontFamily: ff, fontSize: '0.83rem', color: '#a9b4dd', lineHeight: 1.6, flex: 1 }}>{s.desc}</Typography>
                 </GlassCard>
-              </Grid>
+              </Box>
             ))}
-          </Grid>
+          </Box>
         </Container>
       </Box>
 
@@ -302,9 +309,9 @@ export default function PublicCatalog() {
       <Box sx={{ py: { xs: 6, md: 9 } }}>
         <Container maxWidth="md">
           {sectionLabel('Access model', 'Start free, upgrade when ready')}
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
-              <GlassCard glow="success" sx={{ height: '100%' }}>
+          <Grid container spacing={3} alignItems="stretch">
+            <Grid item xs={12} md={6} sx={{ display: 'flex' }}>
+              <GlassCard glow="success" sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                 <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 2 }}>
                   <Box sx={{ width: 40, height: 40, borderRadius: '12px', bgcolor: 'rgba(16,185,129,0.16)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <LockOpenIcon sx={{ color: '#34d399' }} />
@@ -315,16 +322,18 @@ export default function PublicCatalog() {
                   </Box>
                 </Stack>
                 <Divider sx={{ mb: 2 }} />
-                {['Free study materials', 'Free exam papers', '1 attempt per free exam', 'Instant score', 'Course enrollment included'].map(t => (
-                  <Stack key={t} direction="row" alignItems="center" spacing={1.2} sx={{ mb: 1.2 }}>
-                    <CheckCircleIcon sx={{ fontSize: 18, color: '#34d399' }} />
-                    <Typography sx={{ fontFamily: ff, fontSize: '0.86rem', color: '#cdd6f4' }}>{t}</Typography>
-                  </Stack>
-                ))}
+                <Box sx={{ flex: 1 }}>
+                  {['Free study materials', 'Free exam papers', '1 attempt per free exam', 'Instant score', 'Course enrollment included'].map(t => (
+                    <Stack key={t} direction="row" alignItems="center" spacing={1.2} sx={{ mb: 1.2 }}>
+                      <CheckCircleIcon sx={{ fontSize: 18, color: '#34d399' }} />
+                      <Typography sx={{ fontFamily: ff, fontSize: '0.86rem', color: '#cdd6f4' }}>{t}</Typography>
+                    </Stack>
+                  ))}
+                </Box>
               </GlassCard>
             </Grid>
-            <Grid item xs={12} md={6}>
-              <GlassCard glow="orange" sx={{ height: '100%', border: '1px solid rgba(246,137,20,0.45)' }}>
+            <Grid item xs={12} md={6} sx={{ display: 'flex' }}>
+              <GlassCard glow="orange" sx={{ flex: 1, display: 'flex', flexDirection: 'column', border: '1px solid rgba(246,137,20,0.45)' }}>
                 <Box sx={{ position: 'absolute', top: 14, right: 14 }}>
                   <Chip label="RECOMMENDED" size="small" sx={{ fontFamily: ff, fontWeight: 800, fontSize: '0.62rem', letterSpacing: 1, color: '#1a1206', background: 'linear-gradient(135deg,#f68914,#ffb054)' }} />
                 </Box>

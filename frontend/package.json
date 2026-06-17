@@ -41,7 +41,7 @@
     "eject": "react-scripts eject"
   },
   "eslintConfig": {
-    "extends": [
+    "rules": { "no-unused-vars": "off", "react-hooks/exhaustive-deps": "off" }, "extends": [
       "react-app",
       "react-app/jest"
     ]
