@@ -24,3 +24,7 @@ frontend/build/
 
 # Runtime-generated upload artifacts
 backend/uploads/
+
+# Databases
+*.db
+app.db
