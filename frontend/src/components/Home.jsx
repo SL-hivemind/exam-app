@@ -1,375 +1,350 @@
-import React, { useState } from "react";
-import Slider from "react-slick";
-import { motion, AnimatePresence } from "framer-motion";
+import React, { useState, useEffect, useRef } from "react";
+import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import {
-  Box, Typography, Button, Grid, Container, Card, CardContent, CardMedia,
-  CardActions, Paper, Stack, Dialog, DialogTitle, DialogContent, IconButton,
-  Avatar, List, ListItem, ListItemText, ListItemIcon
-} from "@mui/material";
+import { Box, Typography, Button, Container, Stack, IconButton } from "@mui/material";
 
-// Icons
-import CampaignIcon from "@mui/icons-material/Campaign";
-import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
-import ScienceIcon from "@mui/icons-material/Science";
-import RecordVoiceOverIcon from "@mui/icons-material/RecordVoiceOver";
-import SchoolIcon from "@mui/icons-material/School";
-import SupervisorAccountIcon from "@mui/icons-material/SupervisorAccount";
-import LocalLibraryIcon from "@mui/icons-material/LocalLibrary";
-import PublishIcon from "@mui/icons-material/Publish";
-import CloseIcon from "@mui/icons-material/Close";
-import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-import CancelIcon from "@mui/icons-material/Cancel";
-import MenuBookIcon from "@mui/icons-material/MenuBook";
-import LightbulbIcon from "@mui/icons-material/Lightbulb";
-import MicIcon from "@mui/icons-material/Mic";
-
-// --- UI COMPONENTS ---
-import AnimatedText from "./ui/AnimatedText";
-import BookStack from "./ui/BookStack";
-import { SectionHeading } from "./common";
-import "slick-carousel/slick/slick.css";
-import "slick-carousel/slick/slick-theme.css";
-
-import Particles from "./ui/Particles";
+import SplitText from "./ui/SplitText";
+import BlurText from "./ui/BlurText";
+import LightRays from "./ui/LightRays";
 import Squares from "./ui/Squares";
+import Particles from "./ui/Particles";
 import Waves from "./ui/Waves";
 import DomeGallery from "./ui/DomeGallery";
-import FloatingText from "./ui/FloatingText";
-import RisingStars from "./ui/RisingStars";
-import FloatingPapers from "./ui/FloatingPapers";
 
-/* ─────────────────────── SVG Divider ─────────────────────── */
-const StraightDivider = ({ color = "#f8fafc", flip = false }) => (
-  <Box sx={{ height: 40, bgcolor: color, mt: flip ? 0 : '-1px', mb: flip ? '-1px' : 0 }} />
-);
+/* ── Fonts ── */
+const oswald = "'Oswald', sans-serif";
+const inter = "'Inter', sans-serif";
 
-// SectionHeading now lives in components/common (shared with public marketing).
+/* ── Animated Counter Hook ── */
+function useCountUp(target, duration = 2000, trigger = false) {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    if (!trigger) return;
+    let start = 0;
+    const step = target / (duration / 16);
+    const id = setInterval(() => {
+      start += step;
+      if (start >= target) { setCount(target); clearInterval(id); }
+      else setCount(Math.floor(start));
+    }, 16);
+    return () => clearInterval(id);
+  }, [trigger, target, duration]);
+  return count;
+}
 
-// --- DATA ---
-const thinkletArticles = [
-  { id: 1, title: '2025 Medical Laureates', summary: 'Discoveries regarding regulatory T cells earned the Nobel Prize.', image: 'https://sl-exam-uploads-2025.s3.ap-south-1.amazonaws.com/Home/Noble.png', link: 'https://www.nobelprize.org/' },
-  { id: 3, title: 'AI Co-Developer', summary: 'Agentic AI systems are revolutionizing software engineering.', image: 'https://sl-exam-uploads-2025.s3.ap-south-1.amazonaws.com/Home/AiCo.png', link: 'https://openai.com/blog' },
-  { id: 4, title: 'Vasuki indicus', summary: 'Discover a colossal serpent that ruled 47 million years ago.', image: 'https://sl-exam-uploads-2025.s3.ap-south-1.amazonaws.com/Home/Vasuki-Indicus.jpg', link: 'https://www.nature.com/articles/s41598-024-58377-0' },
-  { id: 5, title: 'Himalayan Discovery', summary: 'Scientists identify a new catfish species, Exostoma senticosum, in China.', image: 'https://images.unsplash.com/photo-1544552866-d3ed42536cfd?auto=format&fit=crop&q=80&w=800', link: 'https://www.ndtv.com/science/new-catfish-species-discovered-in-southwest-chinas-himalayan-region-9812357' },
-  { id: 6, title: 'Semiconductor Success', summary: 'A Student-Professor duo turns a PhD thesis into a ₹15 Cr semiconductor venture.', image: 'https://images.unsplash.com/photo-1581092795360-7f6f5d6b3c3b?auto=format&fit=crop&q=80&w=800', link: 'https://startuppedia.in/smbs/meet-the-student-professor-duo-who-turned-a-phd-thesis-into-a-15-cr-make-in-india-semiconductor-venture-that-supplies-to-iits-govt-labs-10901223' },
-  { id: 7, title: 'Nature: Science 2025', summary: 'Key scientific developments and research highlights shaping the year.', image: 'https://images.unsplash.com/photo-1532094349884-543bc11b234d?auto=format&fit=crop&q=80&w=800', link: 'https://www.nature.com/articles/d41586-025-03711-3' },
-  { id: 8, title: 'Singapore: The City-State', summary: 'Understanding the unique status of the only city in Asia that is also a country.', image: 'https://images.unsplash.com/photo-1565967511849-76a60a516170?auto=format&fit=crop&q=80&w=800', link: 'https://www.indiatoday.in/amp/education-today/gk-current-affairs/story/which-is-the-only-city-in-aisa-that-is-also-a-country-2813262-2025-11-04' }
+/* ── Stat Card ── */
+function StatCard({ value, suffix = "+", label, delay = 0 }) {
+  const ref = useRef();
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const obs = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setVisible(true); obs.disconnect(); } }, { threshold: 0.3 });
+    if (ref.current) obs.observe(ref.current);
+    return () => obs.disconnect();
+  }, []);
+  const num = useCountUp(value, 2000, visible);
+  return (
+    <motion.div ref={ref} initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6, delay }}>
+      <Box sx={{ textAlign: 'center', p: { xs: 3, md: 4 }, borderRadius: '20px', bgcolor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', backdropFilter: 'blur(12px)', transition: 'all 0.3s', '&:hover': { bgcolor: 'rgba(255,255,255,0.07)', transform: 'translateY(-4px)' } }}>
+        <Typography sx={{ fontFamily: oswald, fontSize: { xs: '2.8rem', md: '3.5rem' }, fontWeight: 700, background: 'linear-gradient(135deg, #3b82f6, #f68914)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+          {num}{suffix}
+        </Typography>
+        <Typography sx={{ fontFamily: inter, color: '#9fb0d6', fontWeight: 500, fontSize: '0.95rem', mt: 0.5 }}>{label}</Typography>
+      </Box>
+    </motion.div>
+  );
+}
+
+/* ── Data ── */
+const examPillars = [
+  {
+    title: "SCHOOL EXAMS",
+    icon: "🏫",
+    gradient: "linear-gradient(135deg, rgba(59,130,246,0.15), rgba(59,130,246,0.05))",
+    border: "rgba(59,130,246,0.3)",
+    desc: "Proctored, timed assessments managed by schools. Tab-switch detection, auto-submit, and detailed analytics for every student.",
+    features: ["Timed & Proctored", "Anti-Cheat Detection", "Result Analytics & Rankings", "School Admin Dashboard"],
+    cta: "Student Login",
+    link: "/login",
+  },
+  {
+    title: "PUBLIC EXAMS",
+    icon: "🌍",
+    gradient: "linear-gradient(135deg, rgba(246,137,20,0.15), rgba(246,137,20,0.05))",
+    border: "rgba(246,137,20,0.3)",
+    desc: "Open course catalog for anyone. Browse subjects, enroll in courses, practice with unlimited attempts, and take timed assessments.",
+    features: ["Open Registration", "Course-Based Structure", "Practice & Timed Modes", "Progress Tracking"],
+    cta: "Explore Courses",
+    link: "/public",
+  },
 ];
 
-const suggestedBooks = [
-  { id: 1, title: 'Wings of Fire', author: 'APJ Abdul Kalam', cover: 'https://sl-exam-uploads-2025.s3.ap-south-1.amazonaws.com/Home/wingsoffire.jpg', moral: "Determination and humility can overcome any obstacle.", summary: "An autobiography of A.P.J. Abdul Kalam, former President of India. It narrates his journey from a humble background in Rameswaram to becoming a key player in Indian space research." },
-  { id: 2, title: 'Sapiens: A Brief History of Humankind', author: 'Yuval Noah Harari', cover: 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?auto=format&fit=crop&w=500&q=80', moral: "Understanding our past is the only way to shape a better future.", summary: "This ground-breaking narrative explores the history of our species, Homo sapiens..." },
-  { id: 3, title: 'The Palace of Illusions', author: 'Chitra Banerjee Divakaruni', cover: 'https://images.unsplash.com/photo-1629196914375-f7e48f477b6d?auto=format&fit=crop&w=500&q=80', moral: "Destiny is powerful, but how we react to it defines our character.", summary: "A reimagining of the world-famous Indian epic, the Mahabharata, told from the perspective of Panchaali (Draupadi)..." },
-  { id: 4, title: 'The Hobbit', author: 'J.R.R. Tolkien', cover: 'https://images.unsplash.com/photo-1618666012174-83b441c0bc76?auto=format&fit=crop&w=500&q=80', moral: "Even the smallest person can change the course of the future.", summary: "Bilbo Baggins is a hobbit who enjoys a comfortable, unambitious life, rarely traveling further..." }
+const steps = [
+  { num: "01", title: "Register", desc: "Create an account to access the dashboard.", icon: "📝" },
+  { num: "02", title: "Choose Exam", desc: "Browse school assignments or public courses.", icon: "📋" },
+  { num: "03", title: "Take Assessment", desc: "Secure, timed interface with anti-cheat proctoring built in.", icon: "✍️" },
+  { num: "04", title: "Get Results", desc: "Instant scoring, detailed analytics, rankings, and performance insights.", icon: "📊" },
 ];
 
-const publicationStacks = [
-  { id: 'pre', category: 'Baby Steps (Pre-Primary)', color: '#FFAB91', books: [{ title: 'English Fun', desc: 'Alphabet basics', cover: 'https://sl-exam-images.s3.ap-south-2.amazonaws.com/BS-Eng.png' }, { title: 'Number Joy', desc: 'Counting & logic', cover: 'https://sl-exams-images.s3.ap-south-2.amazonaws.com/BS_2.png' }, { title: 'World Around Us', desc: 'EVS & Activities', cover: 'https://sl-exams-images.s3.ap-south-2.amazonaws.com/BS-3.png' }] },
-  { id: 'primary', category: 'Little Leaps (Primary)', color: '#81D4FA', books: [{ title: 'Math Magic', desc: 'Foundation logic', cover: 'https://sl-exam-images.s3.ap-south-2.amazonaws.com/LL-Math.png' }, { title: 'Science Explorer', desc: 'Curiosity driven', cover: 'https://sl-exams-images.s3.ap-south-2.amazonaws.com/LL-Science.png' }, { title: 'Social Life', desc: 'Community basics', cover: 'https://sl-exams-images.s3.ap-south-2.amazonaws.com/LL_Social.png' }, { title: 'General Knowledge', desc: 'World trivia', cover: 'https://sl-exams-images.s3.ap-south-2.amazonaws.com/LL-GK.png' }] },
-  { id: 'highschool', category: 'High School (6-10)', color: '#A5D6A7', books: [{ title: 'English Literature', desc: 'Grammar & Prose', cover: 'https://sl-exam-images.s3.ap-south-2.amazonaws.com/English.png' }, { title: 'Mathematics', desc: 'Advanced concepts', cover: 'https://sl-exams-images.s3.ap-south-2.amazonaws.com/Maths.png' }, { title: 'General Science', desc: 'Physics, Chem, Bio', cover: 'https://sl-exams-images.s3.ap-south-2.amazonaws.com/Science.png' }] },
-  { id: 'rom', category: 'ROM (Competitive)', color: '#CE93D8', books: [{ title: 'Competitive Math', desc: 'Problem solving', cover: 'https://sl-exam-images.s3.ap-south-2.amazonaws.com/ROM-Maths.png' }, { title: 'Physics Concepts', desc: 'IIT Foundation', cover: 'https://sl-exams-images.s3.ap-south-2.amazonaws.com/ROM-Physics.png' }, { title: 'Biology Master', desc: 'NEET Foundation', cover: 'https://sl-exams-images.s3.ap-south-2.amazonaws.com/ROM-Bio.png' }] },
-  { id: 'upsc', category: 'UPSC Preparation', color: '#FFCC80', books: [{ title: 'Geography', desc: 'World & Indian', cover: 'https://sl-exam-images.s3.ap-south-2.amazonaws.com/UPSC-Geo-Cover.png' }, { title: 'History', desc: 'Ancient to Modern', cover: 'https://sl-exams-images.s3.ap-south-2.amazonaws.com/UPSC-History-Cover.png' }, { title: 'Economics', desc: 'Indian Economy', cover: 'https://sl-exams-images.s3.ap-south-2.amazonaws.com/UPSC-Economics-Cover.png' }] },
-  { id: 'our books', category: 'Our Books', color: '#90CAF9', books: [{ title: 'Life of Student', desc: 'A Tale of 4our Students', cover: 'https://sl-exam-images.s3.ap-south-2.amazonaws.com/Life+of+Student.png' }] }
+const features = [
+  { title: "Secure Proctoring", desc: "Tab-switch detection & auto-submit keeps assessments fair.", icon: "🔒" },
+  { title: "Real-time Analytics", desc: "Charts, rankings, subject-wise breakdown for every student.", icon: "📈" },
+  { title: "Multi-Role Dashboard", desc: "Admin, School, Specialist, Student — each gets a tailored view.", icon: "👥" },
+  { title: "Question Repository", desc: "Curated question bank with tagging, difficulty levels, and bulk import.", icon: "🗃️" },
+  { title: "NEP 2020 Aligned", desc: "Content and assessments designed around India's education policy.", icon: "🎯" },
+  { title: "DPIIT Recognized", desc: "Government-recognized startup committed to education innovation.", icon: "🏛️" },
 ];
 
-const pricingPlans = [
-  { title: "Tier 1: Essential", subtitle: "Academic Package", color: "#a9b4dd", features: ["Printed Book Set (Full Year)", "Basic LMS & Exam Portal", "Digital Worksheets", "Mobile App (Basic)", "Offline Monthly Exams"], missing: ["STEM Activities", "Lab Setup", "Book Fair Setup", "SJIS (Not included)"] },
-  { title: "Tier 2: Comprehensive", subtitle: "Most Opted by Schools", color: "#eaf0ff", recommended: true, features: ["Everything in Tier 1", "Advanced LMS (Analytics)", "Full Exam Portal", "2 Student Workshops", "Digital Question Bank"], missing: ["Lab Setup", "Large Book Fair Events", "SJIS (Not included)"] },
-  { title: "Tier 3: Premium", subtitle: "Complete Transformation", color: "#c7d2fe", features: ["Everything in Tier 2", "Custom-Branded App", "Premium LMS (AI)", "Full Book Fair Setup", "STEM Kits & Lab Support", "Monthly Academic Coordinator", "⭐ SJIS Journal Included"], missing: [] }
+const galleryPhotos = [
+  { id: 1, image: 'https://e2eindia.org/images/gallery/_6.jpg' },
+  { id: 2, image: 'https://e2eindia.org/images/gallery/new-gal-1.jpg' },
+  { id: 3, image: 'https://yt3.ggpht.com/BCuzBBeyi0YSo_g_VuDTc1MSzEXZzstSJNHsBk2O4h_T6nY3JBm5CGDNRKljVoZGa6LvAChmmu1A9g=s628-c-fcrop64=1,00004133ffffbecc-rw-nd-v1' },
+  { id: 4, image: 'https://e2eindia.org/images/gallery/new-gal-3.jpg' },
+  { id: 5, image: 'https://e2eindia.org/images/gallery/_9.jpg' },
+  { id: 6, image: 'https://yt3.ggpht.com/QDt4RdMrVmJBcMTkrpjbrmhOSHryXhOZP9LU1sw3tBEhwNE0RcSqNCwP3wo7iGYQ2JKmYZFAC7PZkQ=s640-c-fcrop64=1,20000000dfffffff-rw-nd-v1' },
+  { id: 7, image: 'https://e2eindia.org/images/gallery/new-gal-4.jpg' },
+  { id: 8, image: 'https://e2eindia.org/images/gallery/_11.jpg' },
+  { id: 9, image: 'https://yt3.ggpht.com/EMy1VhGR9qBsiJOa7D2Nl6jTaXZivYuxuDgPyE8BzLZVQNRQUW6UUnFa7_A5lCSyL7vJztevnt4wvg=s640-c-fcrop64=1,35e60000ca19ffff-rw-nd-v1' },
 ];
 
-const schoolServices = [
-  { title: "School Lab Setup", icon: <ScienceIcon sx={{ fontSize: 48 }} />, desc: "Complete basic to advanced science lab infrastructure setup and consulting.", color: '#eaf0ff' },
-  { title: "Library Management", icon: <LocalLibraryIcon sx={{ fontSize: 48 }} />, desc: "Curating books and digital cataloging systems for modern school libraries.", color: '#c7d2fe' },
-  { title: "Guest Faculty", icon: <SupervisorAccountIcon sx={{ fontSize: 48 }} />, desc: "Expert faculty visits twice a month to boost academic performance.", color: '#9fb0d6' },
+const stats = [
+  { value: 150, suffix: "+", label: "Schools Onboarded" },
+  { value: 8000, suffix: "+", label: "Students Assessed" },
+  { value: 25000, suffix: "+", label: "Exams Conducted" },
+  { value: 50000, suffix: "+", label: "Questions in Repository" },
 ];
 
-const ourWorksPhotos = [
-  { id: 1, image: 'https://e2eindia.org/images/gallery/_6.jpg', title: '', desc: '' },
-  { id: 2, image: 'https://e2eindia.org/images/gallery/new-gal-1.jpg', title: '', desc: '' },
-  { id: 3, image: 'https://yt3.ggpht.com/BCuzBBeyi0YSo_g_VuDTc1MSzEXZzstSJNHsBk2O4h_T6nY3JBm5CGDNRKljVoZGa6LvAChmmu1A9g=s628-c-fcrop64=1,00004133ffffbecc-rw-nd-v1', title: '', desc: '' },
-  { id: 4, image: 'https://e2eindia.org/images/gallery/new-gal-3.jpg', title: '', desc: '' },
-  { id: 5, image: 'https://e2eindia.org/images/gallery/_9.jpg', title: '', desc: '' },
-  { id: 6, image: 'https://yt3.ggpht.com/QDt4RdMrVmJBcMTkrpjbrmhOSHryXhOZP9LU1sw3tBEhwNE0RcSqNCwP3wo7iGYQ2JKmYZFAC7PZkQ=s640-c-fcrop64=1,20000000dfffffff-rw-nd-v1', title: '', desc: '' },
-  { id: 7, image: 'https://e2eindia.org/images/gallery/new-gal-4.jpg', title: '', desc: '' },
-  { id: 8, image: 'https://e2eindia.org/images/gallery/_11.jpg', title: '', desc: '' },
-  { id: 9, image: 'https://yt3.ggpht.com/EMy1VhGR9qBsiJOa7D2Nl6jTaXZivYuxuDgPyE8BzLZVQNRQUW6UUnFa7_A5lCSyL7vJztevnt4wvg=s640-c-fcrop64=1,35e60000ca19ffff-rw-nd-v1', title: '', desc: '' },
-];
-
-/* ─────────────────────── MAIN COMPONENT ─────────────────────── */
+/* ══════════════════════════ MAIN ══════════════════════════ */
 export default function Home() {
   const navigate = useNavigate();
-  const [openBook, setOpenBook] = useState(null);
-
-  const carouselSettings = {
-    dots: true, infinite: true, speed: 500, slidesToShow: 3, slidesToScroll: 1,
-    autoplay: true, autoplaySpeed: 4000, pauseOnHover: true,
-    responsive: [
-      { breakpoint: 1024, settings: { slidesToShow: 2 } },
-      { breakpoint: 600, settings: { slidesToShow: 1 } }
-    ]
-  };
-
-  const directorMail = "directorops@e2eindia.org";
 
   return (
     <Box sx={{ bgcolor: "transparent", minHeight: "100vh", overflowX: 'hidden' }}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;500;600;700&display=swap');`}</style>
 
-      <style>
-        {`
-          @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,800;1,600&display=swap');
-        `}
-      </style>
-
-      {/* ═══════════════════ 1. HERO SECTION ═══════════════════ */}
-      <Box id="hero" sx={{
-        position: "relative", minHeight: "100vh", display: 'flex', alignItems: 'center',
-        bgcolor: 'transparent', overflow: 'hidden',
-      }}>
-        <Box sx={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 0, opacity: 0.4 }}>
-          <Squares direction="Right" speed={0.5} borderColor="rgba(255,255,255,0.06)" squareSize={60} hoverFillColor="#f8fafc" />
+      {/* ═══ 1. HERO ═══ */}
+      <Box id="hero" sx={{ position: "relative", minHeight: "100vh", display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
+        <Box sx={{ position: 'absolute', inset: 0, zIndex: 0 }}>
+          <LightRays raysOrigin="top-center" raysColor="#3b82f6" raysSpeed={0.4} lightSpread={1.2} rayLength={2.5} fadeDistance={1.2} saturation={0.7} followMouse mouseInfluence={0.05} />
+        </Box>
+        <Box sx={{ position: 'absolute', inset: 0, zIndex: 0, opacity: 0.25 }}>
+          <Squares direction="Right" speed={0.3} borderColor="rgba(255,255,255,0.04)" squareSize={70} hoverFillColor="rgba(59,130,246,0.08)" />
         </Box>
 
+        <Container maxWidth="md" sx={{ position: 'relative', zIndex: 1, textAlign: 'center', pt: { xs: 14, md: 0 } }}>
+          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 1, delay: 0.2 }}>
+            <Box sx={{ mb: 2 }}>
+              <SplitText
+                text="THE EXAM ECOSYSTEM"
+                style={{ fontFamily: oswald, fontSize: 'clamp(2rem, 6vw, 5rem)', fontWeight: 700, letterSpacing: '0.04em', lineHeight: 1.05, color: '#fff', textAlign: 'center', justifyContent: 'center', whiteSpace: 'nowrap' }}
+                delay={60}
+              />
+            </Box>
+          </motion.div>
+
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 1, delay: 0.8 }}>
+            <BlurText
+              text="Secure. Intelligent. Instant."
+              delay={300}
+              style={{ fontFamily: oswald, fontSize: 'clamp(1.2rem, 3vw, 1.8rem)', fontWeight: 300, letterSpacing: '0.15em', color: '#9fb0d6', justifyContent: 'center', textTransform: 'uppercase' }}
+            />
+          </motion.div>
+
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 1.1 }}>
+            <Typography sx={{ fontFamily: inter, fontSize: '0.85rem', color: '#8a9ac4', mt: 1, mb: 1, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+              Powered by Saaradaa Learknowations Pvt Ltd
+            </Typography>
+          </motion.div>
+
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 1.4 }}>
+            <Typography sx={{ fontFamily: inter, color: '#8a9ac4', fontSize: { xs: '0.95rem', md: '1.1rem' }, maxWidth: 600, mx: 'auto', mt: 3, mb: 5, lineHeight: 1.8 }}>
+              A comprehensive assessment platform for schools, aspirants, and educators.
+              From proctored school tests to instant quick exams — all in one place.
+            </Typography>
+          </motion.div>
+
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 1.8 }}>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} justifyContent="center">
+              <Button variant="contained" size="large" onClick={() => navigate('/login')} sx={{ fontFamily: oswald, px: 5, py: 1.8, fontSize: '1.1rem', fontWeight: 600, letterSpacing: '0.05em', borderRadius: '14px', background: 'linear-gradient(135deg, #2563eb, #3b82f6)', boxShadow: '0 8px 30px rgba(37,99,235,0.35)', transition: 'all 0.3s', '&:hover': { transform: 'translateY(-3px)', boxShadow: '0 14px 40px rgba(37,99,235,0.5)' } }}>
+                LOGIN / DASHBOARD
+              </Button>
+              <Button variant="outlined" size="large" onClick={() => navigate('/public')} sx={{ fontFamily: oswald, px: 5, py: 1.8, fontSize: '1.1rem', fontWeight: 600, letterSpacing: '0.05em', borderRadius: '14px', borderWidth: 2, borderColor: 'rgba(255,255,255,0.2)', color: '#c7d2fe', transition: 'all 0.3s', '&:hover': { borderColor: '#f68914', color: '#fff', transform: 'translateY(-3px)' } }}>
+                EXPLORE PUBLIC EXAMS
+              </Button>
+            </Stack>
+          </motion.div>
+        </Container>
+      </Box>
+
+      {/* ═══ 2. EXAM PILLARS ═══ */}
+      <Box id="exams" sx={{ py: { xs: 10, md: 14 }, position: 'relative', overflow: 'hidden' }}>
+        <Box sx={{ position: 'absolute', inset: 0, zIndex: 0, opacity: 0.5 }}>
+          <Particles particleCount={30} particleColor="#475569" lineColor="rgba(255,255,255,0.06)" speed={0.2} linkDistance={160} />
+        </Box>
         <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1 }}>
-          <Box textAlign="center">
-            <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.5 }}>
-              <Box sx={{ mb: 3, display: 'flex', justifyContent: 'center' }}>
-                <AnimatedText type="rotate" text="Your Partner for" words={["Secure Exams", "Publications", "School Growth", "Innovation"]} color="#2563eb" staticColor="#ffffff" />
-              </Box>
-            </motion.div>
-            <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.8 }}>
-              <Typography variant="h5" sx={{ color: '#9fb0d6', mb: 6, lineHeight: 1.8, fontWeight: 400, maxWidth: 750, mx: 'auto', fontSize: { xs: '1.1rem', md: '1.35rem' } }}>
-                A comprehensive ecosystem for Schools, Aspirants, and Educators.
-                From advanced lab setups to secure competitive exams.
+          <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }}>
+            <Box textAlign="center" mb={8}>
+              <Typography sx={{ fontFamily: oswald, display: 'inline-block', px: 3, py: 0.5, mb: 2, borderRadius: 20, fontWeight: 600, letterSpacing: 4, fontSize: '0.85rem', bgcolor: 'rgba(148,163,255,0.12)', border: '1px solid rgba(148,163,255,0.20)', color: '#c7d2fe', textTransform: 'uppercase' }}>
+                TWO PILLARS
               </Typography>
-            </motion.div>
-            <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 1.1 }}>
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} justifyContent="center" flexWrap="wrap" useFlexGap>
-                <Button variant="contained" size="large" onClick={() => navigate('/login')} sx={{ px: 4.5, py: 1.7, fontSize: '1.05rem', borderRadius: 2, bgcolor: 'rgba(13,18,48,0.65)', color: '#fff', fontWeight: 700, letterSpacing: 0.3, transition: 'all 0.3s ease', '&:hover': { transform: 'translateY(-3px)', bgcolor: 'rgba(20,27,60,0.60)', boxShadow: '0 12px 40px rgba(15,23,42,0.18)' } }}>
-                  Login / Dashboard
-                </Button>
-                <Button variant="contained" size="large" onClick={() => navigate('/public')} sx={{ px: 4.5, py: 1.7, fontSize: '1.05rem', borderRadius: 2, color: '#fff', fontWeight: 700, background: 'linear-gradient(135deg, #2563eb, #3b82f6)', boxShadow: '0 8px 24px rgba(37,99,235,0.3)', transition: 'all 0.3s ease', '&:hover': { transform: 'translateY(-3px)', boxShadow: '0 12px 36px rgba(37,99,235,0.42)' } }}>
-                  Explore Public Exams
-                </Button>
-                <Button variant="outlined" size="large" onClick={() => document.getElementById('plans').scrollIntoView({ behavior: 'smooth' })} sx={{ px: 4.5, py: 1.7, fontSize: '1.05rem', borderRadius: 2, borderWidth: 2, borderColor: 'rgba(255,255,255,0.25)', color: '#9fb0d6', fontWeight: 700, transition: 'all 0.3s ease', '&:hover': { borderColor: '#0f172a', color: '#eaf0ff', bgcolor: 'transparent', transform: 'translateY(-3px)' } }}>
-                  View Plans
-                </Button>
-              </Stack>
-            </motion.div>
+              <Typography sx={{ fontFamily: oswald, fontWeight: 700, fontSize: { xs: '2rem', md: '3rem' }, background: 'linear-gradient(120deg,#ffffff,#c7d2fe 75%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', mb: 1.5 }}>
+                EXAM MODULES
+              </Typography>
+              <Typography sx={{ fontFamily: inter, color: '#9fb0d6', maxWidth: 600, mx: 'auto', fontSize: '1.05rem', lineHeight: 1.7 }}>
+                Choose the exam format that fits your needs — from school-managed assessments to open public courses.
+              </Typography>
+            </Box>
+          </motion.div>
+
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }, gap: 4, maxWidth: 900, mx: 'auto' }}>
+            {examPillars.map((p, i) => (
+              <motion.div key={p.title} initial={{ opacity: 0, y: 50 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6, delay: i * 0.15 }}>
+                <Box sx={{
+                  p: 4, borderRadius: '24px', height: '100%', display: 'flex', flexDirection: 'column',
+                  background: p.gradient, border: `1px solid ${p.border}`,
+                  backdropFilter: 'blur(16px)', transition: 'all 0.4s ease',
+                  '&:hover': { transform: 'translateY(-8px)', boxShadow: `0 20px 50px rgba(0,0,0,0.2)` },
+                }}>
+                  <Typography sx={{ fontSize: '3rem', mb: 2 }}>{p.icon}</Typography>
+                  <Typography sx={{ fontFamily: oswald, fontWeight: 700, fontSize: '1.6rem', color: '#fff', letterSpacing: '0.04em', mb: 1.5 }}>
+                    {p.title}
+                  </Typography>
+                  <Typography sx={{ fontFamily: inter, color: '#9fb0d6', fontSize: '0.92rem', lineHeight: 1.7, mb: 3, flex: 1 }}>
+                    {p.desc}
+                  </Typography>
+                  <Box sx={{ mb: 3 }}>
+                    {p.features.map((f) => (
+                      <Box key={f} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                        <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: p.border, flexShrink: 0 }} />
+                        <Typography sx={{ fontFamily: inter, color: '#b4c0e4', fontSize: '0.85rem', fontWeight: 500 }}>{f}</Typography>
+                      </Box>
+                    ))}
+                  </Box>
+                  <Button fullWidth variant="outlined" onClick={() => navigate(p.link)} sx={{
+                    fontFamily: oswald, fontWeight: 600, letterSpacing: '0.06em', fontSize: '0.95rem',
+                    borderRadius: '12px', py: 1.3, borderColor: p.border, color: '#fff',
+                    '&:hover': { bgcolor: p.border, borderColor: p.border },
+                  }}>
+                    {p.cta}
+                  </Button>
+                </Box>
+              </motion.div>
+            ))}
           </Box>
         </Container>
       </Box>
 
-      {/* ═══════════════════ 2. KNOWLEDGE HUB (THINKLETS) ═══════════════════ */}
-      <StraightDivider color="transparent" />
-      <Box id="thinklets" sx={{ py: 12, bgcolor: 'transparent', position: 'relative', overflow: 'hidden' }}>
-        <Box sx={{ position: 'absolute', inset: 0, zIndex: 0, opacity: 0.6 }}>
-          <Particles particleCount={40} particleColor="#cbd5e1" lineColor="rgba(255,255,255,0.12)" speed={0.3} linkDistance={180} />
-        </Box>
-        <Container maxWidth="xl" sx={{ position: 'relative', zIndex: 1 }}>
-          <SectionHeading overline="KNOWLEDGE HUB" title="Thinklets & Suggested Reads" subtitle="Curated articles, breakthrough discoveries, and handpicked books." />
-          <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ duration: 0.8 }}>
-            <Box sx={{ display: { xs: 'none', md: 'block' } }}>
-              <Slider {...carouselSettings}>
-                {thinkletArticles.map((article) => (
-                  <Box key={article.id} sx={{ p: 2, display: 'flex !important' }}>
-                    <Card sx={{ display: 'flex', flexDirection: 'column', width: '100%', borderRadius: 3, border: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 4px 12px rgba(0,0,0,0.02)' }}>
-                      <CardMedia component="img" height="200" image={article.image} alt={article.title} />
-                      <CardContent sx={{ flexGrow: 1, p: 3 }}><Typography variant="h6" fontWeight={700} sx={{ color: '#eaf0ff' }}>{article.title}</Typography><Typography variant="body2" sx={{ color: '#a9b4dd' }}>{article.summary}</Typography></CardContent>
-                      <CardActions sx={{ p: 3, pt: 0 }}>
-                        <Button size="small" onClick={() => window.open(article.link, '_blank')}>Read Article</Button>
-                      </CardActions>
-                    </Card>
-                  </Box>
-                ))}
-              </Slider>
-            </Box>
-            <Box sx={{ display: { xs: 'flex', md: 'none' }, gap: 2, mt: 2, overflowX: 'auto', scrollSnapType: 'x mandatory', pb: 2, px: 1, WebkitOverflowScrolling: 'touch', '&::-webkit-scrollbar': { display: 'none' }, scrollbarWidth: 'none' }}>
-              {thinkletArticles.map((article) => (
-                <Card key={article.id} sx={{ display: 'flex', flexDirection: 'column', minWidth: '82vw', maxWidth: '82vw', scrollSnapAlign: 'start', flexShrink: 0, borderRadius: 3, border: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 4px 12px rgba(0,0,0,0.02)' }}>
-                  <CardMedia component="img" height="180" image={article.image} alt={article.title} />
-                  <CardContent sx={{ flexGrow: 1, p: 2.5 }}><Typography variant="subtitle1" fontWeight={700} sx={{ color: '#eaf0ff', mb: 0.5 }}>{article.title}</Typography><Typography variant="body2" sx={{ color: '#a9b4dd', fontSize: '0.82rem' }}>{article.summary}</Typography></CardContent>
-                  <CardActions sx={{ p: 2.5, pt: 0 }}>
-                    <Button size="small" onClick={() => window.open(article.link, '_blank')}>Read Article</Button>
-                  </CardActions>
-                </Card>
-              ))}
+      {/* ═══ 3. HOW IT WORKS ═══ */}
+      <Box id="how-it-works" sx={{ py: { xs: 10, md: 14 } }}>
+        <Container maxWidth="lg">
+          <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }}>
+            <Box textAlign="center" mb={8}>
+              <Typography sx={{ fontFamily: oswald, display: 'inline-block', px: 3, py: 0.5, mb: 2, borderRadius: 20, fontWeight: 600, letterSpacing: 4, fontSize: '0.85rem', bgcolor: 'rgba(148,163,255,0.12)', border: '1px solid rgba(148,163,255,0.20)', color: '#c7d2fe', textTransform: 'uppercase' }}>
+                WORKFLOW
+              </Typography>
+              <Typography sx={{ fontFamily: oswald, fontWeight: 700, fontSize: { xs: '2rem', md: '3rem' }, background: 'linear-gradient(120deg,#ffffff,#c7d2fe 75%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                HOW IT WORKS
+              </Typography>
             </Box>
           </motion.div>
-        </Container>
-      </Box>
 
-      {/* ═══════════════════ 3. OUR PUBLICATIONS ═══════════════════ */}
-      <StraightDivider color="transparent" />
-      <Box id="publications" sx={{ py: 12, bgcolor: 'transparent', position: 'relative' }}>
-        <Container maxWidth="xl" sx={{ position: 'relative', zIndex: 1 }}>
-          <SectionHeading overline="NEP ALIGNED" title="Our Publications" subtitle="From Pre-Primary to Competitive Exams. High-quality content aligned with NEP." />
-          <motion.div initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.8 }}>
-            <Grid container spacing={8} justifyContent="center" alignItems="flex-end">
-              {publicationStacks.map((stack) => (
-                <Grid item xs={12} md={4} key={stack.id}>
-                  <BookStack category={stack.category} books={stack.books} color={stack.color} />
-                </Grid>
-              ))}
-            </Grid>
-          </motion.div>
-        </Container>
-      </Box>
-
-      {/* ═══════════════════ 4. FULL WIDTH SECTION: SL-RADIO ═══════════════════ */}
-      <Box id="radio" sx={{ position: 'relative', py: 14, overflow: 'hidden', bgcolor: 'rgba(13,18,48,0.65)' }}>
-        <Waves lineColor="rgba(56, 189, 248, 0.7)" speed={0.025} />
-        <Container maxWidth="md" sx={{ position: 'relative', zIndex: 1, textAlign: 'center' }}>
-          <motion.div initial={{ opacity: 0, y: 50 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
-            <Avatar sx={{ bgcolor: 'rgba(56, 189, 248, 0.1)', color: '#38bdf8', width: 90, height: 90, mx: 'auto', mb: 3 }}><MicIcon sx={{ fontSize: 50 }} /></Avatar>
-            <Typography variant="h2" sx={{ fontFamily: '"Inter", sans-serif', color: '#fff', fontWeight: 900, letterSpacing: 2, mb: 3, textShadow: '0 0 20px rgba(56, 189, 248, 0.5)' }}>SL-RADIO</Typography>
-            <Typography variant="h6" sx={{ fontFamily: '"Inter", sans-serif', color: '#bae6fd', fontWeight: 300, mb: 5, lineHeight: 1.8 }}>Tune in to frequency of innovation. Have a personalised School radio for your school.</Typography>
-            <Button variant="outlined" size="large" onClick={() => window.open(`https://youtube.com/@SaradaPublications-v1l`, '_blank')} sx={{ borderColor: '#38bdf8', color: '#38bdf8', borderWidth: 2, borderRadius: 50, px: 6, '&:hover': { bgcolor: '#38bdf8', color: '#eaf0ff' } }}>Listen Live</Button>
-          </motion.div>
-        </Container>
-      </Box>
-
-      {/* ═══════════════════ 5. FULL WIDTH SECTION: ENGLISH LSRW ═══════════════════ */}
-      <Box id="lsrw" sx={{ py: 16, bgcolor: 'transparent', position: 'relative', overflow: 'hidden' }}>
-        <FloatingText color="rgba(15, 23, 42, 0.12)" speed={0.4} />
-        <Container maxWidth="md" sx={{ textAlign: 'center', position: 'relative', zIndex: 1 }}>
-          <motion.div initial={{ opacity: 0, y: 50 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
-            <Typography variant="overline" sx={{ fontFamily: '"Playfair Display", serif', fontWeight: 800, color: '#aeb9e0', letterSpacing: 3, fontSize: '1rem' }}>Mastering Language</Typography>
-            <Typography variant="h2" sx={{ fontFamily: '"Playfair Display", serif', fontWeight: 600, color: '#eaf0ff', mt: 1, mb: 4 }}>English LSRW</Typography>
-            <Typography variant="h5" sx={{ fontFamily: '"Playfair Display", serif', fontStyle: 'italic', color: '#9fb0d6', mb: 6, lineHeight: 1.8 }}>Listening. Speaking. Reading. Writing. <br />A dedicated program curated by expert linguists to foster elegance, fluency, and sheer command over the English language in students.</Typography>
-            <Button variant="text" size="large" onClick={() => window.location.href = `mailto:${directorMail}?subject=Inquiry: English LSRW Program`} sx={{ fontFamily: '"Playfair Display", serif', color: '#eaf0ff', borderBottom: '2px solid #0f172a', borderRadius: 0, px: 2 }}>Explore Curriculum</Button>
-          </motion.div>
-        </Container>
-      </Box>
-
-      {/* ═══════════════════ 6. FULL WIDTH SECTION: AMBASSADOR ═══════════════════ */}
-      <Box id="ambassador" sx={{ py: 16, bgcolor: 'transparent', position: 'relative', overflow: 'hidden' }}>
-        <RisingStars color="rgba(239, 68, 68, 0.15)" count={30} speed={0.8} />
-        <Typography sx={{ position: 'absolute', top: -30, right: { sm: -10, md: -50 }, fontSize: { sm: '10rem', md: '20rem' }, fontWeight: 900, color: 'rgba(203, 213, 225, 0.2)', fontFamily: '"Inter", sans-serif', lineHeight: 1, pointerEvents: 'none', display: { xs: 'none', sm: 'block' } }}>LEAD</Typography>
-        <Container maxWidth="md" sx={{ position: 'relative', zIndex: 1, textAlign: 'center' }}>
-          <motion.div initial={{ opacity: 0, scale: 0.95 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true }}>
-            <Typography variant="h1" sx={{ fontFamily: '"Inter", sans-serif', color: '#eaf0ff', letterSpacing: { xs: 1, md: 2 }, mb: 2, fontSize: { xs: '2.2rem', sm: '3rem', md: '4rem', lg: '5rem' }, overflowWrap: 'break-word', wordBreak: 'break-word', px: { xs: 1, sm: 0 } }}>STUDENT AMBASSADOR</Typography>
-            <Typography variant="h5" sx={{ fontFamily: '"Inter", sans-serif', fontWeight: 700, color: '#ef4444', textTransform: 'uppercase', mb: 3, fontSize: { xs: '1rem', sm: '1.25rem', md: '1.5rem' } }}>Lead The Change. Voice The Future.</Typography>
-            <Typography variant="h6" sx={{ color: '#9fb0d6', mb: 5, maxWidth: 600, mx: 'auto', fontSize: { xs: '0.95rem', md: '1.15rem' }, px: { xs: 2, sm: 0 } }}>Step up to represent, organize, and inspire. Our ambassador program shapes the leaders of tomorrow through action today.</Typography>
-            <Button variant="contained" size="large" onClick={() => window.location.href = `mailto:${directorMail}?subject=Application: Student Ambassador`} sx={{ bgcolor: '#ef4444', color: '#fff', borderRadius: 0, fontWeight: 900, fontSize: '1.2rem', fontFamily: '"Inter", sans-serif', px: 6, py: 2, '&:hover': { bgcolor: '#dc2626' } }}>Apply To Lead</Button>
-          </motion.div>
-        </Container>
-      </Box>
-
-      {/* ═══════════════════ 7. FULL WIDTH SECTION: SJIS ═══════════════════ */}
-      <Box id="sjis" sx={{ py: 16, bgcolor: 'transparent', position: 'relative', overflow: 'hidden' }}>
-        <FloatingPapers color="rgba(15, 23, 42, 0.12)" count={18} speed={0.3} />
-        <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1 }}>
-          <motion.div initial={{ opacity: 0, y: 50 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
-            <Grid container spacing={6} alignItems="center">
-              <Grid item xs={12} md={5}>
-                <Box sx={{ p: 4, bgcolor: 'rgba(255,255,255,0.06)', borderLeft: '4px solid #0f172a' }}>
-                  <Typography variant="h3" sx={{ fontFamily: '"Playfair Display", serif', fontWeight: 800, color: '#eaf0ff', mb: 2 }}>SJIS.</Typography>
-                  <Typography variant="subtitle1" sx={{ fontFamily: '"Inter", sans-serif', fontWeight: 700, color: '#a9b4dd' }}>Call for Papers & Research</Typography>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: 4 }}>
+            {steps.map((s, i) => (
+              <motion.div key={s.num} initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.5, delay: i * 0.12 }}>
+                <Box sx={{ textAlign: 'center', position: 'relative' }}>
+                  <Typography sx={{ fontFamily: oswald, fontSize: '4rem', fontWeight: 700, color: 'rgba(59,130,246,0.12)', lineHeight: 1 }}>{s.num}</Typography>
+                  <Typography sx={{ fontSize: '2.5rem', mt: -1, mb: 2 }}>{s.icon}</Typography>
+                  <Typography sx={{ fontFamily: oswald, fontWeight: 600, fontSize: '1.2rem', color: '#fff', letterSpacing: '0.04em', mb: 1 }}>{s.title}</Typography>
+                  <Typography sx={{ fontFamily: inter, color: '#8a9ac4', fontSize: '0.88rem', lineHeight: 1.6 }}>{s.desc}</Typography>
                 </Box>
-              </Grid>
-              <Grid item xs={12} md={7}>
-                <Typography variant="h5" sx={{ fontFamily: '"Playfair Display", serif', color: '#c7d2fe', mb: 4, lineHeight: 1.8 }}>The Saradaa Journal of Interdisciplinary Studies invites rigorous academic contributions. Submit your original research to shape tomorrow's dialogue today.</Typography>
-                <Stack direction="row" spacing={3}>
-                  <Button variant="contained" onClick={() => window.location.href = `mailto:${directorMail}?subject=SJIS: Research Paper Submission`} sx={{ bgcolor: 'rgba(13,18,48,0.65)', borderRadius: 1, px: 4, fontFamily: '"Inter", sans-serif', fontWeight: 700 }}>Submit</Button>
-                  <Button variant="text" onClick={() => window.open('https://journal.e2eindia.org/', '_blank')} sx={{ color: '#9fb0d6', fontFamily: '"Inter", sans-serif', fontWeight: 700 }}>Read Journal &rarr;</Button>
-                </Stack>
-              </Grid>
-            </Grid>
+              </motion.div>
+            ))}
+          </Box>
+        </Container>
+      </Box>
+
+      {/* ═══ 4. STATS ═══ */}
+      <Box id="stats" sx={{ py: { xs: 8, md: 12 } }}>
+        <Container maxWidth="lg">
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: 3 }}>
+            {stats.map((s, i) => <StatCard key={s.label} {...s} delay={i * 0.1} />)}
+          </Box>
+        </Container>
+      </Box>
+
+      {/* ═══ 5. WHY SL EXAMS ═══ */}
+      <Box id="why" sx={{ py: { xs: 10, md: 14 } }}>
+        <Container maxWidth="lg">
+          <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }}>
+            <Box textAlign="center" mb={8}>
+              <Typography sx={{ fontFamily: oswald, display: 'inline-block', px: 3, py: 0.5, mb: 2, borderRadius: 20, fontWeight: 600, letterSpacing: 4, fontSize: '0.85rem', bgcolor: 'rgba(148,163,255,0.12)', border: '1px solid rgba(148,163,255,0.20)', color: '#c7d2fe', textTransform: 'uppercase' }}>
+                PLATFORM
+              </Typography>
+              <Typography sx={{ fontFamily: oswald, fontWeight: 700, fontSize: { xs: '2rem', md: '3rem' }, background: 'linear-gradient(120deg,#ffffff,#c7d2fe 75%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                WHY SL EXAMS
+              </Typography>
+            </Box>
+          </motion.div>
+
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)' }, gap: 3 }}>
+            {features.map((f, i) => (
+              <motion.div key={f.title} initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.5, delay: i * 0.08 }}>
+                <Box sx={{
+                  p: 3.5, borderRadius: '18px', bgcolor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)',
+                  transition: 'all 0.3s', '&:hover': { bgcolor: 'rgba(255,255,255,0.07)', transform: 'translateY(-4px)' },
+                }}>
+                  <Typography sx={{ fontSize: '2rem', mb: 1.5 }}>{f.icon}</Typography>
+                  <Typography sx={{ fontFamily: oswald, fontWeight: 600, fontSize: '1.15rem', color: '#fff', letterSpacing: '0.03em', mb: 1 }}>{f.title}</Typography>
+                  <Typography sx={{ fontFamily: inter, color: '#8a9ac4', fontSize: '0.88rem', lineHeight: 1.6 }}>{f.desc}</Typography>
+                </Box>
+              </motion.div>
+            ))}
+          </Box>
+        </Container>
+      </Box>
+
+      {/* ═══ 6. E2E INDIA CTA ═══ */}
+      <Box sx={{ position: 'relative', py: { xs: 10, md: 14 }, overflow: 'hidden' }}>
+        <Box sx={{ position: 'absolute', inset: 0, zIndex: 0, opacity: 0.5 }}>
+          <Waves lineColor="rgba(246,137,20,0.5)" speed={0.02} />
+        </Box>
+        <Container maxWidth="md" sx={{ position: 'relative', zIndex: 1, textAlign: 'center' }}>
+          <motion.div initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.8 }}>
+            <Typography sx={{ fontFamily: oswald, fontWeight: 700, fontSize: { xs: '1.8rem', md: '2.8rem' }, color: '#fff', letterSpacing: '0.03em', mb: 2 }}>
+              MORE THAN JUST EXAMS
+            </Typography>
+            <Typography sx={{ fontFamily: inter, color: '#9fb0d6', fontSize: { xs: '1rem', md: '1.15rem' }, lineHeight: 1.8, mb: 5, maxWidth: 550, mx: 'auto' }}>
+              Discover publications, school lab setups, SJIS research journal, English LSRW programs, and the complete E2E India ecosystem.
+            </Typography>
+            <Button variant="contained" size="large" onClick={() => window.open('https://e2eindia.org', '_blank')} sx={{
+              fontFamily: oswald, px: 6, py: 1.8, fontSize: '1.1rem', fontWeight: 600, letterSpacing: '0.06em',
+              borderRadius: '14px', background: 'linear-gradient(135deg, #f68914, #ff9a3c)',
+              boxShadow: '0 8px 30px rgba(246,137,20,0.35)', color: '#fff',
+              transition: 'all 0.3s', '&:hover': { transform: 'translateY(-3px)', boxShadow: '0 14px 40px rgba(246,137,20,0.5)' },
+            }}>
+              VISIT E2E INDIA →
+            </Button>
           </motion.div>
         </Container>
       </Box>
 
-      {/* ═══════════════════ 8. ECOSYSTEM & LMS ═══════════════════ */}
-      <StraightDivider color="transparent" />
-      <Box id="services" sx={{ py: 12, bgcolor: 'transparent', position: 'relative' }}>
-        <Container maxWidth="lg">
-          <SectionHeading overline="WHAT WE DO" title="School Ecosystem Setup" />
-          <Grid container spacing={4}>
-            {schoolServices.map((service, index) => (
-              <Grid item xs={12} sm={4} key={index}>
-                <Paper elevation={0} sx={{ p: 5, height: '100%', borderRadius: 3, bgcolor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)' }}>
-                  <Box sx={{ color: service.color, mb: 3 }}>{service.icon}</Box>
-                  <Typography variant="h6" fontWeight={700} sx={{ color: '#eaf0ff', mb: 1 }}>{service.title}</Typography>
-                  <Typography variant="body2" sx={{ color: '#9fb0d6' }}>{service.desc}</Typography>
-                </Paper>
-              </Grid>
-            ))}
-          </Grid>
-        </Container>
-      </Box>
-
-      {/* ═══════════════════ 9. PLANS ═══════════════════ */}
-      <Box id="plans" sx={{ py: 12, bgcolor: 'transparent' }}>
-        <Container maxWidth="lg">
-          <SectionHeading overline="PARTNERSHIP MODELS" title="Book Your Comfort" subtitle="Flexible academic plans designed to suit every school's budget and vision." />
-          <Grid container spacing={4} alignItems="stretch" justifyContent="center">
-            {pricingPlans.map((plan, index) => (
-              <Grid item xs={12} md={4} key={index}>
-                <motion.div initial={{ opacity: 0, y: 50 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6, delay: index * 0.15 }} style={{ height: '100%' }}>
-                  <Paper elevation={0} sx={{ p: 0, borderRadius: 3, overflow: 'hidden', position: 'relative', bgcolor: 'rgba(255,255,255,0.05)', height: '100%', display: 'flex', flexDirection: 'column', border: '1px solid', borderColor: plan.recommended ? plan.color : 'rgba(255,255,255,0.12)', boxShadow: plan.recommended ? `0 12px 30px rgba(15,23,42,0.1)` : '0 4px 12px rgba(0,0,0,0.03)', transition: 'all 0.4s ease', '&:hover': { transform: 'translateY(-8px)', boxShadow: '0 20px 40px rgba(0,0,0,0.08)' } }}>
-                    <Box sx={{ bgcolor: plan.recommended ? plan.color : 'rgba(255,255,255,0.06)', color: plan.recommended ? 'white' : '#0f172a', textAlign: 'center', py: 4, px: 3, position: 'relative' }}>
-                      {plan.recommended && (
-                        <Box sx={{ position: 'absolute', top: 12, right: -30, bgcolor: 'rgba(255,255,255,0.05)', color: plan.color, px: 4, py: 0.5, fontWeight: 800, fontSize: '0.7rem', transform: 'rotate(45deg)', letterSpacing: 1 }}>POPULAR</Box>
-                      )}
-                      <Typography variant="h5" fontWeight={800}>{plan.title}</Typography>
-                    </Box>
-                    <Box sx={{ p: 4, flex: 1, display: 'flex', flexDirection: 'column' }}>
-                      <List dense sx={{ flex: 1 }}>
-                        {plan.features.map((feat, i) => (
-                          <ListItem key={i} disableGutters sx={{ py: 0.8 }}><ListItemIcon sx={{ minWidth: 32 }}><CheckCircleIcon sx={{ color: plan.recommended ? plan.color : '#64748b', fontSize: 20 }} /></ListItemIcon><ListItemText primary={feat} primaryTypographyProps={{ variant: 'body2', fontWeight: 500, color: '#c7d2fe' }} /></ListItem>
-                        ))}
-                      </List>
-                      <Button fullWidth variant={plan.recommended ? 'contained' : 'outlined'} onClick={() => window.location.href = `mailto:${directorMail}?subject=Inquiry: Pricing Plan ${plan.title}`} sx={{ mt: 3, borderRadius: 2, py: 1.5, bgcolor: plan.recommended ? plan.color : 'transparent', color: plan.recommended ? '#fff' : plan.color, borderColor: plan.color }}>
-                        Select Plan
-                      </Button>
-                    </Box>
-                  </Paper>
-                </motion.div>
-              </Grid>
-            ))}
-          </Grid>
-        </Container>
-      </Box>
-
-      {/* ═══════════════════ 10. OUR WORKS (Dome Gallery) ═══════════════════ */}
-      <StraightDivider color="transparent" />
-      <Box id="gallery" sx={{ py: 14, bgcolor: 'transparent', overflow: 'hidden' }}>
+      {/* ═══ 7. GALLERY ═══ */}
+      <Box id="gallery" sx={{ py: { xs: 10, md: 14 }, overflow: 'hidden' }}>
         <Container maxWidth="xl">
-          <SectionHeading overline="GALLERY" title="Our Works in Action" />
+          <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }}>
+            <Box textAlign="center" mb={8}>
+              <Typography sx={{ fontFamily: oswald, display: 'inline-block', px: 3, py: 0.5, mb: 2, borderRadius: 20, fontWeight: 600, letterSpacing: 4, fontSize: '0.85rem', bgcolor: 'rgba(148,163,255,0.12)', border: '1px solid rgba(148,163,255,0.20)', color: '#c7d2fe', textTransform: 'uppercase' }}>
+                GALLERY
+              </Typography>
+              <Typography sx={{ fontFamily: oswald, fontWeight: 700, fontSize: { xs: '2rem', md: '3rem' }, background: 'linear-gradient(120deg,#ffffff,#c7d2fe 75%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                OUR WORKS IN ACTION
+              </Typography>
+            </Box>
+          </motion.div>
           <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.8 }}>
-            <DomeGallery data={ourWorksPhotos} />
+            <DomeGallery data={galleryPhotos} />
           </motion.div>
         </Container>
       </Box>
-
-      {/* ═══════════════════ BOOK DETAILS DIALOG ═══════════════════ */}
-      <Dialog open={!!openBook} onClose={() => setOpenBook(null)} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: 3, overflow: 'hidden' } }}>
-        {openBook && (
-          <>
-            <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: 'rgba(13,18,48,0.65)', color: '#fff' }}>
-              <Typography variant="h6" fontWeight={700}>{openBook.title}</Typography>
-              <IconButton onClick={() => setOpenBook(null)} sx={{ color: '#fff' }}><CloseIcon /></IconButton>
-            </DialogTitle>
-            <DialogContent dividers sx={{ p: 4 }}>
-              <Grid container spacing={4}>
-                <Grid item xs={12} sm={4}>
-                  <Box component="img" src={openBook.cover} sx={{ width: '100%', borderRadius: 2, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
-                </Grid>
-                <Grid item xs={12} sm={8}>
-                  <Typography variant="h6" sx={{ color: '#eaf0ff', fontWeight: 700, mb: 2 }}>About the Book</Typography>
-                  <Typography paragraph sx={{ lineHeight: 1.8, color: '#9fb0d6' }}>{openBook.summary}</Typography>
-                  <Box sx={{ mt: 3, p: 3, borderRadius: 2, bgcolor: 'transparent', borderLeft: '4px solid #0f172a' }}>
-                    <Stack direction="row" gap={1} alignItems="center"><LightbulbIcon sx={{ color: '#eaf0ff' }} /><Typography variant="subtitle1" fontWeight={700} sx={{ color: '#eaf0ff' }}>Moral of the Story</Typography></Stack>
-                    <Typography variant="body2" sx={{ mt: 1, lineHeight: 1.6, color: '#9fb0d6' }}>{openBook.moral}</Typography>
-                  </Box>
-                </Grid>
-              </Grid>
-            </DialogContent>
-          </>
-        )}
-      </Dialog>
     </Box>
   );
 }

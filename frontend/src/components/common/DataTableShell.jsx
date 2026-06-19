@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   Card, Table, TableHead, TableBody, TableRow, TableCell,
-  TableContainer, Box,
+  TableContainer, Box, useMediaQuery, useTheme, Stack,
 } from '@mui/material';
 import EmptyState from './EmptyState';
 import LoadingState from './LoadingState';
@@ -10,14 +10,17 @@ import LoadingState from './LoadingState';
  * Styled table wrapper used by admin list pages. Renders a header row from
  * `columns` and delegates body rows to `renderRow`.
  *
+ * On mobile, if `renderMobileCard` is provided, switches to a card-based layout.
+ *
  * columns: [{ key, label, align, width }]
  *
- * <DataTableShell columns={cols} rows={items} renderRow={(r) => (...)} />
+ * <DataTableShell columns={cols} rows={items} renderRow={(r) => (...)} renderMobileCard={(r, i) => (...)} />
  */
 export default function DataTableShell({
   columns = [],
   rows = [],
   renderRow,
+  renderMobileCard,
   loading = false,
   emptyTitle = 'Nothing here yet',
   emptyMessage,
@@ -26,6 +29,31 @@ export default function DataTableShell({
   size = 'medium',
   sx,
 }) {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+
+  // ── Mobile Card Layout ──
+  if (isMobile && renderMobileCard) {
+    return (
+      <Box sx={sx}>
+        {loading && <LoadingState />}
+        {!loading && rows.length === 0 && (
+          <Card sx={{ overflow: 'hidden' }}>
+            <Box sx={{ py: 1 }}>
+              <EmptyState dense title={emptyTitle} message={emptyMessage} action={emptyAction} icon={emptyIcon} />
+            </Box>
+          </Card>
+        )}
+        {!loading && rows.length > 0 && (
+          <Stack spacing={1.5}>
+            {rows.map((row, i) => renderMobileCard(row, i))}
+          </Stack>
+        )}
+      </Box>
+    );
+  }
+
+  // ── Desktop Table Layout ──
   return (
     <Card sx={{ overflow: 'hidden', ...sx }}>
       <TableContainer>

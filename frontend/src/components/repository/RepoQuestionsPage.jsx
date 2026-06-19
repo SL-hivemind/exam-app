@@ -225,7 +225,7 @@ export default function RepoQuestionsPage() {
 
   /* ---------------- RENDER ---------------- */
   return (
-    <Box sx={{ display: 'flex', height: 'calc(100vh - 64px)', overflow: 'hidden' }}>
+    <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, height: 'calc(100vh - 64px)', overflow: 'hidden' }}>
       <FilterSidebar
         filters={filters}
         onFilterChange={setFilters}
@@ -233,7 +233,7 @@ export default function RepoQuestionsPage() {
       />
 
       <Box sx={{ flexGrow: 1, p: 3, overflowY: 'auto', bgcolor: 'transparent' }}>
-        <Stack direction="row" justifyContent="space-between" mb={3}>
+        <Stack spacing={2} mb={3}>
           <Box>
             <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(-1)} sx={{ mb: 1 }}>
               Back
@@ -244,7 +244,7 @@ export default function RepoQuestionsPage() {
             </Typography>
           </Box>
 
-          <Stack direction="row" spacing={1}>
+          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
             {canPickExam && examId && questions.length > 0 && (
               <Button variant="outlined" size="small" onClick={toggleSelectPage}>
                 {allSelectedOnPage ? 'Unselect Page' : 'Select Page'}
@@ -253,12 +253,13 @@ export default function RepoQuestionsPage() {
 
             {canPickExam && examId && selectedIds.size > 0 && (
               <>
-                <Button variant="outlined" onClick={() => setReviewOpen(true)}>
+                <Button variant="outlined" size="small" onClick={() => setReviewOpen(true)}>
                   Review ({selectedIds.size})
                 </Button>
                 <Button
                   variant="contained"
                   color="secondary"
+                  size="small"
                   startIcon={<LibraryAddIcon />}
                   disabled={busy}
                   onClick={handleAddToExam}
@@ -272,6 +273,7 @@ export default function RepoQuestionsPage() {
               <Button
                 variant="outlined"
                 component="label"
+                size="small"
                 startIcon={<CloudUploadIcon />}
                 disabled={busy}
               >
@@ -289,6 +291,7 @@ export default function RepoQuestionsPage() {
             {canAddRepo && (
               <Button
                 variant="contained"
+                size="small"
                 startIcon={<AddIcon />}
                 onClick={() => navigate(`${basePath}/repository/questions/new${location.search}`)}
               >
@@ -299,6 +302,7 @@ export default function RepoQuestionsPage() {
             {canBulkEdit && (
               <Button
                 variant="outlined"
+                size="small"
                 startIcon={<GridOnIcon />}
                 onClick={() =>
                   navigate(`${isSubject ? '/specialist' : '/admin'}/repository/bulk-edit${location.search}`)
@@ -325,8 +329,8 @@ export default function RepoQuestionsPage() {
                     />
                   )}
 
-                  <Box flexGrow={1}>
-                    <Stack direction="row" spacing={1} mb={1}>
+                  <Box flexGrow={1} sx={{ minWidth: 0 }}>
+                    <Stack direction="row" spacing={1} mb={1} flexWrap="wrap" useFlexGap>
                       <Chip
                         label={`ID: ${q.custom_id}`}
                         size="small"
@@ -340,7 +344,7 @@ export default function RepoQuestionsPage() {
                     </Stack>
 
                     {/* Question text */}
-                    <Typography variant="subtitle1" fontWeight={600}>
+                    <Typography variant="subtitle1" fontWeight={600} sx={{ wordBreak: 'break-word' }}>
                       {q.text}
                     </Typography>
 
@@ -364,23 +368,23 @@ export default function RepoQuestionsPage() {
                     {/* Options */}
                     <Grid container spacing={1} mt={1}>
                       {q.option_a && (
-                        <Grid item xs={6}>
-                          <Typography variant="body2">A) {q.option_a}</Typography>
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>A) {q.option_a}</Typography>
                         </Grid>
                       )}
                       {q.option_b && (
-                        <Grid item xs={6}>
-                          <Typography variant="body2">B) {q.option_b}</Typography>
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>B) {q.option_b}</Typography>
                         </Grid>
                       )}
                       {q.option_c && (
-                        <Grid item xs={6}>
-                          <Typography variant="body2">C) {q.option_c}</Typography>
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>C) {q.option_c}</Typography>
                         </Grid>
                       )}
                       {q.option_d && (
-                        <Grid item xs={6}>
-                          <Typography variant="body2">D) {q.option_d}</Typography>
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>D) {q.option_d}</Typography>
                         </Grid>
                       )}
                     </Grid>
@@ -447,8 +451,8 @@ export default function RepoQuestionsPage() {
 
                   <Grid container spacing={1} mt={1}>
                     {['option_a', 'option_b', 'option_c', 'option_d'].map(opt => (
-                      <Grid item xs={6} key={opt}>
-                        <Typography variant="body2">
+                      <Grid item xs={12} sm={6} key={opt}>
+                        <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
                           {opt.slice(-1).toUpperCase()}) {q[opt]}
                         </Typography>
                       </Grid>

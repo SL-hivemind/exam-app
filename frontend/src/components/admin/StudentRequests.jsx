@@ -3,7 +3,7 @@ import {
   Box, Typography, Paper, Table, TableHead, TableBody, TableRow, TableCell,
   Button, Chip, Stack, Alert, Dialog, DialogTitle, DialogContent,
   DialogActions, TextField, IconButton, InputAdornment, CircularProgress,
-  ToggleButtonGroup, ToggleButton,
+  ToggleButtonGroup, ToggleButton, Card, CardContent, useMediaQuery, useTheme,
 } from "@mui/material";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CancelIcon from "@mui/icons-material/Cancel";
@@ -16,6 +16,8 @@ import { PageHeader } from "../common";
 
 export default function StudentRequests() {
   const { authToken } = useAuth();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -125,100 +127,174 @@ export default function StudentRequests() {
       {error && <Alert severity="error" onClose={() => setError("")} sx={{ mb: 2 }}>{error}</Alert>}
       {success && <Alert severity="success" onClose={() => setSuccess("")} sx={{ mb: 2 }}>{success}</Alert>}
 
-      <Paper elevation={1} sx={{ borderRadius: 2, overflowX: "auto" }}>
-        <Table>
-          <TableHead sx={{ bgcolor: "transparent" }}>
-            <TableRow>
-              <TableCell><strong>Student</strong></TableCell>
-              <TableCell><strong>Type</strong></TableCell>
-              <TableCell><strong>Message</strong></TableCell>
-              <TableCell><strong>Date</strong></TableCell>
-              <TableCell><strong>Status</strong></TableCell>
-              {statusFilter === "pending" && (
-                <TableCell align="right"><strong>Actions</strong></TableCell>
-              )}
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={6} align="center">
-                  <CircularProgress sx={{ my: 2 }} />
-                </TableCell>
-              </TableRow>
-            ) : requests.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} align="center">
-                  No {statusFilter} requests found.
-                </TableCell>
-              </TableRow>
-            ) : (
-              requests.map((r) => (
-                <TableRow key={r.id} hover>
-                  <TableCell>
-                    <Typography variant="subtitle2" fontWeight={600}>
-                      {r.student_name}
-                    </Typography>
-                    {r.student_id && (
-                      <Chip label={r.student_id} size="small" sx={{ mt: 0.5, bgcolor: "rgba(99,102,241,0.20)", color: "#c7d2fe" }} />
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={r.type === "password_reset" ? "Password Reset" : "Profile Update"}
-                      size="small"
-                      color={r.type === "password_reset" ? "warning" : "info"}
-                      variant="outlined"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2" color="text.secondary">
-                      {r.message || "—"}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    {r.created_at ? new Date(r.created_at).toLocaleString() : "—"}
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={r.status}
-                      size="small"
-                      color={
-                        r.status === "approved" ? "success" :
-                        r.status === "rejected" ? "error" : "warning"
-                      }
-                    />
-                  </TableCell>
-                  {statusFilter === "pending" && (
-                    <TableCell align="right">
-                      <Stack direction="row" spacing={1} justifyContent="flex-end">
+      {isMobile ? (
+        /* ── MOBILE CARD LAYOUT ── */
+        <Box>
+          {loading ? (
+            <Box display="flex" justifyContent="center" py={4}><CircularProgress /></Box>
+          ) : requests.length === 0 ? (
+            <Paper sx={{ p: 4, textAlign: 'center', borderRadius: 3 }}>
+              <Typography color="text.secondary">No {statusFilter} requests found.</Typography>
+            </Paper>
+          ) : (
+            <Stack spacing={1.5}>
+              {requests.map((r) => (
+                <Card key={r.id} sx={{ borderRadius: 3, border: '1px solid rgba(255,255,255,0.10)', boxShadow: 'none' }}>
+                  <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
+                    {/* Header */}
+                    <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={1}>
+                      <Box>
+                        <Typography variant="subtitle1" fontWeight={700} sx={{ color: '#cfe0ff' }}>
+                          {r.student_name}
+                        </Typography>
+                        {r.student_id && (
+                          <Chip label={r.student_id} size="small" sx={{ mt: 0.5, bgcolor: 'rgba(99,102,241,0.20)', color: '#c7d2fe' }} />
+                        )}
+                      </Box>
+                      <Chip
+                        label={r.status}
+                        size="small"
+                        color={r.status === "approved" ? "success" : r.status === "rejected" ? "error" : "warning"}
+                      />
+                    </Stack>
+                    {/* Type + Message */}
+                    <Stack spacing={1} mb={1.5}>
+                      <Chip
+                        label={r.type === "password_reset" ? "Password Reset" : "Profile Update"}
+                        size="small"
+                        color={r.type === "password_reset" ? "warning" : "info"}
+                        variant="outlined"
+                        sx={{ alignSelf: 'flex-start' }}
+                      />
+                      <Typography variant="body2" color="text.secondary">
+                        {r.message || "—"}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {r.created_at ? new Date(r.created_at).toLocaleString() : "—"}
+                      </Typography>
+                    </Stack>
+                    {/* Actions */}
+                    {statusFilter === "pending" && (
+                      <Stack direction="row" spacing={1}>
                         <Button
-                          size="small"
-                          variant="contained"
-                          color="success"
+                          size="small" variant="contained" color="success" fullWidth
                           startIcon={<CheckCircleIcon />}
                           onClick={() => openApprove(r)}
                         >
                           Approve
                         </Button>
                         <Button
-                          size="small"
-                          variant="outlined"
-                          color="error"
+                          size="small" variant="outlined" color="error" fullWidth
                           startIcon={<CancelIcon />}
                           onClick={() => handleReject(r.id)}
                         >
                           Reject
                         </Button>
                       </Stack>
-                    </TableCell>
-                  )}
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </Stack>
+          )}
+        </Box>
+      ) : (
+        /* ── DESKTOP TABLE LAYOUT ── */
+        <Paper elevation={1} sx={{ borderRadius: 2, overflowX: "auto" }}>
+          <Table>
+            <TableHead sx={{ bgcolor: "transparent" }}>
+              <TableRow>
+                <TableCell><strong>Student</strong></TableCell>
+                <TableCell><strong>Type</strong></TableCell>
+                <TableCell><strong>Message</strong></TableCell>
+                <TableCell><strong>Date</strong></TableCell>
+                <TableCell><strong>Status</strong></TableCell>
+                {statusFilter === "pending" && (
+                  <TableCell align="right"><strong>Actions</strong></TableCell>
+                )}
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={6} align="center">
+                    <CircularProgress sx={{ my: 2 }} />
+                  </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </Paper>
+              ) : requests.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} align="center">
+                    No {statusFilter} requests found.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                requests.map((r) => (
+                  <TableRow key={r.id} hover>
+                    <TableCell>
+                      <Typography variant="subtitle2" fontWeight={600}>
+                        {r.student_name}
+                      </Typography>
+                      {r.student_id && (
+                        <Chip label={r.student_id} size="small" sx={{ mt: 0.5, bgcolor: "rgba(99,102,241,0.20)", color: "#c7d2fe" }} />
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={r.type === "password_reset" ? "Password Reset" : "Profile Update"}
+                        size="small"
+                        color={r.type === "password_reset" ? "warning" : "info"}
+                        variant="outlined"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" color="text.secondary">
+                        {r.message || "—"}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      {r.created_at ? new Date(r.created_at).toLocaleString() : "—"}
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={r.status}
+                        size="small"
+                        color={
+                          r.status === "approved" ? "success" :
+                          r.status === "rejected" ? "error" : "warning"
+                        }
+                      />
+                    </TableCell>
+                    {statusFilter === "pending" && (
+                      <TableCell align="right">
+                        <Stack direction="row" spacing={1} justifyContent="flex-end">
+                          <Button
+                            size="small"
+                            variant="contained"
+                            color="success"
+                            startIcon={<CheckCircleIcon />}
+                            onClick={() => openApprove(r)}
+                          >
+                            Approve
+                          </Button>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            color="error"
+                            startIcon={<CancelIcon />}
+                            onClick={() => handleReject(r.id)}
+                          >
+                            Reject
+                          </Button>
+                        </Stack>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </Paper>
+      )}
 
       {/* Approve Dialog */}
       <Dialog open={approveOpen} onClose={() => setApproveOpen(false)} maxWidth="sm" fullWidth>

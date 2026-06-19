@@ -23,6 +23,10 @@ import {
   InputAdornment,
   Zoom,
   Divider,
+  Card,
+  CardContent,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import {
   Add as AddIcon,
@@ -44,6 +48,8 @@ import { PageHeader } from "../common";
 export default function AdminExams() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   const [exams, setExams] = useState([]);
   const [filteredExams, setFilteredExams] = useState([]);
@@ -214,88 +220,181 @@ export default function AdminExams() {
         />
       </Paper>
 
-      <Paper elevation={1} sx={{ borderRadius: 2, overflowX: 'auto' }}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell><strong>Title & Description</strong></TableCell>
-              <TableCell><strong>Duration</strong></TableCell>
-              <TableCell><strong>Schedule</strong></TableCell>
-              <TableCell><strong>Status</strong></TableCell>
-              <TableCell align="right"><strong>Actions</strong></TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {loadingExams ? (
-              <TableRow><TableCell colSpan={5} align="center"><CircularProgress sx={{ my: 2 }} /></TableCell></TableRow>
-            ) : filteredExams.length === 0 ? (
-              <TableRow><TableCell colSpan={5} align="center" sx={{ py: 3, color: 'text.secondary' }}>No exams found.</TableCell></TableRow>
-            ) : (
-              filteredExams.map((e) => (
-                <TableRow key={e.id} hover>
-                  <TableCell>
-                    <Typography variant="subtitle1" fontWeight={600} sx={{ color: '#cfe0ff' }}>
-                      {e.title}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" noWrap display="block" sx={{ maxWidth: 300 }}>
-                      {e.description || "No description provided"}
-                    </Typography>
-                  </TableCell>
-
-                  <TableCell>
-                    <Stack direction="row" alignItems="center" spacing={0.5}>
-                      <TimerIcon fontSize="small" color="action" />
-                      <Typography variant="body2">{e.duration_minutes} min</Typography>
-                    </Stack>
-                  </TableCell>
-
-                  <TableCell>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                      <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <EventIcon fontSize="inherit" color="success" /> Start: {formatDate(e.access_start)}
+      {/* ── Responsive: Cards on mobile, Table on desktop ── */}
+      {isMobile ? (
+        /* ── MOBILE CARD LAYOUT ── */
+        <Stack spacing={1.5}>
+          {loadingExams ? (
+            <Box display="flex" justifyContent="center" py={4}><CircularProgress /></Box>
+          ) : filteredExams.length === 0 ? (
+            <Paper sx={{ p: 4, textAlign: 'center', borderRadius: 3 }}>
+              <Typography color="text.secondary">No exams found.</Typography>
+            </Paper>
+          ) : (
+            filteredExams.map((e) => (
+              <Card
+                key={e.id}
+                sx={{
+                  borderRadius: 3,
+                  border: '1px solid rgba(255,255,255,0.10)',
+                  boxShadow: 'none',
+                  overflow: 'hidden',
+                }}
+              >
+                <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
+                  {/* Title + Status */}
+                  <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={1.5}>
+                    <Box sx={{ flex: 1, minWidth: 0, mr: 1 }}>
+                      <Typography variant="subtitle1" fontWeight={700} sx={{ color: '#cfe0ff', wordBreak: 'break-word' }}>
+                        {e.title}
                       </Typography>
-                      <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <EventIcon fontSize="inherit" color="error" /> End: &nbsp;{formatDate(e.access_end)}
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.3, wordBreak: 'break-word' }}>
+                        {e.description || "No description provided"}
                       </Typography>
                     </Box>
-                  </TableCell>
-
-                  <TableCell>
                     <Chip
                       label={e.results_released ? "Released" : "Draft"}
                       color={e.results_released ? "success" : "default"}
                       size="small"
                       variant={e.results_released ? "filled" : "outlined"}
+                      sx={{ flexShrink: 0 }}
                     />
-                  </TableCell>
+                  </Stack>
 
-                  <TableCell align="right">
-                    <Stack direction="row" justifyContent="flex-end" spacing={1}>
-                      <Button
-                        variant="outlined"
-                        size="small"
-                        startIcon={<ViewIcon />}
-                        onClick={() => navigate(`${basePath}/exams/${e.id}`)}
-                      >
-                        View
-                      </Button>
-                      <Button
-                        variant="contained"
-                        size="small"
-                        startIcon={<QuizIcon />}
-                        onClick={() => navigate(`${basePath}/exams/${e.id}/questions`)}
-                        color="secondary"
-                      >
-                        Questions
-                      </Button>
+                  {/* Info Row */}
+                  <Stack spacing={1} sx={{ mb: 2 }}>
+                    <Stack direction="row" alignItems="center" spacing={0.5}>
+                      <TimerIcon fontSize="small" color="action" />
+                      <Typography variant="body2" color="text.secondary">
+                        Duration: <strong>{e.duration_minutes} min</strong>
+                      </Typography>
                     </Stack>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </Paper>
+                    <Stack direction="row" alignItems="center" spacing={0.5}>
+                      <EventIcon fontSize="small" sx={{ color: '#4caf50' }} />
+                      <Typography variant="caption" color="text.secondary">
+                        Start: {formatDate(e.access_start)}
+                      </Typography>
+                    </Stack>
+                    <Stack direction="row" alignItems="center" spacing={0.5}>
+                      <EventIcon fontSize="small" sx={{ color: '#f44336' }} />
+                      <Typography variant="caption" color="text.secondary">
+                        End: {formatDate(e.access_end)}
+                      </Typography>
+                    </Stack>
+                  </Stack>
+
+                  {/* Actions */}
+                  <Stack direction="row" spacing={1}>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={<ViewIcon />}
+                      onClick={() => navigate(`${basePath}/exams/${e.id}`)}
+                      fullWidth
+                    >
+                      View
+                    </Button>
+                    <Button
+                      variant="contained"
+                      size="small"
+                      startIcon={<QuizIcon />}
+                      onClick={() => navigate(`${basePath}/exams/${e.id}/questions`)}
+                      color="secondary"
+                      fullWidth
+                    >
+                      Questions
+                    </Button>
+                  </Stack>
+                </CardContent>
+              </Card>
+            ))
+          )}
+        </Stack>
+      ) : (
+        /* ── DESKTOP TABLE LAYOUT ── */
+        <Paper elevation={1} sx={{ borderRadius: 2, overflowX: 'auto' }}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell><strong>Title & Description</strong></TableCell>
+                <TableCell><strong>Duration</strong></TableCell>
+                <TableCell><strong>Schedule</strong></TableCell>
+                <TableCell><strong>Status</strong></TableCell>
+                <TableCell align="right"><strong>Actions</strong></TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {loadingExams ? (
+                <TableRow><TableCell colSpan={5} align="center"><CircularProgress sx={{ my: 2 }} /></TableCell></TableRow>
+              ) : filteredExams.length === 0 ? (
+                <TableRow><TableCell colSpan={5} align="center" sx={{ py: 3, color: 'text.secondary' }}>No exams found.</TableCell></TableRow>
+              ) : (
+                filteredExams.map((e) => (
+                  <TableRow key={e.id} hover>
+                    <TableCell>
+                      <Typography variant="subtitle1" fontWeight={600} sx={{ color: '#cfe0ff' }}>
+                        {e.title}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" noWrap display="block" sx={{ maxWidth: 300 }}>
+                        {e.description || "No description provided"}
+                      </Typography>
+                    </TableCell>
+
+                    <TableCell>
+                      <Stack direction="row" alignItems="center" spacing={0.5}>
+                        <TimerIcon fontSize="small" color="action" />
+                        <Typography variant="body2">{e.duration_minutes} min</Typography>
+                      </Stack>
+                    </TableCell>
+
+                    <TableCell>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                        <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <EventIcon fontSize="inherit" color="success" /> Start: {formatDate(e.access_start)}
+                        </Typography>
+                        <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <EventIcon fontSize="inherit" color="error" /> End: &nbsp;{formatDate(e.access_end)}
+                        </Typography>
+                      </Box>
+                    </TableCell>
+
+                    <TableCell>
+                      <Chip
+                        label={e.results_released ? "Released" : "Draft"}
+                        color={e.results_released ? "success" : "default"}
+                        size="small"
+                        variant={e.results_released ? "filled" : "outlined"}
+                      />
+                    </TableCell>
+
+                    <TableCell align="right">
+                      <Stack direction="row" justifyContent="flex-end" spacing={1}>
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          startIcon={<ViewIcon />}
+                          onClick={() => navigate(`${basePath}/exams/${e.id}`)}
+                        >
+                          View
+                        </Button>
+                        <Button
+                          variant="contained"
+                          size="small"
+                          startIcon={<QuizIcon />}
+                          onClick={() => navigate(`${basePath}/exams/${e.id}/questions`)}
+                          color="secondary"
+                        >
+                          Questions
+                        </Button>
+                      </Stack>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </Paper>
+      )}
 
       <Dialog
         open={openCreate}

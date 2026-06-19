@@ -41,7 +41,7 @@ export default function PageHeader({ title, subtitle, actions, icon, onBack, sx 
           {icon && (
             <Box
               sx={{
-                width: 46, height: 46, borderRadius: 3, flexShrink: 0,
+                width: { xs: 38, sm: 46 }, height: { xs: 38, sm: 46 }, borderRadius: 3, flexShrink: 0,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 color: '#fff', background: 'linear-gradient(135deg,#6366f1,#f68914)',
                 boxShadow: '0 8px 22px rgba(99,102,241,0.40)',
@@ -55,6 +55,7 @@ export default function PageHeader({ title, subtitle, actions, icon, onBack, sx 
               variant="h5"
               sx={{
                 fontWeight: 800, lineHeight: 1.15,
+                fontSize: { xs: '1.2rem', sm: '1.5rem' },
                 background: 'linear-gradient(120deg,#ffffff,#c7d2fe 70%)',
                 WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
                 backgroundClip: 'text',
@@ -64,7 +65,7 @@ export default function PageHeader({ title, subtitle, actions, icon, onBack, sx 
               {title}
             </Typography>
             {subtitle && (
-              <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.4 }}>
+              <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.4, fontSize: { xs: '0.78rem', sm: '0.875rem' } }}>
                 {subtitle}
               </Typography>
             )}
@@ -72,7 +73,20 @@ export default function PageHeader({ title, subtitle, actions, icon, onBack, sx 
         </Stack>
 
         {actions && (
-          <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap sx={{ flexShrink: 0 }}>
+          <Stack
+            direction="row"
+            spacing={1}
+            flexWrap="wrap"
+            useFlexGap
+            sx={{
+              flexShrink: 0,
+              width: { xs: '100%', sm: 'auto' },
+              '& > *': {
+                minWidth: { xs: 0 },
+                fontSize: { xs: '0.78rem', sm: '0.875rem' },
+              },
+            }}
+          >
             {actions}
           </Stack>
         )}

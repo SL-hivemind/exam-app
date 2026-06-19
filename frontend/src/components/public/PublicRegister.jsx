@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import {
   Box, Typography, TextField, Button, Alert, IconButton,
   InputAdornment, Stepper, Step, StepLabel, CircularProgress,
-  Select, MenuItem, FormControl, Container,
+  Dialog, DialogTitle, DialogContent, Container,
 } from '@mui/material';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import { publicApi } from '../../utils/api';
 import useAuth from '../../hooks/useAuth';
+import TargetCursor from '../ui/TargetCursor';
 
 const ff = "'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
 
@@ -24,6 +25,7 @@ export default function PublicRegister() {
   const [success, setSuccess] = useState('');
   const [busy, setBusy] = useState(false);
   const [emailHint, setEmailHint] = useState('');
+  const [courseModalOpen, setCourseModalOpen] = useState(false);
 
   useEffect(() => {
     publicApi.listCourses().then(r => setCourses(r.data.courses || [])).catch(() => {});
@@ -80,7 +82,9 @@ export default function PublicRegister() {
   };
 
   return (
-    <Container maxWidth="sm" sx={{ py: { xs: 4, md: 6 } }}>
+    <>
+      {courseModalOpen && <TargetCursor />}
+      <Container maxWidth="sm" sx={{ py: { xs: 4, md: 6 } }}>
       <Box sx={{ maxWidth: 440, mx: 'auto' }}>
         <Box sx={{
           bgcolor: 'rgba(255,255,255,0.05)', borderRadius: '20px', p: { xs: 3, sm: 4.5 },
@@ -131,13 +135,24 @@ export default function PublicRegister() {
                   ),
                 }}
               />
-              <FormControl fullWidth sx={{ mb: 3 }}>
-                <Select value={form.course_id} onChange={handleChange('course_id')} displayEmpty
-                  sx={{ ...inputSx['& .MuiOutlinedInput-root'] }}>
-                  <MenuItem value="" disabled>Select an initial course</MenuItem>
-                  {courses.map(c => (<MenuItem key={c.id} value={c.id}>{c.title}</MenuItem>))}
-                </Select>
-              </FormControl>
+              <Button 
+                fullWidth 
+                variant="outlined"
+                onClick={() => setCourseModalOpen(true)}
+                sx={{ 
+                  mb: 3, height: 46, borderRadius: '10px', 
+                  borderColor: 'rgba(255,255,255,0.12)', 
+                  color: form.course_id ? '#fff' : '#aeb9e0', 
+                  textTransform: 'none', 
+                  justifyContent: 'flex-start', 
+                  px: 2, 
+                  fontFamily: ff,
+                  fontSize: '0.9rem',
+                  '&:hover': { borderColor: '#3b82f6', bgcolor: 'rgba(59,130,246,0.05)' } 
+                }}
+              >
+                {form.course_id ? courses.find(c => c.id === form.course_id)?.title : "Select Course"}
+              </Button>
               <Button fullWidth type="submit" disabled={busy} sx={{
                 height: 48, borderRadius: '12px', fontFamily: ff, fontWeight: 700,
                 textTransform: 'none', color: '#fff',
@@ -186,5 +201,49 @@ export default function PublicRegister() {
         </Box>
       </Box>
     </Container>
+
+    {/* Course Selection Modal */}
+    <Dialog 
+      open={courseModalOpen} 
+      onClose={() => setCourseModalOpen(false)}
+      PaperProps={{ sx: { bgcolor: '#1a1f36', color: '#fff', borderRadius: '16px', minWidth: { xs: 300, sm: 400 }, border: '1px solid rgba(255,255,255,0.1)' } }}
+    >
+      <DialogTitle sx={{ fontFamily: ff, fontWeight: 800, textAlign: 'center', color: '#eaf0ff', pb: 1, pt: 3 }}>
+        Lock your target
+      </DialogTitle>
+      <DialogContent>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1, pb: 2 }}>
+          {courses.map(c => (
+            <Box
+              key={c.id}
+              className="cursor-target"
+              onClick={() => {
+                setForm({ ...form, course_id: c.id });
+                setCourseModalOpen(false);
+              }}
+              sx={{
+                p: 2.5,
+                borderRadius: '12px',
+                border: '2px solid',
+                borderColor: form.course_id === c.id ? '#3b82f6' : 'rgba(255,255,255,0.1)',
+                bgcolor: form.course_id === c.id ? 'rgba(59,130,246,0.1)' : 'rgba(255,255,255,0.02)',
+                cursor: 'none',
+                transition: 'all 0.2s',
+                textAlign: 'center',
+                '&:hover': {
+                  bgcolor: 'rgba(59,130,246,0.08)',
+                  borderColor: form.course_id === c.id ? '#3b82f6' : 'rgba(59,130,246,0.6)',
+                }
+              }}
+            >
+              <Typography sx={{ fontFamily: ff, fontSize: '1rem', fontWeight: 700, color: form.course_id === c.id ? '#fff' : '#aeb9e0', letterSpacing: '0.5px' }}>
+                {c.title}
+              </Typography>
+            </Box>
+          ))}
+        </Box>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }

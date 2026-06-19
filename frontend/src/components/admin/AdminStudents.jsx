@@ -3,7 +3,8 @@ import {
   Box, Typography, TextField, Button, Table, TableBody, TableCell,
   TableHead, TableRow, IconButton, Dialog, DialogActions, DialogContent,
   DialogTitle, Paper, Alert, Grid, MenuItem, Select, FormControl, InputLabel,
-  Stack, InputAdornment, Chip, CircularProgress, TablePagination
+  Stack, InputAdornment, Chip, CircularProgress, TablePagination,
+  Card, CardContent, useMediaQuery, useTheme,
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -20,6 +21,8 @@ import { PageHeader } from "../common";
 
 export default function AdminStudents() {
   const { user } = useAuth();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [students, setStudents] = useState([]);
   const [schools, setSchools] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -242,114 +245,174 @@ export default function AdminStudents() {
       {success && <Alert severity="success" onClose={() => setSuccess("")} sx={{ mb: 3 }}>{success}</Alert>}
 
       {/* FILTERS */}
+      {/* FILTERS — horizontal scroll on mobile */}
       <Paper elevation={0} sx={{ p: 2, mb: 3, borderRadius: 2, border: '1px solid rgba(255,255,255,0.08)' }}>
-        <Grid container spacing={2} alignItems="center">
+        <Box
+          sx={{
+            display: 'flex',
+            gap: 2,
+            alignItems: 'center',
+            flexWrap: { xs: 'nowrap', md: 'wrap' },
+            overflowX: { xs: 'auto', md: 'visible' },
+            pb: { xs: 0.5, md: 0 },
+            '&::-webkit-scrollbar': { height: 4 },
+            '&::-webkit-scrollbar-thumb': { bgcolor: 'rgba(255,255,255,0.15)', borderRadius: 2 },
+          }}
+        >
+          <TextField
+            size="small"
+            placeholder="Search Username..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            InputProps={{
+              startAdornment: <InputAdornment position="start"><SearchIcon color="action" /></InputAdornment>
+            }}
+            sx={{ minWidth: 200, flex: { xs: '0 0 200px', md: 1 } }}
+          />
 
-          <Grid item xs={12} md={4}>
-            <TextField
-              fullWidth
-              size="small"
-              placeholder="Search Username..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              InputProps={{
-                startAdornment: <InputAdornment position="start"><SearchIcon color="action" /></InputAdornment>
-              }}
-            />
-          </Grid>
-
-          {/* Show School Filter ONLY to Super Admin */}
           {isSuperAdmin && (
-            <Grid item xs={12} md={4}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Filter by School</InputLabel>
-                <Select
-                  value={selectedSchoolFilter}
-                  label="Filter by School"
-                  onChange={(e) => setSelectedSchoolFilter(e.target.value)}
-                  startAdornment={<InputAdornment position="start"><FilterListIcon fontSize="small" /></InputAdornment>}
-                >
-                  <MenuItem value=""><em>All Schools</em></MenuItem>
-                  {schools.map(s => <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>)}
-                </Select>
-              </FormControl>
-            </Grid>
+            <FormControl size="small" sx={{ minWidth: 180, flex: { xs: '0 0 180px', md: 1 } }}>
+              <InputLabel>Filter by School</InputLabel>
+              <Select
+                value={selectedSchoolFilter}
+                label="Filter by School"
+                onChange={(e) => setSelectedSchoolFilter(e.target.value)}
+                startAdornment={<InputAdornment position="start"><FilterListIcon fontSize="small" /></InputAdornment>}
+              >
+                <MenuItem value=""><em>All Schools</em></MenuItem>
+                {schools.map(s => <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>)}
+              </Select>
+            </FormControl>
           )}
 
-          <Grid item xs={12} md={4}>
-            <TextField
-              fullWidth
-              size="small"
-              label="Filter by Class"
-              placeholder="e.g. 10"
-              value={classFilter}
-              onChange={(e) => setClassFilter(e.target.value)}
-              InputProps={{
-                startAdornment: <InputAdornment position="start"><ClassIcon fontSize="small" color="action" /></InputAdornment>
-              }}
-            />
-          </Grid>
-
-        </Grid>
+          <TextField
+            size="small"
+            label="Filter by Class"
+            placeholder="e.g. 10"
+            value={classFilter}
+            onChange={(e) => setClassFilter(e.target.value)}
+            InputProps={{
+              startAdornment: <InputAdornment position="start"><ClassIcon fontSize="small" color="action" /></InputAdornment>
+            }}
+            sx={{ minWidth: 160, flex: { xs: '0 0 160px', md: 1 } }}
+          />
+        </Box>
       </Paper>
 
-      {/* TABLE */}
-      <Paper elevation={1} sx={{ borderRadius: 2, overflowX: 'auto' }}>
-        <Table>
-          <TableHead sx={{ bgcolor: 'transparent' }}>
-            <TableRow>
-              <TableCell><strong>Student Info</strong></TableCell>
-              <TableCell><strong>Contact</strong></TableCell>
-              <TableCell><strong>School & Class</strong></TableCell>
-              <TableCell><strong>Username</strong></TableCell>
-              <TableCell align="right"><strong>Actions</strong></TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {loading ? (
-              <TableRow><TableCell colSpan={5} align="center"><CircularProgress sx={{ my: 2 }} /></TableCell></TableRow>
-            ) : sortedStudents.length === 0 ? (
-              <TableRow><TableCell colSpan={5} align="center">No students found matching filters.</TableCell></TableRow>
-            ) : (
-              sortedStudents.map((s) => (
-                <TableRow key={s.id} hover>
-                  <TableCell>
-                    <Typography variant="subtitle2" fontWeight={600}>{s.username}</Typography>
-                    <Chip label={s.student_id || "No ID"} size="small" sx={{ mt: 0.5, bgcolor: 'rgba(99,102,241,0.20)', fontWeight: 'bold', color: '#c7d2fe' }} />
-                  </TableCell>
-                  <TableCell>{s.mobile_number || "—"}</TableCell>
-                  <TableCell>
-                    <Stack direction="row" spacing={1}>
-                      <Chip label={s.school_name || "N/A"} size="small" variant="outlined" />
-                      {s.class_number && <Chip label={`Class ${s.class_number}`} size="small" color="secondary" variant="outlined" />}
+      {/* ── Responsive: Cards on mobile, Table on desktop ── */}
+      {isMobile ? (
+        /* ── MOBILE CARD LAYOUT ── */
+        <Box>
+          {loading ? (
+            <Box display="flex" justifyContent="center" py={4}><CircularProgress /></Box>
+          ) : sortedStudents.length === 0 ? (
+            <Paper sx={{ p: 4, textAlign: 'center', borderRadius: 3 }}>
+              <Typography color="text.secondary">No students found matching filters.</Typography>
+            </Paper>
+          ) : (
+            <Stack spacing={1.5}>
+              {sortedStudents.map((s) => (
+                <Card key={s.id} sx={{ borderRadius: 3, border: '1px solid rgba(255,255,255,0.10)', boxShadow: 'none' }}>
+                  <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
+                    {/* Header: Name + ID */}
+                    <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={1.5}>
+                      <Box sx={{ flex: 1, minWidth: 0, mr: 1 }}>
+                        <Typography variant="subtitle1" fontWeight={700} sx={{ color: '#cfe0ff', wordBreak: 'break-word' }}>{s.username}</Typography>
+                        <Chip label={s.student_id || "No ID"} size="small" sx={{ mt: 0.5, bgcolor: 'rgba(99,102,241,0.20)', fontWeight: 'bold', color: '#c7d2fe', maxWidth: '100%' }} />
+                      </Box>
+                      <Stack direction="row" spacing={0.5}>
+                        <IconButton size="small" onClick={() => handleViewAttempts(s)} color="info"><VisibilityIcon fontSize="small" /></IconButton>
+                        <IconButton size="small" onClick={() => handleOpen(s)} color="primary"><EditIcon fontSize="small" /></IconButton>
+                        <IconButton size="small" onClick={() => handleDelete(s.id)} color="error"><DeleteIcon fontSize="small" /></IconButton>
+                      </Stack>
                     </Stack>
-                  </TableCell>
-                  <TableCell>{s.username}</TableCell>
-                  <TableCell align="right">
-                    <IconButton size="small" onClick={() => handleViewAttempts(s)} color="info" title="View Attempts">
-                      <VisibilityIcon />
-                    </IconButton>
-                    <IconButton size="small" onClick={() => handleOpen(s)} color="primary"><EditIcon /></IconButton>
-                    <IconButton size="small" onClick={() => handleDelete(s.id)} color="error"><DeleteIcon /></IconButton>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+                    {/* Details */}
+                    <Stack spacing={0.8}>
+                      <Typography variant="body2" color="text.secondary">
+                        📱 {s.mobile_number || "No contact"}
+                      </Typography>
+                      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                        <Chip label={s.school_name || "N/A"} size="small" variant="outlined" />
+                        {s.class_number && <Chip label={`Class ${s.class_number}`} size="small" color="secondary" variant="outlined" />}
+                      </Stack>
+                    </Stack>
+                  </CardContent>
+                </Card>
+              ))}
+            </Stack>
+          )}
+          <TablePagination
+            component="div"
+            count={totalItems}
+            page={page}
+            onPageChange={(e, newPage) => setPage(newPage)}
+            rowsPerPage={rowsPerPage}
+            onRowsPerPageChange={(e) => {
+              setRowsPerPage(parseInt(e.target.value, 10));
+              setPage(0);
+            }}
+            sx={{ mt: 1 }}
+          />
+        </Box>
+      ) : (
+        /* ── DESKTOP TABLE LAYOUT ── */
+        <Paper elevation={1} sx={{ borderRadius: 2, overflowX: 'auto' }}>
+          <Table>
+            <TableHead sx={{ bgcolor: 'transparent' }}>
+              <TableRow>
+                <TableCell><strong>Student Info</strong></TableCell>
+                <TableCell><strong>Contact</strong></TableCell>
+                <TableCell><strong>School & Class</strong></TableCell>
+                <TableCell><strong>Username</strong></TableCell>
+                <TableCell align="right"><strong>Actions</strong></TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {loading ? (
+                <TableRow><TableCell colSpan={5} align="center"><CircularProgress sx={{ my: 2 }} /></TableCell></TableRow>
+              ) : sortedStudents.length === 0 ? (
+                <TableRow><TableCell colSpan={5} align="center">No students found matching filters.</TableCell></TableRow>
+              ) : (
+                sortedStudents.map((s) => (
+                  <TableRow key={s.id} hover>
+                    <TableCell>
+                      <Typography variant="subtitle2" fontWeight={600}>{s.username}</Typography>
+                      <Chip label={s.student_id || "No ID"} size="small" sx={{ mt: 0.5, bgcolor: 'rgba(99,102,241,0.20)', fontWeight: 'bold', color: '#c7d2fe' }} />
+                    </TableCell>
+                    <TableCell>{s.mobile_number || "—"}</TableCell>
+                    <TableCell>
+                      <Stack direction="row" spacing={1}>
+                        <Chip label={s.school_name || "N/A"} size="small" variant="outlined" />
+                        {s.class_number && <Chip label={`Class ${s.class_number}`} size="small" color="secondary" variant="outlined" />}
+                      </Stack>
+                    </TableCell>
+                    <TableCell>{s.username}</TableCell>
+                    <TableCell align="right">
+                      <IconButton size="small" onClick={() => handleViewAttempts(s)} color="info" title="View Attempts">
+                        <VisibilityIcon />
+                      </IconButton>
+                      <IconButton size="small" onClick={() => handleOpen(s)} color="primary"><EditIcon /></IconButton>
+                      <IconButton size="small" onClick={() => handleDelete(s.id)} color="error"><DeleteIcon /></IconButton>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
 
-        <TablePagination
-          component="div"
-          count={totalItems}
-          page={page}
-          onPageChange={(e, newPage) => setPage(newPage)}
-          rowsPerPage={rowsPerPage}
-          onRowsPerPageChange={(e) => {
-            setRowsPerPage(parseInt(e.target.value, 10));
-            setPage(0);
-          }}
-        />
-      </Paper>
+          <TablePagination
+            component="div"
+            count={totalItems}
+            page={page}
+            onPageChange={(e, newPage) => setPage(newPage)}
+            rowsPerPage={rowsPerPage}
+            onRowsPerPageChange={(e) => {
+              setRowsPerPage(parseInt(e.target.value, 10));
+              setPage(0);
+            }}
+          />
+        </Paper>
+      )}
 
       <Dialog
         open={attemptsOpen}

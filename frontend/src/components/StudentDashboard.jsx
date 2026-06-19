@@ -214,17 +214,18 @@ export default function StudentDashboard() {
             </Typography>
           </Box>
 
-          <Stack direction="row" spacing={2}>
+          <Box sx={{
+            display: 'flex', flexWrap: 'wrap', gap: 1.5,
+            justifyContent: { xs: 'stretch', sm: 'flex-end' },
+            width: { xs: '100%', sm: 'auto' },
+          }}>
             <Button
               startIcon={<TrendingUpIcon />}
               variant="contained"
               onClick={() => navigate("/student/analysis")}
               sx={{
-                bgcolor: '#3b82f6',
-                color: '#fff',
-                borderRadius: '10px',
-                textTransform: 'none',
-                fontWeight: 600,
+                bgcolor: '#3b82f6', color: '#fff', borderRadius: '10px',
+                textTransform: 'none', fontWeight: 600, flex: { xs: '1 1 45%', sm: '0 0 auto' },
                 '&:hover': { bgcolor: '#2563eb' }
               }}
             >
@@ -234,7 +235,7 @@ export default function StudentDashboard() {
               startIcon={<PersonIcon />}
               variant="outlined"
               onClick={() => navigate("/student/profile")}
-              sx={{ borderColor: 'rgba(255,255,255,0.2)', color: '#fff', borderRadius: '10px', textTransform: 'none', fontWeight: 600, '&:hover': { borderColor: '#fff', bgcolor: 'rgba(255,255,255,0.05)' } }}
+              sx={{ borderColor: 'rgba(255,255,255,0.2)', color: '#fff', borderRadius: '10px', textTransform: 'none', fontWeight: 600, flex: { xs: '1 1 45%', sm: '0 0 auto' }, '&:hover': { borderColor: '#fff', bgcolor: 'rgba(255,255,255,0.05)' } }}
             >
               Profile
             </Button>
@@ -242,7 +243,7 @@ export default function StudentDashboard() {
               startIcon={<InfoIcon />}
               variant="outlined"
               onClick={() => setIsInstructionsOpen(true)}
-              sx={{ borderColor: 'rgba(255,255,255,0.2)', color: '#fff', borderRadius: '10px', textTransform: 'none', fontWeight: 600, '&:hover': { borderColor: '#fff', bgcolor: 'rgba(255,255,255,0.05)' } }}
+              sx={{ borderColor: 'rgba(255,255,255,0.2)', color: '#fff', borderRadius: '10px', textTransform: 'none', fontWeight: 600, flex: { xs: '1 1 45%', sm: '0 0 auto' }, '&:hover': { borderColor: '#fff', bgcolor: 'rgba(255,255,255,0.05)' } }}
             >
               Rules
             </Button>
@@ -251,7 +252,7 @@ export default function StudentDashboard() {
                 <RefreshIcon />
               </IconButton>
             </Tooltip>
-          </Stack>
+          </Box>
         </Paper>
 
         {error && <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>{error}</Alert>}

@@ -26,6 +26,7 @@ import CancelIcon from "@mui/icons-material/Cancel";
 import { useNavigate } from "react-router-dom";
 import api from "../utils/api";
 import useAuth from "../hooks/useAuth";
+import DynamicIDBadge from "./ui/DynamicIDBadge";
 
 function getBasePath(role) {
   if (role === "admin") return "/admin";
@@ -248,8 +249,14 @@ export default function ProfilePage() {
   }
 
   return (
-    <Container maxWidth="md" sx={{ py: 3 }}>
-      <Paper sx={{ p: 3, borderRadius: 3 }}>
+    <>
+      {/* ─── Digital ID Badge (Floating outside all cards) ─── */}
+      {!isStudent && profile && (
+        <DynamicIDBadge profile={profile} />
+      )}
+
+      <Container maxWidth="md" sx={{ py: 3 }}>
+        <Paper sx={{ p: 3, borderRadius: 3 }}>
         <Stack
           direction="row"
           justifyContent="space-between"
@@ -635,5 +642,6 @@ export default function ProfilePage() {
         </Paper>
       </Paper>
     </Container>
+    </>
   );
 }

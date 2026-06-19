@@ -3,7 +3,7 @@ import {
   Box, Typography, Button, Dialog, DialogTitle, DialogContent, 
   DialogActions, TextField, MenuItem, Select, InputLabel, 
   FormControl, Alert, IconButton, Stack, Paper, Grid, Chip, InputAdornment,
-  TableRow, TableCell, Tooltip
+  TableRow, TableCell, Tooltip, Card, CardContent, useMediaQuery, useTheme
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -23,6 +23,8 @@ const SCHOOL_COLUMNS = [
 ];
 
 export default function AdminSchools() {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [schools, setSchools] = useState([]);
   const [filteredSchools, setFilteredSchools] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -189,6 +191,35 @@ export default function AdminSchools() {
         emptyIcon={<SchoolIcon />}
         emptyTitle="No schools found"
         emptyMessage="Add a school to get started, or adjust your search."
+        renderMobileCard={(s) => (
+          <Card key={s.id} sx={{ borderRadius: 3, border: '1px solid rgba(255,255,255,0.10)', boxShadow: 'none' }}>
+            <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
+              <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+                <Stack direction="row" alignItems="center" spacing={1.5} sx={{ flex: 1 }}>
+                  <Box sx={{
+                    width: 36, height: 36, borderRadius: 2, flexShrink: 0,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: 'linear-gradient(135deg,#2f6bff,#f68914)', color: '#fff',
+                  }}>
+                    <SchoolIcon fontSize="small" />
+                  </Box>
+                  <Box>
+                    <Typography fontWeight={700} sx={{ color: '#cfe0ff' }}>{s.name}</Typography>
+                    <Stack direction="row" spacing={1} mt={0.5}>
+                      <Chip label={s.code} size="small" sx={{ bgcolor: 'rgba(47,107,255,0.18)', color: '#cfe0ff', fontWeight: 700 }} />
+                      <Chip label={`${s.total_students ?? '—'} students`} size="small" variant="outlined" />
+                    </Stack>
+                  </Box>
+                </Stack>
+                <Stack direction="row" spacing={0.5}>
+                  <IconButton size="small" sx={{ color: '#93c5fd' }} onClick={() => handleOpenEditSchool(s)}><EditIcon fontSize="small" /></IconButton>
+                  <IconButton size="small" color="error" onClick={() => handleDeleteSchool(s.id)}><DeleteIcon fontSize="small" /></IconButton>
+                </Stack>
+              </Stack>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>System ID: #{s.id}</Typography>
+            </CardContent>
+          </Card>
+        )}
         renderRow={(s) => (
           <TableRow key={s.id} hover>
             <TableCell>

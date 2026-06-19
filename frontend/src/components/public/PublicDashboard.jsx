@@ -597,7 +597,31 @@ export default function PublicDashboard() {
     <Card sx={{ borderRadius: '14px', border: '1px solid rgba(255,255,255,0.10)', boxShadow: 'none', overflow: 'hidden' }}>
       {completedAttempts.length === 0 ? (
         <Box sx={{ textAlign: 'center', py: 6 }}><Typography sx={{ fontFamily: ff, color: '#aeb9e0' }}>No exam attempts yet.</Typography></Box>
+      ) : isMobile ? (
+        /* ── MOBILE CARD LAYOUT ── */
+        <Stack spacing={0}>
+          {completedAttempts.map((a, i) => (
+            <Box key={a.id} sx={{ px: 2.5, py: 2, borderBottom: i < completedAttempts.length - 1 ? '1px solid rgba(255,255,255,0.08)' : 'none' }}>
+              <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={0.8}>
+                <Typography sx={{ fontFamily: ff, fontSize: '0.88rem', fontWeight: 600, color: '#eaf0ff', flex: 1, mr: 1 }}>
+                  {a.content_title || 'Exam'}
+                </Typography>
+                <Chip label={(a.score >= (a.total_questions * 0.6)) ? 'Pass' : 'Needs Work'} size="small"
+                  sx={{ fontFamily: ff, fontWeight: 600, bgcolor: (a.score >= (a.total_questions * 0.6)) ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)', color: (a.score >= (a.total_questions * 0.6)) ? '#16a34a' : '#ef4444', flexShrink: 0 }} />
+              </Stack>
+              <Stack direction="row" spacing={2} alignItems="center">
+                <Typography sx={{ fontFamily: ff, fontSize: '0.78rem', color: '#a9b4dd' }}>
+                  {a.submitted_at ? new Date(a.submitted_at).toLocaleDateString() : '—'}
+                </Typography>
+                <Typography sx={{ fontFamily: ff, fontSize: '0.85rem', fontWeight: 700, color: '#eaf0ff' }}>
+                  {a.score ?? '?'}/{a.total_questions ?? '?'}
+                </Typography>
+              </Stack>
+            </Box>
+          ))}
+        </Stack>
       ) : (
+        /* ── DESKTOP TABLE LAYOUT ── */
         <>
           <Box sx={{ display: 'flex', px: 2.5, py: 1.5, bgcolor: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.10)' }}>
             {['Exam', 'Date', 'Score', 'Result'].map(h => (

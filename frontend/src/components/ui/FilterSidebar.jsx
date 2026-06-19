@@ -1,10 +1,13 @@
 import React,{useState,useEffect,useRef} from 'react';
-import {Box,Typography,TextField,MenuItem,Stack,Divider,IconButton,Autocomplete} from '@mui/material';
-import {FilterList as FilterIcon,RestartAlt as ResetIcon,Search as SearchIcon} from '@mui/icons-material';
+import {Box,Typography,TextField,MenuItem,Stack,Divider,IconButton,Autocomplete,Paper,useMediaQuery,useTheme,InputAdornment} from '@mui/material';
+import {FilterList as FilterIcon,RestartAlt as ResetIcon,Search as SearchIcon,Class as ClassIcon,Subject as SubjectIcon,MenuBook as MenuBookIcon,Topic as TopicIcon} from '@mui/icons-material';
 import api from '../../utils/api';
 
 export default function FilterSidebar({filters,onFilterChange,onReset}){
 const [metadata,setMetadata]=useState({subjects:[],classes:[],chapters:[],topics:[]});
+const theme = useTheme();
+const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+
 // Track previous cascading keys to only clear children on genuine user-driven changes
 const prevCascadeRef=useRef({class_number:filters.class_number,subject:filters.subject,chapter:filters.chapter});
 
@@ -44,8 +47,63 @@ prevCascadeRef.current={class_number:next.class_number,subject:next.subject,chap
 onFilterChange(next);
 };
 
+if (isMobile) {
+  return (
+    <Paper elevation={0} sx={{ p: 2, borderRadius: 0, borderBottom: '1px solid rgba(255,255,255,0.08)', bgcolor: 'rgba(255,255,255,0.02)' }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, justifyContent: 'space-between' }}>
+        <Typography variant="subtitle2" fontWeight={700} sx={{ color: '#f5f8ff', display: 'flex', alignItems: 'center', gap: 1 }}>
+          <FilterIcon sx={{ color: '#ffb054', fontSize: 18 }} /> Filters
+        </Typography>
+        <IconButton size="small" onClick={onReset} title="Reset All" sx={{ color: '#aab4dd' }}><ResetIcon fontSize="small" /></IconButton>
+      </Box>
+      <Box
+        sx={{
+          display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'nowrap', overflowX: 'auto',
+          pb: 0.5, '&::-webkit-scrollbar': { height: 4 }, '&::-webkit-scrollbar-thumb': { bgcolor: 'rgba(255,255,255,0.15)', borderRadius: 2 },
+        }}
+      >
+        <TextField
+          size="small" placeholder="Search..." value={filters.search||''} onChange={e=>handleChange('search',e.target.value)}
+          InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon color="action" fontSize="small" /></InputAdornment> }}
+          sx={{ minWidth: 150 }}
+        />
+        <TextField
+          select size="small" label="Class" value={filters.class_number||''} onChange={e=>handleChange('class_number',e.target.value)}
+          InputProps={{ startAdornment: <InputAdornment position="start"><ClassIcon color="action" fontSize="small" /></InputAdornment> }}
+          sx={{ minWidth: 130 }}
+        >
+          <MenuItem value="">All</MenuItem>
+          {metadata.classes.map(c=><MenuItem key={c} value={c}>Class {c}</MenuItem>)}
+        </TextField>
+        <TextField
+          select size="small" label="Subject" value={filters.subject||''} onChange={e=>handleChange('subject',e.target.value)}
+          InputProps={{ startAdornment: <InputAdornment position="start"><SubjectIcon color="action" fontSize="small" /></InputAdornment> }}
+          sx={{ minWidth: 140 }}
+        >
+          <MenuItem value="">All</MenuItem>
+          {metadata.subjects.map(s=><MenuItem key={s} value={s}>{s}</MenuItem>)}
+        </TextField>
+        <Autocomplete
+          size="small" freeSolo options={metadata.chapters} value={filters.chapter||null} onChange={(e,val)=>handleChange('chapter',val)}
+          sx={{ minWidth: 160 }}
+          renderInput={params=>(
+            <TextField {...params} label="Chapter" InputProps={{ ...params.InputProps, startAdornment: (<><InputAdornment position="start"><MenuBookIcon color="action" fontSize="small" /></InputAdornment>{params.InputProps.startAdornment}</>) }} />
+          )}
+        />
+        <Autocomplete
+          size="small" freeSolo options={metadata.topics} value={filters.topic||null} onChange={(e,val)=>handleChange('topic',val)}
+          sx={{ minWidth: 160 }}
+          renderInput={params=>(
+            <TextField {...params} label="Topic" InputProps={{ ...params.InputProps, startAdornment: (<><InputAdornment position="start"><TopicIcon color="action" fontSize="small" /></InputAdornment>{params.InputProps.startAdornment}</>) }} />
+          )}
+        />
+      </Box>
+    </Paper>
+  );
+}
+
 return(
-<Box sx={{width:280,height:'100%',borderRadius:'18px',border:'1px solid rgba(255,255,255,0.10)',bgcolor:'rgba(255,255,255,0.04)',backdropFilter:'blur(16px)',display:'flex',flexDirection:'column',overflow:'hidden',boxShadow:'0 12px 40px rgba(2,6,23,0.5)'}}>
+<Box sx={{width:280,height:'100%',borderRadius:'18px',border:'1px solid rgba(255,255,255,0.10)',bgcolor:'rgba(255,255,255,0.04)',backdropFilter:'blur(16px)',display:'flex',flexDirection:'column',overflow:'hidden',boxShadow:'0 12px 40px rgba(2,6,23,0.5)',flexShrink:0}}>
 <Box sx={{p:2,display:'flex',alignItems:'center',justifyContent:'space-between',background:'linear-gradient(135deg, rgba(47,107,255,0.16), rgba(246,137,20,0.14))',borderBottom:'1px solid rgba(255,255,255,0.08)'}}>
 <Stack direction="row" spacing={1} alignItems="center">
 <FilterIcon sx={{color:'#ffb054'}} fontSize="small"/>

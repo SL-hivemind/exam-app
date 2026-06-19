@@ -535,14 +535,47 @@ export default function AdminPublicManager({ initialTab = 0 }) {
             )}
           </Box>
         </Box>
-      ) : (
-        /* ── Subscriptions Tab ── */
+      ) : null}
+
+      {/* ── Subscriptions Tab ── */}
+      {tab === 1 && (
         <Box sx={{ bgcolor: 'rgba(255,255,255,0.05)', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.12)', overflow: 'auto' }}>
           {subs.length === 0 ? (
             <Box sx={{ textAlign: 'center', py: 6 }}>
               <Typography sx={{ color: '#aeb9e0', fontFamily: ff }}>No subscriptions yet</Typography>
             </Box>
+          ) : typeof window !== 'undefined' && window.innerWidth < 900 ? (
+            /* ── MOBILE CARD LAYOUT ── */
+            <Box sx={{ p: 1.5 }}>
+              {subs.map(s => (
+                <Box key={s.id} sx={{ p: 2, mb: 1.5, borderRadius: '12px', border: '1px solid rgba(255,255,255,0.10)', bgcolor: 'rgba(255,255,255,0.02)' }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                    <Box>
+                      <Typography sx={{ fontFamily: ff, fontSize: '0.88rem', fontWeight: 700, color: '#eaf0ff' }}>
+                        {s.username || '—'}
+                      </Typography>
+                      <Typography sx={{ fontFamily: ff, fontSize: '0.78rem', color: '#a9b4dd' }}>
+                        {s.email || '—'}
+                      </Typography>
+                    </Box>
+                    <Chip label={s.status} size="small"
+                      sx={{
+                        fontFamily: ff, fontWeight: 600,
+                        bgcolor: s.status === 'active' ? 'rgba(34,197,94,0.1)' : 'rgba(234,179,8,0.1)',
+                        color: s.status === 'active' ? '#16a34a' : '#eab308',
+                      }} />
+                  </Box>
+                  <Typography sx={{ fontFamily: ff, fontSize: '0.82rem', color: '#eaf0ff', mb: 0.5 }}>
+                    📚 {s.course_title || '—'}
+                  </Typography>
+                  <Typography sx={{ fontFamily: ff, fontSize: '0.75rem', color: '#aeb9e0' }}>
+                    {s.enrolled_at ? new Date(s.enrolled_at).toLocaleDateString() : '—'}
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
           ) : (
+            /* ── DESKTOP TABLE LAYOUT ── */
             <Box sx={{ minWidth: 600 }}>
               <Box sx={{ display: 'flex', px: 2.5, py: 1.5, bgcolor: 'transparent', borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
                 {['User', 'Email', 'Course', 'Status', 'Date'].map(h => (

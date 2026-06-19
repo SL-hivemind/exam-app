@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Box, Paper, Typography, Button, Stack, Drawer, TextField,
   IconButton, Divider, Grid, Snackbar, Alert, Collapse, Tooltip, Chip,
-  CardMedia, CircularProgress
+  CardMedia, CircularProgress, useTheme, useMediaQuery, Card, CardContent, TablePagination
 } from '@mui/material';
 import { DataGrid, GridToolbar } from '@mui/x-data-grid';
 import {
@@ -18,6 +18,8 @@ import useAuth from '../../hooks/useAuth';
 export default function BulkEditQuestions() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   /* ---------------- UI STATE ---------------- */
   const [filterOpen, setFilterOpen] = useState(true);
@@ -237,23 +239,24 @@ export default function BulkEditQuestions() {
     <Box sx={{ p: 3, height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
       {/* HEADER */}
-      <Stack direction="row" justifyContent="space-between" mb={3}>
-        <Stack direction="row" spacing={2} alignItems="center">
-          <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(-1)}>
+      <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" mb={3} spacing={2}>
+        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+          <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(-1)} size="small">
             Back
           </Button>
           <Tooltip title={filterOpen ? 'Hide Filters' : 'Show Filters'}>
-            <IconButton onClick={() => setFilterOpen(!filterOpen)}>
+            <IconButton onClick={() => setFilterOpen(!filterOpen)} size="small">
               {filterOpen ? <CollapseIcon /> : <FilterIcon />}
             </IconButton>
           </Tooltip>
-          <Typography variant="h5" fontWeight={900}>
+          <Typography variant="h6" fontWeight={900}>
             Bulk Content Manager
           </Typography>
           {!!Object.keys(modifiedRows).length && (
             <Chip
               color="warning"
               label={`${Object.keys(modifiedRows).length} Unsaved`}
+              size="small"
             />
           )}
         </Stack>
@@ -285,9 +288,9 @@ export default function BulkEditQuestions() {
       </Stack>
 
       {/* MAIN */}
-      <Box sx={{ display: 'flex', flexGrow: 1, gap: 2, overflow: 'hidden' }}>
-        <Collapse in={filterOpen} orientation="horizontal">
-          <Box sx={{ width: 300 }}>
+      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, flexGrow: 1, gap: 2, overflow: 'hidden' }}>
+        <Collapse in={filterOpen} orientation={isMobile ? "vertical" : "horizontal"}>
+          <Box sx={{ width: { xs: '100%', md: 300 } }}>
             <FilterSidebar
               filters={filters}
               onFilterChange={setFilters}
@@ -312,22 +315,78 @@ export default function BulkEditQuestions() {
           borderRadius: 2,
           minWidth: 0
         }}>
-          <DataGrid
-            rows={rows}
-            columns={columns}
-            paginationMode="server"
-            rowCount={total}
-            paginationModel={paginationModel}
-            onPaginationModelChange={setPaginationModel}
-            pageSizeOptions={[10, 25, 50]}
-            loading={loading}
-            slots={{ toolbar: GridToolbar }}
-            disableRowSelectionOnClick
-            sx={{
-              flexGrow: 1,          // 👈 fills card
-              border: 'none'
-            }}
-          />
+          {isMobile ? (
+            <Box sx={{ flexGrow: 1, overflowY: 'auto', p: 1 }}>
+              <Stack spacing={2}>
+                {loading ? (
+                  <Box display="flex" justifyContent="center" py={4}><CircularProgress /></Box>
+                ) : rows.length === 0 ? (
+                  <Typography color="text.secondary" textAlign="center" py={4}>No questions found.</Typography>
+                ) : (
+                  rows.map(r => (
+                    <Card key={r.id} sx={{ borderRadius: 2, border: '1px solid rgba(255,255,255,0.1)' }}>
+                      <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                        <Stack direction="row" justifyContent="space-between" mb={1} alignItems="flex-start">
+                          <Box sx={{ minWidth: 0, mr: 1 }}>
+                            <Stack direction="row" spacing={1} alignItems="center" mb={1}>
+                              <Typography variant="caption" sx={{ fontFamily: 'monospace', fontWeight: 700, color: 'primary.main', bgcolor: '#eff6ff', px: 1, py: 0.5, borderRadius: 1 }}>
+                                {r.custom_id || 'GEN-AUTO'}
+                              </Typography>
+                              <IconButton size="small" onClick={() => handleCopyId(r.custom_id)}><CopyIcon sx={{ fontSize: 14 }} /></IconButton>
+                            </Stack>
+                            <Typography variant="body2" sx={{ fontWeight: modifiedRows[r.id] ? 700 : 400, wordBreak: 'break-word', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                              {r.text}
+                            </Typography>
+                          </Box>
+                          <IconButton onClick={() => setEditingRow(r)} color="primary" sx={{ bgcolor: 'rgba(59, 130, 246, 0.1)' }}>
+                            <EditIcon />
+                          </IconButton>
+                        </Stack>
+
+                        <Stack spacing={1} mt={2}>
+                          {user?.role === 'admin' && (
+                            <TextField
+                              size="small" fullWidth label="Subject" value={r.subject || ''}
+                              onChange={(e) => handleInlineSubjectChange(r.id, e.target.value)}
+                            />
+                          )}
+                          <TextField
+                            size="small" fullWidth label="Chapter" value={r.chapter || ''}
+                            onChange={(e) => handleInlineChapterChange(r.id, e.target.value)}
+                          />
+                        </Stack>
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
+              </Stack>
+              <TablePagination
+                component="div"
+                count={total}
+                page={paginationModel.page}
+                onPageChange={(e, p) => setPaginationModel(prev => ({ ...prev, page: p }))}
+                rowsPerPage={paginationModel.pageSize}
+                onRowsPerPageChange={(e) => {
+                  setPaginationModel({ page: 0, pageSize: parseInt(e.target.value, 10) });
+                }}
+                rowsPerPageOptions={[10, 25, 50]}
+              />
+            </Box>
+          ) : (
+            <DataGrid
+              rows={rows}
+              columns={columns}
+              paginationMode="server"
+              rowCount={total}
+              paginationModel={paginationModel}
+              onPaginationModelChange={setPaginationModel}
+              pageSizeOptions={[10, 25, 50]}
+              loading={loading}
+              slots={{ toolbar: GridToolbar }}
+              disableRowSelectionOnClick
+              sx={{ flexGrow: 1, border: 'none' }}
+            />
+          )}
         </Paper>
       </Box>
 
@@ -401,7 +460,7 @@ export default function BulkEditQuestions() {
                 </Typography>
                 <Grid container spacing={2}>
                   {['option_a', 'option_b', 'option_c', 'option_d'].map((opt) => (
-                    <Grid item xs={6} key={opt}>
+                    <Grid item xs={12} sm={6} key={opt}>
                       <TextField
                         label={opt.toUpperCase().replace('_', ' ')}
                         fullWidth

@@ -31,6 +31,10 @@ import {
   TableHead,
   TableRow,
   Tooltip,
+  Card,
+  CardContent,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import {
   ArrowBack as ArrowBackIcon,
@@ -52,6 +56,8 @@ export default function AdminExamDetail() {
   const { examId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   const [exam, setExam] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -375,9 +381,9 @@ export default function AdminExamDetail() {
           <Grid item xs={12} md={8}>
             <Paper elevation={0} sx={{ p: 3, borderRadius: 2, border: '1px solid rgba(255,255,255,0.08)', height: '100%' }}>
               <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-                <Box>
-                  <Typography variant="h4" fontWeight={700} sx={{ color: '#cfe0ff' }} gutterBottom>{exam.title}</Typography>
-                  <Typography variant="body1" color="text.secondary" paragraph>{exam.description}</Typography>
+                <Box sx={{ flex: 1, minWidth: 0, mr: 2 }}>
+                  <Typography variant="h4" fontWeight={700} sx={{ color: '#cfe0ff', wordBreak: 'break-word' }} gutterBottom>{exam.title}</Typography>
+                  <Typography variant="body1" color="text.secondary" paragraph sx={{ wordBreak: 'break-word' }}>{exam.description}</Typography>
                 </Box>
                 <Chip
                   label={exam.results_released ? "Released" : "Draft/Hidden"}
@@ -386,16 +392,16 @@ export default function AdminExamDetail() {
                 />
               </Stack>
               <Divider sx={{ my: 3 }} />
-              <Grid container spacing={3}>
-                <Grid item xs={4}>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={4}>
                   <Typography variant="caption">Duration</Typography>
                   <Typography variant="subtitle1" fontWeight={600}>{exam.duration_minutes} min</Typography>
                 </Grid>
-                <Grid item xs={4}>
+                <Grid item xs={12} sm={4}>
                   <Typography variant="caption">Total Marks</Typography>
                   <Typography variant="subtitle1" fontWeight={600}>{exam.total_marks}</Typography>
                 </Grid>
-                <Grid item xs={4}>
+                <Grid item xs={12} sm={4}>
                   <Typography variant="caption">Assigned</Typography>
                   <Typography variant="subtitle1" fontWeight={600}>{exam.assigned_users?.length || 0}</Typography>
                 </Grid>
@@ -423,8 +429,8 @@ export default function AdminExamDetail() {
 
       {/* === TAB 1: STUDENT PROGRESS === */}
       {tabIndex === 1 && (
-        <Paper sx={{ p: 3, overflowX: 'auto' }}>
-          <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+        <Paper sx={{ p: { xs: 2, md: 3 }, overflowX: 'auto' }}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }} spacing={1.5} mb={2}>
             <Typography variant="h6">Student Attempts</Typography>
             <TextField
               size="small"
@@ -432,87 +438,151 @@ export default function AdminExamDetail() {
               value={studentSearch}
               onChange={(e) => setStudentSearch(e.target.value)}
               InputProps={{ endAdornment: <SearchIcon color="action" /> }}
+              fullWidth={isMobile}
             />
           </Stack>
 
-
-
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Student ID</TableCell>
-                <TableCell>Username</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Submission</TableCell>
-                <TableCell>Score</TableCell>
-                <TableCell>Started At</TableCell>
-                <TableCell align="right">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
+          {isMobile ? (
+            /* ── MOBILE CARD LAYOUT ── */
+            <Box>
               {loadingStudents ? (
-                <TableRow><TableCell colSpan={7} align="center"><CircularProgress /></TableCell></TableRow>
+                <Box display="flex" justifyContent="center" py={4}><CircularProgress /></Box>
               ) : filteredStudents.length === 0 ? (
-                <TableRow><TableCell colSpan={7} align="center">No students found.</TableCell></TableRow>
+                <Typography color="text.secondary" textAlign="center" py={3}>No students found.</Typography>
               ) : (
-                filteredStudents.map((s) => (
-                  <TableRow key={s.user_id}>
-                    <TableCell>{s.student_id}</TableCell>
-                    <TableCell>{s.username}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={s.status}
-                        color={s.status === 'Completed' ? 'success' : s.status === 'Started' ? 'primary' : s.status === 'Discontinued' ? 'error' : 'default'}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      {s.submission_reason ? (
-                        <Chip
-                          label={
-                            s.submission_reason === 'manual' ? 'Manual' :
-                            s.submission_reason === 'timeout' ? 'Time Out' :
-                            s.submission_reason === 'tab_switch' ? 'Tab Switch' :
-                            s.submission_reason === 'abandoned' ? 'Abandoned' :
-                            s.submission_reason
-                          }
-                          size="small"
-                          variant="outlined"
-                          color={
-                            s.submission_reason === 'manual' ? 'success' :
-                            s.submission_reason === 'timeout' ? 'warning' :
-                            s.submission_reason === 'tab_switch' ? 'error' :
-                            s.submission_reason === 'abandoned' ? 'warning' :
-                            'default'
-                          }
-                        />
-                      ) : '-'}
-                    </TableCell>
-                    <TableCell>{s.score !== null ? s.score : '-'}</TableCell>
-                    <TableCell>{s.start_time ? new Date(s.start_time).toLocaleString() : '-'}</TableCell>
-                    <TableCell align="right">
-                      {/* RE-ATTEMPT BUTTON (Triggers Dialog) */}
-                      {(s.status === 'Completed' || s.status === 'Started' || s.status === 'Discontinued') && (
-                        <Tooltip title="Reset Attempt (Allows Re-exam)">
-                          <Button
+                <Stack spacing={1.5}>
+                  {filteredStudents.map((s) => (
+                    <Card key={s.user_id} sx={{ borderRadius: 3, border: '1px solid rgba(255,255,255,0.10)', boxShadow: 'none' }}>
+                      <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
+                        <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={1}>
+                          <Box sx={{ flex: 1, minWidth: 0, mr: 1 }}>
+                            <Typography variant="subtitle1" fontWeight={700} sx={{ color: '#cfe0ff', wordBreak: 'break-word' }}>{s.username}</Typography>
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', wordBreak: 'break-word' }}>ID: {s.student_id}</Typography>
+                          </Box>
+                          <Chip
+                            label={s.status}
+                            color={s.status === 'Completed' ? 'success' : s.status === 'Started' ? 'primary' : s.status === 'Discontinued' ? 'error' : 'default'}
                             size="small"
-                            color="error"
+                          />
+                        </Stack>
+                        <Stack spacing={0.8} mb={1.5}>
+                          <Typography variant="body2" color="text.secondary">
+                            Score: <strong>{s.score !== null ? s.score : '—'}</strong>
+                          </Typography>
+                          {s.submission_reason && (
+                            <Chip
+                              label={
+                                s.submission_reason === 'manual' ? 'Manual' :
+                                s.submission_reason === 'timeout' ? 'Time Out' :
+                                s.submission_reason === 'tab_switch' ? 'Tab Switch' :
+                                s.submission_reason === 'abandoned' ? 'Abandoned' :
+                                s.submission_reason
+                              }
+                              size="small" variant="outlined"
+                              color={
+                                s.submission_reason === 'manual' ? 'success' :
+                                s.submission_reason === 'timeout' ? 'warning' :
+                                s.submission_reason === 'tab_switch' ? 'error' : 'default'
+                              }
+                              sx={{ alignSelf: 'flex-start' }}
+                            />
+                          )}
+                          <Typography variant="caption" color="text.secondary">
+                            Started: {s.start_time ? new Date(s.start_time).toLocaleString() : '—'}
+                          </Typography>
+                        </Stack>
+                        {(s.status === 'Completed' || s.status === 'Started' || s.status === 'Discontinued') && (
+                          <Button
+                            size="small" color="error" fullWidth variant="outlined"
                             startIcon={<RestartIcon />}
                             onClick={() => {
                               setResetDialog({ open: true, studentId: s.user_id, studentUsername: s.username });
                               setConfirmText("");
                             }}
                           >
-                            Reset
+                            Reset Attempt
                           </Button>
-                        </Tooltip>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </Stack>
               )}
-            </TableBody>
-          </Table>
+            </Box>
+          ) : (
+            /* ── DESKTOP TABLE LAYOUT ── */
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Student ID</TableCell>
+                  <TableCell>Username</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell>Submission</TableCell>
+                  <TableCell>Score</TableCell>
+                  <TableCell>Started At</TableCell>
+                  <TableCell align="right">Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {loadingStudents ? (
+                  <TableRow><TableCell colSpan={7} align="center"><CircularProgress /></TableCell></TableRow>
+                ) : filteredStudents.length === 0 ? (
+                  <TableRow><TableCell colSpan={7} align="center">No students found.</TableCell></TableRow>
+                ) : (
+                  filteredStudents.map((s) => (
+                    <TableRow key={s.user_id}>
+                      <TableCell>{s.student_id}</TableCell>
+                      <TableCell>{s.username}</TableCell>
+                      <TableCell>
+                        <Chip
+                          label={s.status}
+                          color={s.status === 'Completed' ? 'success' : s.status === 'Started' ? 'primary' : s.status === 'Discontinued' ? 'error' : 'default'}
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        {s.submission_reason ? (
+                          <Chip
+                            label={
+                              s.submission_reason === 'manual' ? 'Manual' :
+                              s.submission_reason === 'timeout' ? 'Time Out' :
+                              s.submission_reason === 'tab_switch' ? 'Tab Switch' :
+                              s.submission_reason === 'abandoned' ? 'Abandoned' :
+                              s.submission_reason
+                            }
+                            size="small" variant="outlined"
+                            color={
+                              s.submission_reason === 'manual' ? 'success' :
+                              s.submission_reason === 'timeout' ? 'warning' :
+                              s.submission_reason === 'tab_switch' ? 'error' :
+                              s.submission_reason === 'abandoned' ? 'warning' : 'default'
+                            }
+                          />
+                        ) : '-'}
+                      </TableCell>
+                      <TableCell>{s.score !== null ? s.score : '-'}</TableCell>
+                      <TableCell>{s.start_time ? new Date(s.start_time).toLocaleString() : '-'}</TableCell>
+                      <TableCell align="right">
+                        {(s.status === 'Completed' || s.status === 'Started' || s.status === 'Discontinued') && (
+                          <Tooltip title="Reset Attempt (Allows Re-exam)">
+                            <Button
+                              size="small" color="error" startIcon={<RestartIcon />}
+                              onClick={() => {
+                                setResetDialog({ open: true, studentId: s.user_id, studentUsername: s.username });
+                                setConfirmText("");
+                              }}
+                            >
+                              Reset
+                            </Button>
+                          </Tooltip>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          )}
         </Paper>
       )}
 
