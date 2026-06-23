@@ -6,7 +6,10 @@ from datetime import datetime
 from flask import jsonify, request
 from sqlalchemy import desc, or_
 
-from models import AuditLog, QuestionRepository, QuestionReport, User, db
+from models import (
+    AuditLog, QuestionRepository, QuestionReport, User, db,
+    Exam, Question, ExamStudent, Student, QuickExam, QuickQuestion
+)
 from utils.files import ALLOWED_CSV, allowed_file, import_repository_csv, save_csv_file
 
 
@@ -494,3 +497,139 @@ def register_repository_routes(app, token_required):
         db.session.commit()
         
         return jsonify({'message': 'report resolved successfully'}), 200
+
+    @app.route('/admin/repository/auto-generate', methods=['POST', 'OPTIONS'])
+    @token_required
+    def auto_generate_exam(current_user):
+        if request.method == 'OPTIONS':
+            return jsonify({'message': 'ok'}), 200
+
+        if current_user.role not in ('admin', 'school_admin'):
+            return jsonify({'message': 'forbidden'}), 403
+
+        data = request.json or {}
+        filters = data.get('filters', {})
+        q_count = int(data.get('question_count', 10))
+        exam_type = data.get('exam_type', 'school')
+        title = data.get('title', 'Auto-Generated Exam')
+        duration = int(data.get('duration_minutes', 30))
+
+        # Query repository with filters
+        query = QuestionRepository.query
+        if current_user.role == 'school_admin':
+            query = query.filter(or_(QuestionRepository.school_id == current_user.school_id, QuestionRepository.school_id == None))
+        
+        cls = filters.get('class_number')
+        subject = filters.get('subject')
+        chapter = filters.get('chapter')
+        topic = filters.get('topic')
+        difficulty = filters.get('difficulty')
+
+        if cls: query = query.filter(QuestionRepository.class_number == cls)
+        if subject: query = query.filter(QuestionRepository.subject.ilike(subject))
+        if chapter: query = query.filter(QuestionRepository.chapter.ilike(chapter))
+        if topic: query = query.filter(QuestionRepository.topic.ilike(topic))
+        if difficulty: query = query.filter(QuestionRepository.difficulty == difficulty)
+
+        # Randomize and slice
+        repo_questions = query.order_by(db.func.random()).limit(q_count).all()
+        
+        if not repo_questions:
+            return jsonify({'message': 'No questions found matching these filters.'}), 400
+
+        try:
+            if exam_type == 'quick':
+                import random
+                import string
+                share_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+                
+                quick_exam = QuickExam(
+                    title=title,
+                    duration_minutes=duration,
+                    share_code=share_code,
+                    school_id=current_user.school_id if current_user.role == 'school_admin' else None,
+                    created_by=current_user.id
+                )
+                db.session.add(quick_exam)
+                db.session.flush()
+
+                for rq in repo_questions:
+                    qq = QuickQuestion(
+                        exam_id=quick_exam.id,
+                        text=rq.text,
+                        option_a=rq.option_a,
+                        option_b=rq.option_b,
+                        option_c=rq.option_c,
+                        option_d=rq.option_d,
+                        correct_answer=rq.correct_answer,
+                        marks=rq.marks,
+                        image_path=rq.image_path
+                    )
+                    db.session.add(qq)
+                
+                db.session.commit()
+                return jsonify({
+                    'message': 'Quick exam generated successfully',
+                    'exam_type': 'quick',
+                    'share_code': share_code,
+                    'exam_id': quick_exam.id
+                }), 201
+
+            else: # School exam
+                start_time = data.get('start_time')
+                end_time = data.get('end_time')
+                if start_time: start_time = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
+                if end_time: end_time = datetime.fromisoformat(end_time.replace('Z', '+00:00'))
+
+                school_exam = Exam(
+                    title=title,
+                    duration_minutes=duration,
+                    access_start=start_time,
+                    access_end=end_time,
+                    created_by=current_user.id,
+                    school_id=current_user.school_id if current_user.role == 'school_admin' else None,
+                    total_marks=sum(q.marks for q in repo_questions)
+                )
+                db.session.add(school_exam)
+                db.session.flush()
+
+                for rq in repo_questions:
+                    q = Question(
+                        exam_id=school_exam.id,
+                        text=rq.text,
+                        option_a=rq.option_a,
+                        option_b=rq.option_b,
+                        option_c=rq.option_c,
+                        option_d=rq.option_d,
+                        correct_answer=rq.correct_answer,
+                        marks=rq.marks,
+                        image_path=rq.image_path,
+                        repo_question_id=rq.id
+                    )
+                    db.session.add(q)
+                
+                # Auto-assign if class is selected
+                assigned_count = 0
+                if cls:
+                    eff_school_id = current_user.school_id if current_user.role == 'school_admin' else None
+                    student_query = Student.query.filter_by(class_number=cls)
+                    if eff_school_id:
+                        student_query = student_query.filter_by(school_id=eff_school_id)
+                        
+                    students = student_query.all()
+                    for st in students:
+                        es = ExamStudent(exam_id=school_exam.id, student_id=st.user_id)
+                        db.session.add(es)
+                        assigned_count += 1
+                
+                db.session.commit()
+                return jsonify({
+                    'message': f'Exam generated successfully. Auto-assigned to {assigned_count} students.',
+                    'exam_type': 'school',
+                    'exam_id': school_exam.id,
+                    'assigned_count': assigned_count
+                }), 201
+
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'message': 'Failed to generate exam', 'error': str(e)}), 500

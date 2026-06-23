@@ -76,6 +76,16 @@ const examPillars = [
     cta: "Explore Courses",
     link: "/public",
   },
+  {
+    title: "QUICK EXAMS",
+    icon: "⚡",
+    gradient: "linear-gradient(135deg, rgba(34,197,94,0.15), rgba(34,197,94,0.05))",
+    border: "rgba(34,197,94,0.3)",
+    desc: "Zero sign-up instant exams. Teachers share a code, students enter their name and start. Results delivered immediately.",
+    features: ["No Registration Needed", "Shareable Exam Code", "Instant Results", "Perfect for Classrooms"],
+    cta: "Enter Exam Code",
+    link: "/quick",
+  },
 ];
 
 const steps = [

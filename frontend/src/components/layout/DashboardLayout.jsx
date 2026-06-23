@@ -15,6 +15,7 @@ import {
 import { Link as RouterLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import useAuth from '../../hooks/useAuth';
 import { getDashboardSections, getBasePath } from './dashboardNav';
+import PlatformBot from '../common/PlatformBot';
 
 const DRAWER_WIDTH = 264;
 const COLLAPSED_WIDTH = 84;
@@ -221,6 +222,7 @@ export default function DashboardLayout() {
         <Box sx={{ flex: 1, p: { xs: 1.75, sm: 2.5, md: 3 }, overflowY: 'auto' }}>
           <Outlet />
         </Box>
+        <PlatformBot />
       </Box>
     </Box>
   );

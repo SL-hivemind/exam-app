@@ -36,7 +36,7 @@ from utils.files import (
     IMAGES_DIR, CSV_DIR, export_student_attempts_to_excel
 )
 
-from routes import register_analysis_routes, register_repository_routes, register_student_routes, register_public_routes, register_quick_routes
+from routes import register_analysis_routes, register_repository_routes, register_student_routes, register_public_routes, register_quick_routes, register_bot_routes
 
 # ------------------------------
 # Environment/bootstrap
@@ -223,6 +223,7 @@ register_student_routes(app, role_required, no_cache, to_utc_naive)
 register_analysis_routes(app, token_required, _competition_rank, _calculate_percentile)
 register_public_routes(app, token_required, role_required)
 register_quick_routes(app, token_required, role_required)
+register_bot_routes(app, role_required)
 
 # ------------------------------
 # DB init

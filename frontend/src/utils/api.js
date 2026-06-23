@@ -20,6 +20,7 @@ export const repoApi = {
   create: (data) => api.post('/admin/repository/questions', data),
   update: (id, data) => api.put(`/admin/repository/questions/${id}`, data),
   disable: (id) => api.delete(`/admin/repository/questions/${id}`),
+  autoGenerate: (payload) => api.post(`/admin/repository/auto-generate`, payload),
 };
 
 // --- exams (extras) ---

@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import api from '../../utils/api';
 import useAuth from '../../hooks/useAuth';
 import FilterSidebar from '../ui/FilterSidebar';
+import AutoGenerateExamDialog from './AutoGenerateExamDialog';
 
 import {
   Button, Checkbox, Box, Typography, IconButton, Paper, Stack,
@@ -76,6 +77,7 @@ export default function RepoQuestionsPage() {
   const [busy, setBusy] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [snack, setSnack] = useState({ open: false, severity: 'success', message: '' });
+  const [autoGenOpen, setAutoGenOpen] = useState(false);
 
   /* ---------------- FETCH ---------------- */
   const fetchRepo = useCallback(async () => {
@@ -299,6 +301,17 @@ export default function RepoQuestionsPage() {
               </Button>
             )}
 
+            {canPickExam && !examId && (
+              <Button
+                variant="contained"
+                color="secondary"
+                size="small"
+                onClick={() => setAutoGenOpen(true)}
+              >
+                Auto-Generate Exam
+              </Button>
+            )}
+
             {canBulkEdit && (
               <Button
                 variant="outlined"
@@ -490,6 +503,19 @@ export default function RepoQuestionsPage() {
       <Snackbar open={snack.open} autoHideDuration={4000} onClose={() => setSnack({ ...snack, open: false })}>
         <Alert severity={snack.severity}>{snack.message}</Alert>
       </Snackbar>
+
+      <AutoGenerateExamDialog
+        open={autoGenOpen}
+        onClose={() => setAutoGenOpen(false)}
+        initialFilters={filters}
+        onSuccess={(data) => {
+          setAutoGenOpen(false);
+          setSnack({ open: true, severity: 'success', message: data.message });
+          // optionally navigate to the created exam
+          // if (data.exam_type === 'quick') navigate('/quick-exams');
+          // else navigate('/admin/exams');
+        }}
+      />
     </Box>
   );
 }

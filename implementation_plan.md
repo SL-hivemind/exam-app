@@ -1,254 +1,72 @@
-# Senior Developer Implementation Plan: Public Exam Portal (Separate Repository + Daily Streaks + Slim Layout)
+# Admin Interactive AI Assistant Bot
 
-This plan outlines the architecture for updating the public exam portal. We will implement a **Separate Public Question Repository** for B2C competitive exams (NEET, UPSC, Banking, SSC, etc.), completely isolated from the B2B school system. We will also add a **Daily Challenge and Streak System**, slim down the layout (header and sidebar), and add quick navigation home actions to the dashboard home page.
+This document outlines the architecture and implementation plan for building a real-time, interactive AI chatbot specifically designed for School Admins. This bot will serve as a dynamic responder to answer questions, clear doubts about platform usage, and fetch real-time data from the website without relying on pre-defined static questions.
 
----
+## User Review Required
 
-## Senior Developer Design Decision: Isolated Public Question Repository
+> [!IMPORTANT]
+> **LLM Provider Selection:** To power this interactive bot, we need to integrate a Large Language Model (LLM). Please confirm which provider you prefer to use (e.g., OpenAI/ChatGPT, Google Gemini, or Anthropic Claude). You will need to provide an API key for the chosen service.
 
-We will build a dedicated, separate table for public portal questions.
+> [!WARNING]
+> **Data Access Level:** The bot can be designed to answer general "How-To" questions about the platform, AND it can be given tools to query your actual database (e.g., "How many students are in Class 10?", "Show me recent exam results"). Please confirm if you want the bot to have secure read-only access to your school's data to answer data-specific queries.
 
-### Why this is the chosen design:
-*   **Domain Isolation:** Avoids cluttering the school K-12 database. Competitive exams use subjects like *Quantitative Aptitude*, *Verbal Reasoning*, and *General Knowledge (GK)*, which do not belong to the school board curriculum.
-*   **Aptitude/GK Shared Bank:** Aptitude and GK questions are common across multiple public exams (e.g. Banking, SSC CGL, Railways). A separate repository with `course_tags` (e.g., `'BANKING,SSC'`) allows a single question to be shared across multiple public courses.
-*   **Clean Metadata:** Avoids fitting college-graduate level exams into K-12 structures like `class_number` (1 to 12).
+## Open Questions
 
----
-
-## Technical Specifications & Architecture
-
-### 1. Database Schema Extensions
-
-We will add the new models in [models.py](file:///c:/exam-app/backend/models.py):
-
-```mermaid
-classDiagram
-    class PublicQuestionRepository {
-        +Integer id
-        +String custom_id [e.g. NEET-PHY-KIN-0001]
-        +String course_tags [e.g. "BANKING,SSC" or "NEET"]
-        +String subject [e.g. "Quantitative Aptitude"]
-        +String chapter [e.g. "Time & Work"]
-        +String topic [e.g. "Pipes & Cisterns"]
-        +String difficulty ["Easy", "Medium", "Hard"]
-        +Boolean is_pyq
-        +Integer pyq_year [Nullable]
-        +Text text
-        +String option_a
-        +String option_b
-        +String option_c
-        +String option_d
-        +String correct_answer ["A", "B", "C", "D"]
-        +Text explanation [Nullable]
-        +String image_path [Nullable]
-        +Integer marks [Default 1]
-        +DateTime created_at
-    }
-
-    class CourseContent {
-        +Integer id
-        +Integer course_id
-        +String title
-        +String content_type ["cbt_exam", "pdf_material", "video"]
-        +String subject
-        +String chapter [Nullable]
-        +Boolean is_previous_paper
-        +String file_url
-    }
-
-    class PublicProfile {
-        +Integer id
-        +Integer user_id
-        +String phone_number
-        +Text address
-        +Integer daily_streak [Default 0]
-        +Date last_challenge_date [Nullable]
-        +DateTime created_at
-    }
-
-    class PublicDailyChallengeAttempt {
-        +Integer id
-        +Integer public_profile_id
-        +Date challenge_date [Default today]
-        +Text questions_json [List of 5 Question IDs]
-        +Text answers_json [User selections]
-        +Integer score
-        +DateTime completed_at
-    }
-
-    class PublicPracticeAttempt {
-        +Integer id
-        +Integer public_profile_id
-        +Integer course_id
-        +String subject
-        +String chapter
-        +String difficulty ["Easy", "Medium", "Hard", "Random", "Adaptive"]
-        +Text questions_json [List of PublicQuestionRepository IDs]
-        +Text answers_json [User selections]
-        +Integer score
-        +Integer total_questions
-        +Integer current_index
-        +Boolean is_submitted
-    }
-
-    CourseContent --> PublicCourse : belongs to
-    PublicDailyChallengeAttempt --> PublicProfile : taken by
-    PublicPracticeAttempt --> PublicProfile : taken by
-```
-
-#### SQL Migration Script:
-We will write a migration script `migrate_public_repository.py` to run:
-```sql
--- Create Public Question Repository table
-CREATE TABLE public_question_repository (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    custom_id VARCHAR(50) UNIQUE,
-    course_tags VARCHAR(255),
-    subject VARCHAR(100) NOT NULL,
-    chapter VARCHAR(100),
-    topic VARCHAR(150),
-    difficulty VARCHAR(20) DEFAULT 'Medium',
-    is_pyq BOOLEAN DEFAULT FALSE,
-    pyq_year INT,
-    text TEXT NOT NULL,
-    option_a VARCHAR(500),
-    option_b VARCHAR(500),
-    option_c VARCHAR(500),
-    option_d VARCHAR(500),
-    correct_answer VARCHAR(10) NOT NULL,
-    explanation TEXT,
-    image_path VARCHAR(255),
-    marks INT DEFAULT 1,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
--- Join table to link CourseContent (PYQ Exams) to Public Question Repository
-CREATE TABLE public_course_content_questions (
-    content_id INT NOT NULL,
-    public_q_id INT NOT NULL,
-    order_index INT NOT NULL DEFAULT 1,
-    PRIMARY KEY (content_id, public_q_id),
-    FOREIGN KEY (content_id) REFERENCES course_contents(id) ON DELETE CASCADE,
-    FOREIGN KEY (public_q_id) REFERENCES public_question_repository(id) ON DELETE CASCADE
-);
-
--- Practice attempts targeting public question repository
-CREATE TABLE public_practice_attempts (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    public_profile_id INT NOT NULL,
-    course_id INT NOT NULL,
-    subject VARCHAR(100),
-    chapter VARCHAR(100),
-    difficulty VARCHAR(20) DEFAULT 'Random',
-    questions_json TEXT NOT NULL,
-    answers_json TEXT,
-    score INT,
-    total_questions INT DEFAULT 30,
-    is_adaptive BOOLEAN DEFAULT FALSE,
-    current_index INT DEFAULT 0,
-    start_time DATETIME DEFAULT CURRENT_TIMESTAMP,
-    submitted_at DATETIME,
-    FOREIGN KEY (public_profile_id) REFERENCES public_profiles(id) ON DELETE CASCADE,
-    FOREIGN KEY (course_id) REFERENCES public_courses(id) ON DELETE CASCADE
-);
-
--- Add chapter field to course contents
-ALTER TABLE course_contents ADD COLUMN chapter VARCHAR(100) DEFAULT NULL;
-
--- Add Daily Streak fields to Public Profile
-ALTER TABLE public_profiles ADD COLUMN daily_streak INT DEFAULT 0;
-ALTER TABLE public_profiles ADD COLUMN last_challenge_date DATE DEFAULT NULL;
-
--- Create Daily Challenge Attempts table
-CREATE TABLE public_daily_challenge_attempts (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    public_profile_id INT NOT NULL,
-    challenge_date DATE NOT NULL,
-    questions_json TEXT NOT NULL,
-    answers_json TEXT,
-    score INT DEFAULT 0,
-    completed_at DATETIME,
-    FOREIGN KEY (public_profile_id) REFERENCES public_profiles(id) ON DELETE CASCADE
-);
-```
+1. **Placement:** Should the bot be a floating widget (always available in the bottom-right corner of the admin dashboard) or a dedicated "AI Assistant" page?
+2. **Context / Knowledge Base:** Do we currently have a user manual or documentation text that we should feed to the bot so it understands how the website works?
 
 ---
 
-## 2. Content & Upload Management Workflow
+## Proposed Architecture
 
-1.  **Dedicated PYQs (1.1):**
-    *   Uploaded as `CourseContent` (type `'cbt_exam'`, `is_previous_paper = True`).
-    *   Questions are uploaded to the new `PublicQuestionRepository`, tagged with `course_tags = 'NEET'`, `is_pyq = True`, `pyq_year = 2024`.
-    *   Linked via `public_course_content_questions` join table.
-2.  **General Chapter/Subject Questions (1.2):**
-    *   Uploaded to `PublicQuestionRepository` tagged with `subject`, `chapter`, and `course_tags` (e.g. `'NEET'` or `'BANKING,SSC'`).
-3.  **Study Materials (2):**
-    *   Uploaded as `CourseContent` (type `'pdf_material'` or `'video'`) and tagged with `subject` and `chapter`.
+We will implement an AI-powered conversational agent using a **Retrieval-Augmented Generation (RAG)** and **Tool Calling** approach.
 
----
+### 1. Frontend: Interactive Chat UI
 
-## 3. Search, Practice & Daily Streak Engine
+We will build a modern, animated chat interface.
 
-### Dynamic Generation (No Manual Admin Setup)
-*   Practice exams in the public portal are fully automated and generated on the fly.
-*   Admins only maintain the question bank (`PublicQuestionRepository`).
+#### [NEW] `frontend/src/components/AdminAIBot.jsx`
+* A floating action button (FAB) that opens a sleek chat window.
+* Features:
+    * Message history (User vs. AI bubbles).
+    * "Typing..." indicators while the AI processes.
+    * Suggested quick actions (e.g., "Get Student Stats", "How do I create an exam?").
+    * Built using standard React state, MUI components, and framer-motion for smooth sliding animations.
 
-### Practice Modes:
-1.  **Chapter Prep:** Filters `PublicQuestionRepository` by `subject`, `chapter`, and matching `course_tags`. Pulls $X$ questions (default 30).
-2.  **Subject Prep:** Filters by `subject` and matching `course_tags`. Pulls $X$ questions (default 30).
-3.  **Course/Exam Prep (Mock Test):** Filters by matching `course_tags` (e.g., `'NEET'`), pulling a balanced mix of subjects.
+#### [MODIFY] `frontend/src/components/Dashboard.jsx` (or Admin Layout)
+* Inject the `<AdminAIBot />` component so it is available across all admin pages.
 
-> [!NOTE]
-> **Adaptive Practice UI Status:** Adaptive backend code and logic will be fully implemented. However, the UI toggle to select "Adaptive Mode" will be disabled/hidden for now. Users will practice using standard difficulty levels or random mixes.
+### 2. Backend: AI Orchestration Layer
 
-### Daily Challenge & Streak System:
-*   **Daily Challenge Generation (`POST /public/challenge/start`):**
-    *   Checks the user's enrolled courses to determine focus:
-        *   If subscribed to a **Science exam** (NEET, JEE), pulls 5 random science questions (Physics, Chemistry, Biology, Math) from `PublicQuestionRepository`.
-        *   If subscribed to an **Arts/Govt/Banking exam** (UPSC, Banking, SSC), pulls 5 random Aptitude, Reasoning, and GK questions.
-        *   Otherwise, pulls 5 random general GK and Aptitude questions.
-    *   Creates a `PublicDailyChallengeAttempt` and returns the 5 questions (without answers).
-*   **Challenge Submission (`POST /public/challenge/submit`):**
-    *   Grades the 5 questions.
-    *   Saves the attempt and marks `completed_at` as now.
-    *   **Updates Streak:**
-        *   If `last_challenge_date` was yesterday: `daily_streak += 1`.
-        *   If `last_challenge_date` was today: Do not modify streak (already completed).
-        *   If `last_challenge_date` was before yesterday or null: Reset/set `daily_streak = 1`.
-        *   Update `last_challenge_date` to today's date.
-    *   Returns the score, explanation, and new streak count.
+We will create a secure backend endpoint to handle the conversation, pass it to the LLM, and execute any necessary data retrieval tools.
 
----
+#### [NEW] `backend/routes/ai_routes.py` (or add to existing routes)
+* **Endpoint:** `POST /api/admin/chat`
+* **Security:** Secured using `@role_required('school_admin', 'admin')`. The bot will strictly use the logged-in admin's `school_id` to ensure data privacy.
+* **Logic Flow:**
+    1. Receive user's message.
+    2. Inject system prompt: *"You are an expert platform assistant for School Admins. You help answer questions and fetch data..."*
+    3. Pass the query to the chosen LLM API.
+    4. **Tool Calling (Data Retrieval):** If the user asks for data (e.g., "How many students?"), the LLM will trigger a Python function. The backend will execute `Student.query.filter_by(school_id=current_user.school_id).count()` and return the number to the LLM, which will then format a human-readable response.
+    5. Return the final AI response to the frontend.
 
-## 4. Layout & Navigation Optimizations
+### 3. Core Capabilities
 
-### Slim Design System
-*   **Top Header (`PublicLayout.jsx`):** Height is reduced from `64px` to `50px`. Text font sizes are scaled down, and paddings for nav links and profile buttons are minimized.
-*   **Dashboard Sidebar (`PublicDashboard.jsx`):** Sidebar width (`SIDEBAR_W`) is reduced from `260px` to `220px`. The height of sidebar items is reduced (py: 0.8), text size is set to `0.8rem`, and spacing is compacted to maximize screen estate.
-
-### Overview Quick Navigation Actions (Home Actions)
-On the dashboard home page (Overview tab), we will display a **Quick Prep Hub** right under the stats panel:
-*   A clean grid of card actions with premium icons representing different preparation pathways:
-    1.  **Chapter Prep:** Quick action to select a subject/chapter and start practice.
-    2.  **Subject Practice:** Quick action to launch a subject-wide mix.
-    3.  **Mock Tests:** Launches a full exam mix.
-    4.  **Previous Papers (PYQs):** Directly focuses the course tab on the dedicated CBT previous year papers.
-    5.  **Study Materials:** Directly navigates to the chapter content/syllabus browser.
-
-*   This allows a user to initiate any learning mode directly from the Home Dashboard instead of digging into sidebars or accordion tabs.
+* **General Q&A (RAG):** We will provide the AI with a system prompt outlining the platform's features (Exams, Question Banks, Student Management) so it can answer "How do I..." questions accurately.
+* **Real-time Data Fetching:** We will define a set of safe, read-only Python functions that the LLM can call:
+    * `get_total_students(school_id)`
+    * `get_recent_exams(school_id)`
+    * `get_exam_average_score(exam_id)`
+    * The LLM decides when to use these tools based on the admin's question.
 
 ---
 
 ## Verification Plan
 
-### Automated Verification
-*   Write unit tests in `backend/tests/test_public_practice.py`:
-    *   Test dynamic practice generator filters.
-    *   Test daily challenge selection logic for science vs. banking courses.
-    *   Test daily streak update logic (consecutive days increment, missing a day resets).
+### Automated Tests
+* Create unit tests for the backend tool-calling functions to ensure they strictly respect the `school_id` boundaries (an admin from School A cannot query School B's stats).
 
 ### Manual Verification
-*   Seed questions across Physics, Chemistry, GK, and Aptitude.
-*   Enroll in a NEET course and verify that the Daily Challenge serves Science questions.
-*   Enroll in a Banking course and verify that the Daily Challenge serves Aptitude/GK questions.
-*   Simulate completing the challenge and verify the streak increments.
+* **UI Test:** Ensure the floating bot opens, closes, and scrolls correctly on desktop and mobile views.
+* **Q&A Test:** Ask the bot "How do I create an exam?" and verify it provides instructions based on our system prompt.
+* **Data Test:** Ask the bot "How many students are in my school?" and verify it triggers the database function, fetches the correct count, and replies naturally (e.g., "You currently have 150 students registered in your school.").
