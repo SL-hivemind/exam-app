@@ -255,7 +255,7 @@ export default function PublicDashboard() {
           setDailyStreak(r.data.streak || 0);
           setMsg(`Already completed today! Score: ${r.data.score}/5`);
         } else {
-          setMsg(`Daily Challenge started! ${r.data.questions?.length || 5} questions loaded.`);
+          navigate('/public/practice?mode=challenge');
         }
       } catch (err) {
         setError(err.response?.data?.message || 'Could not start challenge');
@@ -544,18 +544,48 @@ export default function PublicDashboard() {
             return (
               <>
                 {/* ── 1. PREVIOUS QUESTION PAPERS SECTION ── */}
-                {previousPapers.length > 0 && (
+                {(previousPapers.length > 0 || (dc.available_pyqs && dc.available_pyqs.length > 0)) && (
                   <Box sx={{ borderBottom: '1px solid rgba(255,255,255,0.10)' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 2.5, py: 1.5, bgcolor: 'rgba(13,148,136,0.04)' }}>
                       <HistoryIcon sx={{ fontSize: 18, color: '#0d9488' }} />
                       <Typography sx={{ fontFamily: ff, fontWeight: 700, fontSize: '0.82rem', color: '#5eead4', letterSpacing: 0.3 }}>
                         Previous Years\' Question Papers (PQP)
                       </Typography>
-                      <Chip label={previousPapers.length} size="small" sx={{ fontFamily: ff, fontWeight: 800, fontSize: '0.68rem', height: 20, bgcolor: 'rgba(13,148,136,0.1)', color: '#0d9488' }} />
+                      <Chip label={previousPapers.length + (dc.available_pyqs?.length || 0)} size="small" sx={{ fontFamily: ff, fontWeight: 800, fontSize: '0.68rem', height: 20, bgcolor: 'rgba(13,148,136,0.1)', color: '#0d9488' }} />
                     </Box>
                     <List sx={{ p: 0 }}>
                       {previousPapers.map(renderContentItem)}
+                      {dc.available_pyqs && dc.available_pyqs.map(year => (
+                        <ListItem key={`pyq-${year}`} onClick={() => navigate(`/public/practice?mode=pyq&course_tags=${dc.course.title}&year=${year}`)}
+                          sx={{ cursor: 'pointer', py: 1.8, px: 2.5, '&:hover': { bgcolor: 'rgba(255,255,255,0.03)' }, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                          <ListItemIcon sx={{ minWidth: 40 }}><QuizIcon sx={{ color: '#0d9488', fontSize: 20 }} /></ListItemIcon>
+                          <ListItemText primary={`${year} Past Paper`}
+                            secondary={<Typography sx={{ fontFamily: ff, fontSize: '0.75rem', color: '#a9b4dd' }}>Generated from Question Bank</Typography>}
+                            primaryTypographyProps={{ fontFamily: ff, fontWeight: 600, fontSize: '0.88rem', color: '#eaf0ff' }} />
+                          <Button size="small" variant="outlined" sx={{ fontFamily: ff, textTransform: 'none', borderRadius: '8px', fontSize: '0.75rem', color: '#0d9488', borderColor: '#0d9488' }}>
+                            Take Exam
+                          </Button>
+                        </ListItem>
+                      ))}
                     </List>
+                  </Box>
+                )}
+
+                {/* ── 1.5 DYNAMIC PRACTICE SECTION ── */}
+                {dc.practice_subjects && dc.practice_subjects.length > 0 && (
+                  <Box sx={{ borderBottom: '1px solid rgba(255,255,255,0.10)' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 2.5, py: 1.5, bgcolor: 'rgba(245,158,11,0.04)' }}>
+                      <LocalFireDepartmentIcon sx={{ fontSize: 18, color: '#f59e0b' }} />
+                      <Typography sx={{ fontFamily: ff, fontWeight: 700, fontSize: '0.82rem', color: '#fcd34d', letterSpacing: 0.3 }}>
+                        Subject-Wise Practice Hub
+                      </Typography>
+                    </Box>
+                    <Box sx={{ p: 2.5, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                      {dc.practice_subjects.map(sub => (
+                        <Chip key={sub} label={`${sub} Practice`} onClick={() => navigate(`/public/practice?mode=subject`)} 
+                         sx={{ fontFamily: ff, fontWeight: 600, bgcolor: 'rgba(245,158,11,0.1)', color: '#f59e0b', cursor: 'pointer', '&:hover': { bgcolor: 'rgba(245,158,11,0.2)' } }} />
+                      ))}
+                    </Box>
                   </Box>
                 )}
 
@@ -579,7 +609,7 @@ export default function PublicDashboard() {
                   );
                 })}
 
-                {dc.contents.length === 0 && (
+                {dc.contents.length === 0 && (!dc.available_pyqs || dc.available_pyqs.length === 0) && (
                   <Box sx={{ py: 4, textAlign: 'center' }}>
                     <Typography sx={{ color: '#aeb9e0', fontFamily: ff }}>No content yet.</Typography>
                   </Box>

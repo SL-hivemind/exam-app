@@ -16,6 +16,7 @@ import { AuthProvider } from './context/AuthContext';
 import useAuth from './hooks/useAuth';
 import theme from './theme';
 import AuroraBackground from './components/common/AuroraBackground';
+import PlatformBot from './components/common/PlatformBot';
 
 // Pages that should show the shared Navbar (not managed by a layout)
 const NAVBAR_PATHS = ['/', '/login', '/register', '/forgot-password'];
@@ -31,6 +32,7 @@ function AppContent() {
     location.pathname.startsWith('/student') || 
     location.pathname.startsWith('/exam/');
   const showFooter = !authToken && NAVBAR_PATHS.includes(location.pathname);
+  const showBotForStudent = authToken && location.pathname.startsWith('/student');
 
   return (
     <Box minHeight="100vh" display="flex" flexDirection="column">
@@ -39,6 +41,7 @@ function AppContent() {
         <AppRoutes />
       </Container>
       {showFooter && <Footer />}
+      {showBotForStudent && <PlatformBot />}
     </Box>
   );
 }

@@ -6,6 +6,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Box, IconButton, Typography, TextField, Stack, Chip, Avatar,
   Fade, useMediaQuery, useTheme, CircularProgress,
+  SpeedDial, SpeedDialIcon, SpeedDialAction
 } from '@mui/material';
 import {
   SmartToy as BotIcon,
@@ -13,6 +14,8 @@ import {
   Send as SendIcon,
   AutoAwesome as SparkleIcon,
   NavigateNext as NavIcon,
+  MenuBook as MenuBookIcon,
+  Dashboard as DashboardIcon,
 } from '@mui/icons-material';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -46,6 +49,7 @@ export default function PlatformBot() {
   const location = useLocation();
 
   const [open, setOpen] = useState(false);
+  const [botMode, setBotMode] = useState('dashboard');
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -62,20 +66,29 @@ export default function PlatformBot() {
   // Load initial suggestions on first open
   useEffect(() => {
     if (open && messages.length === 0) {
-      setMessages([{
-        role: 'bot',
-        text: "Hello! 👋 I'm your **SL Exams Assistant**. I can:\n\n• 📊 **Query data** — \"How many students in class 10?\"\n• 🏫 **Look up schools** — \"Tell me about school Eesha\"\n• 🔍 **Find students** — \"Find student Rahul\"\n• ✅ **Validate questions** — \"Check my questions for errors\"\n• 📝 **Platform guides** — \"How do I create an exam?\"\n\nJust ask!",
-        time: new Date(),
-      }]);
-      setSuggestions([
-        'How many students do I have?',
-        'Tell me about my school',
-        'Check questions for errors',
-        'Show recent exams',
-        'Find student...',
-      ]);
+      if (botMode === 'dashboard') {
+        setMessages([{
+          role: 'bot',
+          text: "Hello! 👋 I'm your **Platform Assistant**. I can:\n\n• 📊 **Query data** — \"How many students in class 10?\"\n• 🏫 **Look up schools** — \"Tell me about school Eesha\"\n• 🔍 **Find students** — \"Find student Rahul\"\n• ✅ **Validate questions** — \"Check my questions for errors\"\n• 📝 **Platform guides** — \"How do I create an exam?\"\n\nJust ask!",
+          time: new Date(),
+        }]);
+        setSuggestions([
+          'How many students do I have?',
+          'Tell me about my school',
+          'Check questions for errors',
+          'Show recent exams',
+          'Find student...',
+        ]);
+      } else {
+        setMessages([{
+          role: 'bot',
+          text: "Hello! 📚 I'm your **Study Assistant**. Ask me any academic or textbook questions!",
+          time: new Date(),
+        }]);
+        setSuggestions([]);
+      }
     }
-  }, [open]);
+  }, [open, botMode, messages.length]);
 
   const basePath = location.pathname.startsWith('/admin') ? '/admin'
     : location.pathname.startsWith('/school') ? '/school'
@@ -91,7 +104,7 @@ export default function PlatformBot() {
     setSuggestions([]);
 
     try {
-      const { data } = await api.post('/bot/chat', { message: msg });
+      const { data } = await api.post('/bot/chat', { message: msg, mode: botMode });
       setMessages(prev => [...prev, {
         role: 'bot',
         text: data.response,
@@ -138,29 +151,54 @@ export default function PlatformBot() {
               position: 'fixed', bottom: 24, right: 24, zIndex: 1400,
             }}
           >
-            <IconButton
-              onClick={() => setOpen(true)}
-              id="platform-bot-fab"
+            <SpeedDial
+              ariaLabel="SL Assistant Options"
+              icon={<SpeedDialIcon icon={<BotIcon sx={{ fontSize: 28 }} />} />}
+              direction="up"
               sx={{
-                width: fabSize, height: fabSize, borderRadius: '50%',
-                background: 'linear-gradient(135deg, #2f6bff 0%, #f68914 100%)',
-                color: '#fff',
-                boxShadow: '0 6px 28px rgba(47,107,255,0.45), 0 2px 8px rgba(246,137,20,0.3)',
-                '&:hover': {
-                  background: 'linear-gradient(135deg, #1d5ae0 0%, #e07b0e 100%)',
-                  transform: 'scale(1.08)',
+                '& .MuiSpeedDial-fab': {
+                  width: fabSize, height: fabSize,
+                  background: 'linear-gradient(135deg, #2f6bff 0%, #f68914 100%)',
+                  color: '#fff',
+                  boxShadow: '0 6px 28px rgba(47,107,255,0.45), 0 2px 8px rgba(246,137,20,0.3)',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #1d5ae0 0%, #e07b0e 100%)',
+                    transform: 'scale(1.08)',
+                  },
+                  transition: 'all 0.25s ease',
+                  animation: 'botPulse 2.5s ease-in-out infinite',
                 },
-                transition: 'all 0.25s ease',
-                // Pulse animation
-                animation: 'botPulse 2.5s ease-in-out infinite',
                 '@keyframes botPulse': {
                   '0%, 100%': { boxShadow: '0 6px 28px rgba(47,107,255,0.45), 0 2px 8px rgba(246,137,20,0.3)' },
                   '50%': { boxShadow: '0 8px 38px rgba(47,107,255,0.65), 0 4px 14px rgba(246,137,20,0.5)' },
                 },
               }}
             >
-              <BotIcon sx={{ fontSize: 28 }} />
-            </IconButton>
+              <SpeedDialAction
+                icon={<MenuBookIcon sx={{ color: '#fff', fontSize: 22 }} />}
+                tooltipTitle={<Typography sx={{ fontFamily: oswald, fontWeight: 500, fontSize: '0.85rem' }}>Study Mode</Typography>}
+                onClick={() => { setBotMode('study'); setMessages([]); setOpen(true); }}
+                sx={{ 
+                  bgcolor: '#f59e0b',
+                  width: 48, height: 48,
+                  boxShadow: '0 4px 12px rgba(245,158,11,0.4)',
+                  '&:hover': { bgcolor: '#d97706', transform: 'scale(1.1)' },
+                  transition: 'all 0.2s ease'
+                }}
+              />
+              <SpeedDialAction
+                icon={<DashboardIcon sx={{ color: '#fff', fontSize: 22 }} />}
+                tooltipTitle={<Typography sx={{ fontFamily: oswald, fontWeight: 500, fontSize: '0.85rem' }}>Dashboard Mode</Typography>}
+                onClick={() => { setBotMode('dashboard'); setMessages([]); setOpen(true); }}
+                sx={{ 
+                  bgcolor: '#3b82f6',
+                  width: 48, height: 48,
+                  boxShadow: '0 4px 12px rgba(59,130,246,0.4)',
+                  '&:hover': { bgcolor: '#2563eb', transform: 'scale(1.1)' },
+                  transition: 'all 0.2s ease'
+                }}
+              />
+            </SpeedDial>
           </MotionBox>
         )}
       </AnimatePresence>
@@ -210,7 +248,7 @@ export default function PlatformBot() {
                     fontFamily: oswald, fontWeight: 700, fontSize: '1rem',
                     color: '#fff', letterSpacing: '0.04em',
                   }}>
-                    SL Assistant
+                    SL Assistant — {botMode === 'study' ? 'Study' : 'Dashboard'}
                   </Typography>
                   <Typography sx={{
                     fontSize: '0.68rem', color: '#6ee7b7', fontWeight: 600,

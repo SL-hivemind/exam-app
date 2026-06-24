@@ -3,13 +3,12 @@
 from flask import jsonify
 
 from models import Exam, Question, QuestionRepository, Student, StudentAnswer, StudentExamAttempt, db
+from utils.math_utils import competition_rank, calculate_percentile
 
 
 def register_analysis_routes(
     app,
     token_required,
-    _competition_rank,
-    _calculate_percentile,
 ):
     @app.route('/student/analysis/<int:user_id>', methods=['GET'])
     @token_required
@@ -46,9 +45,9 @@ def register_analysis_routes(
             percent = round((att.score / exam.total_marks) * 100, 2) if exam.total_marks else 0
             percentages.append(percent)
 
-            rank = _competition_rank(att.score, peer_scores)
+            rank = competition_rank(att.score, peer_scores)
             participants = len(peer_scores)
-            percentile = _calculate_percentile(att.score, peer_scores)
+            percentile = calculate_percentile(att.score, peer_scores)
 
             exam_wise.append(
                 {

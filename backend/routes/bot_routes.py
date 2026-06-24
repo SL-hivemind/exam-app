@@ -11,6 +11,36 @@ from routes.bot_engine import (
     extract_entities, classify_intent, get_effective_school,
     fuzzy_find_school, fuzzy_find_students, add_to_memory, get_context,
 )
+from utils.math_utils import competition_rank
+import os
+import requests
+
+# ── External RAG service (info-only, read-only). Only used as a fallback for
+#    questions the rule-based bot can't answer. Disabled (no-op) until the
+#    RAG_API_URL / RAG_API_KEY env vars are set, and always degrades gracefully. ──
+RAG_API_URL = os.getenv("RAG_API_URL")  # e.g. https://chat.theslpl.in/chat
+RAG_API_KEY = os.getenv("RAG_API_KEY")
+
+
+def _ask_rag(question, school_name=None):
+    """Ask the external RAG service. Returns answer text, or None on any failure."""
+    if not RAG_API_URL or not RAG_API_KEY:
+        return None
+    try:
+        payload = {"question": question}
+        if school_name:
+            payload["school"] = school_name
+        r = requests.post(
+            RAG_API_URL,
+            json=payload,
+            headers={"X-API-Key": RAG_API_KEY},
+            timeout=20,
+        )
+        if r.status_code == 200:
+            return (r.json().get("response") or "").strip() or None
+    except requests.RequestException:
+        return None
+    return None
 
 # ── Knowledge Base ──
 KB = {
@@ -87,12 +117,15 @@ def h_find_student(ent, sid, user):
 
 
 def h_student_performance(ent, sid, user):
-    hint = ent.get('student_hint')
-    if not hint: return "📈 Please specify a student. Example: \"Show Rahul's scores\""
-    eff_sid = sid if user.role == 'admin' else user.school_id
-    students = fuzzy_find_students(hint, school_id=eff_sid, limit=1)
-    if not students: return f"📈 No student found matching **\"{hint}\"**."
-    st = students[0]
+    if user.role == 'student':
+        st = Student.query.filter_by(user_id=user.id).first()
+    else:
+        hint = ent.get('student_hint')
+        if not hint: return "📈 Please specify a student. Example: \"Show Rahul's scores\""
+        eff_sid = sid if user.role == 'admin' else user.school_id
+        students = fuzzy_find_students(hint, school_id=eff_sid, limit=1)
+        if not students: return f"📈 No student found matching **\"{hint}\"**."
+        st = students[0]
     attempts = StudentExamAttempt.query.filter_by(student_id=st.user_id).order_by(StudentExamAttempt.start_time.desc()).limit(10).all()
     if not attempts: return f"📈 **{st.user.username}** has no exam attempts yet."
     lines = [f"📈 **{st.user.username}** (`{st.student_id}`) — Recent Scores:\n"]
@@ -270,6 +303,56 @@ def h_compare(ent, sid, user):
     return '\n'.join(lines)
 
 
+def h_my_rank(ent, sid, user):
+    if user.role != 'student': return "This is only available for students."
+    attempts = StudentExamAttempt.query.filter_by(student_id=user.id).order_by(StudentExamAttempt.submitted_time.desc()).limit(5).all()
+    if not attempts: return "You haven't completed any exams yet."
+    lines = ["🏆 **Your Recent Ranks:**\n"]
+    for a in attempts:
+        exam = Exam.query.get(a.exam_id)
+        peer_scores = [s[0] for s in db.session.query(StudentExamAttempt.score).filter_by(exam_id=exam.id).filter(StudentExamAttempt.submitted_time.isnot(None)).all() if s[0] is not None]
+        rank = competition_rank(a.score, peer_scores)
+        total = len(peer_scores)
+        lines.append(f"• **{exam.title}:** Rank #{rank} (out of {total} students)")
+    return '\n'.join(lines)
+
+def h_my_weaknesses(ent, sid, user):
+    if user.role != 'student': return "This is only available for students."
+    perf_rows = (
+        db.session.query(
+            QuestionRepository.chapter,
+            StudentAnswer.marks_awarded,
+            Question.marks,
+        )
+        .select_from(StudentExamAttempt)
+        .join(StudentAnswer, StudentAnswer.attempt_id == StudentExamAttempt.id)
+        .join(Question, Question.id == StudentAnswer.question_id)
+        .outerjoin(QuestionRepository, Question.repo_question_id == QuestionRepository.id)
+        .filter(StudentExamAttempt.student_id == user.id)
+        .filter(StudentExamAttempt.submitted_time.isnot(None))
+        .all()
+    )
+    if not perf_rows: return "You haven't completed any exams yet."
+    cmap = {}
+    for chapter, awarded, qmarks in perf_rows:
+        c = (chapter or 'General').strip() or 'General'
+        m = qmarks or 1
+        e = awarded or 0
+        if c not in cmap: cmap[c] = {'earned': 0, 'total': 0}
+        cmap[c]['earned'] += e
+        cmap[c]['total'] += m
+    weak = []
+    for c, data in cmap.items():
+        pct = (data['earned'] / data['total']) * 100 if data['total'] else 0
+        if pct < 50: weak.append((c, pct))
+    weak.sort(key=lambda x: x[1])
+    if not weak: return "You don't have any weak subjects! Keep up the good work! 🌟"
+    lines = ["📚 **Areas to Improve (Score < 50%):**\n"]
+    for c, pct in weak[:5]:
+        lines.append(f"• **{c}** ({round(pct)}%)")
+    return '\n'.join(lines)
+
+
 HANDLERS = {
     'student_count': h_student_count, 'list_students': h_list_students,
     'find_student': h_find_student, 'student_performance': h_student_performance,
@@ -277,7 +360,7 @@ HANDLERS = {
     'exam_count': h_exam_count, 'recent_exams': h_recent_exams, 'exam_avg': h_exam_avg,
     'question_count': h_question_count, 'pending_requests': h_pending_requests,
     'dashboard_summary': h_dashboard_summary, 'validate_questions': h_validate_questions,
-    'compare': h_compare,
+    'compare': h_compare, 'my_rank': h_my_rank, 'my_weaknesses': h_my_weaknesses,
 }
 
 LINK_MAP = {
@@ -290,20 +373,66 @@ LINK_MAP = {
 }
 
 
+ALLOWED_INTENTS = {
+    'admin': 'all',
+    'school_admin': 'all',
+    'student': ['greeting', 'my_rank', 'my_weaknesses', 'student_performance', 'kb_profile'],
+    'subject_specialist': ['greeting', 'question_count', 'validate_questions', 'dashboard_summary', 'kb_question_repo', 'kb_profile']
+}
+
+ROLE_GREETINGS = {
+    'student': "Hello! 👋 I'm your **Student Assistant**.\n\n• 🏆 **Rankings** — \"What is my rank in the last exam?\"\n• 📚 **Weaknesses** — \"What are my weak subjects?\"\n• 📈 **Performance** — \"Show my recent scores\"\n\nJust ask!",
+    'subject_specialist': "Hello! 👋 I'm your **Repository Assistant**.\n\n• ✅ **Validate** — \"Check my questions for errors\"\n• 📊 **Status** — \"Give me a repo summary\"\n• 📚 **Count** — \"How many questions do we have?\"\n\nJust ask!",
+}
+
+ROLE_SUGGESTIONS = {
+    'student': ["What is my rank?", "What are my weak subjects?", "Show my recent scores"],
+    'subject_specialist': ["Check questions for errors", "Give me a repo summary", "How many questions do we have?"],
+}
+
+
 def register_bot_routes(app, role_required):
 
     @app.post('/bot/chat')
-    @role_required('admin', 'school_admin')
+    @role_required('admin', 'school_admin', 'student', 'subject_specialist', 'public_user')
     def bot_chat(current_user):
         data = request.get_json(silent=True) or {}
         message = (data.get('message') or '').strip()
+        mode = data.get('mode', 'dashboard')
+
         if not message:
             return jsonify({'message': 'Please type a message'}), 400
+
+        if mode == 'study':
+            add_to_memory(current_user.id, 'user', message, {})
+            school_name = None
+            if current_user.role == 'school_admin':
+                sch = School.query.get(current_user.school_id)
+                school_name = sch.name if sch else None
+            
+            rag_answer = _ask_rag(message, school_name)
+            if rag_answer:
+                resp, intent = rag_answer, "rag"
+            else:
+                resp = "⚠️ I'm having trouble reaching the study database right now. Please try again later."
+                intent = "error"
+            
+            add_to_memory(current_user.id, 'bot', resp)
+            return jsonify({'response': resp, 'suggestions': [], 'link': None, 'intent': intent}), 200
 
         intent = classify_intent(message)
         entities = extract_entities(message)
         entities['_raw'] = message
         memory_ctx = get_context(current_user.id)
+        role = current_user.role
+
+        allowed = ALLOWED_INTENTS.get(role, [])
+        if allowed != 'all' and intent not in allowed and intent != 'unknown':
+            return jsonify({
+                'response': "🔒 **Access Denied:** I am restricted from answering that based on your role.",
+                'suggestions': ROLE_SUGGESTIONS.get(role, SUGGESTIONS),
+                'link': None, 'intent': intent
+            }), 200
 
         # Inherit context from memory for follow-ups
         for key in ('school_hint', 'class_number', 'subject'):
@@ -313,10 +442,11 @@ def register_bot_routes(app, role_required):
         sid = get_effective_school(entities, current_user, memory_ctx)
         add_to_memory(current_user.id, 'user', message, entities)
 
-        resp, link, suggs = "", None, SUGGESTIONS
+        suggs = ROLE_SUGGESTIONS.get(role, SUGGESTIONS)
+        resp, link = "", None
 
         if intent == "greeting":
-            resp = GREETING
+            resp = ROLE_GREETINGS.get(role, GREETING)
         elif intent in KB:
             resp, link = KB[intent]
         elif intent in HANDLERS:
@@ -326,12 +456,17 @@ def register_bot_routes(app, role_required):
                 resp = f"⚠️ Error: {str(e)}"
             link = LINK_MAP.get(intent)
         else:
-            resp = "🤔 I didn't quite get that. Try:\n\n• \"Dashboard summary\"\n• \"Tell me about school [name]\"\n• \"Find student [name]\"\n• \"Show Rahul's scores\"\n• \"Check questions for errors\""
+            if role == 'student':
+                resp = "🤔 I didn't quite get that. Try:\n\n• \"What is my rank?\"\n• \"What are my weak subjects?\"\n• \"Show my recent scores\""
+            elif role == 'subject_specialist':
+                resp = "🤔 I didn't quite get that. Try:\n\n• \"Check questions for errors\"\n• \"Give me a repo summary\""
+            else:
+                resp = "🤔 I didn't quite get that. Try:\n\n• \"Dashboard summary\"\n• \"Tell me about school [name]\"\n• \"Find student [name]\"\n• \"Show Rahul's scores\"\n• \"Check questions for errors\""
 
         add_to_memory(current_user.id, 'bot', resp)
         return jsonify({'response': resp, 'suggestions': suggs, 'link': link, 'intent': intent}), 200
 
     @app.get('/bot/suggestions')
-    @role_required('admin', 'school_admin')
+    @role_required('admin', 'school_admin', 'student', 'subject_specialist', 'public_user')
     def bot_suggestions(current_user):
-        return jsonify({'suggestions': SUGGESTIONS}), 200
+        return jsonify({'suggestions': ROLE_SUGGESTIONS.get(current_user.role, SUGGESTIONS)}), 200

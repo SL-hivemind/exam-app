@@ -200,27 +200,9 @@ def no_cache(f):
     return decorated_function
 
 
-def _calculate_percentile(score, all_scores):
-    """Midrank percentile for stable percentiles with ties."""
-    if score is None or not all_scores:
-        return None
-    total = len(all_scores)
-    less = sum(1 for s in all_scores if s < score)
-    equal = sum(1 for s in all_scores if s == score)
-    return round(((less + 0.5 * equal) / total) * 100, 2)
-
-
-def _competition_rank(score, all_scores):
-    if score is None or not all_scores:
-        return None
-    higher = sum(1 for s in all_scores if s > score)
-    return higher + 1
-
-
-
 register_repository_routes(app, token_required)
 register_student_routes(app, role_required, no_cache, to_utc_naive)
-register_analysis_routes(app, token_required, _competition_rank, _calculate_percentile)
+register_analysis_routes(app, token_required)
 register_public_routes(app, token_required, role_required)
 register_quick_routes(app, token_required, role_required)
 register_bot_routes(app, role_required)

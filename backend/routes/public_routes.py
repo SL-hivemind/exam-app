@@ -746,10 +746,42 @@ def register_public_routes(app, token_required, role_required):
         profile = get_public_profile(current_user)
         if not profile:
             return jsonify({'attempts': []}), 200
-        attempts = PublicExamAttempt.query.filter_by(
-            public_profile_id=profile.id
-        ).order_by(PublicExamAttempt.start_time.desc()).all()
-        return jsonify({'attempts': [a.to_dict() for a in attempts]}), 200
+            
+        merged_attempts = []
+        
+        # 1. Static Mock Exams
+        exams = PublicExamAttempt.query.filter_by(public_profile_id=profile.id).order_by(PublicExamAttempt.start_time.desc()).all()
+        for e in exams:
+            merged_attempts.append({
+                'id': f"exam_{e.id}",
+                'type': 'exam',
+                'content_title': e.content.title if e.content else 'Mock Test',
+                'score': e.score,
+                'total_questions': e.total_questions,
+                'start_time': e.start_time.isoformat() if e.start_time else None,
+                'submitted_at': e.submitted_at.isoformat() if e.submitted_at else None
+            })
+            
+        # 2. Practice Sessions
+        practices = PublicPracticeAttempt.query.filter_by(public_profile_id=profile.id).order_by(PublicPracticeAttempt.start_time.desc()).all()
+        for p in practices:
+            title = 'Practice Session'
+            if p.subject: title = f"{p.subject} Practice"
+            if p.chapter: title += f" - {p.chapter}"
+            merged_attempts.append({
+                'id': f"practice_{p.id}",
+                'type': 'practice',
+                'content_title': title,
+                'score': p.score,
+                'total_questions': p.total_questions,
+                'start_time': p.start_time.isoformat() if p.start_time else None,
+                'submitted_at': p.submitted_at.isoformat() if p.submitted_at else None
+            })
+                
+        # Sort by submitted_at (descending)
+        merged_attempts.sort(key=lambda x: x.get('submitted_at') or '1970-01-01', reverse=True)
+        
+        return jsonify({'attempts': merged_attempts}), 200
 
     @app.get('/public/me/dashboard-data')
     @token_required
@@ -805,11 +837,24 @@ def register_public_routes(app, token_required, role_required):
                         d['attempt_submitted'] = True
                         
                 content_list.append(d)
+            # Dynamically fetch PYQ years and Practice subjects from Repo
+            pyq_years_q = db.session.query(PublicQuestionRepo.pyq_year).filter(
+                PublicQuestionRepo.is_pyq == True,
+                PublicQuestionRepo.course_tags.ilike(f"%{course.title}%")
+            ).distinct().all()
+            available_pyqs = sorted([y[0] for y in pyq_years_q if y[0]], reverse=True)
+            
+            practice_subs_q = db.session.query(PublicQuestionRepo.subject).filter(
+                PublicQuestionRepo.course_tags.ilike(f"%{course.title}%")
+            ).distinct().all()
+            practice_subjects = sorted([s[0] for s in practice_subs_q if s[0]])
                 
             dashboard_courses.append({
                 'subscription': sub.to_dict(),
                 'course': course.to_dict(),
-                'contents': content_list
+                'contents': content_list,
+                'available_pyqs': available_pyqs,
+                'practice_subjects': practice_subjects
             })
 
         # 2. Get available courses (published and not enrolled)
@@ -1558,7 +1603,8 @@ def register_public_routes(app, token_required, role_required):
         subject = (data.get('subject') or '').strip()
         chapter = (data.get('chapter') or '').strip()
         course_tags = (data.get('course_tags') or '').strip()
-        count = min(max(int(data.get('count', 15)), 5), 50)
+        pyq_year = data.get('pyq_year')
+        count = min(max(int(data.get('count', 15)), 5), 100)
 
         query = PublicQuestionRepo.query
         if course_tags:
@@ -1567,6 +1613,8 @@ def register_public_routes(app, token_required, role_required):
             query = query.filter(PublicQuestionRepo.subject.ilike(subject))
         if chapter:
             query = query.filter(PublicQuestionRepo.chapter.ilike(f'%{chapter}%'))
+        if pyq_year:
+            query = query.filter(PublicQuestionRepo.is_pyq == True, PublicQuestionRepo.pyq_year == int(pyq_year))
 
         questions = query.all()
         if not questions:
@@ -1672,7 +1720,7 @@ def register_public_routes(app, token_required, role_required):
             questions = PublicQuestionRepo.query.filter(PublicQuestionRepo.id.in_(question_ids)).all()
             return jsonify({
                 'challenge_id': existing.id,
-                'questions': [q.to_dict(include_answer=False) for q in questions],
+                'questions': [q.to_dict(include_answer=True) for q in questions],
                 'total': len(questions),
                 'streak': profile.daily_streak or 0,
                 'already_completed': False,
@@ -1715,7 +1763,7 @@ def register_public_routes(app, token_required, role_required):
 
         return jsonify({
             'challenge_id': challenge.id,
-            'questions': [q.to_dict(include_answer=False) for q in questions],
+            'questions': [q.to_dict(include_answer=True) for q in questions],
             'total': len(questions),
             'streak': profile.daily_streak or 0,
             'already_completed': False,

@@ -11,6 +11,7 @@ import DashboardIcon from '@mui/icons-material/Dashboard';
 import LogoutIcon from '@mui/icons-material/Logout';
 import { Outlet, useNavigate, useLocation, Link as RouterLink } from 'react-router-dom';
 import useAuth from '../../hooks/useAuth';
+import PlatformBot from '../common/PlatformBot';
 
 const ff = "'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
 
@@ -289,6 +290,9 @@ export default function PublicLayout() {
 
       {/* ── Page Content ── */}
       <Outlet />
+
+      {/* ── Chat Bot (For logged in users) ── */}
+      {isLoggedIn && <PlatformBot />}
     </Box>
   );
 }

@@ -77,9 +77,9 @@ def extract_entities(msg):
     if m: ent['class_number'] = m.group(1)
     # School hint - try multiple patterns
     for pat in [
-        r'school\s+([A-Za-z][\w\s]{1,25}?)(?:\s*[\?\.]|$|\s+(?:has|have|student|exam|how|what|count|show|find|check|is|are|list|total))',
-        r'(?:in|of|for|from|at)\s+(?:school\s+)?([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)',
-        r'(?:about|details?\s+(?:of|for))\s+(?:school\s+)?([A-Z][a-z]+)',
+        r'\bschool\s+([A-Za-z][\w\s]{1,25}?)(?:\s*[\?\.]|$|\s+(?:has|have|student|exam|how|what|count|show|find|check|is|are|list|total))',
+        r'\b(?:in|of|for|from|at)\s+(?:school\s+)?([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)',
+        r'\b(?:about|details?\s+(?:of|for))\s+(?:school\s+)?([A-Z][a-z]+)',
     ]:
         m = re.search(pat, msg, re.I)
         if m:
@@ -93,10 +93,10 @@ def extract_entities(msg):
             break
     # Student name hint
     for pat in [
-        r"(?:student|find|search|about)\s+(?:named?\s+)?([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)",
-        r"([A-Z][a-z]+)'s\s+(?:score|result|exam|performance|mark)",
+        r"\b(?:student|find|search|about)\s+(?:named?\s+)?([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)",
+        r"\b([A-Z][a-z]+)'s\s+(?:score|result|exam|performance|mark)",
     ]:
-        m = re.search(pat, msg)
+        m = re.search(pat, msg, re.I)
         if m:
             val = m.group(1).strip()
             if val.lower() not in ('school','exam','class','the','question','all','my','recent','pending','new'):
@@ -122,6 +122,8 @@ def classify_intent(msg):
     if m in ("hi","hello","hey","help","good morning","good evening") or m.startswith("hi ") or m.startswith("hello "):
         return "greeting"
     rules = [
+        (r'(my|what is my|did i).*(rank|position|place)', 'my_rank'),
+        (r'(my|what are my|which).*(weak|weakness|study|improve|lose marks)', 'my_weaknesses'),
         (r'(check|validate|audit|scan|review|find error|find mistake|verify).*(question|repo|bank)', 'validate_questions'),
         (r'(summary|overview|dashboard|status|give me.*summary)', 'dashboard_summary'),
         (r"(\w+)'s\s+(score|result|exam|performance|mark)", 'student_performance'),

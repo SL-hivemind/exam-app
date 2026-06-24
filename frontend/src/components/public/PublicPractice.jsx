@@ -61,9 +61,17 @@ export default function PublicPractice() {
   // Apply ?mode presets coming from the dashboard prep-hub
   useEffect(() => {
     const m = params.get('mode');
-    if (m === 'subject') setForm(f => ({ ...f, scope: 'subject', mode: 'adaptive' }));
-    else if (m === 'chapter') setForm(f => ({ ...f, scope: 'chapter', mode: 'adaptive' }));
-    else if (m === 'mock') setForm(f => ({ ...f, scope: 'mixed', mode: 'random', count: 30 }));
+    if (m === 'challenge') {
+      startSession(true, 'challenge');
+    } else if (m === 'pyq') {
+      startSession(true, 'pyq', params.get('year'));
+    } else if (m === 'subject') {
+      setForm(f => ({ ...f, scope: 'subject', mode: 'adaptive' }));
+    } else if (m === 'chapter') {
+      setForm(f => ({ ...f, scope: 'chapter', mode: 'adaptive' }));
+    } else if (m === 'mock') {
+      setForm(f => ({ ...f, scope: 'mixed', mode: 'random', count: 30 }));
+    }
   }, [params]);
 
   const pickNext = useCallback((poolRef, usedRef, targetDiff) => {
@@ -76,23 +84,45 @@ export default function PublicPractice() {
     return null;
   }, []);
 
-  const startSession = async () => {
+  const startSession = async (auto = false, autoMode = null, autoYear = null) => {
     setError(''); setLoading(true);
     try {
-      const payload = {
-        count: Number(form.count),
-        subject: form.scope === 'mixed' ? '' : form.subject,
-        chapter: form.scope === 'chapter' ? form.chapter : '',
-      };
-      const r = await publicApi.practiceAdaptiveStart(payload);
-      const p = r.data.pool || { easy: [], medium: [], hard: [] };
-      const startDiff = form.mode === 'adaptive' ? 'easy'
-        : form.mode === 'random' ? ORDER[Math.floor(Math.random() * 3)]
-        : form.mode;
+      const modeToUse = autoMode || form.mode;
+      let p, r;
+      
+      if (modeToUse === 'challenge') {
+        r = await publicApi.challengeStart();
+        if (r.data.already_completed) {
+          setError('You already completed today\'s challenge! Great job.');
+          setLoading(false); return;
+        }
+        setAttemptId(r.data.challenge_id);
+        const qs = r.data.questions || [];
+        p = { easy: qs, medium: [], hard: [] };
+        setForm(f => ({ ...f, count: qs.length, mode: 'random' }));
+      } else {
+        const payload = {
+          count: Number(form.count),
+          subject: form.scope === 'mixed' ? '' : form.subject,
+          chapter: form.scope === 'chapter' ? form.chapter : '',
+        };
+        if (modeToUse === 'pyq') {
+           payload.pyq_year = autoYear || params.get('year');
+           payload.course_tags = params.get('course_tags') || '';
+        }
+        r = await publicApi.practiceAdaptiveStart(payload);
+        p = r.data.pool || { easy: [], medium: [], hard: [] };
+        setAttemptId(r.data.attempt_id);
+      }
+      
+      const startDiff = modeToUse === 'adaptive' ? 'easy'
+        : modeToUse === 'random' || modeToUse === 'challenge' || modeToUse === 'pyq' ? ORDER[Math.floor(Math.random() * 3)]
+        : modeToUse;
+        
       const freshUsed = new Set();
       const first = pickNext(p, freshUsed, startDiff);
       if (!first) { setError('No questions available for this selection.'); setLoading(false); return; }
-      setAttemptId(r.data.attempt_id);
+      
       setPool(p); setUsed(freshUsed); setAsked([]); setAnswers({}); setScore(0);
       setCurrent(first); setCurDiff(first.bucket); setSelected(null); setRevealed(false);
       setStage('run');
@@ -112,7 +142,7 @@ export default function PublicPractice() {
   };
 
   const nextDifficulty = (correct) => {
-    if (form.mode === 'random') return ORDER[Math.floor(Math.random() * 3)];
+    if (form.mode === 'random' || params.get('mode') === 'challenge' || params.get('mode') === 'pyq') return ORDER[Math.floor(Math.random() * 3)];
     if (form.mode !== 'adaptive') return form.mode; // fixed
     const i = ORDER.indexOf(curDiff);
     return correct ? ORDER[Math.min(i + 1, 2)] : ORDER[Math.max(i - 1, 0)];
@@ -136,7 +166,11 @@ export default function PublicPractice() {
     setLoading(true);
     const askedIds = asked.map(a => a.id);
     try {
-      await publicApi.practiceAdaptiveSubmit(attemptId, { asked_ids: askedIds, answers });
+      if (params.get('mode') === 'challenge') {
+        await publicApi.challengeSubmit(attemptId, { answers, score });
+      } else {
+        await publicApi.practiceAdaptiveSubmit(attemptId, { asked_ids: askedIds, answers });
+      }
     } catch { /* non-blocking — still show local result */ }
     setResult({ score, total: asked.length, asked });
     setStage('result');
