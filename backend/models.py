@@ -691,6 +691,29 @@ class PublicQuestionRepo(db.Model):
         return d
 
 # -------------------- PUBLIC COURSE ↔ REPO JOIN TABLE --------------------
+
+class PublicPendingImageQuestion(db.Model):
+    __tablename__ = 'public_pending_image_questions'
+    id = db.Column(db.Integer, primary_key=True)
+    custom_id = db.Column(db.String(50), unique=True, nullable=True)
+    course_tags = db.Column(db.String(255), nullable=True)
+    subject = db.Column(db.String(100), nullable=False)
+    chapter = db.Column(db.String(100), nullable=True)
+    topic = db.Column(db.String(150), nullable=True)
+    difficulty = db.Column(db.String(20), default='Medium')
+    is_pyq = db.Column(db.Boolean, default=False)
+    pyq_year = db.Column(db.Integer, nullable=True)
+    text = db.Column(db.Text, nullable=False)
+    option_a = db.Column(db.String(500))
+    option_b = db.Column(db.String(500))
+    option_c = db.Column(db.String(500))
+    option_d = db.Column(db.String(500))
+    correct_answer = db.Column(db.String(10), nullable=False)
+    explanation = db.Column(db.Text, nullable=True)
+    image_path = db.Column(db.String(255), nullable=True)
+    marks = db.Column(db.Integer, default=1)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
 class PublicCourseContentQuestion(db.Model):
     """Links a CourseContent (mock test) to questions from the central repository."""
     __tablename__ = 'public_course_content_questions'

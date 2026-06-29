@@ -1922,6 +1922,72 @@ def admin_upload_image(current_user):
             return jsonify({"message": "Image upload failed"}), 500
     return jsonify({"message": "Invalid image type"}), 400
 
+
+@app.get('/admin/public/pending-images')
+@role_required('admin', 'school_admin')
+def get_pending_image_questions(current_user):
+    from models import PublicPendingImageQuestion
+    pending = PublicPendingImageQuestion.query.all()
+    results = []
+    for q in pending:
+        results.append({
+            'id': q.id,
+            'custom_id': q.custom_id,
+            'subject': q.subject,
+            'chapter': q.chapter,
+            'text': q.text,
+            'image_path': q.image_path,
+            'option_a': q.option_a,
+            'option_b': q.option_b,
+            'option_c': q.option_c,
+            'option_d': q.option_d,
+            'correct_answer': q.correct_answer,
+            'explanation': q.explanation
+        })
+    return jsonify(results), 200
+
+@app.post('/admin/public/pending-images/<int:q_id>/resolve')
+@role_required('admin', 'school_admin')
+def resolve_pending_image_question(current_user, q_id):
+    from models import PublicPendingImageQuestion, PublicQuestionRepo, db
+    from flask import request, jsonify
+    
+    data = request.json
+    new_image_url = data.get('image_path')
+    if not new_image_url:
+        return jsonify({'message': 'New image URL is required'}), 400
+        
+    pending_q = PublicPendingImageQuestion.query.get(q_id)
+    if not pending_q:
+        return jsonify({'message': 'Pending question not found'}), 404
+        
+    new_q = PublicQuestionRepo(
+        custom_id=pending_q.custom_id,
+        course_tags=pending_q.course_tags,
+        subject=pending_q.subject,
+        chapter=pending_q.chapter,
+        topic=pending_q.topic,
+        difficulty=pending_q.difficulty,
+        is_pyq=pending_q.is_pyq,
+        pyq_year=pending_q.pyq_year,
+        text=pending_q.text,
+        option_a=pending_q.option_a,
+        option_b=pending_q.option_b,
+        option_c=pending_q.option_c,
+        option_d=pending_q.option_d,
+        correct_answer=pending_q.correct_answer,
+        explanation=pending_q.explanation,
+        image_path=new_image_url,
+        marks=pending_q.marks,
+        created_at=pending_q.created_at
+    )
+    
+    db.session.add(new_q)
+    db.session.delete(pending_q)
+    db.session.commit()
+    
+    return jsonify({'message': 'Question successfully migrated to public repository'}), 200
+
 @app.get('/admin/export_student_attempts')
 @role_required('admin', 'school_admin')
 def admin_export_student_attempts(current_user):

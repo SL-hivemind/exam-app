@@ -4,6 +4,7 @@ import api from '../../utils/api';
 import useAuth from '../../hooks/useAuth';
 import FilterSidebar from '../ui/FilterSidebar';
 import AutoGenerateExamDialog from './AutoGenerateExamDialog';
+import MatrixFormatter from '../../utils/MatrixFormatter';
 
 import {
   Button, Checkbox, Box, Typography, IconButton, Paper, Stack,
@@ -357,8 +358,8 @@ export default function RepoQuestionsPage() {
                     </Stack>
 
                     {/* Question text */}
-                    <Typography variant="subtitle1" fontWeight={600} sx={{ wordBreak: 'break-word' }}>
-                      {q.text}
+                    <Typography variant="subtitle1" fontWeight={600} sx={{ wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>
+                      <MatrixFormatter text={q.text} />
                     </Typography>
 
                     {/* Question image */}
@@ -382,22 +383,22 @@ export default function RepoQuestionsPage() {
                     <Grid container spacing={1} mt={1}>
                       {q.option_a && (
                         <Grid item xs={12} sm={6}>
-                          <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>A) {q.option_a}</Typography>
+                          <Typography variant="body2" sx={{ wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>A) <MatrixFormatter text={q.option_a} /></Typography>
                         </Grid>
                       )}
                       {q.option_b && (
                         <Grid item xs={12} sm={6}>
-                          <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>B) {q.option_b}</Typography>
+                          <Typography variant="body2" sx={{ wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>B) <MatrixFormatter text={q.option_b} /></Typography>
                         </Grid>
                       )}
                       {q.option_c && (
                         <Grid item xs={12} sm={6}>
-                          <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>C) {q.option_c}</Typography>
+                          <Typography variant="body2" sx={{ wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>C) <MatrixFormatter text={q.option_c} /></Typography>
                         </Grid>
                       )}
                       {q.option_d && (
                         <Grid item xs={12} sm={6}>
-                          <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>D) {q.option_d}</Typography>
+                          <Typography variant="body2" sx={{ wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>D) <MatrixFormatter text={q.option_d} /></Typography>
                         </Grid>
                       )}
                     </Grid>
@@ -456,7 +457,7 @@ export default function RepoQuestionsPage() {
               {Object.values(selectedMap).map((q, i) => (
                 <Paper key={q.id} sx={{ p: 2 }}>
                   <Stack direction="row" justifyContent="space-between">
-                    <Typography fontWeight={600}>{i + 1}. {q.text}</Typography>
+                    <Typography fontWeight={600} sx={{ whiteSpace: 'pre-wrap' }}>{i + 1}. <MatrixFormatter text={q.text} /></Typography>
                     <IconButton color="error" onClick={() => toggleSelect(q)}>
                       <DeleteIcon />
                     </IconButton>
@@ -465,8 +466,8 @@ export default function RepoQuestionsPage() {
                   <Grid container spacing={1} mt={1}>
                     {['option_a', 'option_b', 'option_c', 'option_d'].map(opt => (
                       <Grid item xs={12} sm={6} key={opt}>
-                        <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
-                          {opt.slice(-1).toUpperCase()}) {q[opt]}
+                        <Typography variant="body2" sx={{ wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>
+                          {opt.slice(-1).toUpperCase()}) <MatrixFormatter text={q[opt]} />
                         </Typography>
                       </Grid>
                     ))}

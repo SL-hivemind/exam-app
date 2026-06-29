@@ -19,14 +19,17 @@ import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import LibraryBooksIcon from '@mui/icons-material/LibraryBooks';
 import SearchIcon from '@mui/icons-material/Search';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import { useNavigate } from 'react-router-dom';
-import { publicApi } from '../../utils/api';
+import api, { publicApi } from '../../utils/api';
+import MatrixFormatter from '../../utils/MatrixFormatter';
 
 const ff = "'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
 
 // Route per tab — keeps the admin "Public" workspace sidebar in sync with the
 // in-page tabs (Courses / Subscriptions / Question Bank).
-const TAB_ROUTES = ['/admin/portal', '/admin/portal/subscriptions', '/admin/portal/question-bank'];
+const TAB_ROUTES = ['/admin/portal', '/admin/portal/subscriptions', '/admin/portal/question-bank', '/admin/portal/pending-images'];
 
 export default function AdminPublicManager({ initialTab = 0 }) {
   const navigate = useNavigate();
@@ -79,6 +82,15 @@ export default function AdminPublicManager({ initialTab = 0 }) {
   });
   const [repoParsedCount, setRepoParsedCount] = useState(0);
 
+  const [repoEditDialog, setRepoEditDialog] = useState(false);
+  const [repoEditForm, setRepoEditForm] = useState(null);
+  const [uploadingImg, setUploadingImg] = useState(false);
+
+  // ── PENDING IMAGES ──
+  const [pendingImages, setPendingImages] = useState([]);
+  const [loadingPending, setLoadingPending] = useState(false);
+  const [uploadingPending, setUploadingPending] = useState(null);
+
   // ── DATA LOADING ──
   const loadCourses = () => {
     setLoading(true);
@@ -102,6 +114,37 @@ export default function AdminPublicManager({ initialTab = 0 }) {
 
   useEffect(() => { loadCourses(); loadSubs(); }, []);
   useEffect(() => { if (selectedCourse) loadContents(selectedCourse.id); }, [selectedCourse]);
+
+  const loadPendingImages = () => {
+    setLoadingPending(true);
+    api.get('/admin/public/pending-images')
+      .then(r => setPendingImages(r.data))
+      .catch(() => setError('Failed to load pending images'))
+      .finally(() => setLoadingPending(false));
+  };
+
+  useEffect(() => {
+    if (tab === 3) loadPendingImages();
+  }, [tab]);
+
+  const handlePendingImageUpload = async (e, qId) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setUploadingPending(qId);
+    const fd = new FormData();
+    fd.append('file', file);
+    try {
+      const res = await api.post('/admin/upload/image', fd);
+      const url = res.data.url;
+      await api.post(`/admin/public/pending-images/${qId}/resolve`, { image_path: url });
+      setMsg('Image resolved successfully!');
+      loadPendingImages();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to upload image');
+    } finally {
+      setUploadingPending(null);
+    }
+  };
 
   // ── COURSE CRUD ──
   const openCourseDialog = (course = null) => {
@@ -220,6 +263,24 @@ export default function AdminPublicManager({ initialTab = 0 }) {
     }
   };
 
+  const handleRepoImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+    setUploadingImg(true);
+    try {
+      const res = await api.post('/admin/upload/image', formData);
+      setRepoEditForm(prev => ({ ...prev, image_path: res.data.url }));
+      setMsg('Image uploaded');
+    } catch {
+      setError('Image upload failed');
+    } finally {
+      setUploadingImg(false);
+    }
+  };
+
   // Toggle content draft/published status
   const toggleContentStatus = async (content) => {
     const newStatus = content.status === 'published' ? 'draft' : 'published';
@@ -295,7 +356,16 @@ export default function AdminPublicManager({ initialTab = 0 }) {
   };
 
   useEffect(() => {
-    if (tab === 2) { loadRepoQuestions(); loadRepoMeta(); }
+    if (tab === 2) {
+      const delayFn = setTimeout(() => {
+        loadRepoQuestions(repoPage);
+      }, 300);
+      return () => clearTimeout(delayFn);
+    }
+  }, [tab, repoPage, repoFilters]);
+
+  useEffect(() => {
+    if (tab === 2) { loadRepoMeta(); }
   }, [tab]);
 
   const deleteRepoQuestion = async (id) => {
@@ -305,6 +375,39 @@ export default function AdminPublicManager({ initialTab = 0 }) {
       setMsg('Question deleted');
       loadRepoQuestions(repoPage);
     } catch { setError('Failed to delete'); }
+  };
+
+  const openRepoEdit = (q = null) => {
+    setRepoEditForm(q ? { ...q } : {
+      text: '', option_a: '', option_b: '', option_c: '', option_d: '',
+      correct_answer: 'A', explanation: '', subject: '', chapter: '',
+      topic: '', course_tags: '', difficulty: 'Medium', is_pyq: false, pyq_year: ''
+    });
+    setRepoEditDialog(true);
+  };
+
+  const saveRepoEdit = async () => {
+    if (!repoEditForm.text.trim() || !repoEditForm.subject.trim() || !repoEditForm.correct_answer.trim()) {
+      setError('Text, subject and correct answer are required');
+      return;
+    }
+    setBusy(true);
+    try {
+      if (repoEditForm.id) {
+        await publicApi.adminRepoUpdate(repoEditForm.id, repoEditForm);
+        setMsg('Question updated successfully');
+      } else {
+        await publicApi.adminRepoAdd(repoEditForm);
+        setMsg('Question added successfully');
+      }
+      setRepoEditDialog(false);
+      loadRepoQuestions(repoPage);
+      loadRepoMeta();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to save question');
+    } finally {
+      setBusy(false);
+    }
   };
 
   const openRepoSmartPaste = () => {
@@ -332,13 +435,14 @@ export default function AdminPublicManager({ initialTab = 0 }) {
   };
 
   const inputSx = {
+    minWidth: '120px',
     '& .MuiOutlinedInput-root': {
       fontFamily: ff, borderRadius: '10px', fontSize: '0.9rem',
     },
   };
 
   return (
-    <Box sx={{ fontFamily: ff }}>
+    <Box sx={{ width: '100%', fontFamily: ff }}>
       <Typography sx={{ fontFamily: ff, fontSize: '1.4rem', fontWeight: 800, color: '#eaf0ff', mb: 0.5 }}>
         Public Exam Manager
       </Typography>
@@ -358,6 +462,7 @@ export default function AdminPublicManager({ initialTab = 0 }) {
         <Tab icon={<DescriptionIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Courses" />
         <Tab icon={<PeopleIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Subscriptions" />
         <Tab icon={<LibraryBooksIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Question Bank" />
+        <Tab icon={<CloudUploadIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Pending Images" />
       </Tabs>
 
       {tab === 0 ? (
@@ -625,16 +730,22 @@ export default function AdminPublicManager({ initialTab = 0 }) {
                 Questions for Dynamic Practice & Daily Challenges. Completely isolated from B2B school exams.
               </Typography>
             </Box>
-            <Button variant="contained" startIcon={<ContentPasteIcon />} onClick={openRepoSmartPaste}
-              sx={{ fontFamily: ff, fontWeight: 700, textTransform: 'none', borderRadius: '10px', boxShadow: 'none', bgcolor: '#3b82f6', '&:hover': { bgcolor: '#2563eb' } }}>
-              Smart Paste Questions
-            </Button>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Button variant="outlined" startIcon={<AddIcon />} onClick={() => openRepoEdit()}
+                sx={{ fontFamily: ff, fontWeight: 700, textTransform: 'none', borderRadius: '10px' }}>
+                Add Question
+              </Button>
+              <Button variant="contained" startIcon={<ContentPasteIcon />} onClick={openRepoSmartPaste}
+                sx={{ fontFamily: ff, fontWeight: 700, textTransform: 'none', borderRadius: '10px', boxShadow: 'none', bgcolor: '#3b82f6', '&:hover': { bgcolor: '#2563eb' } }}>
+                Smart Paste Questions
+              </Button>
+            </Box>
           </Box>
 
           <Card sx={{ borderRadius: '16px', border: '1px solid rgba(255,255,255,0.12)', boxShadow: 'none', mb: 3 }}>
             <CardContent sx={{ p: 2 }}>
               <Grid container spacing={2}>
-                <Grid item xs={12} sm={3}>
+                <Grid item xs={12} sm={6} md={4}>
                   <FormControl fullWidth size="small" sx={inputSx}>
                     <InputLabel>Subject</InputLabel>
                     <Select value={repoFilters.subject} label="Subject" onChange={e => { setRepoFilters({ ...repoFilters, subject: e.target.value }); setRepoPage(1); }}>
@@ -643,7 +754,7 @@ export default function AdminPublicManager({ initialTab = 0 }) {
                     </Select>
                   </FormControl>
                 </Grid>
-                <Grid item xs={12} sm={3}>
+                <Grid item xs={12} sm={6} md={4}>
                   <FormControl fullWidth size="small" sx={inputSx}>
                     <InputLabel>Chapter</InputLabel>
                     <Select value={repoFilters.chapter} label="Chapter" onChange={e => { setRepoFilters({ ...repoFilters, chapter: e.target.value }); setRepoPage(1); }}>
@@ -652,7 +763,7 @@ export default function AdminPublicManager({ initialTab = 0 }) {
                     </Select>
                   </FormControl>
                 </Grid>
-                <Grid item xs={12} sm={3}>
+                <Grid item xs={12} sm={12} md={4}>
                   <FormControl fullWidth size="small" sx={inputSx}>
                     <InputLabel>Difficulty</InputLabel>
                     <Select value={repoFilters.difficulty} label="Difficulty" onChange={e => { setRepoFilters({ ...repoFilters, difficulty: e.target.value }); setRepoPage(1); }}>
@@ -663,7 +774,7 @@ export default function AdminPublicManager({ initialTab = 0 }) {
                     </Select>
                   </FormControl>
                 </Grid>
-                <Grid item xs={12} sm={3}>
+                <Grid item xs={12}>
                   <TextField fullWidth size="small" placeholder="Search text or ID..." value={repoFilters.search}
                     onChange={e => { setRepoFilters({ ...repoFilters, search: e.target.value }); setRepoPage(1); }}
                     InputProps={{ startAdornment: <SearchIcon sx={{ color: '#aeb9e0', mr: 1, fontSize: 20 }} /> }} sx={inputSx} />
@@ -697,18 +808,27 @@ export default function AdminPublicManager({ initialTab = 0 }) {
                             {q.course_tags && <Chip label={q.course_tags} size="small" sx={{ fontFamily: ff, fontSize: '0.7rem', height: 20, bgcolor: '#e0e7ff', color: '#4338ca' }} />}
                             {q.is_pyq && <Chip label={`PYQ ${q.pyq_year || ''}`} size="small" sx={{ fontFamily: ff, fontSize: '0.7rem', height: 20, bgcolor: '#fce7f3', color: '#be185d' }} />}
                           </Box>
-                          <Typography sx={{ fontFamily: ff, fontSize: '0.9rem', color: '#dbe3ff', fontWeight: 500 }}>{q.text}</Typography>
+                          <Typography sx={{ fontFamily: ff, fontSize: '0.9rem', color: '#dbe3ff', fontWeight: 500, whiteSpace: 'pre-wrap' }}><MatrixFormatter text={q.text} /></Typography>
                           <Box sx={{ mt: 1, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                             {['a', 'b', 'c', 'd'].map(opt => q[`option_${opt}`] && (
-                              <Typography key={opt} sx={{ fontFamily: ff, fontSize: '0.8rem', color: q.correct_answer.toLowerCase() === opt ? '#16a34a' : '#64748b', fontWeight: q.correct_answer.toLowerCase() === opt ? 700 : 400 }}>
-                                {opt.toUpperCase()}) {q[`option_${opt}`]}
+                              <Typography key={opt} sx={{ fontFamily: ff, fontSize: '0.8rem', color: q.correct_answer.toLowerCase() === opt ? '#16a34a' : '#64748b', fontWeight: q.correct_answer.toLowerCase() === opt ? 700 : 400, whiteSpace: 'pre-wrap' }}>
+                                {opt.toUpperCase()}) <MatrixFormatter text={q[`option_${opt}`]} />
                               </Typography>
                             ))}
                           </Box>
                         </Box>
-                        <IconButton size="small" color="error" onClick={() => deleteRepoQuestion(q.id)} sx={{ alignSelf: 'flex-start' }}>
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                          <Tooltip title="Edit">
+                            <IconButton size="small" onClick={() => openRepoEdit(q)} sx={{ alignSelf: 'flex-start' }}>
+                              <EditIcon fontSize="small" sx={{ color: '#a9b4dd' }} />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Delete">
+                            <IconButton size="small" color="error" onClick={() => deleteRepoQuestion(q.id)} sx={{ alignSelf: 'flex-start' }}>
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </Box>
                       </Box>
                     </CardContent>
                   </Card>
@@ -722,6 +842,62 @@ export default function AdminPublicManager({ initialTab = 0 }) {
         </Box>
       )}
 
+      {/* ── TAB 3: PENDING IMAGES ── */}
+      {tab === 3 && (
+        <Box>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
+            <Box>
+              <Typography variant="h5" sx={{ fontFamily: ff, fontWeight: 800, color: '#dbe3ff' }}>
+                Pending Image Questions
+              </Typography>
+              <Typography sx={{ fontFamily: ff, fontSize: '0.9rem', color: '#a9b4dd', mt: 0.5 }}>
+                These {pendingImages.length} questions require you to upload real diagrams to replace placeholders.
+              </Typography>
+            </Box>
+            <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadPendingImages}
+              sx={{ fontFamily: ff, fontWeight: 700, textTransform: 'none', borderRadius: '10px' }}>
+              Refresh
+            </Button>
+          </Box>
+
+          {loadingPending ? <CircularProgress /> : pendingImages.length === 0 ? (
+            <Typography sx={{ fontFamily: ff, color: '#a9b4dd' }}>No pending images! Great job.</Typography>
+          ) : (
+            <Grid container spacing={3}>
+              {pendingImages.map(q => (
+                <Grid item xs={12} md={6} lg={4} key={q.id}>
+                  <Card sx={{ borderRadius: '16px', border: '1px solid rgba(255,255,255,0.12)', boxShadow: 'none', height: '100%', display: 'flex', flexDirection: 'column' }}>
+                    <CardContent sx={{ flexGrow: 1, p: 3 }}>
+                      <Box sx={{ display: 'flex', gap: 1, mb: 1, flexWrap: 'wrap' }}>
+                        <Chip label={q.subject} size="small" sx={{ bgcolor: 'rgba(59,130,246,0.1)', color: '#3b82f6', fontWeight: 700, borderRadius: '8px' }} />
+                        <Chip label={q.chapter} size="small" sx={{ bgcolor: 'rgba(255,255,255,0.05)', color: '#a9b4dd', borderRadius: '8px' }} />
+                      </Box>
+                      <Typography sx={{ fontFamily: ff, color: '#eaf0ff', fontWeight: 600, mb: 2, fontSize: '0.95rem' }} dangerouslySetInnerHTML={{ __html: MatrixFormatter(q.text) }} />
+                      
+                      <Box sx={{ mb: 2, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                        <Typography sx={{ fontFamily: ff, fontSize: '0.85rem', color: q.correct_answer === 'A' ? '#10b981' : '#a9b4dd' }}>A: {q.option_a}</Typography>
+                        <Typography sx={{ fontFamily: ff, fontSize: '0.85rem', color: q.correct_answer === 'B' ? '#10b981' : '#a9b4dd' }}>B: {q.option_b}</Typography>
+                        <Typography sx={{ fontFamily: ff, fontSize: '0.85rem', color: q.correct_answer === 'C' ? '#10b981' : '#a9b4dd' }}>C: {q.option_c}</Typography>
+                        <Typography sx={{ fontFamily: ff, fontSize: '0.85rem', color: q.correct_answer === 'D' ? '#10b981' : '#a9b4dd' }}>D: {q.option_d}</Typography>
+                      </Box>
+
+                      <Typography sx={{ fontFamily: ff, fontSize: '0.8rem', color: '#a9b4dd', mb: 1 }}>Placeholder: <strong style={{color:'#f87171'}}>{q.image_path}</strong></Typography>
+                      <Box sx={{ mt: 'auto', pt: 2 }}>
+                        <Button component="label" startIcon={<CloudUploadIcon />} variant="contained" disabled={uploadingPending === q.id}
+                          sx={{ textTransform: 'none', borderRadius: '8px', width: '100%', bgcolor: '#10b981', '&:hover': {bgcolor: '#059669'} }}>
+                          {uploadingPending === q.id ? 'Uploading...' : 'Upload Image & Resolve'}
+                          <input hidden type="file" accept="image/*" onChange={(e) => handlePendingImageUpload(e, q.id)} />
+                        </Button>
+                      </Box>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+          )}
+        </Box>
+      )}
+
       {/* ── Repo Smart Paste Dialog ── */}
       <Dialog open={repoSmartPasteDialog} onClose={() => setRepoSmartPasteDialog(false)} maxWidth="md" fullWidth>
         <DialogTitle sx={{ fontFamily: ff, fontWeight: 700 }}>Smart Paste to Central Question Bank</DialogTitle>
@@ -730,8 +906,9 @@ export default function AdminPublicManager({ initialTab = 0 }) {
             Batch Metadata: Set the Subject, Chapter, and Tags below. All pasted questions will inherit these values.
           </Alert>
           <Grid container spacing={2} sx={{ mb: 3 }}>
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid item xs={12} sm={6}>
               <Autocomplete
+                fullWidth
                 freeSolo
                 options={repoMeta.subjects}
                 inputValue={repoSmartPasteMeta.subject}
@@ -739,8 +916,9 @@ export default function AdminPublicManager({ initialTab = 0 }) {
                 renderInput={(params) => <TextField {...params} label="Subject *" size="small" required sx={inputSx} />}
               />
             </Grid>
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid item xs={12} sm={6}>
               <Autocomplete
+                fullWidth
                 freeSolo
                 options={repoMeta.chapters}
                 inputValue={repoSmartPasteMeta.chapter}
@@ -748,8 +926,9 @@ export default function AdminPublicManager({ initialTab = 0 }) {
                 renderInput={(params) => <TextField {...params} label="Chapter" size="small" sx={inputSx} />}
               />
             </Grid>
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid item xs={12} sm={6}>
               <Autocomplete
+                fullWidth
                 freeSolo
                 options={repoMeta.topics}
                 inputValue={repoSmartPasteMeta.topic}
@@ -757,7 +936,7 @@ export default function AdminPublicManager({ initialTab = 0 }) {
                 renderInput={(params) => <TextField {...params} label="Topic" size="small" sx={inputSx} />}
               />
             </Grid>
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid item xs={12} sm={6}>
               <FormControl fullWidth size="small" sx={inputSx}>
                 <InputLabel>Difficulty</InputLabel>
                 <Select value={repoSmartPasteMeta.difficulty} label="Difficulty" onChange={e => setRepoSmartPasteMeta({...repoSmartPasteMeta, difficulty: e.target.value})}>
@@ -812,6 +991,141 @@ export default function AdminPublicManager({ initialTab = 0 }) {
           <Button onClick={submitRepoSmartPaste} disabled={busy || !repoSmartPasteText.trim() || !repoSmartPasteMeta.subject.trim()} variant="contained"
             sx={{ fontFamily: ff, fontWeight: 700, textTransform: 'none', borderRadius: '10px', boxShadow: 'none' }}>
             {busy ? <CircularProgress size={20} /> : 'Parse & Insert'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Repo Edit Dialog ── */}
+      <Dialog open={repoEditDialog} onClose={() => setRepoEditDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontFamily: ff, fontWeight: 700 }}>
+          {repoEditForm?.id ? 'Edit Question' : 'Add Question'}
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ mb: 2, mt: 1 }}>
+            <Button component="label" startIcon={<CloudUploadIcon />} disabled={uploadingImg} size="small" variant="outlined" sx={{ textTransform: 'none', borderRadius: '8px' }}>
+              {uploadingImg ? 'Uploading...' : 'Upload Question Image'}
+              <input hidden type="file" accept="image/*" onChange={handleRepoImageUpload} />
+            </Button>
+            {repoEditForm?.image_path && (
+              <Box sx={{ mt: 2, maxWidth: 400, borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.12)' }}>
+                <img src={repoEditForm.image_path} alt="Question" style={{ width: '100%', objectFit: 'contain', display: 'block' }} />
+              </Box>
+            )}
+          </Box>
+          <TextField fullWidth label="Question Text *" value={repoEditForm?.text || ''}
+            onChange={e => setRepoEditForm({ ...repoEditForm, text: e.target.value })}
+            sx={{ ...inputSx, mb: 2 }} size="small" multiline rows={3} required />
+
+          <Grid container spacing={2} sx={{ mb: 2 }}>
+            {['a', 'b', 'c', 'd'].map((opt) => (
+              <Grid item xs={12} sm={6} key={opt}>
+                <TextField fullWidth label={`Option ${opt.toUpperCase()}`} value={repoEditForm?.[`option_${opt}`] || ''}
+                  onChange={e => setRepoEditForm({ ...repoEditForm, [`option_${opt}`]: e.target.value })}
+                  sx={inputSx} size="small" />
+              </Grid>
+            ))}
+          </Grid>
+
+          <Grid container spacing={2} sx={{ mb: 2 }}>
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth size="small" sx={inputSx}>
+                <InputLabel>Correct Ans *</InputLabel>
+                <Select value={repoEditForm?.correct_answer || 'A'} label="Correct Ans *"
+                  onChange={e => setRepoEditForm({ ...repoEditForm, correct_answer: e.target.value })}>
+                  <MenuItem value="A">A</MenuItem>
+                  <MenuItem value="B">B</MenuItem>
+                  <MenuItem value="C">C</MenuItem>
+                  <MenuItem value="D">D</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth size="small" sx={inputSx}>
+                <InputLabel>Difficulty</InputLabel>
+                <Select value={repoEditForm?.difficulty || 'Medium'} label="Difficulty"
+                  onChange={e => setRepoEditForm({ ...repoEditForm, difficulty: e.target.value })}>
+                  <MenuItem value="Easy">Easy</MenuItem>
+                  <MenuItem value="Medium">Medium</MenuItem>
+                  <MenuItem value="Hard">Hard</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={12}>
+              <TextField fullWidth label="Marks" type="number" value={repoEditForm?.marks || 1}
+                onChange={e => setRepoEditForm({ ...repoEditForm, marks: parseInt(e.target.value, 10) || 1 })}
+                sx={inputSx} size="small" />
+            </Grid>
+          </Grid>
+
+          <Grid container spacing={2} sx={{ mb: 2 }}>
+            <Grid item xs={12} sm={12}>
+              <Autocomplete
+                fullWidth
+                freeSolo
+                options={repoMeta.subjects}
+                inputValue={repoEditForm?.subject || ''}
+                onInputChange={(e, newInputValue) => setRepoEditForm({ ...repoEditForm, subject: newInputValue || '' })}
+                renderInput={(params) => <TextField {...params} label="Subject *" size="small" required sx={inputSx} />}
+              />
+            </Grid>
+            <Grid item xs={12} sm={12}>
+              <Autocomplete
+                fullWidth
+                freeSolo
+                options={repoMeta.chapters}
+                inputValue={repoEditForm?.chapter || ''}
+                onInputChange={(e, newInputValue) => setRepoEditForm({ ...repoEditForm, chapter: newInputValue || '' })}
+                renderInput={(params) => <TextField {...params} label="Chapter" size="small" sx={inputSx} />}
+              />
+            </Grid>
+            <Grid item xs={12} sm={12}>
+              <Autocomplete
+                fullWidth
+                freeSolo
+                options={repoMeta.topics}
+                inputValue={repoEditForm?.topic || ''}
+                onInputChange={(e, newInputValue) => setRepoEditForm({ ...repoEditForm, topic: newInputValue || '' })}
+                renderInput={(params) => <TextField {...params} label="Topic" size="small" sx={inputSx} />}
+              />
+            </Grid>
+            <Grid item xs={12} sm={12}>
+              <FormControl fullWidth size="small" sx={inputSx}>
+                <InputLabel>Course Tags (Optional)</InputLabel>
+                <Select
+                  value={repoEditForm?.course_tags || ''}
+                  label="Course Tags (Optional)"
+                  onChange={e => setRepoEditForm({ ...repoEditForm, course_tags: e.target.value })}
+                >
+                  <MenuItem value="">None</MenuItem>
+                  {courses.map(c => (
+                    <MenuItem key={c.id} value={c.title}>{c.title}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+          </Grid>
+          
+          <Grid container spacing={2} sx={{ mb: 2, alignItems: 'center' }}>
+            <Grid item xs={12} sm={4}>
+               <FormControlLabel control={<Switch checked={repoEditForm?.is_pyq || false} onChange={e => setRepoEditForm({...repoEditForm, is_pyq: e.target.checked})} />} label={<Typography sx={{fontFamily: ff, fontSize: '0.85rem'}}>Is PYQ?</Typography>} />
+            </Grid>
+            {repoEditForm?.is_pyq && (
+              <Grid item xs={12} sm={4}>
+                <TextField fullWidth label="Year" type="number" size="small" value={repoEditForm?.pyq_year || ''} onChange={e => setRepoEditForm({...repoEditForm, pyq_year: e.target.value})} sx={inputSx} />
+              </Grid>
+            )}
+          </Grid>
+
+          <TextField fullWidth label="Explanation" value={repoEditForm?.explanation || ''}
+            onChange={e => setRepoEditForm({ ...repoEditForm, explanation: e.target.value })}
+            sx={{ ...inputSx, mb: 1 }} size="small" multiline rows={2} />
+
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          <Button onClick={() => setRepoEditDialog(false)} sx={{ fontFamily: ff, textTransform: 'none' }}>Cancel</Button>
+          <Button onClick={saveRepoEdit} disabled={busy} variant="contained"
+            sx={{ fontFamily: ff, fontWeight: 700, textTransform: 'none', borderRadius: '10px' }}>
+            {busy ? <CircularProgress size={20} /> : repoEditForm?.id ? 'Update' : 'Add Question'}
           </Button>
         </DialogActions>
       </Dialog>
@@ -971,8 +1285,8 @@ export default function AdminPublicManager({ initialTab = 0 }) {
             const opts = typeof q.options_json === 'string' ? JSON.parse(q.options_json) : q.options_json;
             return (
               <Box key={q.id} sx={{ mb: 2.5, p: 2, bgcolor: 'transparent', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.12)' }}>
-                <Typography sx={{ fontFamily: ff, fontWeight: 700, fontSize: '0.9rem', color: '#eaf0ff', mb: 1 }}>
-                  Q{q.order_index}. {q.question_text}
+                <Typography sx={{ fontFamily: ff, fontWeight: 700, fontSize: '0.9rem', color: '#eaf0ff', mb: 1, whiteSpace: 'pre-wrap' }}>
+                  Q{q.order_index}. <MatrixFormatter text={q.question_text} />
                 </Typography>
                 {['A', 'B', 'C', 'D'].map(letter => (
                   <Box key={letter} sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 0.5, pl: 1 }}>
@@ -981,8 +1295,8 @@ export default function AdminPublicManager({ initialTab = 0 }) {
                         bgcolor: q.correct_option === letter ? 'rgba(34,197,94,0.15)' : '#fff',
                         color: q.correct_option === letter ? '#16a34a' : '#64748b',
                         border: q.correct_option === letter ? '1.5px solid #16a34a' : '1px solid rgba(255,255,255,0.12)' }} />
-                    <Typography sx={{ fontFamily: ff, fontSize: '0.85rem', color: '#c7d2fe' }}>
-                      {opts[letter] || ''}
+                    <Typography sx={{ fontFamily: ff, fontSize: '0.85rem', color: '#c7d2fe', whiteSpace: 'pre-wrap' }}>
+                      <MatrixFormatter text={opts[letter] || ''} />
                     </Typography>
                   </Box>
                 ))}

@@ -5,6 +5,7 @@ import {Delete as DeleteIcon,CloudUpload as CloudUploadIcon,Add as AddIcon,Libra
 import api from '../../utils/api';
 import useAuth from '../../hooks/useAuth';
 import { PageHeader } from '../common';
+import MatrixFormatter from '../../utils/MatrixFormatter';
 
 export default function AdminExamQuestions(){
 const {examId}=useParams();
@@ -121,13 +122,13 @@ return(
 <Paper key={q.id} elevation={1} sx={{p:2,borderRadius:2,position:'relative'}}>
 <Box display="flex" alignItems="flex-start" justifyContent="space-between">
 <Box>
-<Typography variant="subtitle1" fontWeight={600} gutterBottom><Box component="span" sx={{ color: '#cfe0ff' }} mr={1}>Q{index+1}.</Box>{q.text}</Typography>
+<Typography variant="subtitle1" fontWeight={600} gutterBottom sx={{ whiteSpace: 'pre-wrap' }}><Box component="span" sx={{ color: '#cfe0ff' }} mr={1}>Q{index+1}.</Box><MatrixFormatter text={q.text} /></Typography>
 {q.image_path&&<Box sx={{my:1}}><img src={q.image_path} alt="Q" style={{maxHeight:100,borderRadius:4}}/></Box>}
 <Grid container spacing={2}>
-<Grid item xs={6} md={3}><Typography variant="body2">A) {q.option_a}</Typography></Grid>
-<Grid item xs={6} md={3}><Typography variant="body2">B) {q.option_b}</Typography></Grid>
-<Grid item xs={6} md={3}><Typography variant="body2">C) {q.option_c}</Typography></Grid>
-<Grid item xs={6} md={3}><Typography variant="body2">D) {q.option_d}</Typography></Grid>
+<Grid item xs={6} md={3}><Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>A) <MatrixFormatter text={q.option_a} /></Typography></Grid>
+<Grid item xs={6} md={3}><Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>B) <MatrixFormatter text={q.option_b} /></Typography></Grid>
+<Grid item xs={6} md={3}><Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>C) <MatrixFormatter text={q.option_c} /></Typography></Grid>
+<Grid item xs={6} md={3}><Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>D) <MatrixFormatter text={q.option_d} /></Typography></Grid>
 </Grid>
 <Stack direction="row" mt={2} alignItems="center">
 <Box>
@@ -182,7 +183,7 @@ Upload Image<input type="file" hidden accept="image/*" onChange={handleImageUplo
 {editingQ?.is_global?(
 <Box>
 <Typography variant="body2" color="warning.main" gutterBottom>This is a Global Repository Question. You can only override the marks in your exam.</Typography>
-<Typography variant="body1" sx={{mb:2}}>{editingQ.text}</Typography>
+<Typography variant="body1" sx={{mb:2, whiteSpace: 'pre-wrap'}}><MatrixFormatter text={editingQ.text} /></Typography>
 <TextField fullWidth label="Marks" type="number" value={editingQ?.marks||1} onChange={e=>setEditingQ({...editingQ,marks:e.target.value})}/>
 </Box>
 ):(

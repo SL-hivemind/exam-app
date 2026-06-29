@@ -13,6 +13,7 @@ import {
 } from '@mui/icons-material';
 import api from '../utils/api';
 import useAuth from '../hooks/useAuth';
+import MatrixFormatter from '../utils/MatrixFormatter';
 import {
     ResponsiveContainer,
     PieChart,
@@ -444,8 +445,8 @@ export default function StudentResultsPage() {
                         <Paper key={idx} sx={{ p: 3, borderRadius: 2, border: '1px solid #eee' }}>
                             <Stack spacing={2}>
                                 <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'flex-start' }} spacing={1}>
-                                    <Typography variant="subtitle1" fontWeight={600} sx={{ width: '100%' }}>
-                                        Q{idx + 1}. {ans.text || 'Question text not available'}
+                                    <Typography variant="subtitle1" fontWeight={600} sx={{ width: '100%', whiteSpace: 'pre-wrap' }}>
+                                        Q{idx + 1}. <MatrixFormatter text={ans.text || 'Question text not available'} />
                                     </Typography>
                                     <Chip
                                         label={ans.is_correct ? `+${ans.marks_awarded} Marks` : '0 Marks'}
@@ -508,9 +509,9 @@ export default function StudentResultsPage() {
                                                     transition: 'all 0.2s ease',
                                                     minHeight: { xs: 72, sm: 62 }
                                                 }}>
-                                                    <Typography variant="body2" sx={{ color: textColor, fontWeight: (isSelected || isCorrectOption) ? 600 : 400, width: '100%', pr: 0.5 }}>
+                                                    <Typography variant="body2" sx={{ color: textColor, fontWeight: (isSelected || isCorrectOption) ? 600 : 400, width: '100%', pr: 0.5, whiteSpace: 'pre-wrap' }}>
                                                         <span style={{ fontWeight: 800, marginRight: 8 }}>{optKey})</span>
-                                                        {optionText || <span style={{ fontStyle: 'italic', color: '#999' }}>Empty Option</span>}
+                                                        <MatrixFormatter text={optionText || 'Empty Option'} />
                                                     </Typography>
 
                                                     {isCorrectOption && (

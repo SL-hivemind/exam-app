@@ -12,6 +12,7 @@ import BookmarkIcon from '@mui/icons-material/Bookmark';
 import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { quickApi } from '../../utils/api';
+import MatrixFormatter from '../../utils/MatrixFormatter';
 
 const ff = "'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
 
@@ -173,8 +174,8 @@ export default function QuickExamInterface() {
               </Box>
 
               {/* Question Text */}
-              <Typography sx={{ fontFamily: ff, fontSize: { xs: '1rem', md: '1.15rem' }, fontWeight: 700, color: '#eaf0ff', mb: 3, lineHeight: 1.6 }}>
-                {qData.question_text}
+              <Typography sx={{ fontFamily: ff, fontSize: { xs: '1rem', md: '1.15rem' }, fontWeight: 700, color: '#eaf0ff', mb: 3, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+                <MatrixFormatter text={qData.question_text} />
               </Typography>
 
               {/* Options */}
@@ -199,8 +200,8 @@ export default function QuickExamInterface() {
                             bgcolor: isSelected ? 'transparent' : '#f8fafc',
                             color: isSelected ? '#2563eb' : '#64748b',
                             border: 'none' }} />
-                        <Typography sx={{ fontFamily: ff, fontSize: { xs: '0.9rem', md: '0.95rem' }, color: '#c7d2fe', fontWeight: isSelected ? 600 : 400 }}>
-                          {opts[letter] || ''}
+                        <Typography sx={{ fontFamily: ff, fontSize: { xs: '0.9rem', md: '0.95rem' }, color: '#c7d2fe', fontWeight: isSelected ? 600 : 400, whiteSpace: 'pre-wrap' }}>
+                          <MatrixFormatter text={opts[letter] || ''} />
                         </Typography>
                       </Box>
                     </Box>

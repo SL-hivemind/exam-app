@@ -20,6 +20,7 @@ import ReplayIcon from '@mui/icons-material/Replay';
 import SchoolIcon from '@mui/icons-material/School';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { publicApi } from '../../utils/api';
+import MatrixFormatter from '../../utils/MatrixFormatter';
 
 const ff = "'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
 
@@ -532,8 +533,8 @@ export default function PublicExamInterface() {
                     )}
                   </Box>
                   {/* Question text */}
-                  <Typography sx={{ fontFamily: ff, fontSize: { xs: '1rem', md: '1.15rem' }, fontWeight: 700, color: '#eaf0ff', mb: 3, lineHeight: 1.6 }}>
-                    {qData.question_text}
+                  <Typography sx={{ fontFamily: ff, fontSize: { xs: '1rem', md: '1.15rem' }, fontWeight: 700, color: '#eaf0ff', mb: 3, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+                    <MatrixFormatter text={qData.question_text} />
                   </Typography>
                   {/* Options */}
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
@@ -566,8 +567,8 @@ export default function PublicExamInterface() {
                                 bgcolor: isSelected ? (showRevealQ ? (isWrong ? 'rgba(251,113,133,0.16)' : 'rgba(52,211,153,0.16)') : 'rgba(47,107,255,0.18)') : 'rgba(255,255,255,0.06)',
                                 color: isSelected ? (showRevealQ ? (isWrong ? '#fda4af' : '#6ee7b7') : '#9fc1ff') : '#aeb9e0',
                                 border: 'none' }} />
-                            <Typography sx={{ fontFamily: ff, fontSize: { xs: '0.9rem', md: '0.95rem' }, color: '#c7d2fe', fontWeight: isSelected ? 600 : 400 }}>
-                              {opts[letter] || ''}
+                            <Typography sx={{ fontFamily: ff, fontSize: { xs: '0.9rem', md: '0.95rem' }, color: '#c7d2fe', fontWeight: isSelected ? 600 : 400, whiteSpace: 'pre-wrap' }}>
+                              <MatrixFormatter text={opts[letter] || ''} />
                             </Typography>
                           </Box>
                           {showRevealQ && isCorrect && <CheckCircleIcon sx={{ color: '#16a34a', fontSize: 22 }} />}
@@ -578,8 +579,8 @@ export default function PublicExamInterface() {
                   {/* Explanation in review/study mode */}
                   {showRevealQ && qData.explanation && (
                     <Box sx={{ mt: 3, p: 2, bgcolor: 'rgba(251,191,36,0.10)', borderRadius: '12px', border: '1px solid rgba(251,191,36,0.30)' }}>
-                      <Typography sx={{ fontFamily: ff, fontSize: '0.85rem', color: '#fcd34d', fontWeight: 600 }}>
-                        Explanation: {qData.explanation}
+                      <Typography sx={{ fontFamily: ff, fontSize: '0.85rem', color: '#fcd34d', fontWeight: 600, whiteSpace: 'pre-wrap' }}>
+                        Explanation: <MatrixFormatter text={qData.explanation} />
                       </Typography>
                     </Box>
                   )}

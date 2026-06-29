@@ -15,6 +15,7 @@ import ReplayIcon from '@mui/icons-material/Replay';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { publicApi } from '../../utils/api';
+import MatrixFormatter from '../../utils/MatrixFormatter';
 import { GlassCard } from '../common';
 
 const ff = "'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
@@ -305,7 +306,9 @@ export default function PublicPractice() {
           <Box key={q.id} component={motion.div} initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -24 }} transition={{ duration: 0.25 }}>
             <GlassCard sx={{ mb: 2.5 }}>
               {q.subject && <Chip label={q.chapter ? `${q.subject} · ${q.chapter}` : q.subject} size="small" sx={{ mb: 1.5, fontFamily: ff, bgcolor: 'rgba(255,255,255,0.06)', color: '#a9b4dd' }} />}
-              <Typography sx={{ fontFamily: ff, fontSize: '1.1rem', fontWeight: 600, color: '#f5f8ff', lineHeight: 1.55 }}>{q.text}</Typography>
+              <Typography sx={{ fontFamily: ff, fontSize: '1.1rem', fontWeight: 600, color: '#f5f8ff', lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>
+                <MatrixFormatter text={q.text} />
+              </Typography>
               {q.image_path && <Box component="img" src={q.image_path} alt="" sx={{ mt: 2, maxWidth: '100%', borderRadius: 2 }} />}
             </GlassCard>
 
@@ -326,7 +329,9 @@ export default function PublicPractice() {
                       '&:hover': revealed ? {} : { borderColor: 'rgba(246,137,20,0.5)', bgcolor: 'rgba(246,137,20,0.06)' } }}>
                     <Box sx={{ width: 32, height: 32, flexShrink: 0, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: ff, fontWeight: 800, fontSize: '0.85rem',
                       bgcolor: isCorrectOpt ? '#34d399' : isWrongSel ? '#fb7185' : 'rgba(255,255,255,0.08)', color: (isCorrectOpt || isWrongSel) ? '#0b1020' : '#aeb9e0' }}>{letter}</Box>
-                    <Typography sx={{ fontFamily: ff, color: clr, flex: 1, fontWeight: 500 }}>{opts[letter]}</Typography>
+                    <Typography sx={{ fontFamily: ff, color: clr, flex: 1, fontWeight: 500, whiteSpace: 'pre-wrap' }}>
+                      <MatrixFormatter text={opts[letter]} />
+                    </Typography>
                     {isCorrectOpt && <CheckCircleIcon sx={{ color: '#34d399' }} />}
                     {isWrongSel && <CancelIcon sx={{ color: '#fb7185' }} />}
                   </Box>
@@ -383,7 +388,9 @@ export default function PublicPractice() {
               <GlassCard key={i} sx={{ p: 2.25 }}>
                 <Stack direction="row" spacing={1.25} sx={{ mb: 1 }}>
                   {a.isCorrect ? <CheckCircleIcon sx={{ color: '#34d399' }} /> : <CancelIcon sx={{ color: '#fb7185' }} />}
-                  <Typography sx={{ fontFamily: ff, fontWeight: 600, color: '#f5f8ff', flex: 1 }}>{i + 1}. {a.text}</Typography>
+                  <Typography sx={{ fontFamily: ff, fontWeight: 600, color: '#f5f8ff', flex: 1, whiteSpace: 'pre-wrap' }}>
+                    {i + 1}. <MatrixFormatter text={a.text} />
+                  </Typography>
                   <Chip size="small" label={DIFF_META[a.bucketDiff]?.label || 'Medium'} sx={{ fontFamily: ff, bgcolor: DIFF_META[a.bucketDiff]?.bg, color: DIFF_META[a.bucketDiff]?.color }} />
                 </Stack>
                 <Typography sx={{ fontFamily: ff, fontSize: '0.84rem', color: '#aeb9e0', ml: 4.5 }}>

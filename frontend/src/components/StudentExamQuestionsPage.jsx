@@ -9,6 +9,7 @@ import { AccessTime as TimerIcon, Apps as AppsIcon, Close as CloseIcon } from '@
 import api from '../utils/api';
 import useAuth from '../hooks/useAuth';
 import useExamSecurity from '../hooks/useExamSecurity'; 
+import MatrixFormatter from '../utils/MatrixFormatter';
 
 export default function StudentExamQuestionsPage() {
   const { examId } = useParams();
@@ -397,7 +398,9 @@ export default function StudentExamQuestionsPage() {
                             </Box>
                         )}
 
-                        <Typography variant="body1" sx={{ mb: 2 }}>{q.text}</Typography>
+                        <Typography variant="body1" sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>
+                            <MatrixFormatter text={q.text} />
+                        </Typography>
 
                         <RadioGroup 
                             value={mcqAnswers[q.id] || ''} 
@@ -410,9 +413,9 @@ export default function StudentExamQuestionsPage() {
                                         value={opt.toUpperCase()} 
                                         control={<Radio />} 
                                         label={
-                                            <Typography variant="body2">
+                                            <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
                                                 <Box component="span" fontWeight="bold" mr={1}>{opt.toUpperCase()})</Box> 
-                                                {q[`option_${opt}`]}
+                                                <MatrixFormatter text={q[`option_${opt}`]} />
                                             </Typography>
                                         } 
                                         sx={{ mb: 1, p: 1, borderRadius: 1, '&:hover': { bgcolor: 'transparent' } }}

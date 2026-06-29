@@ -36,7 +36,7 @@ def register_repository_routes(app, token_required):
             if current_user.role == 'subject_specialist':
                 query = query.filter(QuestionRepository.subject.ilike(current_user.specialist_subject))
             if cls and cls not in ('null', ''):
-                query = query.filter(QuestionRepository.class_number == cls)
+                query = query.filter(QuestionRepository.class_number.contains(cls))
             if subject and subject not in ('null', ''):
                 query = query.filter(QuestionRepository.subject.ilike(subject))
             if chapter and chapter not in ('null', ''):
@@ -371,26 +371,33 @@ def register_repository_routes(app, token_required):
         # Subjects: narrowed by class only
         subjects_q = _base().with_entities(QuestionRepository.subject).distinct()
         if _clean(cls):
-            subjects_q = subjects_q.filter(QuestionRepository.class_number == cls)
+            subjects_q = subjects_q.filter(QuestionRepository.class_number.contains(cls))
 
         # Chapters: narrowed by class + subject
         chapters_q = _base().with_entities(QuestionRepository.chapter).distinct()
         if _clean(cls):
-            chapters_q = chapters_q.filter(QuestionRepository.class_number == cls)
+            chapters_q = chapters_q.filter(QuestionRepository.class_number.contains(cls))
         if _clean(subject):
             chapters_q = chapters_q.filter(QuestionRepository.subject.ilike(subject))
 
         # Topics: narrowed by class + subject + chapter
         topics_q = _base().with_entities(QuestionRepository.topic).distinct()
         if _clean(cls):
-            topics_q = topics_q.filter(QuestionRepository.class_number == cls)
+            topics_q = topics_q.filter(QuestionRepository.class_number.contains(cls))
         if _clean(subject):
             topics_q = topics_q.filter(QuestionRepository.subject.ilike(subject))
         if _clean(chapter):
             topics_q = topics_q.filter(QuestionRepository.chapter.ilike(chapter))
 
+        raw_classes = [r[0] for r in classes_q.all() if r[0]]
+        split_classes = set()
+        for c in raw_classes:
+            for part in str(c).split(','):
+                if part.strip():
+                    split_classes.add(part.strip())
+
         metadata = {
-            'classes': sorted([r[0] for r in classes_q.all() if r[0]], key=lambda x: str(x)),
+            'classes': sorted(list(split_classes), key=lambda x: str(x)),
             'subjects': sorted([r[0] for r in subjects_q.all() if r[0]]),
             'chapters': sorted([r[0] for r in chapters_q.all() if r[0]]),
             'topics': sorted([r[0] for r in topics_q.all() if r[0]]),
@@ -525,7 +532,7 @@ def register_repository_routes(app, token_required):
         topic = filters.get('topic')
         difficulty = filters.get('difficulty')
 
-        if cls: query = query.filter(QuestionRepository.class_number == cls)
+        if cls: query = query.filter(QuestionRepository.class_number.contains(cls))
         if subject: query = query.filter(QuestionRepository.subject.ilike(subject))
         if chapter: query = query.filter(QuestionRepository.chapter.ilike(chapter))
         if topic: query = query.filter(QuestionRepository.topic.ilike(topic))

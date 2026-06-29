@@ -5,6 +5,7 @@ import {
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import ReplayIcon from '@mui/icons-material/Replay';
+import MatrixFormatter from '../../utils/MatrixFormatter';
 import HomeIcon from '@mui/icons-material/Home';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
@@ -118,9 +119,9 @@ export default function QuickResults() {
                 {isCorrect
                   ? <CheckCircleIcon sx={{ fontSize: 20, color: '#16a34a', mt: 0.3 }} />
                   : <CancelIcon sx={{ fontSize: 20, color: '#ef4444', mt: 0.3 }} />}
-                <Typography sx={{ fontFamily: ff, fontWeight: 700, fontSize: '0.88rem', color: '#eaf0ff', flex: 1 }}>
-                  Q{q.order_index}. {q.question_text}
-                </Typography>
+                  <Typography sx={{ fontFamily: ff, fontWeight: 700, fontSize: '0.88rem', color: '#eaf0ff', flex: 1, whiteSpace: 'pre-wrap' }}>
+                    Q{q.order_index}. <MatrixFormatter text={q.question_text} />
+                  </Typography>
               </Box>
               <Box sx={{ pl: 3.5 }}>
                 {['A', 'B', 'C', 'D'].map(letter => {
@@ -130,11 +131,11 @@ export default function QuickResults() {
                   let fontWeight = 400;
                   if (isCorrectOpt) { color = '#16a34a'; fontWeight = 700; }
                   else if (isUserChoice && !isCorrectOpt) { color = '#ef4444'; fontWeight = 600; }
-                  return (
-                    <Typography key={letter} sx={{ fontFamily: ff, fontSize: '0.82rem', color, fontWeight, mb: 0.3 }}>
-                      {letter}) {opts[letter] || ''} {isCorrectOpt ? ' ✓' : ''}{isUserChoice && !isCorrectOpt ? ' ✗' : ''}
-                    </Typography>
-                  );
+                    return (
+                      <Typography key={letter} sx={{ fontFamily: ff, fontSize: '0.82rem', color, fontWeight, mb: 0.3, whiteSpace: 'pre-wrap' }}>
+                        {letter}) <MatrixFormatter text={opts[letter] || ''} /> {isCorrectOpt ? ' ✅' : ''}{isUserChoice && !isCorrectOpt ? ' ❌' : ''}
+                      </Typography>
+                    );
                 })}
                 {!userA && (
                   <Typography sx={{ fontFamily: ff, fontSize: '0.78rem', color: '#aeb9e0', fontStyle: 'italic' }}>
