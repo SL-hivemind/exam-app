@@ -78,6 +78,7 @@ export default function AppRoutes() {
         <Route path="portal" element={<AdminPublicManager initialTab={0} />} />
         <Route path="portal/subscriptions" element={<AdminPublicManager initialTab={1} />} />
         <Route path="portal/question-bank" element={<AdminPublicManager initialTab={2} />} />
+        <Route path="portal/pending-images" element={<AdminPublicManager initialTab={3} />} />
         <Route path="quick" element={<AdminQuickExams />} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>

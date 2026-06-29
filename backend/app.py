@@ -1949,7 +1949,7 @@ def get_pending_image_questions(current_user):
 @app.post('/admin/public/pending-images/<int:q_id>/resolve')
 @role_required('admin', 'school_admin')
 def resolve_pending_image_question(current_user, q_id):
-    from models import PublicPendingImageQuestion, PublicQuestionRepo, db
+    from models import PublicPendingImageQuestion, PublicQuestionRepo, QuestionRepository, db
     from flask import request, jsonify
     
     data = request.json
@@ -1983,10 +1983,16 @@ def resolve_pending_image_question(current_user, q_id):
     )
     
     db.session.add(new_q)
+    
+    # Also update the school-side repository if the question exists there
+    school_q = QuestionRepository.query.filter_by(custom_id=pending_q.custom_id).first()
+    if school_q:
+        school_q.image_path = new_image_url
+        
     db.session.delete(pending_q)
     db.session.commit()
     
-    return jsonify({'message': 'Question successfully migrated to public repository'}), 200
+    return jsonify({'message': 'Question successfully migrated to public repository and synced to school repository'}), 200
 
 @app.get('/admin/export_student_attempts')
 @role_required('admin', 'school_admin')
