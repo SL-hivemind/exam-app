@@ -201,6 +201,14 @@ def no_cache(f):
     return decorated_function
 
 
+# Serve local uploads when S3 is not configured
+@app.route('/uploads/images/<path:filename>')
+def serve_local_image(filename):
+    import os
+    from flask import send_from_directory
+    IMAGES_DIR = os.path.join(os.getcwd(), 'uploads', 'images')
+    return send_from_directory(IMAGES_DIR, filename)
+
 register_repository_routes(app, token_required)
 register_student_routes(app, role_required, no_cache, to_utc_naive)
 register_analysis_routes(app, token_required)

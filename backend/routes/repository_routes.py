@@ -165,6 +165,8 @@ def register_repository_routes(app, token_required):
                         'correct_answer': question.correct_answer,
                         'class_number': question.class_number,
                         'subject': question.subject,
+                        'chapter': question.chapter,
+                        'topic': question.topic,
                         'marks': question.marks,
                         'image_path': question.image_path,
                         'created_by': question.created_by,
@@ -185,6 +187,8 @@ def register_repository_routes(app, token_required):
                 'option_d',
                 'correct_answer',
                 'class_number',
+                'chapter',
+                'topic',
                 'marks',
                 'image_path',
             ]

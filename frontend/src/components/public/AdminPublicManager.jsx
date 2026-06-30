@@ -85,11 +85,23 @@ export default function AdminPublicManager({ initialTab = 0 }) {
   const [repoEditDialog, setRepoEditDialog] = useState(false);
   const [repoEditForm, setRepoEditForm] = useState(null);
   const [uploadingImg, setUploadingImg] = useState(false);
-
   // ── PENDING IMAGES ──
   const [pendingImages, setPendingImages] = useState([]);
+  const [pendingPage, setPendingPage] = useState(1);
+  const pendingPerPage = 12;
   const [loadingPending, setLoadingPending] = useState(false);
   const [uploadingPending, setUploadingPending] = useState(null);
+  const [pendingSubjectFilter, setPendingSubjectFilter] = useState('');
+  const [pendingChapterFilter, setPendingChapterFilter] = useState('');
+
+  const filteredPendingImages = pendingImages.filter(q => {
+    if (pendingSubjectFilter && q.subject !== pendingSubjectFilter) return false;
+    if (pendingChapterFilter && q.chapter !== pendingChapterFilter) return false;
+    return true;
+  });
+  
+  const pendingSubjects = [...new Set(pendingImages.map(q => q.subject))].filter(Boolean).sort();
+  const pendingChapters = [...new Set(pendingImages.map(q => q.chapter))].filter(Boolean).sort();
 
   // ── DATA LOADING ──
   const loadCourses = () => {
@@ -860,19 +872,39 @@ export default function AdminPublicManager({ initialTab = 0 }) {
             </Button>
           </Box>
 
-          {loadingPending ? <CircularProgress /> : pendingImages.length === 0 ? (
-            <Typography sx={{ fontFamily: ff, color: '#a9b4dd' }}>No pending images! Great job.</Typography>
+          <Box sx={{ display: 'flex', gap: 2, mb: 4, flexWrap: 'wrap' }}>
+            <FormControl sx={{ minWidth: 200 }} size="small">
+              <InputLabel>Filter by Subject</InputLabel>
+              <Select value={pendingSubjectFilter} label="Filter by Subject" onChange={e => { setPendingSubjectFilter(e.target.value); setPendingPage(1); }}>
+                <MenuItem value="">All Subjects</MenuItem>
+                {pendingSubjects.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+              </Select>
+            </FormControl>
+            <FormControl sx={{ minWidth: 200 }} size="small">
+              <InputLabel>Filter by Chapter</InputLabel>
+              <Select value={pendingChapterFilter} label="Filter by Chapter" onChange={e => { setPendingChapterFilter(e.target.value); setPendingPage(1); }}>
+                <MenuItem value="">All Chapters</MenuItem>
+                {pendingChapters.map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+              </Select>
+            </FormControl>
+          </Box>
+
+          {loadingPending ? <CircularProgress /> : filteredPendingImages.length === 0 ? (
+            <Typography sx={{ fontFamily: ff, color: '#a9b4dd' }}>No pending images matching your filters! Great job.</Typography>
           ) : (
-            <Grid container spacing={3}>
-              {pendingImages.map(q => (
-                <Grid item xs={12} md={6} lg={4} key={q.id}>
-                  <Card sx={{ borderRadius: '16px', border: '1px solid rgba(255,255,255,0.12)', boxShadow: 'none', height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <Box>
+              <Grid container spacing={3}>
+                {filteredPendingImages.slice((pendingPage - 1) * pendingPerPage, pendingPage * pendingPerPage).map(q => (
+                  <Grid item xs={12} md={6} lg={4} key={q.id}>
+                    <Card sx={{ borderRadius: '16px', border: '1px solid rgba(255,255,255,0.12)', boxShadow: 'none', height: '100%', display: 'flex', flexDirection: 'column' }}>
                     <CardContent sx={{ flexGrow: 1, p: 3 }}>
                       <Box sx={{ display: 'flex', gap: 1, mb: 1, flexWrap: 'wrap' }}>
                         <Chip label={q.subject} size="small" sx={{ bgcolor: 'rgba(59,130,246,0.1)', color: '#3b82f6', fontWeight: 700, borderRadius: '8px' }} />
                         <Chip label={q.chapter} size="small" sx={{ bgcolor: 'rgba(255,255,255,0.05)', color: '#a9b4dd', borderRadius: '8px' }} />
                       </Box>
-                      <Typography sx={{ fontFamily: ff, color: '#eaf0ff', fontWeight: 600, mb: 2, fontSize: '0.95rem' }} dangerouslySetInnerHTML={{ __html: MatrixFormatter(q.text) }} />
+                      <Typography sx={{ fontFamily: ff, color: '#eaf0ff', fontWeight: 600, mb: 2, fontSize: '0.95rem', whiteSpace: 'pre-wrap' }}>
+                        <MatrixFormatter text={q.text} />
+                      </Typography>
                       
                       <Box sx={{ mb: 2, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                         <Typography sx={{ fontFamily: ff, fontSize: '0.85rem', color: q.correct_answer === 'A' ? '#10b981' : '#a9b4dd' }}>A: {q.option_a}</Typography>
@@ -893,7 +925,22 @@ export default function AdminPublicManager({ initialTab = 0 }) {
                   </Card>
                 </Grid>
               ))}
-            </Grid>
+              </Grid>
+              {filteredPendingImages.length > pendingPerPage && (
+                <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+                  <Pagination 
+                    count={Math.ceil(filteredPendingImages.length / pendingPerPage)} 
+                    page={pendingPage} 
+                    onChange={(e, p) => setPendingPage(p)} 
+                    color="primary" 
+                    sx={{
+                      '& .MuiPaginationItem-root': { color: '#a9b4dd' },
+                      '& .Mui-selected': { bgcolor: 'rgba(59,130,246,0.2) !important', color: '#3b82f6' }
+                    }}
+                  />
+                </Box>
+              )}
+            </Box>
           )}
         </Box>
       )}

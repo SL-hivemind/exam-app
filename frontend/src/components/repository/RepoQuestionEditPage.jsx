@@ -183,10 +183,22 @@ export default function RepoQuestionEditPage() {
 
           {/* IMAGE */}
           <Box>
-            <Button component="label" startIcon={<CloudUploadIcon />} disabled={uploadingImg}>
-              Upload Question Image
-              <input hidden type="file" accept="image/*" onChange={handleImageUpload} />
-            </Button>
+            <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+              <Button component="label" startIcon={<CloudUploadIcon />} disabled={uploadingImg}>
+                Upload Question Image
+                <input hidden type="file" accept="image/*" onChange={handleImageUpload} />
+              </Button>
+              {q.image_path && (
+                <Button 
+                  color="error" 
+                  variant="outlined" 
+                  startIcon={<DeleteIcon />} 
+                  onClick={() => setQ({ ...q, image_path: '' })}
+                >
+                  Remove Image
+                </Button>
+              )}
+            </Box>
             {q.image_path && (
               <Card sx={{ mt: 2, maxWidth: 400 }}>
                 <CardMedia component="img" image={q.image_path} sx={{ objectFit: 'contain' }} />

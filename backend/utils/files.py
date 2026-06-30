@@ -39,24 +39,30 @@ def allowed_file(filename, allowed_set):
 
 
 def save_image_file(file_storage, prefix="img"):
-    """Save uploaded image to S3 and return the public URL."""
-    if not S3_BUCKET:
-        print("Error: S3_BUCKET_NAME environment variable not set.")
-        return None
-
+    """Save uploaded image to S3 (if configured) or locally, returning the public URL."""
     filename = secure_filename(file_storage.filename)
     ext = filename.rsplit(".", 1)[1].lower()
-    # FIX: Add "images/" prefix for better organization
-    unique_filename = f"images/{prefix}_{secrets.token_hex(10)}.{ext}"
+    unique_filename = f"{prefix}_{secrets.token_hex(10)}.{ext}"
 
+    # Fallback to local upload if S3 is not configured
+    if not S3_BUCKET:
+        print("S3_BUCKET_NAME not set. Saving image locally.")
+        local_path = os.path.join(IMAGES_DIR, unique_filename)
+        # Ensure we are at the start of the file stream before saving locally
+        file_storage.seek(0)
+        file_storage.save(local_path)
+        return f"/uploads/images/{unique_filename}"
+
+    s3_key = f"images/{unique_filename}"
     try:
+        file_storage.seek(0)
         s3.upload_fileobj(
             file_storage,
             S3_BUCKET,
-            unique_filename,
+            s3_key,
             ExtraArgs={"ContentType": file_storage.content_type}
-            )
-        url = f"https://{S3_BUCKET}.s3.{AWS_REGION}.amazonaws.com/{unique_filename}"
+        )
+        url = f"https://{S3_BUCKET}.s3.{AWS_REGION}.amazonaws.com/{s3_key}"
         return url
     except Exception as e:
         print(f"S3 Upload Error: {e}")
