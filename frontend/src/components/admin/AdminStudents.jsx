@@ -540,7 +540,7 @@ export default function AdminStudents() {
                     label="Class"
                     onChange={(e) => setCurrent({ ...current, class_number: e.target.value })}
                   >
-                    {[1,2,3,4,5,6,7,8,9,10].map(n => (
+                    {[1,2,3,4,5,6,7,8,9,10,11,12].map(n => (
                       <MenuItem key={n} value={String(n)}>{n}</MenuItem>
                     ))}
                   </Select>

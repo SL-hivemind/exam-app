@@ -583,16 +583,9 @@ export default function AdminExamDetail() {
                         onChange={(e) => setAssignClass(e.target.value)}
                     >
                         <MenuItem value=""><em>All Classes</em></MenuItem>
-                        <MenuItem value="1">1</MenuItem>
-                        <MenuItem value="2">2</MenuItem>
-                        <MenuItem value="3">3</MenuItem>
-                        <MenuItem value="4">4</MenuItem>
-                        <MenuItem value="5">5</MenuItem>
-                        <MenuItem value="6">6</MenuItem>
-                        <MenuItem value="7">7</MenuItem>
-                        <MenuItem value="8">8</MenuItem>
-                        <MenuItem value="9">9</MenuItem>
-                        <MenuItem value="10">10</MenuItem>
+                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(n => (
+                          <MenuItem key={n} value={String(n)}>{n}</MenuItem>
+                        ))}
                     </Select>
                 </FormControl>
             </Grid>
