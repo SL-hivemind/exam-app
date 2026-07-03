@@ -68,6 +68,7 @@ export default function AdminExamDetail() {
   const [studentList, setStudentList] = useState([]);
   const [studentSearch, setStudentSearch] = useState("");
   const [loadingStudents, setLoadingStudents] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState(null);
 
   // --- SAFE RESET STATE ---
   const [resetDialog, setResetDialog] = useState({ open: false, studentId: null, studentUsername: '' });
@@ -442,148 +443,105 @@ export default function AdminExamDetail() {
             />
           </Stack>
 
-          {isMobile ? (
-            /* ── MOBILE CARD LAYOUT ── */
-            <Box>
-              {loadingStudents ? (
-                <Box display="flex" justifyContent="center" py={4}><CircularProgress /></Box>
-              ) : filteredStudents.length === 0 ? (
-                <Typography color="text.secondary" textAlign="center" py={3}>No students found.</Typography>
-              ) : (
-                <Stack spacing={1.5}>
-                  {filteredStudents.map((s) => (
-                    <Card key={s.user_id} sx={{ borderRadius: 3, border: '1px solid rgba(255,255,255,0.10)', boxShadow: 'none' }}>
-                      <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
-                        <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={1}>
-                          <Box sx={{ flex: 1, minWidth: 0, mr: 1 }}>
-                            <Typography variant="subtitle1" fontWeight={700} sx={{ color: '#cfe0ff', wordBreak: 'break-word' }}>{s.username}</Typography>
-                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', wordBreak: 'break-word' }}>ID: {s.student_id}</Typography>
-                          </Box>
-                          <Chip
-                            label={s.status}
-                            color={s.status === 'Completed' ? 'success' : s.status === 'Started' ? 'primary' : s.status === 'Discontinued' ? 'error' : 'default'}
-                            size="small"
-                          />
-                        </Stack>
-                        <Stack spacing={0.8} mb={1.5}>
-                          <Typography variant="body2" color="text.secondary">
-                            Score: <strong>{s.score !== null ? s.score : '—'}</strong>
-                          </Typography>
-                          {s.submission_reason && (
-                            <Chip
-                              label={
-                                s.submission_reason === 'manual' ? 'Manual' :
-                                s.submission_reason === 'timeout' ? 'Time Out' :
-                                s.submission_reason === 'tab_switch' ? 'Tab Switch' :
-                                s.submission_reason === 'abandoned' ? 'Abandoned' :
-                                s.submission_reason
-                              }
-                              size="small" variant="outlined"
-                              color={
-                                s.submission_reason === 'manual' ? 'success' :
-                                s.submission_reason === 'timeout' ? 'warning' :
-                                s.submission_reason === 'tab_switch' ? 'error' : 'default'
-                              }
-                              sx={{ alignSelf: 'flex-start' }}
-                            />
-                          )}
-                          <Typography variant="caption" color="text.secondary">
-                            Started: {s.start_time ? new Date(s.start_time).toLocaleString() : '—'}
-                          </Typography>
-                        </Stack>
-                        {(s.status === 'Completed' || s.status === 'Started' || s.status === 'Discontinued') && (
-                          <Button
-                            size="small" color="error" fullWidth variant="outlined"
-                            startIcon={<RestartIcon />}
-                            onClick={() => {
-                              setResetDialog({ open: true, studentId: s.user_id, studentUsername: s.username });
-                              setConfirmText("");
-                            }}
-                          >
-                            Reset Attempt
-                          </Button>
-                        )}
-                      </CardContent>
-                    </Card>
-                  ))}
-                </Stack>
-              )}
-            </Box>
-          ) : (
-            /* ── DESKTOP TABLE LAYOUT ── */
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Student ID</TableCell>
-                  <TableCell>Username</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Submission</TableCell>
-                  <TableCell>Score</TableCell>
-                  <TableCell>Started At</TableCell>
-                  <TableCell align="right">Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {loadingStudents ? (
-                  <TableRow><TableCell colSpan={7} align="center"><CircularProgress /></TableCell></TableRow>
-                ) : filteredStudents.length === 0 ? (
-                  <TableRow><TableCell colSpan={7} align="center">No students found.</TableCell></TableRow>
-                ) : (
-                  filteredStudents.map((s) => (
-                    <TableRow key={s.user_id}>
-                      <TableCell>{s.student_id}</TableCell>
-                      <TableCell>{s.username}</TableCell>
-                      <TableCell>
-                        <Chip
-                          label={s.status}
-                          color={s.status === 'Completed' ? 'success' : s.status === 'Started' ? 'primary' : s.status === 'Discontinued' ? 'error' : 'default'}
-                          size="small"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        {s.submission_reason ? (
-                          <Chip
-                            label={
-                              s.submission_reason === 'manual' ? 'Manual' :
-                              s.submission_reason === 'timeout' ? 'Time Out' :
-                              s.submission_reason === 'tab_switch' ? 'Tab Switch' :
-                              s.submission_reason === 'abandoned' ? 'Abandoned' :
-                              s.submission_reason
-                            }
-                            size="small" variant="outlined"
-                            color={
-                              s.submission_reason === 'manual' ? 'success' :
-                              s.submission_reason === 'timeout' ? 'warning' :
-                              s.submission_reason === 'tab_switch' ? 'error' :
-                              s.submission_reason === 'abandoned' ? 'warning' : 'default'
-                            }
-                          />
-                        ) : '-'}
-                      </TableCell>
-                      <TableCell>{s.score !== null ? s.score : '-'}</TableCell>
-                      <TableCell>{s.start_time ? new Date(s.start_time).toLocaleString() : '-'}</TableCell>
-                      <TableCell align="right">
-                        {(s.status === 'Completed' || s.status === 'Started' || s.status === 'Discontinued') && (
-                          <Tooltip title="Reset Attempt (Allows Re-exam)">
-                            <Button
-                              size="small" color="error" startIcon={<RestartIcon />}
-                              onClick={() => {
-                                setResetDialog({ open: true, studentId: s.user_id, studentUsername: s.username });
-                                setConfirmText("");
-                              }}
-                            >
-                              Reset
-                            </Button>
-                          </Tooltip>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+          {filteredStudents.length > 0 && (
+            <Stack direction="row" spacing={2} mb={3} flexWrap="wrap" useFlexGap sx={{ 
+              p: 1.5, 
+              borderRadius: 2, 
+              bgcolor: 'rgba(255,255,255,0.02)', 
+              border: '1px solid rgba(255,255,255,0.05)' 
+            }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#6c7cff' }} />
+                <Typography variant="body2" color="text.secondary">
+                  <strong>{filteredStudents.filter(s => s.status === 'Started').length}</strong> Taking Exam
+                </Typography>
+              </Box>
+              <Divider orientation="vertical" flexItem sx={{ borderColor: 'rgba(255,255,255,0.1)' }} />
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#4ade80' }} />
+                <Typography variant="body2" color="text.secondary">
+                  <strong>{filteredStudents.filter(s => s.status === 'Completed').length}</strong> Completed
+                </Typography>
+              </Box>
+              <Divider orientation="vertical" flexItem sx={{ borderColor: 'rgba(255,255,255,0.1)' }} />
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#f2685c' }} />
+                <Typography variant="body2" color="text.secondary">
+                  <strong>{filteredStudents.filter(s => s.submission_reason === 'tab_switch' || s.status === 'Discontinued').length}</strong> Flagged
+                </Typography>
+              </Box>
+            </Stack>
           )}
-        </Paper>
+
+          <Box>
+            <style>{`
+              @keyframes flagPulse {
+                0%, 100% { box-shadow: 0 0 0 rgba(242,104,92,0); }
+                50% { box-shadow: 0 0 12px rgba(242,104,92,0.5); }
+              }
+            `}</style>
+            {loadingStudents ? (
+              <Box display="flex" justifyContent="center" py={4}><CircularProgress /></Box>
+            ) : filteredStudents.length === 0 ? (
+              <Typography color="text.secondary" textAlign="center" py={3}>No students found.</Typography>
+            ) : (
+              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: 2 }}>
+                {filteredStudents.map((s) => {
+                  let borderColor = 'rgba(255,255,255,0.10)';
+                  let bgcolor = 'rgba(255,255,255,0.02)';
+                  let color = '#9aa3ba';
+                  let animate = 'none';
+                  
+                  if (s.submission_reason === 'tab_switch' || s.status === 'Discontinued') {
+                    borderColor = 'rgba(242, 104, 92, 0.4)'; // red for flagged
+                    bgcolor = 'rgba(242, 104, 92, 0.14)';
+                    color = '#f2685c';
+                    animate = 'flagPulse 1.6s ease-in-out infinite';
+                  } else if (s.status === 'Completed') {
+                    borderColor = 'rgba(74, 222, 128, 0.3)'; // green
+                    bgcolor = 'rgba(74, 222, 128, 0.08)';
+                    color = '#4ade80';
+                  } else if (s.status === 'Started') {
+                    borderColor = 'rgba(108, 124, 255, 0.2)'; // blue/indigo
+                    bgcolor = 'rgba(108, 124, 255, 0.08)';
+                    color = '#6c7cff';
+                  }
+
+                  return (
+                    <Box
+                      key={s.user_id}
+                      onClick={() => setSelectedStudent(s)}
+                      sx={{
+                        aspectRatio: '1',
+                        borderRadius: 2,
+                        border: `1px solid ${borderColor}`,
+                        bgcolor,
+                        color,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer',
+                        animation: animate,
+                        transition: 'transform 0.2s, border-color 0.2s',
+                        '&:hover': {
+                           transform: 'translateY(-3px)',
+                           borderColor: color
+                        }
+                      }}
+                    >
+                      <Typography variant="h5" fontWeight={700} sx={{ fontFamily: "'JetBrains Mono', monospace", lineHeight: 1 }}>
+                        {s.score !== null ? s.score : '-'}
+                      </Typography>
+                      <Typography variant="caption" sx={{ mt: 1, px: 1, textAlign: 'center', whiteSpace: 'nowrap', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {s.username}
+                      </Typography>
+                    </Box>
+                  );
+                })}
+              </Box>
+            )}
+          </Box>        </Paper>
       )}
 
       {/* --- DIALOGS --- */}
@@ -694,7 +652,63 @@ export default function AdminExamDetail() {
         <DialogActions sx={{ p: 2 }}><Button onClick={() => setEditOpen(false)}>Cancel</Button><Button onClick={handleEditSave} variant="contained" disabled={editBusy}>Save</Button></DialogActions>
       </Dialog>
 
-      {/* 3. SAFE RESET CONFIRMATION DIALOG */}
+      {/* 3. STUDENT DETAIL DIALOG */}
+      <Dialog open={!!selectedStudent} onClose={() => setSelectedStudent(null)} maxWidth="xs" fullWidth>
+        {selectedStudent && (
+          <>
+            <DialogTitle>Student Details</DialogTitle>
+            <DialogContent dividers>
+              <Stack spacing={2}>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">Name</Typography>
+                  <Typography variant="body1" fontWeight={600}>{selectedStudent.username}</Typography>
+                </Box>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">Student ID</Typography>
+                  <Typography variant="body1">{selectedStudent.student_id}</Typography>
+                </Box>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">Status</Typography>
+                  <Typography variant="body1">
+                    <Chip 
+                      label={selectedStudent.status} 
+                      size="small"
+                      color={selectedStudent.status === 'Completed' ? 'success' : selectedStudent.status === 'Started' ? 'primary' : selectedStudent.status === 'Discontinued' ? 'error' : 'default'}
+                    />
+                  </Typography>
+                </Box>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">Submission Reason</Typography>
+                  <Typography variant="body1">{selectedStudent.submission_reason || '-'}</Typography>
+                </Box>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">Score</Typography>
+                  <Typography variant="body1" fontWeight={600}>{selectedStudent.score !== null ? selectedStudent.score : '-'}</Typography>
+                </Box>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">Started At</Typography>
+                  <Typography variant="body1">{selectedStudent.start_time ? new Date(selectedStudent.start_time).toLocaleString() : '-'}</Typography>
+                </Box>
+              </Stack>
+            </DialogContent>
+            <DialogActions sx={{ p: 2, justifyContent: 'space-between' }}>
+              <Button onClick={() => setSelectedStudent(null)} color="inherit">Close</Button>
+              {(selectedStudent.status === 'Completed' || selectedStudent.status === 'Started' || selectedStudent.status === 'Discontinued') && (
+                <Button color="error" variant="outlined" startIcon={<RestartIcon />} onClick={() => {
+                  const s = selectedStudent;
+                  setSelectedStudent(null);
+                  setResetDialog({ open: true, studentId: s.user_id, studentUsername: s.username });
+                  setConfirmText("");
+                }}>
+                  Reset Attempt
+                </Button>
+              )}
+            </DialogActions>
+          </>
+        )}
+      </Dialog>
+
+      {/* 4. SAFE RESET CONFIRMATION DIALOG */}
       <Dialog
         open={resetDialog.open}
         onClose={() => setResetDialog({ ...resetDialog, open: false })}

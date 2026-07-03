@@ -18,7 +18,7 @@ from werkzeug.utils import secure_filename
 
 from models import (
     db, bcrypt, User,
-    PublicProfile, PublicCourse, CourseContent,
+    PublicUser, PublicCourse, CourseContent,
     CourseSubscription, PublicExamAttempt, EmailVerificationOTP,
     PublicQuestion,
     PublicQuestionRepo, PublicCourseContentQuestion,
@@ -45,7 +45,7 @@ def register_public_routes(app, token_required, role_required):
     def get_public_profile(current_user):
         if current_user.role != 'public_user':
             return None
-        return PublicProfile.query.filter_by(user_id=current_user.id).first()
+        return current_user
 
     # ═══════════════════════════════════════════════════
     # 1. PUBLIC AUTH (Registration, Login, Forgot Password)
@@ -65,9 +65,9 @@ def register_public_routes(app, token_required, role_required):
             return jsonify({'message': 'Password must be at least 8 characters'}), 400
 
         # Check duplicates
-        if User.query.filter_by(email=email).first():
+        if PublicUser.query.filter_by(email=email).first():
             return jsonify({'message': 'An account with this email already exists'}), 409
-        if User.query.filter_by(username=username).first():
+        if PublicUser.query.filter_by(username=username).first():
             return jsonify({'message': 'Username is already taken'}), 409
 
         # Generate OTP
@@ -117,21 +117,17 @@ def register_public_routes(app, token_required, role_required):
             return jsonify({'message': 'OTP has expired. Please request a new one.'}), 400
 
         # Final duplicate check
-        if User.query.filter_by(email=email).first():
+        if PublicUser.query.filter_by(email=email).first():
             return jsonify({'message': 'An account with this email already exists'}), 409
-        if User.query.filter_by(username=username).first():
+        if PublicUser.query.filter_by(username=username).first():
             return jsonify({'message': 'Username is already taken'}), 409
 
         try:
             otp.used = True
-            user = User(username=username, role='public_user', email=email, is_verified=True)
+            user = PublicUser(username=username, role='public_user', email=email, is_verified=True, phone_number=phone_number)
             user.set_password(password)
             db.session.add(user)
             db.session.flush()
-
-            profile = PublicProfile(user_id=user.id, phone_number=phone_number)
-            db.session.add(profile)
-            db.session.flush() # Ensure profile gets an ID before creating subscription
 
             # Auto-enroll if a course was selected
             if course_id:
@@ -139,7 +135,7 @@ def register_public_routes(app, token_required, role_required):
                 if course and course.status == 'published':
                     sub_status = 'active' if course.price == 0 else 'enrolled'
                     sub = CourseSubscription(
-                        public_profile_id=profile.id,
+                        public_user_id=user.id,
                         course_id=course.id,
                         status=sub_status
                     )
@@ -150,6 +146,7 @@ def register_public_routes(app, token_required, role_required):
             # Auto-login: generate JWT
             payload = {
                 'sub': str(user.id),
+                'user_type': 'public',
                 'role': user.role,
                 'iat': datetime.now(timezone.utc),
                 'exp': datetime.now(timezone.utc) + timedelta(hours=12),
@@ -183,7 +180,7 @@ def register_public_routes(app, token_required, role_required):
         if not email or not password:
             return jsonify({'message': 'Email and password are required'}), 400
 
-        user = User.query.filter_by(email=email, role='public_user').first()
+        user = PublicUser.query.filter_by(email=email, role='public_user').first()
         if not user or not user.check_password(password):
             return jsonify({'message': 'Invalid email or password'}), 401
 
@@ -192,6 +189,7 @@ def register_public_routes(app, token_required, role_required):
 
         payload = {
             'sub': str(user.id),
+            'user_type': 'public',
             'role': user.role,
             'iat': datetime.now(timezone.utc),
             'exp': datetime.now(timezone.utc) + timedelta(hours=12),
@@ -216,7 +214,7 @@ def register_public_routes(app, token_required, role_required):
         if not email:
             return jsonify({'message': 'Email is required'}), 400
 
-        user = User.query.filter_by(email=email, role='public_user').first()
+        user = PublicUser.query.filter_by(email=email, role='public_user').first()
         if not user:
             return jsonify({'message': 'No public account found with that email'}), 404
 
@@ -261,7 +259,7 @@ def register_public_routes(app, token_required, role_required):
             db.session.commit()
             return jsonify({'message': 'OTP expired'}), 400
 
-        user = User.query.filter_by(email=email, role='public_user').first()
+        user = PublicUser.query.filter_by(email=email, role='public_user').first()
         if not user:
             return jsonify({'message': 'Account not found'}), 404
 
@@ -305,10 +303,10 @@ def register_public_routes(app, token_required, role_required):
             try:
                 decoded = pyjwt.decode(token, current_app.config['JWT_SECRET_KEY'], algorithms=['HS256'])
                 user_id = int(decoded.get('sub'))
-                profile = PublicProfile.query.filter_by(user_id=user_id).first()
+                profile = PublicUser.query.filter_by(user_id=user_id).first()
                 if profile:
                     sub = CourseSubscription.query.filter_by(
-                        public_profile_id=profile.id, course_id=course_id
+                        public_user_id=profile.id, course_id=course_id
                     ).first()
                     if sub:
                         is_enrolled = True
@@ -340,7 +338,7 @@ def register_public_routes(app, token_required, role_required):
             d['attempt_submitted'] = False
             if profile and c.content_type in ('pdf_exam', 'cbt_exam'):
                 submitted_attempt = PublicExamAttempt.query.filter(
-                    PublicExamAttempt.public_profile_id == profile.id,
+                    PublicExamAttempt.public_user_id == profile.id,
                     PublicExamAttempt.content_id == c.id,
                     PublicExamAttempt.submitted_at.isnot(None)
                 ).first()
@@ -375,7 +373,7 @@ def register_public_routes(app, token_required, role_required):
             return jsonify({'message': 'Course not found'}), 404
 
         existing = CourseSubscription.query.filter_by(
-            public_profile_id=profile.id, course_id=course_id
+            public_user_id=profile.id, course_id=course_id
         ).first()
         if existing:
             if existing.status == 'pending':
@@ -384,7 +382,7 @@ def register_public_routes(app, token_required, role_required):
             return jsonify({'message': 'Already enrolled', 'subscription': existing.to_dict()}), 200
 
         sub = CourseSubscription(
-            public_profile_id=profile.id,
+            public_user_id=profile.id,
             course_id=course_id,
             status='active' if course.price == 0 else 'enrolled',  # Free=full access, Paid=dashboard+free content only
         )
@@ -410,7 +408,7 @@ def register_public_routes(app, token_required, role_required):
 
         # Check if already subscribed
         existing = CourseSubscription.query.filter_by(
-            public_profile_id=profile.id, course_id=course_id, status='active'
+            public_user_id=profile.id, course_id=course_id, status='active'
         ).first()
         if existing:
             return jsonify({'message': 'Already subscribed'}), 200
@@ -436,14 +434,14 @@ def register_public_routes(app, token_required, role_required):
 
             # Create pending subscription
             sub = CourseSubscription.query.filter_by(
-                public_profile_id=profile.id, course_id=course_id
+                public_user_id=profile.id, course_id=course_id
             ).first()
             if sub:
                 sub.razorpay_order_id = order['id']
                 sub.status = 'pending'
             else:
                 sub = CourseSubscription(
-                    public_profile_id=profile.id,
+                    public_user_id=profile.id,
                     course_id=course_id,
                     razorpay_order_id=order['id'],
                     status='pending',
@@ -489,7 +487,7 @@ def register_public_routes(app, token_required, role_required):
             return jsonify({'message': 'Payment verification failed — invalid signature'}), 400
 
         sub = CourseSubscription.query.filter_by(
-            public_profile_id=profile.id, razorpay_order_id=razorpay_order_id
+            public_user_id=profile.id, razorpay_order_id=razorpay_order_id
         ).first()
         if not sub:
             return jsonify({'message': 'Subscription not found for this order'}), 404
@@ -521,7 +519,7 @@ def register_public_routes(app, token_required, role_required):
             if not profile:
                 return jsonify({'message': 'Subscription required'}), 403
             sub = CourseSubscription.query.filter_by(
-                public_profile_id=profile.id, course_id=content.course_id, status='active'
+                public_user_id=profile.id, course_id=content.course_id, status='active'
             ).first()
             if not sub:
                 return jsonify({'message': 'Subscription required to access this content'}), 403
@@ -547,14 +545,14 @@ def register_public_routes(app, token_required, role_required):
         # Check access
         if not content.is_free:
             sub = CourseSubscription.query.filter_by(
-                public_profile_id=profile.id, course_id=content.course_id, status='active'
+                public_user_id=profile.id, course_id=content.course_id, status='active'
             ).first()
             if not sub:
                 return jsonify({'message': 'Subscription required'}), 403
 
         # Check if exam was already submitted — prevent retakes
         submitted = PublicExamAttempt.query.filter(
-            PublicExamAttempt.public_profile_id == profile.id,
+            PublicExamAttempt.public_user_id == profile.id,
             PublicExamAttempt.content_id == content_id,
             PublicExamAttempt.submitted_at.isnot(None)
         ).first()
@@ -568,7 +566,7 @@ def register_public_routes(app, token_required, role_required):
 
         # Check if attempt is in progress (not yet submitted)
         existing = PublicExamAttempt.query.filter_by(
-            public_profile_id=profile.id, content_id=content_id, submitted_at=None
+            public_user_id=profile.id, content_id=content_id, submitted_at=None
         ).first()
         if existing:
             return jsonify({
@@ -578,7 +576,7 @@ def register_public_routes(app, token_required, role_required):
             }), 200
 
         attempt = PublicExamAttempt(
-            public_profile_id=profile.id,
+            public_user_id=profile.id,
             content_id=content_id,
             total_questions=content.total_questions,
         )
@@ -607,7 +605,7 @@ def register_public_routes(app, token_required, role_required):
         # Check access
         if not content.is_free:
             sub = CourseSubscription.query.filter_by(
-                public_profile_id=profile.id, course_id=content.course_id, status='active'
+                public_user_id=profile.id, course_id=content.course_id, status='active'
             ).first()
             if not sub:
                 return jsonify({'message': 'Subscription required'}), 403
@@ -627,7 +625,7 @@ def register_public_routes(app, token_required, role_required):
             return jsonify({'message': 'Public profile required'}), 403
 
         attempt = PublicExamAttempt.query.get(attempt_id)
-        if not attempt or attempt.public_profile_id != profile.id:
+        if not attempt or attempt.public_user_id != profile.id:
             return jsonify({'message': 'Attempt not found'}), 404
         if attempt.submitted_at:
             return jsonify({'message': 'Already submitted', 'attempt': attempt.to_dict()}), 200
@@ -666,7 +664,7 @@ def register_public_routes(app, token_required, role_required):
             return jsonify({'message': 'Public profile required'}), 403
 
         attempt = PublicExamAttempt.query.get(attempt_id)
-        if not attempt or attempt.public_profile_id != profile.id:
+        if not attempt or attempt.public_user_id != profile.id:
             return jsonify({'message': 'Attempt not found'}), 404
         if not attempt.submitted_at:
             return jsonify({'message': 'Exam not yet submitted'}), 400
@@ -735,7 +733,7 @@ def register_public_routes(app, token_required, role_required):
         if not profile:
             return jsonify({'subscriptions': []}), 200
         subs = CourseSubscription.query.filter(
-            CourseSubscription.public_profile_id == profile.id,
+            CourseSubscription.public_user_id == profile.id,
             CourseSubscription.status.in_(['active', 'enrolled', 'pending'])
         ).all()
         return jsonify({'subscriptions': [s.to_dict() for s in subs]}), 200
@@ -750,7 +748,7 @@ def register_public_routes(app, token_required, role_required):
         merged_attempts = []
         
         # 1. Static Mock Exams
-        exams = PublicExamAttempt.query.filter_by(public_profile_id=profile.id).order_by(PublicExamAttempt.start_time.desc()).all()
+        exams = PublicExamAttempt.query.filter_by(public_user_id=profile.id).order_by(PublicExamAttempt.start_time.desc()).all()
         for e in exams:
             merged_attempts.append({
                 'id': f"exam_{e.id}",
@@ -763,7 +761,7 @@ def register_public_routes(app, token_required, role_required):
             })
             
         # 2. Practice Sessions
-        practices = PublicPracticeAttempt.query.filter_by(public_profile_id=profile.id).order_by(PublicPracticeAttempt.start_time.desc()).all()
+        practices = PublicPracticeAttempt.query.filter_by(public_user_id=profile.id).order_by(PublicPracticeAttempt.start_time.desc()).all()
         for p in practices:
             title = 'Practice Session'
             if p.subject: title = f"{p.subject} Practice"
@@ -792,7 +790,7 @@ def register_public_routes(app, token_required, role_required):
 
         # 1. Get all active/enrolled/pending subscriptions for this user
         subs = CourseSubscription.query.filter(
-            CourseSubscription.public_profile_id == profile.id,
+            CourseSubscription.public_user_id == profile.id,
             CourseSubscription.status.in_(['active', 'enrolled', 'pending'])
         ).all()
         
@@ -827,7 +825,7 @@ def register_public_routes(app, token_required, role_required):
                 d['attempt_submitted'] = False
                 if c.content_type in ('pdf_exam', 'cbt_exam'):
                     submitted_attempt = PublicExamAttempt.query.filter(
-                        PublicExamAttempt.public_profile_id == profile.id,
+                        PublicExamAttempt.public_user_id == profile.id,
                         PublicExamAttempt.content_id == c.id,
                         PublicExamAttempt.submitted_at.isnot(None)
                     ).first()
@@ -838,14 +836,20 @@ def register_public_routes(app, token_required, role_required):
                         
                 content_list.append(d)
             # Dynamically fetch PYQ years and Practice subjects from Repo
+            course_tags = [course.title.strip().upper()]
+            if getattr(course, 'target_tags', None):
+                course_tags = [t.strip().upper() for t in course.target_tags.split(',') if t.strip()]
+
+            tag_filters = [PublicQuestionRepo.course_tags.ilike(f"%{t}%") for t in course_tags]
+
             pyq_years_q = db.session.query(PublicQuestionRepo.pyq_year).filter(
                 PublicQuestionRepo.is_pyq == True,
-                PublicQuestionRepo.course_tags.ilike(f"%{course.title}%")
+                db.or_(*tag_filters)
             ).distinct().all()
             available_pyqs = sorted([y[0] for y in pyq_years_q if y[0]], reverse=True)
             
             practice_subs_q = db.session.query(PublicQuestionRepo.subject).filter(
-                PublicQuestionRepo.course_tags.ilike(f"%{course.title}%")
+                db.or_(*tag_filters)
             ).distinct().all()
             practice_subjects = sorted([s[0] for s in practice_subs_q if s[0]])
                 
@@ -890,6 +894,7 @@ def register_public_routes(app, token_required, role_required):
             title=title,
             description=(data.get('description') or '').strip() or None,
             thumbnail_url=(data.get('thumbnail_url') or '').strip() or None,
+            target_tags=(data.get('target_tags') or '').strip() or None,
             price=float(data.get('price', 0)),
             status=data.get('status', 'draft'),
             created_by=current_user.id,
@@ -912,6 +917,8 @@ def register_public_routes(app, token_required, role_required):
             course.description = (data['description'] or '').strip() or None
         if 'thumbnail_url' in data:
             course.thumbnail_url = (data['thumbnail_url'] or '').strip() or None
+        if 'target_tags' in data:
+            course.target_tags = (data['target_tags'] or '').strip() or None
         if 'price' in data:
             course.price = float(data['price'])
         if 'status' in data:
@@ -1168,7 +1175,7 @@ def register_public_routes(app, token_required, role_required):
         # Check access
         if not content.is_free:
             sub = CourseSubscription.query.filter_by(
-                public_profile_id=profile.id, course_id=content.course_id, status='active'
+                public_user_id=profile.id, course_id=content.course_id, status='active'
             ).first()
             if not sub:
                 return jsonify({'message': 'Subscription required'}), 403
@@ -1469,11 +1476,11 @@ def register_public_routes(app, token_required, role_required):
         questions = PublicQuestionRepo.query.filter(PublicQuestionRepo.id.in_(selected_ids)).all()
 
         # Find a course_id to link (use first subscribed course or 0)
-        sub = CourseSubscription.query.filter_by(public_profile_id=profile.id, status='active').first()
+        sub = CourseSubscription.query.filter_by(public_user_id=profile.id, status='active').first()
         course_id = sub.course_id if sub else 0
 
         attempt = PublicPracticeAttempt(
-            public_profile_id=profile.id,
+            public_user_id=profile.id,
             course_id=course_id,
             subject=subject or None,
             chapter=chapter or None,
@@ -1499,7 +1506,7 @@ def register_public_routes(app, token_required, role_required):
             return jsonify({'message': 'Public profile required'}), 403
 
         attempt = PublicPracticeAttempt.query.get(attempt_id)
-        if not attempt or attempt.public_profile_id != profile.id:
+        if not attempt or attempt.public_user_id != profile.id:
             return jsonify({'message': 'Attempt not found'}), 404
         if attempt.submitted_at:
             return jsonify({'message': 'Already submitted'}), 400
@@ -1549,7 +1556,7 @@ def register_public_routes(app, token_required, role_required):
             return jsonify({'message': 'Public profile required'}), 403
 
         attempt = PublicPracticeAttempt.query.get(attempt_id)
-        if not attempt or attempt.public_profile_id != profile.id:
+        if not attempt or attempt.public_user_id != profile.id:
             return jsonify({'message': 'Attempt not found'}), 404
 
         question_ids = json.loads(attempt.questions_json)
@@ -1627,10 +1634,10 @@ def register_public_routes(app, token_required, role_required):
             bucket = 'easy' if d == 'easy' else 'hard' if d == 'hard' else 'medium'
             pool[bucket].append(q.to_dict(include_answer=True))
 
-        sub = CourseSubscription.query.filter_by(public_profile_id=profile.id, status='active').first()
+        sub = CourseSubscription.query.filter_by(public_user_id=profile.id, status='active').first()
         course_id = sub.course_id if sub else 0
         attempt = PublicPracticeAttempt(
-            public_profile_id=profile.id,
+            public_user_id=profile.id,
             course_id=course_id,
             subject=subject or None,
             chapter=chapter or None,
@@ -1657,7 +1664,7 @@ def register_public_routes(app, token_required, role_required):
         if not profile:
             return jsonify({'message': 'Public profile required'}), 403
         attempt = PublicPracticeAttempt.query.get(attempt_id)
-        if not attempt or attempt.public_profile_id != profile.id:
+        if not attempt or attempt.public_user_id != profile.id:
             return jsonify({'message': 'Attempt not found'}), 404
         if attempt.submitted_at:
             return jsonify({'message': 'Already submitted'}), 400
@@ -1704,7 +1711,7 @@ def register_public_routes(app, token_required, role_required):
 
         # Check if already started today
         existing = PublicDailyChallengeAttempt.query.filter_by(
-            public_profile_id=profile.id, challenge_date=today
+            public_user_id=profile.id, challenge_date=today
         ).first()
         if existing:
             if existing.completed_at:
@@ -1727,13 +1734,18 @@ def register_public_routes(app, token_required, role_required):
             }), 200
 
         # Determine which tags to pull from based on subscriptions
-        subs = CourseSubscription.query.filter_by(public_profile_id=profile.id, status='active').all()
+        subs = CourseSubscription.query.filter_by(public_user_id=profile.id, status='active').all()
         course_tags = set()
         for s in subs:
             course = PublicCourse.query.get(s.course_id)
             if course:
-                # Use course title keywords as tags
-                course_tags.add(course.title.strip().upper())
+                if getattr(course, 'target_tags', None):
+                    tags = [t.strip().upper() for t in course.target_tags.split(',')]
+                    for t in tags:
+                        if t:
+                            course_tags.add(t)
+                else:
+                    course_tags.add(course.title.strip().upper())
 
         # Pull 5 random questions
         query = PublicQuestionRepo.query
@@ -1754,7 +1766,7 @@ def register_public_routes(app, token_required, role_required):
         questions = PublicQuestionRepo.query.filter(PublicQuestionRepo.id.in_(selected_ids)).all()
 
         challenge = PublicDailyChallengeAttempt(
-            public_profile_id=profile.id,
+            public_user_id=profile.id,
             challenge_date=today,
             questions_json=json.dumps(selected_ids),
         )
@@ -1778,7 +1790,7 @@ def register_public_routes(app, token_required, role_required):
             return jsonify({'message': 'Public profile required'}), 403
 
         challenge = PublicDailyChallengeAttempt.query.get(challenge_id)
-        if not challenge or challenge.public_profile_id != profile.id:
+        if not challenge or challenge.public_user_id != profile.id:
             return jsonify({'message': 'Challenge not found'}), 404
         if challenge.completed_at:
             return jsonify({'message': 'Already submitted'}), 400

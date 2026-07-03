@@ -53,7 +53,8 @@ export default function AdminPublicManager({ initialTab = 0 }) {
   const [editContent, setEditContent] = useState(null);
 
   // Form
-  const [courseForm, setCourseForm] = useState({ title: '', description: '', price: 0, status: 'draft', thumbnail_url: '' });
+  const [courseForm, setCourseForm] = useState({ title: '', description: '', price: 0, status: 'draft', thumbnail_url: '', target_tags: '' });
+  const [uploadingCourseImg, setUploadingCourseImg] = useState(false);
   const [contentForm, setContentForm] = useState({ title: '', content_type: 'pdf_material', is_free: true, total_questions: '', answer_key_json: '', duration_minutes: '60', order_index: '0', status: 'published' });
   const fileRef = useRef(null);
   const [selectedFile, setSelectedFile] = useState(null);
@@ -164,7 +165,8 @@ export default function AdminPublicManager({ initialTab = 0 }) {
     setCourseForm(course ? {
       title: course.title, description: course.description || '',
       price: course.price || 0, status: course.status, thumbnail_url: course.thumbnail_url || '',
-    } : { title: '', description: '', price: 0, status: 'draft', thumbnail_url: '' });
+      target_tags: course.target_tags || '',
+    } : { title: '', description: '', price: 0, status: 'draft', thumbnail_url: '', target_tags: '' });
     setCourseDialog(true);
   };
 
@@ -206,6 +208,25 @@ export default function AdminPublicManager({ initialTab = 0 }) {
       loadCourses();
     } catch { setError('Failed to update status'); }
   };
+
+  const handleCourseImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+    setUploadingCourseImg(true);
+    try {
+      const res = await api.post('/admin/upload/image', formData);
+      setCourseForm(prev => ({ ...prev, thumbnail_url: res.data.url }));
+      setMsg('Course thumbnail uploaded');
+    } catch {
+      setError('Image upload failed');
+    } finally {
+      setUploadingCourseImg(false);
+    }
+  };
+
   // ── CONTENT CRUD ──
   const openContentDialog = (content = null) => {
     setEditContent(content);
@@ -1192,8 +1213,23 @@ export default function AdminPublicManager({ initialTab = 0 }) {
           <TextField fullWidth label="Price (₹)" type="number" value={courseForm.price}
             onChange={e => setCourseForm({ ...courseForm, price: parseFloat(e.target.value) || 0 })}
             sx={{ ...inputSx, mb: 2 }} size="small" />
-          <TextField fullWidth label="Thumbnail URL (optional)" value={courseForm.thumbnail_url}
-            onChange={e => setCourseForm({ ...courseForm, thumbnail_url: e.target.value })}
+          <Box sx={{ mb: 2 }}>
+            <Button component="label" startIcon={<CloudUploadIcon />} disabled={uploadingCourseImg} size="small" variant="outlined" sx={{ textTransform: 'none', borderRadius: '8px' }}>
+              {uploadingCourseImg ? 'Uploading...' : 'Upload Course Thumbnail'}
+              <input hidden type="file" accept="image/*" onChange={handleCourseImageUpload} />
+            </Button>
+            {courseForm.thumbnail_url && (
+              <Box sx={{ mt: 2, maxWidth: 300, borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.12)', position: 'relative' }}>
+                <img src={courseForm.thumbnail_url} alt="Thumbnail Preview" style={{ width: '100%', objectFit: 'contain', display: 'block' }} />
+                <IconButton size="small" sx={{ position: 'absolute', top: 4, right: 4, bgcolor: 'rgba(0,0,0,0.6)', color: 'white', '&:hover': {bgcolor: 'rgba(0,0,0,0.8)'} }}
+                  onClick={() => setCourseForm({ ...courseForm, thumbnail_url: '' })}>
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              </Box>
+            )}
+          </Box>
+          <TextField fullWidth label="Target Tags (e.g. JEE, NEET)" value={courseForm.target_tags}
+            onChange={e => setCourseForm({ ...courseForm, target_tags: e.target.value })}
             sx={{ ...inputSx, mb: 2 }} size="small" />
           <FormControl fullWidth size="small" sx={{ ...inputSx }}>
             <InputLabel>Status</InputLabel>

@@ -71,7 +71,7 @@ export default function Footer() {
                 PLATFORM
               </Typography>
               <Stack spacing={1.5}>
-                <Link href="#" color="inherit" underline="hover" sx={{ fontFamily: inter, fontSize: '0.9rem', transition: 'color 0.2s', '&:hover': { color: '#fff' } }} onClick={(e) => { e.preventDefault(); document.getElementById('exams')?.scrollIntoView({ behavior: 'smooth' }) }}>Exam Modules</Link>
+                <Link href="#" color="inherit" underline="hover" sx={{ fontFamily: inter, fontSize: '0.9rem', transition: 'color 0.2s', '&:hover': { color: '#fff' } }} onClick={(e) => { e.preventDefault(); document.getElementById('lifecycle')?.scrollIntoView({ behavior: 'smooth' }) }}>Product Lifecycle</Link>
                 <Link href="/public" color="inherit" underline="hover" sx={{ fontFamily: inter, fontSize: '0.9rem', transition: 'color 0.2s', '&:hover': { color: '#fff' } }}>Public Exams</Link>
                 <Link href="/login" color="inherit" underline="hover" sx={{ fontFamily: inter, fontSize: '0.9rem', transition: 'color 0.2s', '&:hover': { color: '#fff' } }}>Student Login</Link>
                 <Link href="/register" color="inherit" underline="hover" sx={{ fontFamily: inter, fontSize: '0.9rem', transition: 'color 0.2s', '&:hover': { color: '#fff' } }}>Register School</Link>

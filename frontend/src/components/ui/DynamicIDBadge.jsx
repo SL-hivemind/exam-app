@@ -24,33 +24,18 @@ export default function DynamicIDBadge({ profile }) {
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, W, H);
 
-      // Load SL Logo from S3
-      // We append ?cors=1 to bypass browser cache, as the Navbar loads it without CORS headers first!
-      const img = new Image();
-      img.crossOrigin = 'anonymous'; 
-      img.src = 'https://sl-exam-images.s3.ap-south-2.amazonaws.com/SL+LOGO.png?cors=1';
+      // Draw SL Logo directly via canvas text to match the SVG styling
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.font = 'normal 240px "Times New Roman", Times, serif';
       
-      await new Promise((resolve) => {
-        img.onload = () => {
-          // Draw image centered
-          const scale = Math.min(W * 0.8 / img.width, H * 0.8 / img.height);
-          const drawW = img.width * scale;
-          const drawH = img.height * scale;
-          const x = (W - drawW) / 2;
-          const y = (H - drawH) / 2;
-          ctx.drawImage(img, x, y, drawW, drawH);
-          resolve();
-        };
-        img.onerror = () => {
-          // Fallback text if logo fails to load
-          ctx.fillStyle = '#000000';
-          ctx.font = 'bold 80px sans-serif';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText('SL', W / 2, H / 2);
-          resolve();
-        };
-      });
+      // Draw Orange 'L'
+      ctx.fillStyle = '#f5a623';
+      ctx.fillText('L', W / 2 + 50, H / 2 + 20);
+      
+      // Draw Blue 'S'
+      ctx.fillStyle = '#2f6bff';
+      ctx.fillText('S', W / 2 - 30, H / 2 - 30);
 
       setFrontUrl(canvas.toDataURL('image/png'));
     };

@@ -17,7 +17,7 @@ from werkzeug.utils import secure_filename
 
 from models import (
     db, bcrypt, User,
-    PublicProfile, PublicCourse, CourseContent,
+    PublicUser, PublicCourse, CourseContent,
     CourseSubscription, PublicExamAttempt, EmailVerificationOTP,
 )
 
@@ -41,7 +41,7 @@ def register_portal_routes(app, token_required, role_required):
     def get_public_profile(current_user):
         if current_user.role != 'public_user':
             return None
-        return PublicProfile.query.filter_by(user_id=current_user.id).first()
+        return PublicUser.query.filter_by(user_id=current_user.id).first()
 
     # ═══════════════════════════════════════════════════
     # 1. PUBLIC AUTH (Registration, Login, Forgot Password)
@@ -125,7 +125,7 @@ def register_portal_routes(app, token_required, role_required):
             db.session.add(user)
             db.session.flush()
 
-            profile = PublicProfile(user_id=user.id, phone_number=phone_number)
+            profile = PublicUser(user_id=user.id, phone_number=phone_number)
             db.session.add(profile)
             db.session.flush() # Ensure profile gets an ID before creating subscription
 
@@ -135,7 +135,7 @@ def register_portal_routes(app, token_required, role_required):
                 if course and course.status == 'published':
                     sub_status = 'active' if course.price == 0 else 'enrolled'
                     sub = CourseSubscription(
-                        public_profile_id=profile.id,
+                        public_user_id=profile.id,
                         course_id=course.id,
                         status=sub_status
                     )
@@ -301,10 +301,10 @@ def register_portal_routes(app, token_required, role_required):
             try:
                 decoded = pyjwt.decode(token, current_app.config['JWT_SECRET_KEY'], algorithms=['HS256'])
                 user_id = int(decoded.get('sub'))
-                profile = PublicProfile.query.filter_by(user_id=user_id).first()
+                profile = PublicUser.query.filter_by(user_id=user_id).first()
                 if profile:
                     sub = CourseSubscription.query.filter_by(
-                        public_profile_id=profile.id, course_id=course_id
+                        public_user_id=profile.id, course_id=course_id
                     ).first()
                     if sub:
                         is_enrolled = True
@@ -333,7 +333,7 @@ def register_portal_routes(app, token_required, role_required):
             d['attempt_submitted'] = False
             if profile and c.content_type == 'pdf_exam':
                 submitted_attempt = PublicExamAttempt.query.filter(
-                    PublicExamAttempt.public_profile_id == profile.id,
+                    PublicExamAttempt.public_user_id == profile.id,
                     PublicExamAttempt.content_id == c.id,
                     PublicExamAttempt.submitted_at.isnot(None)
                 ).first()
@@ -368,7 +368,7 @@ def register_portal_routes(app, token_required, role_required):
             return jsonify({'message': 'Course not found'}), 404
 
         existing = CourseSubscription.query.filter_by(
-            public_profile_id=profile.id, course_id=course_id
+            public_user_id=profile.id, course_id=course_id
         ).first()
         if existing:
             if existing.status == 'pending':
@@ -377,7 +377,7 @@ def register_portal_routes(app, token_required, role_required):
             return jsonify({'message': 'Already enrolled', 'subscription': existing.to_dict()}), 200
 
         sub = CourseSubscription(
-            public_profile_id=profile.id,
+            public_user_id=profile.id,
             course_id=course_id,
             status='active' if course.price == 0 else 'enrolled',  # Free=full access, Paid=dashboard+free content only
         )
@@ -403,7 +403,7 @@ def register_portal_routes(app, token_required, role_required):
 
         # Check if already subscribed
         existing = CourseSubscription.query.filter_by(
-            public_profile_id=profile.id, course_id=course_id, status='active'
+            public_user_id=profile.id, course_id=course_id, status='active'
         ).first()
         if existing:
             return jsonify({'message': 'Already subscribed'}), 200
@@ -429,14 +429,14 @@ def register_portal_routes(app, token_required, role_required):
 
             # Create pending subscription
             sub = CourseSubscription.query.filter_by(
-                public_profile_id=profile.id, course_id=course_id
+                public_user_id=profile.id, course_id=course_id
             ).first()
             if sub:
                 sub.razorpay_order_id = order['id']
                 sub.status = 'pending'
             else:
                 sub = CourseSubscription(
-                    public_profile_id=profile.id,
+                    public_user_id=profile.id,
                     course_id=course_id,
                     razorpay_order_id=order['id'],
                     status='pending',
@@ -482,7 +482,7 @@ def register_portal_routes(app, token_required, role_required):
             return jsonify({'message': 'Payment verification failed — invalid signature'}), 400
 
         sub = CourseSubscription.query.filter_by(
-            public_profile_id=profile.id, razorpay_order_id=razorpay_order_id
+            public_user_id=profile.id, razorpay_order_id=razorpay_order_id
         ).first()
         if not sub:
             return jsonify({'message': 'Subscription not found for this order'}), 404
@@ -514,7 +514,7 @@ def register_portal_routes(app, token_required, role_required):
             if not profile:
                 return jsonify({'message': 'Subscription required'}), 403
             sub = CourseSubscription.query.filter_by(
-                public_profile_id=profile.id, course_id=content.course_id, status='active'
+                public_user_id=profile.id, course_id=content.course_id, status='active'
             ).first()
             if not sub:
                 return jsonify({'message': 'Subscription required to access this content'}), 403
@@ -540,14 +540,14 @@ def register_portal_routes(app, token_required, role_required):
         # Check access
         if not content.is_free:
             sub = CourseSubscription.query.filter_by(
-                public_profile_id=profile.id, course_id=content.course_id, status='active'
+                public_user_id=profile.id, course_id=content.course_id, status='active'
             ).first()
             if not sub:
                 return jsonify({'message': 'Subscription required'}), 403
 
         # Check if exam was already submitted — prevent retakes
         submitted = PublicExamAttempt.query.filter(
-            PublicExamAttempt.public_profile_id == profile.id,
+            PublicExamAttempt.public_user_id == profile.id,
             PublicExamAttempt.content_id == content_id,
             PublicExamAttempt.submitted_at.isnot(None)
         ).first()
@@ -561,7 +561,7 @@ def register_portal_routes(app, token_required, role_required):
 
         # Check if attempt is in progress (not yet submitted)
         existing = PublicExamAttempt.query.filter_by(
-            public_profile_id=profile.id, content_id=content_id, submitted_at=None
+            public_user_id=profile.id, content_id=content_id, submitted_at=None
         ).first()
         if existing:
             return jsonify({
@@ -571,7 +571,7 @@ def register_portal_routes(app, token_required, role_required):
             }), 200
 
         attempt = PublicExamAttempt(
-            public_profile_id=profile.id,
+            public_user_id=profile.id,
             content_id=content_id,
             total_questions=content.total_questions,
         )
@@ -594,7 +594,7 @@ def register_portal_routes(app, token_required, role_required):
             return jsonify({'message': 'Public profile required'}), 403
 
         attempt = PublicExamAttempt.query.get(attempt_id)
-        if not attempt or attempt.public_profile_id != profile.id:
+        if not attempt or attempt.public_user_id != profile.id:
             return jsonify({'message': 'Attempt not found'}), 404
         if attempt.submitted_at:
             return jsonify({'message': 'Already submitted', 'attempt': attempt.to_dict()}), 200
@@ -664,7 +664,7 @@ def register_portal_routes(app, token_required, role_required):
         if not profile:
             return jsonify({'subscriptions': []}), 200
         subs = CourseSubscription.query.filter(
-            CourseSubscription.public_profile_id == profile.id,
+            CourseSubscription.public_user_id == profile.id,
             CourseSubscription.status.in_(['active', 'enrolled', 'pending'])
         ).all()
         return jsonify({'subscriptions': [s.to_dict() for s in subs]}), 200
@@ -676,7 +676,7 @@ def register_portal_routes(app, token_required, role_required):
         if not profile:
             return jsonify({'attempts': []}), 200
         attempts = PublicExamAttempt.query.filter_by(
-            public_profile_id=profile.id
+            public_user_id=profile.id
         ).order_by(PublicExamAttempt.start_time.desc()).all()
         return jsonify({'attempts': [a.to_dict() for a in attempts]}), 200
 
@@ -689,7 +689,7 @@ def register_portal_routes(app, token_required, role_required):
 
         # 1. Get all active/enrolled/pending subscriptions for this user
         subs = CourseSubscription.query.filter(
-            CourseSubscription.public_profile_id == profile.id,
+            CourseSubscription.public_user_id == profile.id,
             CourseSubscription.status.in_(['active', 'enrolled', 'pending'])
         ).all()
         
@@ -722,7 +722,7 @@ def register_portal_routes(app, token_required, role_required):
                 d['attempt_submitted'] = False
                 if c.content_type == 'pdf_exam':
                     submitted_attempt = PublicExamAttempt.query.filter(
-                        PublicExamAttempt.public_profile_id == profile.id,
+                        PublicExamAttempt.public_user_id == profile.id,
                         PublicExamAttempt.content_id == c.id,
                         PublicExamAttempt.submitted_at.isnot(None)
                     ).first()

@@ -15,7 +15,6 @@ import AppRoutes from './routes/AppRoutes';
 import { AuthProvider } from './context/AuthContext';
 import useAuth from './hooks/useAuth';
 import theme from './theme';
-import AuroraBackground from './components/common/AuroraBackground';
 import PlatformBot from './components/common/PlatformBot';
 
 // Pages that should show the shared Navbar (not managed by a layout)
@@ -51,7 +50,6 @@ export default function App() {
     <LocalizationProvider dateAdapter={AdapterDateFns}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <AuroraBackground />
         <AuthProvider>
           <AppContent />
         </AuthProvider>

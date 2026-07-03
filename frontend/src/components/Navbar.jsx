@@ -8,6 +8,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import MenuIcon from "@mui/icons-material/Menu";
 import CloseIcon from "@mui/icons-material/Close";
 import useAuth from "../hooks/useAuth";
+import SLLogo from "./common/SLLogo";
 
 const oswald = "'Oswald', sans-serif";
 const inter = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
@@ -57,16 +58,16 @@ export default function Navbar(props) {
   const handleLogout = () => { logout(); navigate("/login"); setMobileOpen(false); };
 
   const navItems = [
-    { label: "Exams", id: "exams" },
-    { label: "How It Works", id: "how-it-works" },
-    { label: "Why Us", id: "why" },
+    { label: "Product", id: "lifecycle" },
+    { label: "Live Monitoring", id: "live" },
+    { label: "Schools", id: "testimonial" },
   ];
 
   const drawer = (
     <Box sx={{ width: 300, height: '100%', display: 'flex', flexDirection: 'column', bgcolor: 'rgba(10,16,46,0.95)', backdropFilter: 'blur(20px)' }} role="presentation">
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 2.5, py: 2, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
         <Stack direction="row" alignItems="center" spacing={1} onClick={() => { navigate("/"); setMobileOpen(false); }} sx={{ cursor: 'pointer' }}>
-          <Box component="img" src="https://sl-exam-images.s3.ap-south-2.amazonaws.com/SL+LOGO.png" alt="SL Logo" sx={{ height: 32, width: 'auto' }} />
+          <SLLogo sx={{ height: 32, width: 32 }} />
           <Typography sx={{ fontFamily: oswald, fontWeight: 700, fontSize: '1.3rem', color: '#eaf0ff', letterSpacing: '0.05em' }}>SL EXAMS</Typography>
         </Stack>
         <IconButton onClick={() => setMobileOpen(false)} sx={{ color: '#a9b4dd' }}><CloseIcon /></IconButton>
@@ -114,7 +115,7 @@ export default function Navbar(props) {
           <Container maxWidth="xl">
             <Toolbar disableGutters sx={{ justifyContent: "space-between", height: 70 }}>
               <Stack direction="row" alignItems="center" spacing={1} onClick={() => navigate("/")} sx={{ cursor: "pointer", '&:hover': { opacity: 0.85 }, transition: 'opacity 0.2s' }}>
-                <Box component="img" src="https://sl-exam-images.s3.ap-south-2.amazonaws.com/SL+LOGO.png" alt="SL Logo" sx={{ height: 40, width: 'auto' }} />
+                <SLLogo sx={{ height: 40, width: 40 }} />
                 <Typography noWrap sx={{ fontFamily: oswald, fontWeight: 700, fontSize: '1.4rem', color: "inherit", letterSpacing: "0.06em" }}>SL EXAMS</Typography>
               </Stack>
 

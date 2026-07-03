@@ -375,25 +375,34 @@ class StudentRequest(db.Model):
 # ==================== PUBLIC PORTAL MODELS (B2C) ====================
 # These tables are completely isolated from the School/Student/Exam B2B system.
 
-# -------------------- PUBLIC PROFILE --------------------
-class PublicProfile(db.Model):
-    __tablename__ = 'public_profiles'
+# -------------------- PUBLIC USER --------------------
+class PublicUser(db.Model):
+    __tablename__ = 'public_users'
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), unique=True, nullable=False)
+    username = db.Column(db.String(150), unique=True, nullable=False)
+    email = db.Column(db.String(150), unique=True, nullable=False)
+    password_hash = db.Column(db.String(128), nullable=False)
+    role = db.Column(db.String(20), default='public_user')
+    is_verified = db.Column(db.Boolean, default=False)
+    
     phone_number = db.Column(db.String(20), nullable=True)
     address = db.Column(db.Text, nullable=True)
     daily_streak = db.Column(db.Integer, default=0)
     last_challenge_date = db.Column(db.Date, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    user = db.relationship('User', backref=db.backref('public_profile', uselist=False))
+    def set_password(self, password):
+        self.password_hash = bcrypt.generate_password_hash(password).decode('utf-8')
+
+    def check_password(self, password):
+        return bcrypt.check_password_hash(self.password_hash, password)
 
     def to_dict(self):
         return {
             'id': self.id,
-            'user_id': self.user_id,
-            'username': self.user.username if self.user else None,
-            'email': self.user.email if self.user else None,
+            'username': self.username,
+            'email': self.email,
+            'role': self.role,
             'phone_number': self.phone_number,
             'address': self.address,
             'daily_streak': self.daily_streak or 0,
@@ -410,6 +419,7 @@ class PublicCourse(db.Model):
     thumbnail_url = db.Column(db.String(500), nullable=True)
     price = db.Column(db.Float, default=0.0)  # 0 = Free course
     status = db.Column(db.String(20), default='draft')  # 'draft', 'published'
+    target_tags = db.Column(db.String(255), nullable=True)  # explicit tags to match against question repo (e.g. 'JEE,NEET')
     created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -425,6 +435,7 @@ class PublicCourse(db.Model):
             'thumbnail_url': self.thumbnail_url,
             'price': self.price,
             'status': self.status,
+            'target_tags': self.target_tags,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'content_count': len(self.contents) if self.contents else 0,
             'subscriber_count': len(self.subscriptions) if self.subscriptions else 0,
@@ -498,20 +509,20 @@ class PublicQuestion(db.Model):
 class CourseSubscription(db.Model):
     __tablename__ = 'course_subscriptions'
     id = db.Column(db.Integer, primary_key=True)
-    public_profile_id = db.Column(db.Integer, db.ForeignKey('public_profiles.id', ondelete='CASCADE'), nullable=False)
+    public_user_id = db.Column(db.Integer, db.ForeignKey('public_users.id', ondelete='CASCADE'), nullable=False)
     course_id = db.Column(db.Integer, db.ForeignKey('public_courses.id', ondelete='CASCADE'), nullable=False)
     razorpay_order_id = db.Column(db.String(100), nullable=True)
     razorpay_payment_id = db.Column(db.String(100), nullable=True)
     status = db.Column(db.String(20), default='active')  # 'active', 'expired', 'pending'
     enrolled_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    profile = db.relationship('PublicProfile', backref=db.backref('subscriptions', lazy=True, cascade='all, delete-orphan'))
-    __table_args__ = (db.UniqueConstraint('public_profile_id', 'course_id', name='uq_profile_course'),)
+    user = db.relationship('PublicUser', backref=db.backref('subscriptions', lazy=True, cascade='all, delete-orphan'))
+    __table_args__ = (db.UniqueConstraint('public_user_id', 'course_id', name='uq_publicuser_course'),)
 
     def to_dict(self):
         return {
             'id': self.id,
-            'public_profile_id': self.public_profile_id,
+            'public_user_id': self.public_user_id,
             'course_id': self.course_id,
             'course_title': self.course.title if self.course else None,
             'razorpay_payment_id': self.razorpay_payment_id,
@@ -523,7 +534,7 @@ class CourseSubscription(db.Model):
 class PublicExamAttempt(db.Model):
     __tablename__ = 'public_exam_attempts'
     id = db.Column(db.Integer, primary_key=True)
-    public_profile_id = db.Column(db.Integer, db.ForeignKey('public_profiles.id', ondelete='CASCADE'), nullable=False)
+    public_user_id = db.Column(db.Integer, db.ForeignKey('public_users.id', ondelete='CASCADE'), nullable=False)
     content_id = db.Column(db.Integer, db.ForeignKey('course_contents.id', ondelete='CASCADE'), nullable=False)
     answers_json = db.Column(db.Text, nullable=True)  # JSON: {"1":"B","2":"A",...}
     score = db.Column(db.Integer, nullable=True)
@@ -531,7 +542,7 @@ class PublicExamAttempt(db.Model):
     start_time = db.Column(db.DateTime, default=datetime.utcnow)
     submitted_at = db.Column(db.DateTime, nullable=True)
 
-    profile = db.relationship('PublicProfile', backref=db.backref('exam_attempts', lazy=True, cascade='all, delete-orphan'))
+    user = db.relationship('PublicUser', backref=db.backref('exam_attempts', lazy=True, cascade='all, delete-orphan'))
     content = db.relationship('CourseContent', backref=db.backref('attempts', lazy=True, cascade='all, delete-orphan'))
 
     def to_dict(self):
@@ -729,7 +740,7 @@ class PublicPracticeAttempt(db.Model):
     """Tracks dynamic practice sessions pulled from the central repository."""
     __tablename__ = 'public_practice_attempts'
     id = db.Column(db.Integer, primary_key=True)
-    public_profile_id = db.Column(db.Integer, db.ForeignKey('public_profiles.id', ondelete='CASCADE'), nullable=False)
+    public_user_id = db.Column(db.Integer, db.ForeignKey('public_users.id', ondelete='CASCADE'), nullable=False)
     course_id = db.Column(db.Integer, db.ForeignKey('public_courses.id', ondelete='CASCADE'), nullable=False)
     subject = db.Column(db.String(100), nullable=True)
     chapter = db.Column(db.String(100), nullable=True)
@@ -743,7 +754,7 @@ class PublicPracticeAttempt(db.Model):
     start_time = db.Column(db.DateTime, default=datetime.utcnow)
     submitted_at = db.Column(db.DateTime, nullable=True)
 
-    profile = db.relationship('PublicProfile', backref=db.backref('practice_attempts', lazy=True))
+    user = db.relationship('PublicUser', backref=db.backref('practice_attempts', lazy=True))
 
     def to_dict(self):
         return {
@@ -762,14 +773,14 @@ class PublicDailyChallengeAttempt(db.Model):
     """Tracks daily 5-question challenge attempts for streak tracking."""
     __tablename__ = 'public_daily_challenge_attempts'
     id = db.Column(db.Integer, primary_key=True)
-    public_profile_id = db.Column(db.Integer, db.ForeignKey('public_profiles.id', ondelete='CASCADE'), nullable=False)
+    public_user_id = db.Column(db.Integer, db.ForeignKey('public_users.id', ondelete='CASCADE'), nullable=False)
     challenge_date = db.Column(db.Date, nullable=False)
     questions_json = db.Column(db.Text, nullable=False)  # JSON list of PublicQuestionRepo IDs
     answers_json = db.Column(db.Text, nullable=True)
     score = db.Column(db.Integer, default=0)
     completed_at = db.Column(db.DateTime, nullable=True)
 
-    profile = db.relationship('PublicProfile', backref=db.backref('daily_challenges', lazy=True))
+    user = db.relationship('PublicUser', backref=db.backref('daily_challenges', lazy=True))
 
     def to_dict(self):
         return {

@@ -43,6 +43,7 @@ import PublicExamInterface from "../components/public/PublicExamInterface";
 import PublicDashboard from "../components/public/PublicDashboard";
 import PublicPractice from "../components/public/PublicPractice";
 import AdminPublicManager from "../components/public/AdminPublicManager";
+import ThinkletsPage from "../components/public/ThinkletsPage";
 
 // Quick Exam Section (Module 3)
 import QuickLanding from "../components/quick/QuickLanding";
@@ -178,6 +179,9 @@ export default function AppRoutes() {
       <Route path="/quick/:code" element={<QuickLanding />} />
       <Route path="/quick/:code/exam" element={<QuickExamInterface />} />
       <Route path="/quick/:code/results" element={<QuickResults />} />
+
+      {/* --- 8. THINKLETS PAGE --- */}
+      <Route path="/thinklets" element={<ThinkletsPage />} />
 
       {/* --- FALLBACKS --- */}
       <Route path="/" element={<Home />} />

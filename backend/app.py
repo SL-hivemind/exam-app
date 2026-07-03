@@ -26,7 +26,7 @@ from models import (
     StudentExamAttempt, StudentAnswer,
     QuestionRepository, QuestionAuditLog, AuditLog, QuestionReport, generate_short_id,
     PasswordResetOTP, StudentRequest,
-    PublicProfile, PublicCourse, CourseContent,
+    PublicUser, PublicCourse, CourseContent,
     CourseSubscription, PublicExamAttempt, EmailVerificationOTP,
 )
 
@@ -37,6 +37,7 @@ from utils.files import (
 )
 
 from routes import register_analysis_routes, register_repository_routes, register_student_routes, register_public_routes, register_quick_routes, register_bot_routes
+from utils.math_utils import calculate_percentile, competition_rank
 
 # ------------------------------
 # Environment/bootstrap
@@ -140,7 +141,11 @@ def token_required(f):
         try:
             decoded = jwt.decode(token, app.config['JWT_SECRET_KEY'], algorithms=['HS256'])
             user_id = int(decoded.get('sub'))
-            user = User.query.get(user_id)
+            user_type = decoded.get('user_type')
+            if user_type == 'public':
+                user = PublicUser.query.get(user_id)
+            else:
+                user = User.query.get(user_id)
             if not user:
                 return jsonify({'message': 'User not found'}), 401
             return f(user, *args, **kwargs)
@@ -1219,8 +1224,8 @@ def admin_student_attempts(current_user, user_id):
             "score": att.score,
             "total_marks": exam.total_marks,
             "percentage": pct,
-            "percentile": _calculate_percentile(att.score, peer_scores),
-            "rank": _competition_rank(att.score, peer_scores),
+            "percentile": calculate_percentile(att.score, peer_scores),
+            "rank": competition_rank(att.score, peer_scores),
             "participants": len(peer_scores),
             "submission_reason": getattr(att, 'submission_reason', 'manual')
         })
