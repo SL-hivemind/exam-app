@@ -37,15 +37,15 @@ const FLOATING = [
 ];
 
 const FEATURES = [
-  { icon: <PictureAsPdfIcon />, title: 'Real question papers', desc: 'Authentic PDF papers shown beside a digital OMR sheet — exactly like the real exam.', color: 'blue' },
-  { icon: <TimerIcon />, title: 'Timed mock tests', desc: 'Practice under real conditions with countdown timers and auto-submit.', color: 'orange' },
+  { icon: <QuizIcon />, title: 'Extensive Question Repository', desc: 'Practice with thousands of high-quality questions for your target exam.', color: 'blue' },
+  { icon: <TimerIcon />, title: 'Computer-Based Tests', desc: 'Take timed CBT mock tests under real conditions with auto-submit.', color: 'orange' },
   { icon: <InsightsIcon />, title: 'Instant scoring & analytics', desc: 'Get your score the moment you submit and track progress on your dashboard.', color: 'indigo' },
   { icon: <BoltIcon />, title: 'Daily challenge + streaks', desc: '5 fresh questions every day from your courses to keep momentum going.', color: 'success' },
 ];
 
 const STEPS = [
   { icon: <MenuBookIcon />, title: 'Pick your exam', desc: 'Choose a course for your target exam — enrollment is free.' },
-  { icon: <PlayArrowIcon />, title: 'Practice free', desc: 'Attempt free papers and study materials. Unlock premium when ready.' },
+  { icon: <PlayArrowIcon />, title: 'Practice free', desc: 'Access free question banks and chapter practice. Unlock premium when ready.' },
   { icon: <QuizIcon />, title: 'Test & improve', desc: 'Take timed mocks, get instant results, and track your growth.' },
 ];
 
@@ -123,12 +123,12 @@ export default function PublicCatalog() {
             <Typography sx={{ fontFamily: ff, fontWeight: 800, fontSize: { xs: '2.1rem', md: '3.3rem' }, lineHeight: 1.12, letterSpacing: '-0.025em', color: '#f5f8ff', mb: 2 }}>
               Crack your exam with{' '}
               <Box component="span" sx={{ background: 'linear-gradient(120deg,#6f9bff,#f68914)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                real papers & mock tests
+                extensive question banks
               </Box>
             </Typography>
             <Typography sx={{ fontFamily: ff, fontSize: { xs: '1rem', md: '1.15rem' }, color: '#b4c0e4', maxWidth: 600, mx: 'auto', lineHeight: 1.7, mb: 4 }}>
               Browse courses for NEET, JEE, UPSC, SSC, Banking and more. Start free, practice with
-              authentic PDF papers + digital OMR, and get instant results.
+              our massive question repository, and get instant results.
             </Typography>
 
             {/* Search */}
@@ -171,7 +171,7 @@ export default function PublicCatalog() {
 
             {/* Trust row */}
             <Stack direction="row" spacing={4} justifyContent="center" flexWrap="wrap" useFlexGap sx={{ mt: 5 }}>
-              {[`${courses.length || '50'}+ courses`, `${freeCount || '20'}+ free papers`, 'Instant results'].map(t => (
+              {[`${courses.length || '50'}+ courses`, '10,000+ Questions', 'Instant results'].map(t => (
                 <Stack key={t} direction="row" alignItems="center" spacing={0.8}>
                   <CheckCircleIcon sx={{ fontSize: 17, color: '#34d399' }} />
                   <Typography sx={{ fontFamily: ff, fontSize: '0.82rem', color: '#b4c0e4', fontWeight: 600 }}>{t}</Typography>
@@ -239,7 +239,7 @@ export default function PublicCatalog() {
                             {course.title}
                           </Typography>
                           <Typography sx={{ fontFamily: ff, fontSize: '0.83rem', color: '#a9b4dd', lineHeight: 1.6, mb: 2, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                            {course.description || 'Explore papers, materials and mock tests for this exam.'}
+                            {course.description || 'Explore questions and CBT mock tests for this exam.'}
                           </Typography>
                           <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mt: 'auto' }}>
                             <Stack direction="row" alignItems="center" spacing={0.7}>
@@ -323,7 +323,7 @@ export default function PublicCatalog() {
                 </Stack>
                 <Divider sx={{ mb: 2 }} />
                 <Box sx={{ flex: 1 }}>
-                  {['Free study materials', 'Free exam papers', '1 attempt per free exam', 'Instant score', 'Course enrollment included'].map(t => (
+                  {['Free question bank practice', 'Free mock tests', '1 attempt per free exam', 'Instant score', 'Course enrollment included'].map(t => (
                     <Stack key={t} direction="row" alignItems="center" spacing={1.2} sx={{ mb: 1.2 }}>
                       <CheckCircleIcon sx={{ fontSize: 18, color: '#34d399' }} />
                       <Typography sx={{ fontFamily: ff, fontSize: '0.86rem', color: '#cdd6f4' }}>{t}</Typography>
@@ -347,7 +347,7 @@ export default function PublicCatalog() {
                   </Box>
                 </Stack>
                 <Divider sx={{ mb: 2 }} />
-                {['Everything in Free', 'All premium materials & papers', 'Unlimited re-attempts', 'Full course unlocked', 'Priority support'].map(t => (
+                {['Everything in Free', 'All premium questions & tests', 'Unlimited re-attempts', 'Full course unlocked', 'Priority support'].map(t => (
                   <Stack key={t} direction="row" alignItems="center" spacing={1.2} sx={{ mb: 1.2 }}>
                     <CheckCircleIcon sx={{ fontSize: 18, color: '#ffb054' }} />
                     <Typography sx={{ fontFamily: ff, fontSize: '0.86rem', color: '#cdd6f4' }}>{t}</Typography>
@@ -372,7 +372,7 @@ export default function PublicCatalog() {
               Ready to start preparing?
             </Typography>
             <Typography sx={{ fontFamily: ff, fontSize: '1rem', color: '#dbe3ff', mb: 4, maxWidth: 480, mx: 'auto', lineHeight: 1.7, position: 'relative' }}>
-              Create a free account, pick your exam, and access papers and study material right away.
+              Create a free account, pick your exam, and start practicing with our question repository right away.
             </Typography>
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} justifyContent="center" sx={{ position: 'relative' }}>
               <Button variant="gradient" size="large" onClick={() => navigate(isLoggedIn ? '/public/dashboard' : '/public/register')} sx={{ px: 4, height: 50, fontSize: '1.02rem' }} endIcon={<ArrowForwardIcon />}>

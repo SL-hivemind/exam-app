@@ -65,9 +65,14 @@ export default function PublicDashboard() {
       publicApi.myDashboardData().catch(() => ({ data: { dashboard_courses: [], available_courses: [] } })),
       publicApi.myAttempts().catch(() => ({ data: { attempts: [] } })),
     ]).then(([d, a]) => {
-      setDashboardCourses(d.data.dashboard_courses || []);
+      const dbCourses = d.data.dashboard_courses || [];
+      dbCourses.forEach(c => {
+         c.contents = (c.contents || []).filter(content => content.content_type === 'cbt_exam');
+      });
+      setDashboardCourses(dbCourses);
       setAvailableCourses(d.data.available_courses || []);
       setAttempts(a.data.attempts || []);
+      setChallengeCompleted(d.data.daily_challenge_completed || false);
     }).finally(() => setLoading(false));
 
     publicApi.myProfile().then(r => {
@@ -115,7 +120,7 @@ export default function PublicDashboard() {
 
   const handleContentClick = (content, mode = 'exam') => {
     if (content.locked) { setError('Subscribe to access premium content'); return; }
-    if (mode === 'exam' && content.attempt_submitted && (content.content_type === 'pdf_exam' || content.content_type === 'cbt_exam')) {
+    if (mode === 'exam' && content.attempt_submitted && content.content_type === 'cbt_exam') {
       setError(`Already completed. Score: ${content.attempt_score ?? '?'}/${content.attempt_total ?? '?'}. Use "Practice Again" for study mode.`); return;
     }
     navigate(`/public/viewer/${content.id}`, { state: { content, mode } });
@@ -196,11 +201,7 @@ export default function PublicDashboard() {
                           display: 'flex', alignItems: 'center', gap: 1, px: 1.5, py: 0.6, borderRadius: '6px', cursor: content.locked ? 'not-allowed' : 'pointer',
                           opacity: content.locked ? 0.5 : 1, color: '#aeb9e0', '&:hover': { color: content.locked ? '#94a3b8' : 'rgba(255,255,255,0.10)', bgcolor: content.locked ? 'transparent' : 'rgba(255,255,255,0.03)' }
                         }}>
-                        {(content.content_type === 'pdf_exam' || content.content_type === 'cbt_exam')
-                          ? <QuizIcon sx={{ fontSize: 14, color: content.locked ? '#475569' : '#60a5fa' }} />
-                          : content.content_type === 'video'
-                            ? <OndemandVideoIcon sx={{ fontSize: 14, color: content.locked ? '#475569' : '#f68914' }} />
-                            : <PictureAsPdfIcon sx={{ fontSize: 14, color: content.locked ? '#475569' : '#f87171' }} />}
+                        <QuizIcon sx={{ fontSize: 14, color: content.locked ? '#475569' : '#60a5fa' }} />
                         <Typography sx={{ fontFamily: ff, fontSize: '0.72rem', fontWeight: 500, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{content.title}</Typography>
                         {content.attempt_submitted && <CheckCircleIcon sx={{ fontSize: 12, color: '#22c55e' }} />}
                       </Box>
@@ -322,13 +323,11 @@ export default function PublicDashboard() {
         </Box>
 
         {/* ── Stats ── */}
-        <Grid container spacing={2.5} sx={{ mb: 4 }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: 2.5, mb: 4 }}>
           {statData.map((s, i) => (
-            <Grid item xs={6} md={3} key={i}>
-              <StatCard icon={s.icon} value={s.value} label={s.label} color={s.color} />
-            </Grid>
+            <StatCard key={i} icon={s.icon} value={s.value} label={s.label} color={s.color} sx={{ height: '100%', width: '100%' }} />
           ))}
-        </Grid>
+        </Box>
 
         {/* ── Quick Prep Hub ── */}
         <Box sx={{ mb: 4 }}>
@@ -337,13 +336,11 @@ export default function PublicDashboard() {
             <Typography sx={{ fontFamily: ff, fontWeight: 700, color: '#f5f8ff' }}>Quick Prep Hub</Typography>
             <Box sx={{ flex: 1, height: '1px', bgcolor: 'rgba(255,255,255,0.08)' }} />
           </Stack>
-          <Grid container spacing={2.5}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(1, 1fr)', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: 2.5 }}>
             {prepModes.map((item, i) => (
-              <Grid item xs={12} sm={6} md={3} key={i}>
-                <ActionCard icon={item.icon} title={item.label} description={item.desc} color={item.color} onClick={item.action} />
-              </Grid>
+              <ActionCard key={i} icon={item.icon} title={item.label} description={item.desc} color={item.color} onClick={item.action} sx={{ height: '100%', width: '100%' }} />
             ))}
-          </Grid>
+          </Box>
         </Box>
 
         {/* ── My Courses + Recent Results ── */}
@@ -362,7 +359,7 @@ export default function PublicDashboard() {
             ) : (
               <Grid container spacing={2}>
                 {dashboardCourses.slice(0, 4).map(dc => {
-                  const totalExams = dc.contents.filter(c => c.content_type === 'pdf_exam' || c.content_type === 'cbt_exam').length;
+                  const totalExams = dc.contents.filter(c => c.content_type === 'cbt_exam').length;
                   const doneExams = dc.contents.filter(c => c.attempt_submitted).length;
                   const totalAll = dc.contents.length;
                   const progressPct = totalExams > 0 ? Math.round((doneExams / totalExams) * 100) : 0;
@@ -443,7 +440,7 @@ export default function PublicDashboard() {
               <Typography sx={{ fontFamily: ff, fontWeight: 700, color: '#eaf0ff', fontSize: '0.95rem' }}>Add Another Course</Typography>
               <Typography sx={{ fontFamily: ff, fontSize: '0.8rem', color: '#a9b4dd' }}>Enroll in more public exams</Typography>
             </Box>
-            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', minWidth: { xs: '100%', sm: 300 } }}>
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', width: { xs: '100%', sm: 350 }, flexShrink: 0 }}>
               <FormControl fullWidth size="small">
                 <InputLabel sx={{ fontFamily: ff }}>Select</InputLabel>
                 <Select value={selectedNewCourse} onChange={e => setSelectedNewCourse(e.target.value)} label="Select" sx={{ fontFamily: ff, borderRadius: '8px' }}>
@@ -498,15 +495,13 @@ export default function PublicDashboard() {
               <ListItem key={content.id} onClick={() => handleContentClick(content)}
                 sx={{ cursor: content.locked ? 'not-allowed' : 'pointer', py: 1.8, px: 2.5, opacity: content.locked ? 0.6 : 1, '&:hover': { bgcolor: content.locked ? 'transparent' : 'rgba(255,255,255,0.03)' }, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
                 <ListItemIcon sx={{ minWidth: 40 }}>
-                  {(content.content_type === 'pdf_exam' || content.content_type === 'cbt_exam')
-                    ? <QuizIcon sx={{ color: content.locked ? '#94a3b8' : '#2563eb', fontSize: 20 }} />
-                    : <PictureAsPdfIcon sx={{ color: content.locked ? '#94a3b8' : '#ef4444', fontSize: 20 }} />}
+                  <QuizIcon sx={{ color: content.locked ? '#94a3b8' : '#2563eb', fontSize: 20 }} />
                 </ListItemIcon>
                 <ListItemText primary={content.title}
                   secondary={
                     <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mt: 0.3, flexWrap: 'wrap' }}>
                       <Typography sx={{ fontFamily: ff, fontSize: '0.75rem', color: '#a9b4dd' }}>
-                        {(content.content_type === 'pdf_exam' || content.content_type === 'cbt_exam') ? `${content.total_questions || '?'} Q · ${content.duration_minutes || 60} min` : 'Study Material'}
+                        {content.content_type === 'cbt_exam' ? `${content.total_questions || '?'} Q · ${content.duration_minutes || 60} min` : 'Study Material'}
                       </Typography>
                       {content.subject && (
                         <Chip label={content.subject} size="small" sx={{ fontFamily: ff, fontSize: '0.62rem', height: 16, bgcolor: 'rgba(255,255,255,0.08)', color: '#a9b4dd' }} />
@@ -518,7 +513,7 @@ export default function PublicDashboard() {
                 <Box sx={{ display: 'flex', gap: 0.8, alignItems: 'center', flexShrink: 0, ml: 1 }}>
                   {content.attempt_submitted && <Chip icon={<CheckCircleIcon sx={{ fontSize: 14 }} />} label={`${content.attempt_score ?? '?'}/${content.attempt_total ?? '?'}`} size="small"
                     sx={{ bgcolor: (content.attempt_score >= (content.attempt_total * 0.6)) ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)', color: (content.attempt_score >= (content.attempt_total * 0.6)) ? '#16a34a' : '#ef4444', fontWeight: 700, fontFamily: ff, '& .MuiChip-icon': { color: 'inherit' } }} />}
-                  {content.attempt_submitted && (content.content_type === 'pdf_exam' || content.content_type === 'cbt_exam') && (
+                  {content.attempt_submitted && content.content_type === 'cbt_exam' && (
                     <Button size="small" variant="outlined" onClick={(e) => { e.stopPropagation(); handleContentClick(content, 'study'); }}
                       sx={{ fontFamily: ff, textTransform: 'none', borderRadius: '8px', fontSize: '0.72rem', borderColor: '#f68914', color: '#f68914', '&:hover': { bgcolor: 'rgba(246,137,20,0.08)', borderColor: '#f68914' } }}>
                       Practice Again
@@ -526,7 +521,7 @@ export default function PublicDashboard() {
                   )}
                   {!content.attempt_submitted && !content.locked && (
                     <Button size="small" variant="outlined" sx={{ fontFamily: ff, textTransform: 'none', borderRadius: '8px', fontSize: '0.75rem' }}>
-                      {(content.content_type === 'pdf_exam' || content.content_type === 'cbt_exam') ? 'Take Exam' : 'View'}
+                      {content.content_type === 'cbt_exam' ? 'Take Exam' : 'View'}
                     </Button>
                   )}
                   <Chip icon={content.is_free ? <LockOpenIcon sx={{ fontSize: 13 }} /> : content.locked ? <LockIcon sx={{ fontSize: 13 }} /> : <CheckCircleIcon sx={{ fontSize: 13 }} />}
@@ -549,17 +544,17 @@ export default function PublicDashboard() {
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 2.5, py: 1.5, bgcolor: 'rgba(13,148,136,0.04)' }}>
                       <HistoryIcon sx={{ fontSize: 18, color: '#0d9488' }} />
                       <Typography sx={{ fontFamily: ff, fontWeight: 700, fontSize: '0.82rem', color: '#5eead4', letterSpacing: 0.3 }}>
-                        Previous Years\' Question Papers (PQP)
+                        Full-Length CBT Mock Tests
                       </Typography>
                       <Chip label={previousPapers.length + (dc.available_pyqs?.length || 0)} size="small" sx={{ fontFamily: ff, fontWeight: 800, fontSize: '0.68rem', height: 20, bgcolor: 'rgba(13,148,136,0.1)', color: '#0d9488' }} />
                     </Box>
                     <List sx={{ p: 0 }}>
                       {previousPapers.map(renderContentItem)}
-                      {dc.available_pyqs && dc.available_pyqs.map(year => (
-                        <ListItem key={`pyq-${year}`} onClick={() => navigate(`/public/practice?mode=pyq&course_tags=${dc.course.title}&year=${year}`)}
+                      {dc.available_pyqs && dc.available_pyqs.map((year, idx) => (
+                        <ListItem key={`mock-${year}`} onClick={() => navigate(`/public/mock?course_tags=${dc.course.title}&year=${year}`)}
                           sx={{ cursor: 'pointer', py: 1.8, px: 2.5, '&:hover': { bgcolor: 'rgba(255,255,255,0.03)' }, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
                           <ListItemIcon sx={{ minWidth: 40 }}><QuizIcon sx={{ color: '#0d9488', fontSize: 20 }} /></ListItemIcon>
-                          <ListItemText primary={`${year} Past Paper`}
+                          <ListItemText primary={`Full Mock Test ${idx + 1}`}
                             secondary={<Typography sx={{ fontFamily: ff, fontSize: '0.75rem', color: '#a9b4dd' }}>Generated from Question Bank</Typography>}
                             primaryTypographyProps={{ fontFamily: ff, fontWeight: 600, fontSize: '0.88rem', color: '#eaf0ff' }} />
                           <Button size="small" variant="outlined" sx={{ fontFamily: ff, textTransform: 'none', borderRadius: '8px', fontSize: '0.75rem', color: '#0d9488', borderColor: '#0d9488' }}>
@@ -702,7 +697,7 @@ export default function PublicDashboard() {
           </Typography>
         </Box>
 
-        <Box sx={{ p: { xs: 2, md: 3.5 }, maxWidth: 1200, mx: 'auto', width: '100%' }}>
+        <Box sx={{ p: { xs: 2, md: 3.5 }, maxWidth: 1600, mx: 'auto', width: '100%' }}>
           {error && <Alert severity="error" onClose={() => setError('')} sx={{ mb: 2.5, borderRadius: '12px' }}>{error}</Alert>}
           {msg && <Alert severity="success" onClose={() => setMsg('')} sx={{ mb: 2.5, borderRadius: '12px' }}>{msg}</Alert>}
 

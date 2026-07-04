@@ -38,7 +38,8 @@ export default function PublicCourseDetail() {
     publicApi.getCourse(courseId)
       .then(r => {
         setCourse(r.data.course);
-        setContents(r.data.contents || []);
+        const filteredContents = (r.data.contents || []).filter(c => c.content_type === 'cbt_exam');
+        setContents(filteredContents);
         setIsEnrolled(r.data.is_enrolled);
         setIsSubscribed(r.data.is_subscribed);
       })
@@ -55,7 +56,8 @@ export default function PublicCourseDetail() {
       // Reload data
       const r = await publicApi.getCourse(courseId);
       setCourse(r.data.course);
-      setContents(r.data.contents || []);
+      const filteredContents = (r.data.contents || []).filter(c => c.content_type === 'cbt_exam');
+      setContents(filteredContents);
       setIsEnrolled(r.data.is_enrolled);
       setIsSubscribed(r.data.is_subscribed);
     } catch (err) {
@@ -85,7 +87,8 @@ export default function PublicCourseDetail() {
             setMsg('Payment successful! You now have full access.');
             const r = await publicApi.getCourse(courseId);
             setCourse(r.data.course);
-            setContents(r.data.contents || []);
+            const filteredContents = (r.data.contents || []).filter(c => c.content_type === 'cbt_exam');
+            setContents(filteredContents);
             setIsEnrolled(r.data.is_enrolled);
             setIsSubscribed(r.data.is_subscribed);
           } catch {
@@ -113,7 +116,7 @@ export default function PublicCourseDetail() {
       setError('This content requires a premium subscription. Please upgrade to access.');
       return;
     }
-    if (content.attempt_submitted && content.content_type === 'pdf_exam') {
+    if (content.attempt_submitted && content.content_type === 'cbt_exam') {
       setError(`You already completed this exam. Score: ${content.attempt_score ?? '?'}/${content.attempt_total ?? '?'}`);
       return;
     }
@@ -263,7 +266,7 @@ export default function PublicCourseDetail() {
         {msg && <Alert severity="success" onClose={() => setMsg('')} sx={{ mb: 3, borderRadius: '12px' }}>{msg}</Alert>}
 
         <Typography sx={{ fontFamily: ff, fontWeight: 800, fontSize: '1.3rem', color: '#eaf0ff', mb: 3 }}>
-          Course Syllabus
+          CBT Mock Tests
         </Typography>
 
         {contents.length === 0 ? (
@@ -271,8 +274,11 @@ export default function PublicCourseDetail() {
             textAlign: 'center', py: 8, bgcolor: 'rgba(255,255,255,0.05)', borderRadius: '16px',
             border: '1px solid rgba(255,255,255,0.12)',
           }}>
-            <Typography sx={{ fontFamily: ff, color: '#aeb9e0' }}>
-              No content has been added to this course yet.
+            <Typography sx={{ fontFamily: ff, color: '#aeb9e0', mb: 1 }}>
+              No CBT mock tests are currently available for this course.
+            </Typography>
+            <Typography sx={{ fontFamily: ff, color: '#aeb9e0', fontSize: '0.9rem' }}>
+              However, the question repository has extensive questions for practice. Go to Dashboard to practice.
             </Typography>
           </Box>
         ) : (
@@ -292,7 +298,6 @@ export default function PublicCourseDetail() {
                     }}
                   >
                     <ListItemIcon sx={{ minWidth: 48 }}>
-                      {content.content_type === 'pdf_exam' ? (
                         <Box sx={{
                           width: 38, height: 38, borderRadius: '10px',
                           bgcolor: content.locked ? 'rgba(255,255,255,0.06)' : 'rgba(59,130,246,0.08)',
@@ -300,23 +305,10 @@ export default function PublicCourseDetail() {
                         }}>
                           <QuizIcon sx={{ color: content.locked ? '#94a3b8' : '#2563eb', fontSize: 20 }} />
                         </Box>
-                      ) : (
-                        <Box sx={{
-                          width: 38, height: 38, borderRadius: '10px',
-                          bgcolor: content.locked ? 'rgba(255,255,255,0.06)' : 'rgba(239,68,68,0.08)',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        }}>
-                          <PictureAsPdfIcon sx={{ color: content.locked ? '#94a3b8' : '#ef4444', fontSize: 20 }} />
-                        </Box>
-                      )}
                     </ListItemIcon>
                     <ListItemText
                       primary={content.title}
-                      secondary={
-                        content.content_type === 'pdf_exam'
-                          ? `${content.total_questions || '?'} questions · ${content.duration_minutes || 60} min`
-                          : 'Study Material'
-                      }
+                      secondary={`${content.total_questions || '?'} questions · ${content.duration_minutes || 60} min`}
                       primaryTypographyProps={{
                         fontFamily: ff, fontWeight: 600, fontSize: '0.92rem', color: '#eaf0ff',
                       }}
@@ -325,7 +317,7 @@ export default function PublicCourseDetail() {
                       }}
                     />
                     <Box sx={{ ml: 2, display: 'flex', gap: 1, alignItems: 'center', flexShrink: 0 }}>
-                      {content.content_type === 'pdf_exam' && content.attempt_submitted ? (
+                      {content.content_type === 'cbt_exam' && content.attempt_submitted ? (
                         <Chip
                           icon={<CheckCircleIcon sx={{ fontSize: 14 }} />}
                           label={`Score: ${content.attempt_score ?? '?'}/${content.attempt_total ?? '?'}`}

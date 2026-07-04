@@ -67,18 +67,31 @@ export default function PlatformBot() {
   useEffect(() => {
     if (open && messages.length === 0) {
       if (botMode === 'dashboard') {
-        setMessages([{
-          role: 'bot',
-          text: "Hello! 👋 I'm your **Platform Assistant**. I can:\n\n• 📊 **Query data** — \"How many students in class 10?\"\n• 🏫 **Look up schools** — \"Tell me about school Eesha\"\n• 🔍 **Find students** — \"Find student Rahul\"\n• ✅ **Validate questions** — \"Check my questions for errors\"\n• 📝 **Platform guides** — \"How do I create an exam?\"\n\nJust ask!",
-          time: new Date(),
-        }]);
-        setSuggestions([
-          'How many students do I have?',
-          'Tell me about my school',
-          'Check questions for errors',
-          'Show recent exams',
-          'Find student...',
-        ]);
+        if (location.pathname.startsWith('/public')) {
+          setMessages([{
+            role: 'bot',
+            text: "Hello! 👋 I'm your **Learning Assistant**. I can help you with:\n\n• 📚 **Course Info** — \"What courses are available?\"\n• ⚡ **Practice** — \"How do I start practice?\"\n• 🏆 **Mock Tests** — \"Where can I find full length mock tests?\"\n• 🔥 **Daily Challenge** — \"What is the daily challenge?\"\n\nJust ask!",
+            time: new Date(),
+          }]);
+          setSuggestions([
+            'What courses are available?',
+            'How do I take a mock test?',
+            'What is the daily challenge?',
+          ]);
+        } else {
+          setMessages([{
+            role: 'bot',
+            text: "Hello! 👋 I'm your **Platform Assistant**. I can:\n\n• 📊 **Query data** — \"How many students in class 10?\"\n• 🏫 **Look up schools** — \"Tell me about school Eesha\"\n• 🔍 **Find students** — \"Find student Rahul\"\n• ✅ **Validate questions** — \"Check my questions for errors\"\n• 📝 **Platform guides** — \"How do I create an exam?\"\n\nJust ask!",
+            time: new Date(),
+          }]);
+          setSuggestions([
+            'How many students do I have?',
+            'Tell me about my school',
+            'Check questions for errors',
+            'Show recent exams',
+            'Find student...',
+          ]);
+        }
       } else {
         setMessages([{
           role: 'bot',
@@ -172,30 +185,42 @@ export default function PlatformBot() {
                   '0%, 100%': { boxShadow: '0 6px 28px rgba(47,107,255,0.45), 0 2px 8px rgba(246,137,20,0.3)' },
                   '50%': { boxShadow: '0 8px 38px rgba(47,107,255,0.65), 0 4px 14px rgba(246,137,20,0.5)' },
                 },
+                '& .MuiSpeedDialAction-staticTooltipLabel': {
+                  fontFamily: oswald, fontWeight: 500, letterSpacing: 0.5,
+                  bgcolor: 'rgba(9,14,42,0.9)', color: '#fff', border: '1px solid rgba(255,255,255,0.15)',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.3)', whiteSpace: 'nowrap',
+                  px: 1.5, py: 0.5, borderRadius: 2
+                }
               }}
             >
               <SpeedDialAction
                 icon={<MenuBookIcon sx={{ color: '#fff', fontSize: 22 }} />}
                 tooltipTitle={<Typography sx={{ fontFamily: oswald, fontWeight: 500, fontSize: '0.85rem' }}>Study Mode</Typography>}
+                tooltipOpen
                 onClick={() => { setBotMode('study'); setMessages([]); setOpen(true); }}
-                sx={{ 
-                  bgcolor: '#f59e0b',
-                  width: 48, height: 48,
-                  boxShadow: '0 4px 12px rgba(245,158,11,0.4)',
-                  '&:hover': { bgcolor: '#d97706', transform: 'scale(1.1)' },
-                  transition: 'all 0.2s ease'
+                FabProps={{
+                  sx: { 
+                    bgcolor: '#f59e0b',
+                    width: 48, height: 48,
+                    boxShadow: '0 4px 12px rgba(245,158,11,0.4)',
+                    '&:hover': { bgcolor: '#d97706', transform: 'scale(1.1)' },
+                    transition: 'all 0.2s ease'
+                  }
                 }}
               />
               <SpeedDialAction
                 icon={<DashboardIcon sx={{ color: '#fff', fontSize: 22 }} />}
                 tooltipTitle={<Typography sx={{ fontFamily: oswald, fontWeight: 500, fontSize: '0.85rem' }}>Dashboard Mode</Typography>}
+                tooltipOpen
                 onClick={() => { setBotMode('dashboard'); setMessages([]); setOpen(true); }}
-                sx={{ 
-                  bgcolor: '#3b82f6',
-                  width: 48, height: 48,
-                  boxShadow: '0 4px 12px rgba(59,130,246,0.4)',
-                  '&:hover': { bgcolor: '#2563eb', transform: 'scale(1.1)' },
-                  transition: 'all 0.2s ease'
+                FabProps={{
+                  sx: { 
+                    bgcolor: '#3b82f6',
+                    width: 48, height: 48,
+                    boxShadow: '0 4px 12px rgba(59,130,246,0.4)',
+                    '&:hover': { bgcolor: '#2563eb', transform: 'scale(1.1)' },
+                    transition: 'all 0.2s ease'
+                  }
                 }}
               />
             </SpeedDial>

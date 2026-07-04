@@ -31,7 +31,7 @@ function AppContent() {
     location.pathname.startsWith('/student') || 
     location.pathname.startsWith('/exam/');
   const showFooter = !authToken && NAVBAR_PATHS.includes(location.pathname);
-  const showBotForStudent = authToken && location.pathname.startsWith('/student');
+  const showBotForStudent = authToken && location.pathname.startsWith('/student') && !location.pathname.includes('/exam');
 
   return (
     <Box minHeight="100vh" display="flex" flexDirection="column">

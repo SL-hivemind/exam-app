@@ -1,22 +1,40 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  Box, Typography, Paper, Button, Alert, RadioGroup,
-  FormControlLabel, Radio, CircularProgress, Container, Stack, Dialog, DialogTitle, DialogContent, DialogActions,
-  Grid, Drawer, IconButton, useTheme, useMediaQuery, Divider, Fab
+  Box, Typography, Button, Alert, RadioGroup,
+  FormControlLabel, Radio, CircularProgress, Dialog, DialogTitle, DialogContent, DialogActions,
+  Drawer, IconButton, useTheme, useMediaQuery, Chip, Fab
 } from '@mui/material';
-import { AccessTime as TimerIcon, Apps as AppsIcon, Close as CloseIcon } from '@mui/icons-material';
+import { AccessTime as TimerIcon, Apps as AppsIcon, Close as CloseIcon, ArrowBack as ArrowBackIcon } from '@mui/icons-material';
 import api from '../utils/api';
 import useAuth from '../hooks/useAuth';
-import useExamSecurity from '../hooks/useExamSecurity'; 
+import useExamSecurity from '../hooks/useExamSecurity';
 import MatrixFormatter from '../utils/MatrixFormatter';
+
+const ff = "'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
+
+const DARK = {
+  bg: 'rgba(7,11,26,0.98)',
+  card: 'rgba(255,255,255,0.04)',
+  cardBorder: 'rgba(255,255,255,0.08)',
+  cardHover: 'rgba(255,255,255,0.07)',
+  headerBg: 'rgba(9,14,42,0.85)',
+  text: '#eaf0ff',
+  sub: '#a9b4dd',
+  muted: '#6b7db3',
+  blue: '#2563eb',
+  blueLight: '#3b82f6',
+  green: '#22c55e',
+  orange: '#f59e0b',
+  red: '#ef4444',
+  sidebar: 'rgba(11,16,42,0.97)',
+};
 
 export default function StudentExamQuestionsPage() {
   const { examId } = useParams();
   const { authToken, user } = useAuth();
   const navigate = useNavigate();
 
-  // --- STATE ---
   const [exam, setExam] = useState(null);
   const [mcqAnswers, setMcqAnswers] = useState({});
   const [error, setError] = useState('');
@@ -26,13 +44,12 @@ export default function StudentExamQuestionsPage() {
   const [timeLeft, setTimeLeft] = useState(0);
   const [violations, setViolations] = useState(0);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  
-  // Pagination & Navigation
+
   const [currentPage, setCurrentPage] = useState(1);
-  const questionsPerPage = 3;
+  const questionsPerPage = 1;
   const [visitedPages, setVisitedPages] = useState(new Set([1]));
   const [mobileOpen, setMobileOpen] = useState(false);
-  
+
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
@@ -40,202 +57,118 @@ export default function StudentExamQuestionsPage() {
     setVisitedPages(prev => new Set(prev).add(currentPage));
   }, [currentPage]);
 
-  // Refs for stable callbacks
   const timerRef = useRef(null);
   const handleSubmitRef = useRef();
-
-  // Memoized key for local storage
   const storageKey = useMemo(() => `examAnswers-${user?.id}-${examId}`, [user?.id, examId]);
 
-  // --- 1. SECURITY HOOK ---
   useExamSecurity(!loading && !submitted, (type) => {
-      if (type === 'tab_switch') {
-          setViolations(prev => {
-              const next = prev + 1;
-              if (next >= 3) {
-                  alert("WARNING: Too many tab switches. Your exam is being auto-submitted.");
-                  handleSubmitRef.current('tab_switch');
-              }
-              return next;
-          });
-      }
+    if (type === 'tab_switch') {
+      setViolations(prev => {
+        const next = prev + 1;
+        if (next >= 3) {
+          alert("WARNING: Too many tab switches. Your exam is being auto-submitted.");
+          handleSubmitRef.current('tab_switch');
+        }
+        return next;
+      });
+    }
   });
 
-  // --- 2. FULLSCREEN REQUEST ---
   useEffect(() => {
-      const enterFullScreen = async () => {
-          try {
-              if (document.documentElement.requestFullscreen) {
-                  await document.documentElement.requestFullscreen();
-              }
-          } catch(e) {
-              // Fullscreen might be blocked by browser settings, ignore error
-          }
-      };
-      if (!loading && !submitted) enterFullScreen();
+    const enterFullScreen = async () => {
+      try {
+        if (document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen();
+      } catch (e) {}
+    };
+    if (!loading && !submitted) enterFullScreen();
   }, [loading, submitted]);
 
-
-  // --- 3. SUBMIT LOGIC ---
   const handleSubmitMcqAnswers = useCallback(async (reason = 'manual') => {
     if (submitted) return;
-
     setSubmitLoading(true);
     setError('');
-    
     try {
       const answers = Object.entries(mcqAnswers).map(([questionId, answer]) => ({
-        question_id: parseInt(questionId),
-        answer
+        question_id: parseInt(questionId), answer
       }));
-
-      await api.post(`/student/exams/${examId}/submit`, { answers, reason }, { 
-        headers: { auth_token: authToken } 
-      });
-      
+      await api.post(`/student/exams/${examId}/submit`, { answers, reason }, { headers: { auth_token: authToken } });
       clearInterval(timerRef.current);
       localStorage.removeItem(storageKey);
       setSubmitted(true);
-      
-      if (document.exitFullscreen) document.exitFullscreen().catch(()=>{});
-
+      if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
       navigate(`/exam/${examId}/results`, { replace: true });
-
     } catch (err) {
-      console.error(err);
       setError(err.response?.data?.message || 'Submission failed. Please try again.');
       setSubmitLoading(false);
     }
   }, [examId, authToken, storageKey, mcqAnswers, submitted, navigate]);
 
-  // Keep ref updated for timer/beacon
+  useEffect(() => { handleSubmitRef.current = handleSubmitMcqAnswers; }, [handleSubmitMcqAnswers]);
+
   useEffect(() => {
-    handleSubmitRef.current = handleSubmitMcqAnswers;
-  }, [handleSubmitMcqAnswers]);
-
-
-  // --- 4. BEACON REMOVED ---
-  // sendBeacon cannot send auth headers, so it always fails.
-  // Auto-save + Lazy Finalization already covers tab-close scenarios.
-
-
-  // --- 5. INITIALIZATION & TIMER ---
-  useEffect(() => {
-    if (!authToken) {
-      setError("You are not logged in.");
-      setLoading(false);
-      return;
-    }
-
+    if (!authToken) { setError("You are not logged in."); setLoading(false); return; }
     const fetchExamDetails = async () => {
       setLoading(true);
       try {
-        // Step A: Validate Access
         const canStartRes = await api.get(`/student/exams/${examId}/can_start`, { headers: { auth_token: authToken } });
         const { assigned, within_window, already_submitted } = canStartRes.data;
+        if (!assigned || (!within_window && !already_submitted)) { setError("Exam is not currently available."); setLoading(false); return; }
+        if (already_submitted) { navigate(`/exam/${examId}/results`); return; }
 
-        if (!assigned || (!within_window && !already_submitted)) {
-           setError("Exam is not currently available.");
-           setLoading(false);
-           return;
-        }
-        if (already_submitted) {
-           navigate(`/exam/${examId}/results`); 
-           return;
-        }
-        
-        // Step B: Fetch Questions
         const questionsRes = await api.get(`/student/exams/${examId}/questions`, { headers: { auth_token: authToken } });
         setExam({ ...canStartRes.data.exam, questions: questionsRes.data.questions });
 
-        // Step C: Restore Local Answers
         const savedAnswersStr = localStorage.getItem(storageKey);
         let mergedAnswers = savedAnswersStr ? JSON.parse(savedAnswersStr) : {};
 
-        // Step D: Start/Resume Attempt
         const attemptRes = await api.post(`/student/exams/${examId}/start`, {}, { headers: { auth_token: authToken } });
-        
-        // Merge answers from server (if resuming on different device)
-        if (attemptRes.data.saved_answers) {
-           mergedAnswers = { ...attemptRes.data.saved_answers, ...mergedAnswers };
-        }
-        
-        if (Object.keys(mergedAnswers).length > 0) {
-           setMcqAnswers(mergedAnswers);
-        }
+        if (attemptRes.data.saved_answers) mergedAnswers = { ...attemptRes.data.saved_answers, ...mergedAnswers };
+        if (Object.keys(mergedAnswers).length > 0) setMcqAnswers(mergedAnswers);
 
-        const expiresAt = new Date(attemptRes.data.expires_at);
-        const now = new Date();
-        let remainingSeconds = Math.max(0, Math.floor((expiresAt - now) / 1000));
-        
+        // Fix: ensure UTC parsing of expires_at
+        const expiresAtStr = attemptRes.data.expires_at;
+        const expiresAt = new Date(expiresAtStr?.endsWith('Z') ? expiresAtStr : `${expiresAtStr}Z`);
+        let remainingSeconds = Math.max(0, Math.floor((expiresAt - Date.now()) / 1000));
         if (isNaN(remainingSeconds)) remainingSeconds = (canStartRes.data.exam.duration_minutes || 60) * 60;
 
         setTimeLeft(remainingSeconds);
+        if (remainingSeconds <= 0) { handleSubmitRef.current('timeout'); return; }
 
-        if (remainingSeconds <= 0) {
-           handleSubmitRef.current('timeout');
-           return;
-        }
-
-        // Start Timer
         timerRef.current = setInterval(() => {
           setTimeLeft(prev => {
-            if (prev <= 1) {
-              clearInterval(timerRef.current);
-              handleSubmitRef.current('timeout'); // Time's up!
-              return 0;
-            }
+            if (prev <= 1) { clearInterval(timerRef.current); handleSubmitRef.current('timeout'); return 0; }
             return prev - 1;
           });
         }, 1000);
-
       } catch (err) {
-        console.error(err);
         setError(err.response?.data?.message || 'Failed to load exam');
       } finally {
         setLoading(false);
       }
     };
-
     fetchExamDetails();
     return () => clearInterval(timerRef.current);
   }, [examId, authToken, storageKey, navigate]);
 
-
-  // --- 6. AUTO-SAVE ANSWERS (sends only the changed answer) ---
   const lastSavedRef = useRef({});
   useEffect(() => {
     if (submitted) return;
     const saveTimer = setTimeout(async () => {
       if (Object.keys(mcqAnswers).length > 0) {
-        // 1. Save full state locally for instant page-reload recovery
         localStorage.setItem(storageKey, JSON.stringify(mcqAnswers));
-        
-        // 2. Find only the answers that changed since last save
-        const changedAnswers = Object.entries(mcqAnswers).filter(
-            ([qId, ans]) => lastSavedRef.current[qId] !== ans
-        );
-        
+        const changedAnswers = Object.entries(mcqAnswers).filter(([qId, ans]) => lastSavedRef.current[qId] !== ans);
         if (changedAnswers.length > 0) {
-            try {
-                const payload = changedAnswers.map(([qId, ans]) => ({
-                    question_id: parseInt(qId),
-                    answer: ans
-                }));
-                await api.post(`/student/exams/${examId}/autosave`, { answers: payload }, { 
-                    headers: { auth_token: authToken } 
-                });
-                // Update the ref so we don't re-send these
-                lastSavedRef.current = { ...mcqAnswers };
-            } catch (err) {
-                console.error("Autosave to backend failed silently:", err);
-            }
+          try {
+            await api.post(`/student/exams/${examId}/autosave`, {
+              answers: changedAnswers.map(([qId, ans]) => ({ question_id: parseInt(qId), answer: ans }))
+            }, { headers: { auth_token: authToken } });
+            lastSavedRef.current = { ...mcqAnswers };
+          } catch (err) { console.error("Autosave failed:", err); }
         }
       }
     }, 500);
     return () => clearTimeout(saveTimer);
   }, [mcqAnswers, storageKey, submitted, examId, authToken]);
-
 
   const handleMcqAnswerChange = (mcqId, answer) => {
     if (submitted) return;
@@ -243,243 +176,283 @@ export default function StudentExamQuestionsPage() {
   };
 
   const formatTime = (seconds) => {
-    const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
     const s = (seconds % 60).toString().padStart(2, '0');
-    return `${m}:${s}`;
+    return h > 0 ? `${h}:${m}:${s}` : `${m}:${s}`;
   };
-  
-  if (loading) return <Box p={5} display="flex" justifyContent="center"><CircularProgress /></Box>;
 
-  if (error) {
-      return (
-          <Container maxWidth="sm" sx={{ mt: 5 }}>
-              <Alert severity="error">{error}</Alert>
-              <Button onClick={() => navigate('/student')} sx={{ mt: 2 }}>Back to Dashboard</Button>
-          </Container>
-      );
-  }
+  if (loading) return (
+    <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: DARK.bg }}>
+      <CircularProgress sx={{ color: DARK.blue }} />
+    </Box>
+  );
 
-  const indexOfLastQ = currentPage * questionsPerPage;
-  const indexOfFirstQ = indexOfLastQ - questionsPerPage;
-  const currentQuestions = exam?.questions?.slice(indexOfFirstQ, indexOfLastQ) || [];
-  const totalPages = Math.ceil((exam?.questions?.length || 0) / questionsPerPage);
+  if (error) return (
+    <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: DARK.bg, p: 3 }}>
+      <Box sx={{ maxWidth: 480, textAlign: 'center' }}>
+        <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
+        <Button onClick={() => navigate('/student')} sx={{ color: DARK.blueLight }}>Back to Dashboard</Button>
+      </Box>
+    </Box>
+  );
+
   const totalQuestions = exam?.questions?.length || 0;
   const answeredCount = Object.keys(mcqAnswers).length;
+  const totalPages = Math.ceil(totalQuestions / questionsPerPage);
+  const indexOfFirstQ = (currentPage - 1) * questionsPerPage;
+  const currentQuestions = exam?.questions?.slice(indexOfFirstQ, indexOfFirstQ + questionsPerPage) || [];
 
-  const renderQuestionPalette = () => {
-    return (
-        <Box sx={{ p: { xs: 2, md: 0 }, height: '100%' }}>
-            <Paper elevation={3} sx={{ p: 2, position: 'sticky', top: 100, maxHeight: { md: '80vh' }, overflowY: 'auto' }}>
-                <Typography variant="h6" gutterBottom fontWeight="bold">Question Navigator</Typography>
-                <Divider sx={{ mb: 2 }} />
-                <Box display="flex" flexWrap="wrap" gap={1}>
-                    {exam?.questions?.map((q, idx) => {
-                        const qPage = Math.ceil((idx + 1) / questionsPerPage);
-                        const isAttempted = mcqAnswers[q.id] !== undefined;
-                        const isLeft = visitedPages.has(qPage) && !isAttempted;
-                        
-                        let bgColor = '#e0e0e0';
-                        let color = '#000';
-                        if (isAttempted) {
-                            bgColor = '#4caf50';
-                            color = '#fff';
-                        } else if (isLeft) {
-                            bgColor = '#ff9800';
-                            color = '#fff';
-                        }
-
-                        const isCurrent = currentPage === qPage;
-
-                        return (
-                            <Button
-                                key={q.id}
-                                variant="contained"
-                                onClick={() => {
-                                    setCurrentPage(qPage);
-                                    if (isMobile) setMobileOpen(false);
-                                }}
-                                sx={{
-                                    minWidth: 40,
-                                    width: 40,
-                                    height: 40,
-                                    m: 0,
-                                    p: 0,
-                                    borderRadius: 1,
-                                    bgcolor: bgColor,
-                                    color: color,
-                                    boxShadow: isCurrent ? `0 0 0 2px ${theme.palette.primary.main}` : 'none',
-                                    '&:hover': {
-                                        bgcolor: isAttempted ? '#388e3c' : isLeft ? '#f57c00' : '#bdbdbd',
-                                    }
-                                }}
-                            >
-                                {idx + 1}
-                            </Button>
-                        );
-                    })}
-                </Box>
-                
-                <Box mt={3} display="flex" flexDirection={{ xs: 'column', md: 'row' }} flexWrap="wrap" gap={1}>
-                <Box display="flex" alignItems="center" gap={1} width={{ xs: '100%', md: '30%' }}><Box width={16} height={16} borderRadius={1} bgcolor="#4caf50" flexShrink={0} /><Typography variant="body2" noWrap>Attempted</Typography></Box>
-                <Box display="flex" alignItems="center" gap={1} width={{ xs: '100%', md: '30%' }}><Box width={16} height={16} borderRadius={1} bgcolor="#ff9800" flexShrink={0} /><Typography variant="body2" noWrap>Visited</Typography></Box>
-                <Box display="flex" alignItems="center" gap={1} width={{ xs: '100%', md: '30%' }}><Box width={16} height={16} borderRadius={1} bgcolor="#e0e0e0" flexShrink={0} /><Typography variant="body2" noWrap>Not Visited</Typography></Box>
-                </Box>
-            </Paper>
+  const renderSidebar = () => (
+    <Box sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column', bgcolor: DARK.sidebar, backdropFilter: 'blur(14px)', borderLeft: `1px solid ${DARK.cardBorder}` }}>
+      {/* Header */}
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2, pb: 2, borderBottom: `1px solid ${DARK.cardBorder}` }}>
+        <Typography sx={{ fontFamily: ff, fontWeight: 700, fontSize: '0.95rem', color: DARK.text }}>Question Navigator</Typography>
+        <Chip label={`${answeredCount}/${totalQuestions}`} size="small"
+          sx={{ fontFamily: ff, fontWeight: 700, bgcolor: 'rgba(34,197,94,0.12)', color: DARK.green, fontSize: '0.72rem' }} />
+      </Box>
+      {/* Progress bar */}
+      <Box sx={{ mb: 2, flexShrink: 0 }}>
+        <Box sx={{ height: 5, borderRadius: 3, bgcolor: 'rgba(255,255,255,0.1)', overflow: 'hidden' }}>
+          <Box sx={{ height: '100%', borderRadius: 3, width: `${totalQuestions > 0 ? (answeredCount / totalQuestions) * 100 : 0}%`, background: 'linear-gradient(90deg, #2563eb, #22c55e)', transition: 'width 0.3s ease' }} />
         </Box>
-    );
-  };
+      </Box>
+      {/* Question grid */}
+      <Box sx={{ flex: 1, overflowY: 'auto', pr: 0.5, '&::-webkit-scrollbar': { width: '4px' }, '&::-webkit-scrollbar-thumb': { bgcolor: 'rgba(255,255,255,0.15)', borderRadius: 10 } }}>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
+          {exam?.questions?.map((q, idx) => {
+            const qPage = Math.ceil((idx + 1) / questionsPerPage);
+            const isAttempted = mcqAnswers[q.id] !== undefined;
+            const isVisited = visitedPages.has(qPage) && !isAttempted;
+            const isCurrent = currentPage === qPage;
+            let bg = 'rgba(255,255,255,0.07)', clr = DARK.sub;
+            if (isAttempted) { bg = DARK.green; clr = '#fff'; }
+            else if (isVisited) { bg = DARK.orange; clr = '#fff'; }
+            return (
+              <Box key={q.id} onClick={() => { setCurrentPage(qPage); if (isMobile) setMobileOpen(false); }}
+                sx={{
+                  width: 36, height: 36, borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  bgcolor: bg, color: clr, fontFamily: ff, fontWeight: 700, fontSize: '0.78rem',
+                  cursor: 'pointer', outline: isCurrent ? `2px solid ${DARK.blue}` : 'none', outlineOffset: 2,
+                  transition: 'all 0.15s', '&:hover': { opacity: 0.85, transform: 'scale(1.08)' }
+                }}>
+                {idx + 1}
+              </Box>
+            );
+          })}
+        </Box>
+      </Box>
+      {/* Legend */}
+      <Box sx={{ mt: 2, pt: 2, borderTop: `1px solid ${DARK.cardBorder}`, display: 'flex', flexDirection: 'column', gap: 1 }}>
+        {[{ color: DARK.green, label: 'Attempted' }, { color: DARK.orange, label: 'Visited (Not Answered)' }, { color: 'rgba(255,255,255,0.07)', label: 'Not Visited', border: DARK.cardBorder }].map(l => (
+          <Box key={l.label} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Box sx={{ width: 14, height: 14, borderRadius: '4px', bgcolor: l.color, border: l.border ? `1px solid ${l.border}` : 'none', flexShrink: 0 }} />
+            <Typography sx={{ fontFamily: ff, fontSize: '0.72rem', color: DARK.sub }}>{l.label}</Typography>
+          </Box>
+        ))}
+      </Box>
+    </Box>
+  );
+
+  const isLow = timeLeft < 300;
 
   return (
-    <Box 
-        sx={{
-            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-            bgcolor: 'transparent', zIndex: 1200, overflow: 'auto',
-            userSelect: 'none' 
-        }}
-        onContextMenu={(e) => e.preventDefault()}
+    <Box
+      sx={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, bgcolor: DARK.bg, zIndex: 1200, overflow: 'auto', userSelect: 'none', fontFamily: ff }}
+      onContextMenu={(e) => e.preventDefault()}
     >
-      <Container maxWidth="lg" sx={{ py: 4 }}>
-        
-        {/* HEADER BAR */}
-        <Paper elevation={3} sx={{ p: 2, mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 10, zIndex: 100 }}>
-            <Box display="flex" alignItems="center" gap={1}>
-                <Box>
-                    <Typography variant="h6" fontWeight={700} sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>{exam.title}</Typography>
-                    <Typography variant="caption" color="text.secondary">
-                        Attempted: {answeredCount}/{totalQuestions}
-                    </Typography>
-                </Box>
-            </Box>
-            
-            <Box display="flex" alignItems="center" gap={{ xs: 1, sm: 2 }}>
-                {violations > 0 && <Alert severity="warning" sx={{ py: 0, display: { xs: 'none', sm: 'flex' } }}>Warnings: {violations}</Alert>}
-                
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, bgcolor: timeLeft < 300 ? 'rgba(251,113,133,0.12)' : '#e3f2fd', px: { xs: 1, sm: 2 }, py: 1, borderRadius: 2 }}>
-                    <TimerIcon color={timeLeft < 300 ? "error" : "primary"} fontSize={isMobile ? "small" : "medium"} />
-                    <Typography variant="h6" fontWeight={700} color={timeLeft < 300 ? "error" : "primary"} sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
-                        {formatTime(timeLeft)}
-                    </Typography>
-                </Box>
-                
-                <Button 
-                    variant="contained" 
-                    color="success" 
-                    onClick={() => setConfirmOpen(true)}
-                    disabled={submitLoading}
-                    size={isMobile ? "small" : "medium"}
-                >
-                    {submitLoading ? "Wait..." : "Finish"}
-                </Button>
-            </Box>
-        </Paper>
+      {/* ── HEADER BAR ── */}
+      <Box sx={{
+        position: 'sticky', top: 0, zIndex: 200, height: 60,
+        bgcolor: DARK.headerBg, backdropFilter: 'blur(20px)',
+        borderBottom: `1px solid ${DARK.cardBorder}`,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: { xs: 2, md: 3 },
+      }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <IconButton onClick={() => navigate('/student')} sx={{ color: DARK.sub, '&:hover': { color: DARK.text } }}>
+            <ArrowBackIcon fontSize="small" />
+          </IconButton>
+          <Box>
+            <Typography sx={{ fontFamily: ff, fontWeight: 800, color: DARK.text, fontSize: { xs: '0.9rem', sm: '1.05rem' }, lineHeight: 1.2 }} noWrap>
+              {exam?.title}
+            </Typography>
+            <Typography sx={{ fontFamily: ff, fontSize: '0.72rem', color: DARK.muted }}>
+              Answered {answeredCount} of {totalQuestions}
+            </Typography>
+          </Box>
+        </Box>
 
-        {isMobile && (
-            <Fab 
-                color="primary" 
-                onClick={() => setMobileOpen(true)}
-                sx={{ position: 'fixed', bottom: 20, right: 20, zIndex: 1100 }}
-            >
-                <AppsIcon />
-            </Fab>
-        )}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 2 } }}>
+          {violations > 0 && (
+            <Chip label={`⚠ ${violations} warning${violations > 1 ? 's' : ''}`} size="small"
+              sx={{ fontFamily: ff, fontWeight: 700, bgcolor: 'rgba(239,68,68,0.15)', color: '#fca5a5', fontSize: '0.72rem', display: { xs: 'none', sm: 'flex' } }} />
+          )}
+          {/* Timer */}
+          <Box sx={{
+            display: 'flex', alignItems: 'center', gap: 0.75,
+            bgcolor: isLow ? 'rgba(239,68,68,0.12)' : 'rgba(37,99,235,0.12)',
+            border: `1px solid ${isLow ? 'rgba(239,68,68,0.3)' : 'rgba(37,99,235,0.3)'}`,
+            px: { xs: 1.5, sm: 2 }, py: 0.75, borderRadius: 2.5,
+          }}>
+            <TimerIcon sx={{ fontSize: { xs: 16, sm: 18 }, color: isLow ? DARK.red : DARK.blueLight }} />
+            <Typography sx={{
+              fontFamily: ff, fontWeight: 800, fontSize: { xs: '0.95rem', sm: '1.1rem' },
+              color: isLow ? DARK.red : DARK.blueLight, minWidth: { xs: 52, sm: 62 }, textAlign: 'center',
+              animation: isLow ? 'pulse 1s ease-in-out infinite' : 'none',
+              '@keyframes pulse': { '0%,100%': { opacity: 1 }, '50%': { opacity: 0.6 } }
+            }}>
+              {formatTime(timeLeft)}
+            </Typography>
+          </Box>
 
-        <Grid container spacing={3}>
-            {/* MAIN QUESTIONS AREA */}
-            <Grid item xs={12} md={8} lg={9}>
-                {currentQuestions.map((q, idx) => (
-                    <Paper key={q.id} elevation={1} sx={{ p: { xs: 2, sm: 3 }, mb: 3, borderRadius: 2 }}>
-                        <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-                            Question {indexOfFirstQ + idx + 1} <span style={{fontSize:'0.8em', fontWeight:'normal', color:'#666'}}>({q.marks} Marks)</span>
-                        </Typography>
-                        
-                        {q.image_path && (
-                            <Box sx={{ my: 2, display: 'flex', justifyContent: 'center' }}>
-                                <img src={q.image_path} alt="Question" style={{ maxHeight: 300, maxWidth: '100%', borderRadius: 4 }} />
-                            </Box>
-                        )}
+          <Button
+            variant="contained" onClick={() => setConfirmOpen(true)} disabled={submitLoading}
+            size={isMobile ? "small" : "medium"}
+            sx={{ fontFamily: ff, fontWeight: 700, textTransform: 'none', borderRadius: 2.5, px: { xs: 2, sm: 3 }, background: 'linear-gradient(135deg, #16a34a, #22c55e)', boxShadow: '0 4px 14px rgba(22,163,74,0.3)', '&:hover': { boxShadow: '0 6px 20px rgba(22,163,74,0.4)' } }}
+          >
+            {submitLoading ? 'Wait...' : 'Submit'}
+          </Button>
+        </Box>
+      </Box>
 
-                        <Typography variant="body1" sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>
-                            <MatrixFormatter text={q.text} />
-                        </Typography>
-
-                        <RadioGroup 
-                            value={mcqAnswers[q.id] || ''} 
-                            onChange={(e) => handleMcqAnswerChange(q.id, e.target.value)}
-                        >
-                            {['a','b','c','d'].map((opt) => (
-                                q[`option_${opt}`] && (
-                                    <FormControlLabel 
-                                        key={opt}
-                                        value={opt.toUpperCase()} 
-                                        control={<Radio />} 
-                                        label={
-                                            <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-                                                <Box component="span" fontWeight="bold" mr={1}>{opt.toUpperCase()})</Box> 
-                                                <MatrixFormatter text={q[`option_${opt}`]} />
-                                            </Typography>
-                                        } 
-                                        sx={{ mb: 1, p: 1, borderRadius: 1, '&:hover': { bgcolor: 'transparent' } }}
-                                    />
-                                )
-                            ))}
-                        </RadioGroup>
-                    </Paper>
-                ))}
-
-                {/* PAGINATION */}
-                {totalPages > 1 && (
-                    <Box display="flex" justifyContent="center" gap={2} mt={4}>
-                        <Button variant="outlined" disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)}>
-                            Previous
-                        </Button>
-                        <Typography sx={{ alignSelf: 'center' }}>Page {currentPage} of {totalPages}</Typography>
-                        <Button variant="outlined" disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)}>
-                            Next
-                        </Button>
+      {/* ── BODY ── */}
+      <Box sx={{ display: 'flex', height: 'calc(100vh - 60px)' }}>
+        {/* Questions area */}
+        <Box sx={{ flex: 1, overflowY: 'auto', p: { xs: 2, md: 4 }, '&::-webkit-scrollbar': { width: '6px' }, '&::-webkit-scrollbar-thumb': { bgcolor: 'rgba(255,255,255,0.12)', borderRadius: 10 } }}>
+          <Box sx={{ maxWidth: 760, mx: 'auto' }}>
+            {currentQuestions.map((q, idx) => {
+              const qNum = indexOfFirstQ + idx + 1;
+              const selected = mcqAnswers[q.id];
+              return (
+                <Box key={q.id} sx={{ mb: 3 }}>
+                  {/* Question card */}
+                  <Box sx={{ bgcolor: DARK.card, border: `1px solid ${DARK.cardBorder}`, borderRadius: 3, p: { xs: 2.5, sm: 3.5 } }}>
+                    {/* Q number + subject */}
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2.5 }}>
+                      <Chip label={`Question ${qNum} of ${totalQuestions}`}
+                        sx={{ fontFamily: ff, fontWeight: 700, bgcolor: 'rgba(37,99,235,0.12)', color: '#93c5fd', fontSize: '0.75rem' }} />
+                      {q.marks && (
+                        <Typography sx={{ fontFamily: ff, fontSize: '0.75rem', color: DARK.muted }}>{q.marks} mark{q.marks !== 1 ? 's' : ''}</Typography>
+                      )}
                     </Box>
-                )}
-            </Grid>
 
-            {/* DESKTOP SIDEBAR */}
-            {!isMobile && (
-                <Grid item xs={12} md={4} lg={3}>
-                    {renderQuestionPalette()}
-                </Grid>
-            )}
-        </Grid>
+                    {q.image_path && (
+                      <Box sx={{ my: 2.5, display: 'flex', justifyContent: 'center' }}>
+                        <img src={q.image_path} alt="Question" style={{ maxHeight: 280, maxWidth: '100%', borderRadius: 10 }} />
+                      </Box>
+                    )}
 
-        {/* MOBILE DRAWER */}
-        <Drawer
-            anchor="right"
-            open={mobileOpen}
-            onClose={() => setMobileOpen(false)}
-            sx={{ '& .MuiDrawer-paper': { width: { xs: 280, sm: 320 }, zIndex: 1300 } }}
-        >
-            <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: 'primary.main', color: 'white' }}>
-                <Typography variant="h6">Questions</Typography>
-                <IconButton onClick={() => setMobileOpen(false)} sx={{ color: 'white' }}>
-                    <CloseIcon />
-                </IconButton>
+                    <Typography sx={{ fontFamily: ff, fontSize: { xs: '1rem', md: '1.08rem' }, color: DARK.text, mb: 3, lineHeight: 1.7, whiteSpace: 'pre-wrap', fontWeight: 500 }}>
+                      <MatrixFormatter text={q.text} />
+                    </Typography>
+
+                    {/* Options */}
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
+                      {['a', 'b', 'c', 'd'].map((opt) => {
+                        if (!q[`option_${opt}`]) return null;
+                        const val = opt.toUpperCase();
+                        const isSelected = selected === val;
+                        return (
+                          <Box key={opt} onClick={() => handleMcqAnswerChange(q.id, val)}
+                            sx={{
+                              display: 'flex', alignItems: 'center', gap: 2, p: { xs: 1.5, sm: 2 },
+                              borderRadius: 2.5, cursor: 'pointer', transition: 'all 0.2s',
+                              border: `2px solid ${isSelected ? DARK.blue : DARK.cardBorder}`,
+                              bgcolor: isSelected ? 'rgba(37,99,235,0.08)' : DARK.cardHover,
+                              '&:hover': { borderColor: isSelected ? DARK.blue : 'rgba(37,99,235,0.35)', bgcolor: 'rgba(37,99,235,0.04)' }
+                            }}>
+                            <Box sx={{
+                              width: 32, height: 32, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              flexShrink: 0, fontFamily: ff, fontWeight: 800, fontSize: '0.8rem',
+                              bgcolor: isSelected ? DARK.blue : 'rgba(255,255,255,0.07)',
+                              color: isSelected ? '#fff' : DARK.sub,
+                              transition: 'all 0.2s'
+                            }}>{val}</Box>
+                            <Typography sx={{ fontFamily: ff, fontSize: '0.95rem', color: isSelected ? DARK.text : DARK.sub, fontWeight: isSelected ? 600 : 400, flex: 1, whiteSpace: 'pre-wrap' }}>
+                              <MatrixFormatter text={q[`option_${opt}`]} />
+                            </Typography>
+                            {isSelected && (
+                              <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: DARK.blue, flexShrink: 0 }} />
+                            )}
+                          </Box>
+                        );
+                      })}
+                    </Box>
+                  </Box>
+                </Box>
+              );
+            })}
+
+            {/* Navigation */}
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, mt: 2, mb: 6 }}>
+              <Button
+                variant="outlined" disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)}
+                sx={{ fontFamily: ff, fontWeight: 700, textTransform: 'none', borderRadius: 2.5, flex: 1, borderColor: DARK.cardBorder, color: DARK.sub, '&:not(:disabled):hover': { borderColor: DARK.blueLight, color: DARK.text } }}
+              >Previous</Button>
+              <Typography sx={{ alignSelf: 'center', fontFamily: ff, fontSize: '0.8rem', color: DARK.muted, whiteSpace: 'nowrap' }}>
+                {currentPage} / {totalPages}
+              </Typography>
+              <Button
+                variant="contained" disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)}
+                sx={{ fontFamily: ff, fontWeight: 700, textTransform: 'none', borderRadius: 2.5, flex: 1, background: 'linear-gradient(135deg, #2563eb, #3b82f6)', boxShadow: '0 4px 14px rgba(37,99,235,0.25)', '&:disabled': { bgcolor: 'rgba(255,255,255,0.08)', color: DARK.muted } }}
+              >Next Question</Button>
             </Box>
-            {renderQuestionPalette()}
-        </Drawer>
+          </Box>
+        </Box>
 
-        {/* SUBMIT DIALOG */}
-        <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)}>
-             <DialogTitle>Submit Exam?</DialogTitle>
-             <DialogContent>
-                 You have answered {answeredCount} out of {totalQuestions} questions. 
-                 Are you sure you want to submit? You cannot change your answers after this.
-             </DialogContent>
-             <DialogActions>
-                 <Button onClick={() => setConfirmOpen(false)}>Cancel</Button>
-                 <Button onClick={() => { setConfirmOpen(false); handleSubmitMcqAnswers('manual'); }} variant="contained" color="success">
-                     Yes, Submit
-                 </Button>
-             </DialogActions>
-        </Dialog>
+        {/* Desktop sidebar */}
+        {!isMobile && (
+          <Box sx={{ width: 300, flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
+            {renderSidebar()}
+          </Box>
+        )}
+      </Box>
 
-      </Container>
+      {/* Mobile FAB */}
+      {isMobile && (
+        <Fab color="primary" onClick={() => setMobileOpen(true)}
+          sx={{ position: 'fixed', bottom: 24, right: 24, zIndex: 1300, background: 'linear-gradient(135deg, #2563eb, #3b82f6)', boxShadow: '0 8px 24px rgba(37,99,235,0.4)' }}>
+          <Box sx={{ position: 'relative' }}>
+            <AppsIcon />
+            {answeredCount > 0 && (
+              <Box sx={{ position: 'absolute', top: -8, right: -8, width: 18, height: 18, borderRadius: '50%', bgcolor: DARK.green, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6rem', fontWeight: 800 }}>
+                {answeredCount}
+              </Box>
+            )}
+          </Box>
+        </Fab>
+      )}
+
+      {/* Mobile Drawer */}
+      <Drawer anchor="right" open={mobileOpen} onClose={() => setMobileOpen(false)}
+        PaperProps={{ sx: { width: { xs: 280, sm: 320 }, bgcolor: DARK.sidebar, border: 'none' } }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 2, borderBottom: `1px solid ${DARK.cardBorder}` }}>
+          <Typography sx={{ fontFamily: ff, fontWeight: 700, color: DARK.text }}>Questions</Typography>
+          <IconButton onClick={() => setMobileOpen(false)} sx={{ color: DARK.sub }}>
+            <CloseIcon />
+          </IconButton>
+        </Box>
+        <Box sx={{ flex: 1, overflow: 'hidden' }}>{renderSidebar()}</Box>
+      </Drawer>
+
+      {/* Submit Dialog */}
+      <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)}
+        PaperProps={{ sx: { bgcolor: '#0f1629', border: `1px solid ${DARK.cardBorder}`, borderRadius: 4, p: 1, minWidth: 320 } }}>
+        <DialogTitle sx={{ fontFamily: ff, fontWeight: 800, color: DARK.text }}>Submit Exam?</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ fontFamily: ff, color: DARK.sub }}>
+            You have answered <strong style={{ color: DARK.text }}>{answeredCount}</strong> out of <strong style={{ color: DARK.text }}>{totalQuestions}</strong> questions.
+            {answeredCount < totalQuestions && <><br /><span style={{ color: DARK.orange }}>⚠ {totalQuestions - answeredCount} questions unanswered.</span></>}
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ p: 2, gap: 1 }}>
+          <Button onClick={() => setConfirmOpen(false)} sx={{ fontFamily: ff, fontWeight: 600, textTransform: 'none', color: DARK.sub, borderRadius: 2 }}>Cancel</Button>
+          <Button onClick={() => { setConfirmOpen(false); handleSubmitMcqAnswers('manual'); }} variant="contained"
+            sx={{ fontFamily: ff, fontWeight: 700, textTransform: 'none', borderRadius: 2, px: 3, background: 'linear-gradient(135deg, #16a34a, #22c55e)' }}>
+            Yes, Submit
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

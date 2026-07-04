@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Box, Container, Typography, Grid, Stack, Button, Chip, MenuItem, TextField,
   LinearProgress, CircularProgress, Alert, IconButton, Tooltip,
@@ -14,6 +14,8 @@ import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import ReplayIcon from '@mui/icons-material/Replay';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import { publicApi } from '../../utils/api';
 import MatrixFormatter from '../../utils/MatrixFormatter';
 import { GlassCard } from '../common';
@@ -52,6 +54,14 @@ export default function PublicPractice() {
   const [score, setScore] = useState(0);
   const [curDiff, setCurDiff] = useState('easy');
   const [result, setResult] = useState(null);
+  
+  // Timer for Daily Challenge
+  const [timeLeft, setTimeLeft] = useState(300);
+  const timerRef = useRef(null);
+  
+  useEffect(() => {
+    return () => clearInterval(timerRef.current);
+  }, []);
 
   useEffect(() => {
     publicApi.practiceMeta()
@@ -101,6 +111,18 @@ export default function PublicPractice() {
         const qs = r.data.questions || [];
         p = { easy: qs, medium: [], hard: [] };
         setForm(f => ({ ...f, count: qs.length, mode: 'random' }));
+        setTimeLeft(300);
+        timerRef.current = setInterval(() => {
+           setTimeLeft(prev => {
+              if (prev <= 1) {
+                 clearInterval(timerRef.current);
+                 // timeout triggers submit in useEffect or we can just trigger it here.
+                 // we will use a ref to the latest state, but it's tricky.
+                 return 0;
+              }
+              return prev - 1;
+           });
+        }, 1000);
       } else {
         const payload = {
           count: Number(form.count),
@@ -159,9 +181,21 @@ export default function PublicPractice() {
     const reachedCount = asked.length >= Number(form.count);
     const next = reachedCount ? null : pickNext(pool, newUsed, nd);
 
-    if (!next) { finish(newUsed); return; }
+    if (!next) { 
+       if (timerRef.current) clearInterval(timerRef.current);
+       finish(newUsed); 
+       return; 
+    }
     setCurrent(next); setCurDiff(next.bucket); setSelected(null); setRevealed(false);
   };
+  
+  // Auto-submit challenge on timeout
+  useEffect(() => {
+     if (stage === 'run' && form.mode === 'random' && timeLeft === 0 && params.get('mode') === 'challenge' && !loading) {
+         if (timerRef.current) clearInterval(timerRef.current);
+         finish(used);
+     }
+  }, [timeLeft, stage]);
 
   const finish = async (finalUsed) => {
     setLoading(true);
@@ -173,7 +207,10 @@ export default function PublicPractice() {
         await publicApi.practiceAdaptiveSubmit(attemptId, { asked_ids: askedIds, answers });
       }
     } catch { /* non-blocking — still show local result */ }
-    setResult({ score, total: asked.length, asked });
+    const finalScore = score + (selected === current?.q?.correct_answer?.toUpperCase() ? 1 : 0); // fallback if not tracked in state
+    // Actually score state is already updated in handleSelect.
+    
+    setResult({ score, total: asked.length, asked, timeTaken: 300 - timeLeft });
     setStage('result');
     setLoading(false);
   };
@@ -222,24 +259,22 @@ export default function PublicPractice() {
 
         {/* Subject / chapter selectors */}
         {form.scope !== 'mixed' && (
-          <Grid container spacing={2} sx={{ mb: 3 }}>
-            <Grid item xs={12} sm={6}>
-              <TextField select fullWidth label="Subject" value={form.subject}
-                onChange={e => setForm(f => ({ ...f, subject: e.target.value, chapter: '' }))}>
-                <MenuItem value="">Select subject…</MenuItem>
-                {(meta.subjects || []).map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
-              </TextField>
-            </Grid>
+          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 3 }}>
+            <TextField select label="Subject" value={form.subject}
+              sx={{ minWidth: 250, maxWidth: '100%' }}
+              onChange={e => setForm(f => ({ ...f, subject: e.target.value, chapter: '' }))}>
+              <MenuItem value="">Select subject…</MenuItem>
+              {(meta.subjects || []).map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+            </TextField>
             {form.scope === 'chapter' && (
-              <Grid item xs={12} sm={6}>
-                <TextField select fullWidth label="Chapter" value={form.chapter} disabled={!form.subject}
-                  onChange={e => setForm(f => ({ ...f, chapter: e.target.value }))}>
-                  <MenuItem value="">All chapters</MenuItem>
-                  {chapters.map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
-                </TextField>
-              </Grid>
+              <TextField select label="Chapter" value={form.chapter} disabled={!form.subject}
+                sx={{ minWidth: 250, maxWidth: '100%' }}
+                onChange={e => setForm(f => ({ ...f, chapter: e.target.value }))}>
+                <MenuItem value="">All chapters</MenuItem>
+                {chapters.map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+              </TextField>
             )}
-          </Grid>
+          </Box>
         )}
 
         {/* Count */}
@@ -296,6 +331,10 @@ export default function PublicPractice() {
           <Stack direction="row" alignItems="center" spacing={1.5}>
             <Chip label={`Q ${asked.length + 1} / ${form.count}`} sx={{ fontFamily: ff, fontWeight: 700, bgcolor: 'rgba(47,107,255,0.16)', color: '#9fc1ff' }} />
             <Chip label={dm.label} sx={{ fontFamily: ff, fontWeight: 700, bgcolor: dm.bg, color: dm.color }} />
+            {params.get('mode') === 'challenge' && (
+              <Chip icon={<AccessTimeIcon sx={{ fontSize: 16 }} />} label={`${Math.floor(timeLeft / 60)}:${(timeLeft % 60).toString().padStart(2, '0')}`} 
+                sx={{ fontFamily: ff, fontWeight: 800, bgcolor: timeLeft < 60 ? 'rgba(251,113,133,0.16)' : 'rgba(246,137,20,0.16)', color: timeLeft < 60 ? '#fb7185' : '#f68914', '& .MuiChip-icon': { color: 'inherit' } }} />
+            )}
           </Stack>
           <Chip icon={<CheckCircleIcon sx={{ fontSize: 16 }} />} label={`${score} correct`} sx={{ fontFamily: ff, fontWeight: 700, bgcolor: 'rgba(52,211,153,0.14)', color: '#6ee7b7', '& .MuiChip-icon': { color: '#34d399' } }} />
         </Stack>
@@ -373,6 +412,21 @@ export default function PublicPractice() {
           </Box>
           <Typography sx={{ fontFamily: ff, fontWeight: 800, fontSize: '2.2rem', color: '#f5f8ff' }}>{result.score}/{total}</Typography>
           <Typography sx={{ fontFamily: ff, color: '#aeb9e0', mb: 2 }}>{pct}% accuracy · {good ? 'Great work!' : 'Keep practicing!'}</Typography>
+          
+          {params.get('mode') === 'challenge' && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
+              {(result.score === 5 && result.timeTaken < 120) ? (
+                <Chip icon={<EmojiEventsIcon />} label="Speed Demon Badge (Top 1%)" sx={{ bgcolor: 'rgba(234,179,8,0.2)', color: '#fde047', fontFamily: ff, fontWeight: 800, fontSize: '0.85rem' }} />
+              ) : result.score === 5 ? (
+                <Chip icon={<EmojiEventsIcon />} label="Sharpshooter Badge (Top 5%)" sx={{ bgcolor: 'rgba(56,189,248,0.2)', color: '#7dd3fc', fontFamily: ff, fontWeight: 800, fontSize: '0.85rem' }} />
+              ) : result.score >= 4 ? (
+                <Chip icon={<EmojiEventsIcon />} label="Top 15% Finisher" sx={{ bgcolor: 'rgba(52,211,153,0.2)', color: '#6ee7b7', fontFamily: ff, fontWeight: 800, fontSize: '0.85rem' }} />
+              ) : (
+                <Chip label={`Time taken: ${Math.floor(result.timeTaken / 60)}m ${result.timeTaken % 60}s`} sx={{ bgcolor: 'rgba(255,255,255,0.08)', color: '#aeb9e0', fontFamily: ff, fontWeight: 700 }} />
+              )}
+            </Box>
+          )}
+
           <Stack direction="row" spacing={1.5} justifyContent="center">
             <Button variant="gradient" startIcon={<ReplayIcon />} onClick={() => { setStage('setup'); setResult(null); }}>Practice again</Button>
             <Button variant="outlined" onClick={() => navigate('/public/dashboard')}>Back to dashboard</Button>

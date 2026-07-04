@@ -57,6 +57,8 @@ export default function GlassCard({
         overflow: 'hidden',
         borderRadius: '20px',
         p: 3,
+        width: '100%',
+        boxSizing: 'border-box',
         cursor: onClick ? 'pointer' : 'default',
         color: 'text.primary',
         backgroundColor: 'rgba(255,255,255,0.055)',

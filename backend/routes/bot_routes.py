@@ -52,6 +52,10 @@ KB = {
     'kb_csv': ("📄 **CSV Formats:**\n\n**Students:** `username, class_number, password`\n**Questions:** `subject, class_number, chapter, topic, difficulty, text, option_a, option_b, option_c, option_d, correct_answer, marks`", None),
     'kb_quick_exam': ("⚡ **Quick Exams:** Shareable tests, no login.\n1. **Quick Exams** → paste questions\n2. Set duration/expiry\n3. Share 6-char code\n4. Participants enter name and go", "quick"),
     'kb_profile': ("👤 **Profile:** Sidebar bottom → update username, email, mobile. Change password via email OTP.", "profile"),
+    'kb_public_courses': ("📚 **Public Courses:**\n\nWe offer a variety of courses including JEE and NEET preparation. Browse the **Catalog** to enroll in new courses or access free material.", "catalog"),
+    'kb_public_practice': ("⚡ **Adaptive Practice:**\n\nGo to the **Practice** tab on your dashboard. You can choose from Adaptive Practice, Chapter Drill, or Subject-wise practice.", "practice"),
+    'kb_public_mocks': ("🏆 **Mock Tests:**\n\nMock tests simulate the real exam environment. You can access them from your enrolled courses under 'Full-Length CBT Mock Tests'.", "catalog"),
+    'kb_daily_challenge': ("🔥 **Daily Challenge:**\n\nComplete 5 mixed questions every day on your Dashboard to build your streak and earn points!", ""),
 }
 
 GREETING = "Hello! 👋 I'm your **SL Exams Assistant** (Level 2).\n\n• 📊 **Data queries** — \"How many students in class 10?\"\n• 🏫 **School lookup** — \"Tell me about school Eesha\"\n• 🔍 **Find students** — \"Find student Rahul\" (fuzzy match!)\n• 📈 **Performance** — \"Show Rahul's scores\"\n• ✅ **Validate** — \"Check questions for errors\"\n• 📋 **Summary** — \"Give me a dashboard summary\"\n• 💬 **Memory** — I remember context in our conversation!\n\nJust ask!"
@@ -377,17 +381,20 @@ ALLOWED_INTENTS = {
     'admin': 'all',
     'school_admin': 'all',
     'student': ['greeting', 'my_rank', 'my_weaknesses', 'student_performance', 'kb_profile'],
-    'subject_specialist': ['greeting', 'question_count', 'validate_questions', 'dashboard_summary', 'kb_question_repo', 'kb_profile']
+    'subject_specialist': ['greeting', 'question_count', 'validate_questions', 'dashboard_summary', 'kb_question_repo', 'kb_profile'],
+    'public_user': ['greeting', 'kb_public_courses', 'kb_public_practice', 'kb_public_mocks', 'kb_daily_challenge']
 }
 
 ROLE_GREETINGS = {
     'student': "Hello! 👋 I'm your **Student Assistant**.\n\n• 🏆 **Rankings** — \"What is my rank in the last exam?\"\n• 📚 **Weaknesses** — \"What are my weak subjects?\"\n• 📈 **Performance** — \"Show my recent scores\"\n\nJust ask!",
     'subject_specialist': "Hello! 👋 I'm your **Repository Assistant**.\n\n• ✅ **Validate** — \"Check my questions for errors\"\n• 📊 **Status** — \"Give me a repo summary\"\n• 📚 **Count** — \"How many questions do we have?\"\n\nJust ask!",
+    'public_user': "Hello! 👋 I'm your **Learning Assistant**.\n\n• 📚 **Course Info** — \"What courses are available?\"\n• ⚡ **Practice** — \"How do I start practice?\"\n• 🏆 **Mock Tests** — \"Where can I find full length mock tests?\"\n• 🔥 **Daily Challenge** — \"What is the daily challenge?\"\n\nJust ask!",
 }
 
 ROLE_SUGGESTIONS = {
     'student': ["What is my rank?", "What are my weak subjects?", "Show my recent scores"],
     'subject_specialist': ["Check questions for errors", "Give me a repo summary", "How many questions do we have?"],
+    'public_user': ["What courses are available?", "How do I take a mock test?", "What is the daily challenge?"],
 }
 
 
@@ -460,6 +467,8 @@ def register_bot_routes(app, role_required):
                 resp = "🤔 I didn't quite get that. Try:\n\n• \"What is my rank?\"\n• \"What are my weak subjects?\"\n• \"Show my recent scores\""
             elif role == 'subject_specialist':
                 resp = "🤔 I didn't quite get that. Try:\n\n• \"Check questions for errors\"\n• \"Give me a repo summary\""
+            elif role == 'public_user':
+                resp = "🤔 I didn't quite get that. Try:\n\n• \"What courses are available?\"\n• \"How do I take a mock test?\"\n• \"What is the daily challenge?\""
             else:
                 resp = "🤔 I didn't quite get that. Try:\n\n• \"Dashboard summary\"\n• \"Tell me about school [name]\"\n• \"Find student [name]\"\n• \"Show Rahul's scores\"\n• \"Check questions for errors\""
 

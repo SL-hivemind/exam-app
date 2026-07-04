@@ -147,6 +147,10 @@ def classify_intent(msg):
         (r'(csv|import|upload|format)', 'kb_csv'),
         (r'(quick|link|share)\s+\w*\s*(exam|test)', 'kb_quick_exam'),
         (r'(profile|password|email|account)', 'kb_profile'),
+        (r'(course|catalog|available course)', 'kb_public_courses'),
+        (r'(practice|adaptive)', 'kb_public_practice'),
+        (r'(mock test|mock|cbt)', 'kb_public_mocks'),
+        (r'(daily|challenge|streak)', 'kb_daily_challenge'),
     ]
     for pattern, intent in rules:
         if re.search(pattern, m): return intent

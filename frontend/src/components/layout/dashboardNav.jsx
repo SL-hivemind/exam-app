@@ -11,6 +11,7 @@ import {
   MenuBook as MenuBookIcon,
   EditNote as EditNoteIcon,
   FlagOutlined as FlagIcon,
+  Assessment as AssessmentIcon,
 } from '@mui/icons-material';
 
 export const getBasePath = (role) =>
@@ -57,6 +58,7 @@ export function getDashboardSections(role) {
       {
         title: 'School Management',
         items: [
+          { text: 'Analytics', desc: 'Performance insights', icon: <AssessmentIcon />, path: '/school/analysis', color: 'orange' },
           { text: 'Students', desc: 'Accounts & enrollments', icon: <PeopleIcon />, path: '/school/students', color: 'blue' },
           { text: 'Exams', desc: 'Create & manage assessments', icon: <QuizIcon />, path: '/school/exams', color: 'indigo' },
           { text: 'Question Repository', desc: 'Shared question bank', icon: <RepoIcon />, path: '/school/repository/questions', color: 'success' },

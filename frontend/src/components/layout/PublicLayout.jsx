@@ -292,7 +292,7 @@ export default function PublicLayout() {
       <Outlet />
 
       {/* ── Chat Bot (For logged in users) ── */}
-      {isLoggedIn && <PlatformBot />}
+      {isLoggedIn && !location.pathname.includes('/mock') && !location.pathname.includes('/viewer') && <PlatformBot />}
     </Box>
   );
 }

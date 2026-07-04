@@ -867,9 +867,19 @@ def register_public_routes(app, token_required, role_required):
             available_query = available_query.filter(~PublicCourse.id.in_(enrolled_course_ids))
         available_courses = [c.to_dict() for c in available_query.all()]
 
+        # 3. Check daily challenge status
+        today = datetime.utcnow().date()
+        daily_challenge_completed = False
+        existing = PublicDailyChallengeAttempt.query.filter_by(
+            public_user_id=profile.id, challenge_date=today
+        ).first()
+        if existing and existing.completed_at:
+            daily_challenge_completed = True
+
         return jsonify({
             'dashboard_courses': dashboard_courses,
-            'available_courses': available_courses
+            'available_courses': available_courses,
+            'daily_challenge_completed': daily_challenge_completed
         }), 200
 
     # ═══════════════════════════════════════════════════
@@ -1451,29 +1461,62 @@ def register_public_routes(app, token_required, role_required):
             return jsonify({'message': 'Public profile required'}), 403
 
         data = request.get_json(silent=True) or {}
+        mode = data.get('mode')
         course_tags = (data.get('course_tags') or '').strip()
         subject = (data.get('subject') or '').strip()
         chapter = (data.get('chapter') or '').strip()
         difficulty = (data.get('difficulty') or '').strip()
         count = min(int(data.get('count', 20)), 50)
+        
+        selected_ids = []
+        if mode == 'mock':
+            is_jee = 'JEE' in course_tags.upper()
+            is_neet = 'NEET' in course_tags.upper()
+            
+            def get_random_ids(subj_query, count):
+                ids = [r[0] for r in subj_query.with_entities(PublicQuestionRepo.id).all()]
+                return random.sample(ids, min(count, len(ids))) if ids else []
 
-        query = PublicQuestionRepo.query
-        if course_tags:
-            query = query.filter(PublicQuestionRepo.course_tags.ilike(f'%{course_tags}%'))
-        if subject:
-            query = query.filter(PublicQuestionRepo.subject.ilike(subject))
-        if chapter:
-            query = query.filter(PublicQuestionRepo.chapter.ilike(f'%{chapter}%'))
-        if difficulty and difficulty != 'Random':
-            query = query.filter(PublicQuestionRepo.difficulty == difficulty)
+            if is_jee:
+                p_ids = get_random_ids(PublicQuestionRepo.query.filter(PublicQuestionRepo.subject.ilike('%Physics%')), 30)
+                c_ids = get_random_ids(PublicQuestionRepo.query.filter(PublicQuestionRepo.subject.ilike('%Chemistry%')), 30)
+                m_ids = get_random_ids(PublicQuestionRepo.query.filter(PublicQuestionRepo.subject.ilike('%Math%')), 30)
+                selected_ids = p_ids + c_ids + m_ids
+            elif is_neet:
+                p_ids = get_random_ids(PublicQuestionRepo.query.filter(PublicQuestionRepo.subject.ilike('%Physics%')), 45)
+                c_ids = get_random_ids(PublicQuestionRepo.query.filter(PublicQuestionRepo.subject.ilike('%Chemistry%')), 45)
+                b_ids = get_random_ids(PublicQuestionRepo.query.filter(PublicQuestionRepo.subject.ilike('%Botany%')), 45)
+                z_ids = get_random_ids(PublicQuestionRepo.query.filter(PublicQuestionRepo.subject.ilike('%Zoology%')), 45)
+                selected_ids = p_ids + c_ids + b_ids + z_ids
+            else:
+                # Fallback to a standard 90 question mock
+                ids = [r[0] for r in PublicQuestionRepo.query.with_entities(PublicQuestionRepo.id).all()]
+                selected_ids = random.sample(ids, min(90, len(ids))) if ids else []
+        else:
+            query = PublicQuestionRepo.query
+            if course_tags:
+                query = query.filter(PublicQuestionRepo.course_tags.ilike(f'%{course_tags}%'))
+            if subject:
+                query = query.filter(PublicQuestionRepo.subject.ilike(subject))
+            if chapter:
+                query = query.filter(PublicQuestionRepo.chapter.ilike(f'%{chapter}%'))
+            if difficulty and difficulty != 'Random':
+                query = query.filter(PublicQuestionRepo.difficulty == difficulty)
 
-        # Pull random questions
-        all_ids = [r[0] for r in query.with_entities(PublicQuestionRepo.id).all()]
-        if not all_ids:
-            return jsonify({'message': 'No questions found matching filters'}), 404
+            # Pull random questions for standard mode
+            all_ids = [r[0] for r in query.with_entities(PublicQuestionRepo.id).all()]
+            if not all_ids:
+                return jsonify({'message': 'No questions found matching filters'}), 404
+            selected_ids = random.sample(all_ids, min(count, len(all_ids)))
 
-        selected_ids = random.sample(all_ids, min(count, len(all_ids)))
-        questions = PublicQuestionRepo.query.filter(PublicQuestionRepo.id.in_(selected_ids)).all()
+        if not selected_ids:
+             return jsonify({'message': 'No questions found for the mock test'}), 404
+
+        # Preserve the order for mock tests (e.g. Physics then Chemistry then Math)
+        # SQLAlchemy in_() doesn't preserve order, so we fetch and reorder in Python
+        unordered_questions = PublicQuestionRepo.query.filter(PublicQuestionRepo.id.in_(selected_ids)).all()
+        q_map = {q.id: q for q in unordered_questions}
+        questions = [q_map[qid] for qid in selected_ids if qid in q_map]
 
         # Find a course_id to link (use first subscribed course or 0)
         sub = CourseSubscription.query.filter_by(public_user_id=profile.id, status='active').first()

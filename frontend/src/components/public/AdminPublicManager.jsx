@@ -468,7 +468,8 @@ export default function AdminPublicManager({ initialTab = 0 }) {
   };
 
   const inputSx = {
-    minWidth: '120px',
+    minWidth: '220px',
+    maxWidth: '100%',
     '& .MuiOutlinedInput-root': {
       fontFamily: ff, borderRadius: '10px', fontSize: '0.9rem',
     },

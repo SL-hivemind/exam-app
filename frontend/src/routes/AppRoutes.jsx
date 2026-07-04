@@ -28,6 +28,8 @@ import PrimaryExamFlow from "../components/primary/PrimaryExamFlow";
 import StudentAnalysisPage from "../components/StudentAnalysisPage";
 import ProfilePage from "../components/ProfilePage";
 
+import SchoolAnalyticsPage from "../components/admin/SchoolAnalyticsPage";
+
 // Auth
 import Login from "../components/Login";
 import ForgotPassword from "../components/ForgotPassword";
@@ -42,6 +44,7 @@ import PublicForgotPassword from "../components/public/PublicForgotPassword";
 import PublicExamInterface from "../components/public/PublicExamInterface";
 import PublicDashboard from "../components/public/PublicDashboard";
 import PublicPractice from "../components/public/PublicPractice";
+import PublicMockInterface from "../components/public/PublicMockInterface";
 import AdminPublicManager from "../components/public/AdminPublicManager";
 import ThinkletsPage from "../components/public/ThinkletsPage";
 
@@ -91,6 +94,7 @@ export default function AppRoutes() {
         </ProtectedRoute>
       }>
         <Route index element={<DashboardHome />} />
+        <Route path="analysis" element={<SchoolAnalyticsPage />} />
         <Route path="students" element={<AdminStudents />} />
         <Route path="exams" element={<AdminExams />} />
         <Route path="exams/:examId" element={<AdminExamDetail />} />
@@ -167,6 +171,11 @@ export default function AppRoutes() {
         <Route path="practice" element={
           <ProtectedRoute roles={["public_user"]}>
             <PublicPractice />
+          </ProtectedRoute>
+        } />
+        <Route path="mock" element={
+          <ProtectedRoute roles={["public_user"]}>
+            <PublicMockInterface />
           </ProtectedRoute>
         } />
       </Route>
