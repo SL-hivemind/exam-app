@@ -378,6 +378,19 @@ export default function StudentExamQuestionsPage() {
                         );
                       })}
                     </Box>
+
+                    {/* ACTION BUTTONS */}
+                    <Box sx={{ display: 'flex', gap: 1.5, mt: 3, flexWrap: 'wrap' }}>
+                      <Button 
+                        variant="outlined"
+                        onClick={() => {
+                           setMcqAnswers(prev => { const next = {...prev}; delete next[q.id]; return next; });
+                        }}
+                        sx={{ fontFamily: ff, fontWeight: 600, fontSize: '0.75rem', textTransform: 'none', borderRadius: 2, color: DARK.sub, borderColor: DARK.cardBorder, '&:hover': { bgcolor: 'rgba(255,255,255,0.05)', borderColor: DARK.blueLight } }}
+                      >
+                        Clear Response
+                      </Button>
+                    </Box>
                   </Box>
                 </Box>
               );

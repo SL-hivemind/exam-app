@@ -86,10 +86,19 @@ export default function RepoReports() {
             <TableCell>{r.reporter_name}</TableCell>
             <TableCell>
               <StatusChip status={r.status} />
-              {r.status === 'resolved' && r.resolver_name && (
-                <Typography variant="caption" display="block" color="text.secondary" mt={0.5}>
-                  by {r.resolver_name}
-                </Typography>
+              {r.status === 'resolved' && (
+                <>
+                  {r.resolver_name && (
+                    <Typography variant="caption" display="block" color="text.secondary" mt={0.5}>
+                      by {r.resolver_name}
+                    </Typography>
+                  )}
+                  {r.resolution_notes && (
+                    <Typography variant="caption" display="block" color="success.main" mt={0.5} sx={{ whiteSpace: 'pre-wrap', p: 0.5, bgcolor: 'rgba(76, 175, 80, 0.08)', borderRadius: 1 }}>
+                      {r.resolution_notes}
+                    </Typography>
+                  )}
+                </>
               )}
             </TableCell>
             <TableCell align="right">

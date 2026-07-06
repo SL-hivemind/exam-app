@@ -32,6 +32,7 @@ export function getDashboardSections(role) {
           { text: 'Students', desc: 'Accounts & enrollments', icon: <PeopleIcon />, path: '/admin/students', color: 'indigo' },
           { text: 'Schools', desc: 'Institutions & admins', icon: <ApartmentIcon />, path: '/admin/schools', color: 'orange' },
           { text: 'Question Repository', desc: 'Shared question bank', icon: <RepoIcon />, path: '/admin/repository/questions', color: 'success' },
+          { text: 'Reports', desc: 'Resolve flagged questions', icon: <FlagIcon />, path: '/admin/repository/reports', color: 'orange' },
           { text: 'Requests', desc: 'Student approvals', icon: <NotificationsIcon />, path: '/admin/requests', color: 'warning' },
           { text: 'Activity Log', desc: 'Audit trail', icon: <HistoryIcon />, path: '/admin/activity-log', color: 'blue' },
         ],
