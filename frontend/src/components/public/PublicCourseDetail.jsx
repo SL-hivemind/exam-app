@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Box, Typography, Container, Grid, Card, CardContent, Chip, Button,
+  Box, Typography, Container,  Card, CardContent, Chip, Button,
   Skeleton, List, ListItem, ListItemIcon, ListItemText, Divider, Alert,
   CircularProgress, Dialog, DialogTitle, DialogContent, DialogActions,
 } from '@mui/material';
+import { GridLegacy as Grid } from '@mui/material';
 import QuizIcon from '@mui/icons-material/Quiz';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import LockIcon from '@mui/icons-material/Lock';

@@ -1,17 +1,14 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Box,
-  Container,
   Typography,
   Paper,
-  Grid,
   Stack,
   Chip,
   Alert,
   CircularProgress,
   Button,
-  Divider,
   FormControl,
   InputLabel,
   Select,
@@ -46,7 +43,6 @@ import {
   BubbleChart as BubbleChartIcon,
   Assessment as AssessmentIcon,
   TableChart as TableChartIcon,
-  Speed as SpeedIcon,
   AutoAwesome as AutoAwesomeIcon
 } from "@mui/icons-material";
 import {
@@ -71,6 +67,7 @@ import {
 } from "recharts";
 import api from "../utils/api";
 import useAuth from "../hooks/useAuth";
+import InfoTip from "./common/InfoTip";
 
 const ff = "'Inter', sans-serif";
 const PALETTE = {
@@ -165,28 +162,6 @@ function MiniHeader({ icon, iconBg, title, subtitle }) {
   );
 }
 
-function SectionHeader({ icon, title, subtitle }) {
-  return (
-    <RevealBox sx={{ mb: 3 }}>
-      <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 1.5 }}>
-        <Box sx={{ color: "#60a5fa", display: "flex" }}>{icon}</Box>
-        <Typography
-          variant="overline"
-          sx={{ fontFamily: ff, letterSpacing: "0.12em", color: "#93a3b8", fontWeight: 700, fontSize: "0.78rem" }}
-        >
-          {title}
-        </Typography>
-        {subtitle && (
-          <Typography variant="caption" sx={{ color: "#475569", fontFamily: ff, display: { xs: "none", sm: "block" } }}>
-            · {subtitle}
-          </Typography>
-        )}
-      </Stack>
-      <Divider sx={{ borderColor: "rgba(255,255,255,0.06)" }} />
-    </RevealBox>
-  );
-}
-
 function AnimatedBar({ value, color, delayMs = 150 }) {
   const [visible, setVisible] = useState(false);
   useEffect(() => {
@@ -213,6 +188,49 @@ function tierFor(pct) {
   if (pct >= 60) return { label: "Good", color: PALETTE.blueLight, bg: "rgba(96,165,250,0.12)" };
   if (pct >= 40) return { label: "Average", color: PALETTE.amber, bg: "rgba(251,191,36,0.12)" };
   return { label: "Needs Focus", color: PALETTE.red, bg: "rgba(248,113,113,0.12)" };
+}
+
+/* Glass dashboard card with an accent hairline on top + hover lift/glow.
+   Used by every tile so the whole page reads as one cohesive grid. */
+const cardSx = (accent = PALETTE.blue) => ({
+  position: "relative",
+  overflow: "hidden",
+  borderRadius: "20px",
+  bgcolor: "rgba(13,20,40,0.55)",
+  border: "1px solid rgba(148,163,184,0.10)",
+  backdropFilter: "blur(14px)",
+  backgroundImage: "linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0) 55%)",
+  boxShadow: "0 12px 34px rgba(2,6,23,0.45)",
+  transition: "transform .25s ease, border-color .25s ease, box-shadow .25s ease",
+  "&:hover": {
+    transform: "translateY(-3px)",
+    borderColor: "rgba(148,163,184,0.22)",
+    boxShadow: `0 18px 44px rgba(2,6,23,0.55), 0 0 26px ${accent}26`,
+  },
+  "&::before": {
+    content: '""',
+    position: "absolute",
+    top: 0, left: 0, right: 0, height: 2,
+    background: `linear-gradient(90deg, transparent 5%, ${accent} 50%, transparent 95%)`,
+    opacity: 0.9,
+  },
+});
+
+// Hoisted so it isn't recreated (and remounted by recharts) on every render.
+function ChartTooltip({ active, payload, label }) {
+  if (active && payload && payload.length) {
+    return (
+      <Box sx={{ bgcolor: "rgba(15,23,42,0.92)", border: "1px solid rgba(255,255,255,0.1)", p: 1.5, borderRadius: 2, backdropFilter: "blur(8px)" }}>
+        <Typography sx={{ color: "#fff", fontFamily: ff, fontSize: "0.85rem", fontWeight: 600, mb: 0.5 }}>{label}</Typography>
+        {payload.map((entry, index) => (
+          <Typography key={index} sx={{ color: entry.color, fontFamily: ff, fontSize: "0.85rem" }}>
+            {entry.name}: {entry.value}%
+          </Typography>
+        ))}
+      </Box>
+    );
+  }
+  return null;
 }
 
 /* --------------------------------------------------------------------- */
@@ -257,6 +275,75 @@ export default function StudentAnalysisPage() {
     setPage(0);
   }, [search, lastX]);
 
+  // Debounce ledger search so filtering a long exam history isn't recomputed per keystroke.
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 220);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  // Chart/KPI aggregation depends only on the fetched data + selected window.
+  // Memoize it so ledger search/sort/paging never re-crunches every chart.
+  const derived = useMemo(() => {
+    if (!data) return null;
+    const { chapter_breakdown, subject_breakdown, exam_wise } = data;
+    const allExamWise = exam_wise || [];
+    const win = lastX === "all" ? allExamWise : allExamWise.slice(-Number(lastX));
+    const timeline = win.map((e) => ({
+      label: e.submitted_time ? new Date(e.submitted_time).toLocaleDateString("en-US", { day: "2-digit", month: "short" }) : "-",
+      percentage: e.percentage || 0,
+      exam_title: e.exam_title,
+    }));
+    const attempted = win.length;
+    const avgPct = attempted ? Math.round(win.reduce((a, e) => a + (e.percentage || 0), 0) / attempted) : 0;
+    const validPct = win.filter((e) => e.percentile !== null && e.percentile !== undefined);
+    const avgPercentile = validPct.length ? Math.round(validPct.reduce((a, e) => a + (e.percentile || 0), 0) / validPct.length) : 0;
+    const trendDelta = attempted >= 2 ? Math.round((win[attempted - 1].percentage || 0) - (win[attempted - 2].percentage || 0)) : 0;
+    const earned = win.reduce((a, e) => a + Number(e.score || 0), 0);
+    const total = win.reduce((a, e) => a + Number(e.total_marks || 0), 0);
+    const piePct = total > 0 ? Math.round((earned / total) * 100) : 0;
+    const marksPieData = [
+      { name: "Marks Earned", value: earned, color: PALETTE.green },
+      { name: "Marks Remaining", value: Math.max(total - earned, 0), color: PALETTE.slate },
+    ];
+    const rowsWithTrend = win.map((e, idx) => {
+      const prev = idx > 0 ? win[idx - 1] : null;
+      return { ...e, _delta: prev ? Math.round((e.percentage || 0) - (prev.percentage || 0)) : null };
+    });
+    return {
+      timeline, attempted, avgPct, avgPercentile, trendDelta, pieTotal: total, piePct,
+      marksPieData, rowsWithTrend,
+      chapterChartData: (chapter_breakdown || []).slice(0, 12),
+      subjectChartData: (subject_breakdown || []).slice(0, 10),
+    };
+  }, [data, lastX]);
+
+  const sortedRows = useMemo(() => {
+    if (!derived) return [];
+    const q = debouncedSearch.toLowerCase();
+    const searched = derived.rowsWithTrend.filter((e) => (e.exam_title || "").toLowerCase().includes(q));
+    const cmp = (a, b) => {
+      let av, bv;
+      switch (orderBy) {
+        case "date": av = a.submitted_time ? new Date(a.submitted_time).getTime() : 0; bv = b.submitted_time ? new Date(b.submitted_time).getTime() : 0; break;
+        case "score": av = a.score || 0; bv = b.score || 0; break;
+        case "percentage": av = a.percentage || 0; bv = b.percentage || 0; break;
+        case "percentile": av = a.percentile || 0; bv = b.percentile || 0; break;
+        case "rank": av = a.rank || Infinity; bv = b.rank || Infinity; break;
+        default: av = (a.exam_title || "").toLowerCase(); bv = (b.exam_title || "").toLowerCase();
+      }
+      if (av < bv) return order === "asc" ? -1 : 1;
+      if (av > bv) return order === "asc" ? 1 : -1;
+      return 0;
+    };
+    return [...searched].sort(cmp);
+  }, [derived, debouncedSearch, order, orderBy]);
+
+  const paginatedRows = useMemo(
+    () => sortedRows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage),
+    [sortedRows, page, rowsPerPage]
+  );
+
   if (loading) {
     return (
       <Box sx={{ minHeight: "100vh", display: "flex", justifyContent: "center", alignItems: "center", bgcolor: "#0b1120" }}>
@@ -278,86 +365,16 @@ export default function StudentAnalysisPage() {
 
   if (!data) return null;
 
-  const { chapter_breakdown, subject_breakdown, exam_wise, improvement_needed, strengths } = data;
-  const allExamWise = exam_wise || [];
-  const filteredExamWise = lastX === "all" ? allExamWise : allExamWise.slice(-Number(lastX));
-
-  const filteredTimeline = filteredExamWise.map((e) => ({
-    label: e.submitted_time ? new Date(e.submitted_time).toLocaleDateString("en-US", { day: "2-digit", month: "short" }) : "-",
-    percentage: e.percentage || 0,
-    exam_title: e.exam_title
-  }));
-
-  const filteredAttempted = filteredExamWise.length;
-  const filteredAvgPct = filteredAttempted
-    ? Math.round(filteredExamWise.reduce((acc, e) => acc + (e.percentage || 0), 0) / filteredAttempted)
-    : 0;
-  const filteredValidPercentiles = filteredExamWise.filter((e) => e.percentile !== null && e.percentile !== undefined);
-  const filteredAvgPercentile = filteredValidPercentiles.length
-    ? Math.round(filteredValidPercentiles.reduce((acc, e) => acc + (e.percentile || 0), 0) / filteredValidPercentiles.length)
-    : 0;
-  const filteredTrendDelta = filteredAttempted >= 2
-    ? Math.round((filteredExamWise[filteredAttempted - 1].percentage || 0) - (filteredExamWise[filteredAttempted - 2].percentage || 0))
-    : 0;
+  const { improvement_needed, strengths } = data;
+  const {
+    timeline: filteredTimeline,
+    attempted: filteredAttempted,
+    avgPct: filteredAvgPct,
+    avgPercentile: filteredAvgPercentile,
+    trendDelta: filteredTrendDelta,
+    pieTotal, piePct, marksPieData, chapterChartData, subjectChartData,
+  } = derived;
   const trendPositive = filteredTrendDelta >= 0;
-
-  const pieEarned = filteredExamWise.reduce((acc, e) => acc + Number(e.score || 0), 0);
-  const pieTotal = filteredExamWise.reduce((acc, e) => acc + Number(e.total_marks || 0), 0);
-  const pieRemaining = Math.max(pieTotal - pieEarned, 0);
-  const piePct = pieTotal > 0 ? Math.round((pieEarned / pieTotal) * 100) : 0;
-
-  const marksPieData = [
-    { name: "Marks Earned", value: pieEarned, color: PALETTE.green },
-    { name: "Marks Remaining", value: pieRemaining, color: PALETTE.slate }
-  ];
-
-  const chapterChartData = (chapter_breakdown || []).slice(0, 12);
-  const subjectChartData = (subject_breakdown || []).slice(0, 10);
-
-  // ---- Ledger: trend deltas, search, sort, pagination ----
-  const rowsWithTrend = filteredExamWise.map((e, idx) => {
-    const prev = idx > 0 ? filteredExamWise[idx - 1] : null;
-    const delta = prev ? Math.round((e.percentage || 0) - (prev.percentage || 0)) : null;
-    return { ...e, _delta: delta };
-  });
-
-  const searchedRows = rowsWithTrend.filter((e) =>
-    (e.exam_title || "").toLowerCase().includes(search.toLowerCase())
-  );
-
-  const comparator = (a, b) => {
-    let av, bv;
-    switch (orderBy) {
-      case "date":
-        av = a.submitted_time ? new Date(a.submitted_time).getTime() : 0;
-        bv = b.submitted_time ? new Date(b.submitted_time).getTime() : 0;
-        break;
-      case "score":
-        av = a.score || 0;
-        bv = b.score || 0;
-        break;
-      case "percentage":
-        av = a.percentage || 0;
-        bv = b.percentage || 0;
-        break;
-      case "percentile":
-        av = a.percentile || 0;
-        bv = b.percentile || 0;
-        break;
-      case "rank":
-        av = a.rank || Infinity;
-        bv = b.rank || Infinity;
-        break;
-      default:
-        av = (a.exam_title || "").toLowerCase();
-        bv = (b.exam_title || "").toLowerCase();
-    }
-    if (av < bv) return order === "asc" ? -1 : 1;
-    if (av > bv) return order === "asc" ? 1 : -1;
-    return 0;
-  };
-  const sortedRows = [...searchedRows].sort(comparator);
-  const paginatedRows = sortedRows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
   const handleSort = (key) => {
     if (orderBy === key) {
@@ -366,22 +383,6 @@ export default function StudentAnalysisPage() {
       setOrderBy(key);
       setOrder("desc");
     }
-  };
-
-  const CustomTooltip = ({ active, payload, label }) => {
-    if (active && payload && payload.length) {
-      return (
-        <Box sx={{ bgcolor: "rgba(15,23,42,0.92)", border: "1px solid rgba(255,255,255,0.1)", p: 1.5, borderRadius: 2, backdropFilter: "blur(8px)" }}>
-          <Typography sx={{ color: "#fff", fontFamily: ff, fontSize: "0.85rem", fontWeight: 600, mb: 0.5 }}>{label}</Typography>
-          {payload.map((entry, index) => (
-            <Typography key={index} sx={{ color: entry.color, fontFamily: ff, fontSize: "0.85rem" }}>
-              {entry.name}: {entry.value}%
-            </Typography>
-          ))}
-        </Box>
-      );
-    }
-    return null;
   };
 
   const columns = [
@@ -395,65 +396,53 @@ export default function StudentAnalysisPage() {
   ];
 
   return (
-    <Box sx={{ p: { xs: 1.5, md: 3 }, bgcolor: "#020617", minHeight: "100vh", color: "#f8fafc" }}>
+    <Box sx={{ p: { xs: 1.5, md: 2.5 }, bgcolor: "#020617", minHeight: "100vh", color: "#f8fafc" }}>
       <Toolbar />
-      <Container maxWidth="xl" disableGutters sx={{ px: { xs: 1, md: 2 } }}>
-
-        {/* ── HEADER CARD ── */}
+      {/* One master grid — every card is a tile, so the full width is always
+          covered with no dead space beside any section. */}
+      <Box
+        sx={{
+          display: "grid",
+          gap: { xs: 1.5, md: 2 },
+          gridTemplateColumns: { xs: "repeat(2, 1fr)", lg: "repeat(12, 1fr)" },
+          alignItems: "stretch",
+        }}
+      >
+        {/* ── HEADER BAR (slim, full width) ── */}
         <Paper
           sx={{
-            p: { xs: 2.5, md: 4 },
-            mb: 4,
-            borderRadius: 4,
-            color: "#fff",
-            position: "relative",
-            overflow: "hidden",
-            border: "1px solid rgba(255,255,255,0.08)",
-            background: "linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%)",
-            boxShadow: "0 20px 40px rgba(0,0,0,0.4)"
+            gridColumn: { xs: "span 2", lg: "span 12" },
+            ...cardSx("#f68914"),
+            p: { xs: 2, md: 2.5 },
           }}
         >
           <Box
             sx={{
-              position: "absolute", top: -100, right: -50, width: 320, height: 320,
-              background: "radial-gradient(circle, rgba(139,92,246,0.22) 0%, transparent 70%)", borderRadius: "50%",
-              animation: "floatBlob 9s ease-in-out infinite",
-              "@keyframes floatBlob": { "0%,100%": { transform: "translate(0,0)" }, "50%": { transform: "translate(-25px, 20px)" } }
+              position: "absolute", top: -110, right: -60, width: 280, height: 280, pointerEvents: "none",
+              background: "radial-gradient(circle, rgba(246,137,20,0.18) 0%, transparent 70%)", borderRadius: "50%",
             }}
           />
-          <Box
-            sx={{
-              position: "absolute", bottom: -60, left: 100, width: 220, height: 220,
-              background: "radial-gradient(circle, rgba(56,189,248,0.16) 0%, transparent 70%)", borderRadius: "50%",
-              animation: "floatBlob2 11s ease-in-out infinite",
-              "@keyframes floatBlob2": { "0%,100%": { transform: "translate(0,0)" }, "50%": { transform: "translate(20px, -18px)" } }
-            }}
-          />
-
-          <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" alignItems={{ xs: "flex-start", md: "center" }} spacing={3} sx={{ position: "relative", zIndex: 1 }}>
+          <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" alignItems={{ xs: "flex-start", md: "center" }} spacing={2} sx={{ position: "relative", zIndex: 1 }}>
             <Box>
               <Stack direction="row" alignItems="center" spacing={1.2}>
-                <AutoAwesomeIcon sx={{ fontSize: 20, color: "#c7d2fe" }} />
+                <AutoAwesomeIcon sx={{ fontSize: 20, color: "#ffce9e" }} />
                 <Typography
-                  variant="h4"
+                  variant="h5"
                   fontWeight={800}
                   sx={{
                     fontFamily: ff,
                     letterSpacing: "-0.02em",
-                    backgroundImage: "linear-gradient(90deg, #ffffff 0%, #c7d2fe 45%, #ffffff 100%)",
-                    backgroundSize: "200% 100%",
+                    backgroundImage: "linear-gradient(90deg, #ffffff 0%, #ffce9e 100%)",
                     WebkitBackgroundClip: "text",
                     backgroundClip: "text",
                     color: "transparent",
-                    animation: "shimmer 5s linear infinite",
-                    "@keyframes shimmer": { "0%": { backgroundPosition: "200% 0" }, "100%": { backgroundPosition: "-200% 0" } }
                   }}
                 >
                   Analytics Intelligence
                 </Typography>
               </Stack>
-              <Typography variant="body1" sx={{ opacity: 0.8, mt: 0.8, fontFamily: ff, maxWidth: 520 }}>
-                AI-driven insights into your performance trends, subject proficiencies, and strategic improvement areas.
+              <Typography variant="body2" sx={{ opacity: 0.75, mt: 0.4, fontFamily: ff }}>
+                Performance trends, subject proficiency and focus areas — {lastX === "all" ? "full history" : `last ${lastX} exams`}.
               </Typography>
             </Box>
             <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} alignItems={{ xs: "stretch", sm: "center" }} sx={{ width: { xs: "100%", sm: "auto" } }}>
@@ -478,55 +467,57 @@ export default function StudentAnalysisPage() {
           </Stack>
         </Paper>
 
-        {/* ── OVERVIEW / KPI METRICS ── */}
-        <SectionHeader icon={<SpeedIcon fontSize="small" />} title="Overview" subtitle={`Based on your ${lastX === "all" ? "full history" : `last ${lastX} exams`}`} />
-        <Grid container spacing={2.5} sx={{ mb: 5 }}>
-          {[
-            { title: "Exams Attempted", value: filteredAttempted, decimals: 0, icon: <SchoolIcon sx={{ color: "#60a5fa" }} />, color: "rgba(96,165,250,0.1)" },
-            { title: "Average Score", value: filteredAvgPct, decimals: 0, suffix: "%", bar: true, barColor: PALETTE.green, icon: <EmojiEventsIcon sx={{ color: "#34d399" }} />, color: "rgba(52,211,153,0.1)" },
-            { title: "Avg Percentile", value: filteredAvgPercentile, decimals: 0, bar: true, barColor: PALETTE.pink, icon: <InsightsIcon sx={{ color: "#f472b6" }} />, color: "rgba(244,114,182,0.1)" },
-            {
-              title: "Recent Trend",
-              value: filteredTrendDelta,
-              decimals: 0,
-              suffix: "%",
-              prefix: trendPositive ? "+" : "",
-              icon: trendPositive ? <TrendingUpIcon sx={{ color: "#34d399" }} /> : <TrendingDownIcon sx={{ color: "#f87171" }} />,
-              color: trendPositive ? "rgba(52,211,153,0.1)" : "rgba(248,113,113,0.1)"
-            }
-          ].map((kpi, index) => (
-            <Grid item xs={12} sm={6} md={3} key={index}>
-              <RevealBox delay={index * 90}>
-                <Paper
+        {/* ── KPI TILES ── */}
+        {[
+          { title: "Exams Attempted", accent: PALETTE.blueLight, info: "How many exams you completed in the selected window (change it with the Analysis Window dropdown above).", value: filteredAttempted, decimals: 0, icon: <SchoolIcon sx={{ fontSize: 22 }} /> },
+          { title: "Average Score", accent: PALETTE.green, info: "Your average percentage across these exams. 75%+ is excellent, 60%+ is good.", value: filteredAvgPct, decimals: 0, suffix: "%", bar: true, barColor: PALETTE.green, icon: <EmojiEventsIcon sx={{ fontSize: 22 }} /> },
+          { title: "Avg Percentile", accent: PALETTE.pink, info: "Percentile compares you with classmates who took the same exams. 80 means you scored better than 80% of them — higher is better.", value: filteredAvgPercentile, decimals: 0, bar: true, barColor: PALETTE.pink, icon: <InsightsIcon sx={{ fontSize: 22 }} /> },
+          {
+            title: "Recent Trend",
+            accent: trendPositive ? PALETTE.green : PALETTE.red,
+            info: "The change between your last two exam scores. +5% means your latest score was 5 points higher than the one before.",
+            value: filteredTrendDelta,
+            decimals: 0,
+            suffix: "%",
+            prefix: trendPositive ? "+" : "",
+            icon: trendPositive ? <TrendingUpIcon sx={{ fontSize: 22 }} /> : <TrendingDownIcon sx={{ fontSize: 22 }} />,
+          }
+        ].map((kpi, index) => (
+          <Box key={index} sx={{ gridColumn: { xs: "span 1", lg: "span 3" } }}>
+            <RevealBox delay={index * 80}>
+              <Paper sx={{ ...cardSx(kpi.accent), p: { xs: 1.75, md: 2.25 }, height: "100%", display: "flex", alignItems: "center", gap: 1.75 }}>
+                <Box
                   sx={{
-                    p: 3, borderRadius: 4, border: "1px solid rgba(255,255,255,0.05)", bgcolor: "#0f172a",
-                    boxShadow: "0 10px 30px rgba(0,0,0,0.2)", position: "relative", overflow: "hidden", height: "100%",
-                    transition: "transform .3s cubic-bezier(.16,.84,.44,1), box-shadow .3s ease, border-color .3s ease",
-                    "&:hover": { transform: "translateY(-4px)", boxShadow: "0 16px 40px rgba(0,0,0,0.35)", borderColor: "rgba(255,255,255,0.12)" }
+                    width: 46, height: 46, borderRadius: "14px", flexShrink: 0,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    color: "#fff",
+                    background: `linear-gradient(135deg, ${kpi.accent}, ${kpi.accent}88)`,
+                    boxShadow: `0 8px 20px ${kpi.accent}40`,
                   }}
                 >
-                  <Box sx={{ position: "absolute", top: 0, right: 0, p: 2, bgcolor: kpi.color, borderBottomLeftRadius: 24 }}>
-                    {kpi.icon}
-                  </Box>
-                  <Typography variant="caption" sx={{ color: "#94a3b8", fontFamily: ff, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                    {kpi.title}
-                  </Typography>
-                  <Typography variant="h3" fontWeight={800} sx={{ fontFamily: ff, color: "#f8fafc", mt: 1 }}>
+                  {kpi.icon}
+                </Box>
+                <Box sx={{ minWidth: 0, flex: 1 }}>
+                  <Stack direction="row" alignItems="center" spacing={0.6}>
+                    <Typography variant="caption" noWrap sx={{ color: "#94a3b8", fontFamily: ff, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", fontSize: "0.66rem" }}>
+                      {kpi.title}
+                    </Typography>
+                    {kpi.info && <InfoTip text={kpi.info} size={14} />}
+                  </Stack>
+                  <Typography sx={{ fontFamily: ff, fontWeight: 800, fontSize: { xs: "1.5rem", md: "1.85rem" }, color: "#f8fafc", lineHeight: 1.15 }}>
                     {kpi.prefix || ""}<AnimatedNumber value={kpi.value} decimals={kpi.decimals} />{kpi.suffix || ""}
                   </Typography>
                   {kpi.bar && <AnimatedBar value={Math.max(kpi.value, 0)} color={kpi.barColor} delayMs={200 + index * 100} />}
-                </Paper>
-              </RevealBox>
-            </Grid>
-          ))}
-        </Grid>
+                </Box>
+              </Paper>
+            </RevealBox>
+          </Box>
+        ))}
 
-        {/* ── PERFORMANCE TRENDS ── */}
-        <SectionHeader icon={<TrendingUpIcon fontSize="small" />} title="Performance Trends" subtitle="Score progression and mark distribution" />
-        <Grid container spacing={3} sx={{ mb: 5 }}>
-          <Grid item xs={12} lg={7}>
+        {/* ── PERFORMANCE VELOCITY ── */}
+        <Box sx={{ gridColumn: { xs: "span 2", lg: "span 8" } }}>
             <RevealBox>
-              <Paper sx={{ p: { xs: 2.5, md: 4 }, borderRadius: 4, border: "1px solid rgba(255,255,255,0.05)", bgcolor: "#0f172a", boxShadow: "0 10px 30px rgba(0,0,0,0.2)", height: { xs: 400, md: 460 } }}>
+              <Paper sx={{ ...cardSx(PALETTE.blue), p: { xs: 2, md: 2.75 }, height: { xs: 340, md: 400 } }}>
                 <MiniHeader
                   icon={<TrendingUpIcon sx={{ color: "#60a5fa", fontSize: 20 }} />}
                   iconBg="rgba(96,165,250,0.12)"
@@ -544,7 +535,7 @@ export default function StudentAnalysisPage() {
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                     <XAxis dataKey="label" stroke="#64748b" tick={{ fill: "#64748b", fontSize: 12, fontFamily: ff }} axisLine={false} tickLine={false} />
                     <YAxis domain={[0, 100]} stroke="#64748b" tick={{ fill: "#64748b", fontSize: 12, fontFamily: ff }} axisLine={false} tickLine={false} />
-                    <Tooltip content={<CustomTooltip />} />
+                    <Tooltip content={<ChartTooltip />} />
                     <Area
                       type="monotone" dataKey="percentage" name="Score" stroke="#3b82f6" strokeWidth={3}
                       fillOpacity={1} fill="url(#colorScore)" activeDot={{ r: 6, strokeWidth: 0, fill: "#60a5fa" }}
@@ -554,11 +545,12 @@ export default function StudentAnalysisPage() {
                 </ResponsiveContainer>
               </Paper>
             </RevealBox>
-          </Grid>
+        </Box>
 
-          <Grid item xs={12} lg={5}>
+        {/* ── MARKS DISTRIBUTION ── */}
+        <Box sx={{ gridColumn: { xs: "span 2", lg: "span 4" } }}>
             <RevealBox delay={100}>
-              <Paper sx={{ p: { xs: 2.5, md: 4 }, borderRadius: 4, border: "1px solid rgba(255,255,255,0.05)", bgcolor: "#0f172a", boxShadow: "0 10px 30px rgba(0,0,0,0.2)", height: { xs: 400, md: 460 }, display: "flex", flexDirection: "column" }}>
+              <Paper sx={{ ...cardSx(PALETTE.green), p: { xs: 2, md: 2.75 }, height: { xs: 340, md: 400 }, display: "flex", flexDirection: "column" }}>
                 <MiniHeader
                   icon={<DonutLargeIcon sx={{ color: "#34d399", fontSize: 20 }} />}
                   iconBg="rgba(52,211,153,0.12)"
@@ -605,15 +597,12 @@ export default function StudentAnalysisPage() {
                 )}
               </Paper>
             </RevealBox>
-          </Grid>
-        </Grid>
+        </Box>
 
-        {/* ── PROFICIENCY & FOCUS AREAS ── */}
-        <SectionHeader icon={<InsightsIcon fontSize="small" />} title="Proficiency & Focus Areas" subtitle="Where you're strong and where to focus next" />
-        <Grid container spacing={3} sx={{ mb: 5 }}>
-          <Grid item xs={12} md={6} lg={4}>
+        {/* ── SUBJECT PROFICIENCY (radar) ── */}
+        <Box sx={{ gridColumn: { xs: "span 2", md: "span 1", lg: "span 4" } }}>
             <RevealBox>
-              <Paper sx={{ p: { xs: 2.5, md: 3.5 }, borderRadius: 4, border: "1px solid rgba(255,255,255,0.05)", bgcolor: "#0f172a", boxShadow: "0 10px 30px rgba(0,0,0,0.2)", height: { xs: 400, md: 440 }, display: "flex", flexDirection: "column" }}>
+              <Paper sx={{ ...cardSx(PALETTE.purple), p: { xs: 2, md: 2.5 }, height: { xs: 340, md: 360 }, display: "flex", flexDirection: "column" }}>
                 <MiniHeader
                   icon={<BubbleChartIcon sx={{ color: "#8b5cf6", fontSize: 20 }} />}
                   iconBg="rgba(139,92,246,0.12)"
@@ -627,7 +616,7 @@ export default function StudentAnalysisPage() {
                         <PolarGrid stroke="rgba(255,255,255,0.1)" />
                         <PolarAngleAxis dataKey="subject" tick={{ fill: "#94a3b8", fontSize: 11, fontFamily: ff }} />
                         <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fill: "#475569", fontSize: 10 }} axisLine={false} />
-                        <Tooltip content={<CustomTooltip />} />
+                        <Tooltip content={<ChartTooltip />} />
                         <Radar name="Accuracy" dataKey="percentage" stroke="#8b5cf6" strokeWidth={2} fill="#8b5cf6" fillOpacity={0.4} isAnimationActive animationDuration={1300} animationEasing="ease-out" />
                       </RadarChart>
                     </ResponsiveContainer>
@@ -639,11 +628,12 @@ export default function StudentAnalysisPage() {
                 </Box>
               </Paper>
             </RevealBox>
-          </Grid>
+        </Box>
 
-          <Grid item xs={12} md={6} lg={4}>
+        {/* ── CORE STRENGTHS ── */}
+        <Box sx={{ gridColumn: { xs: "span 2", md: "span 1", lg: "span 4" } }}>
             <RevealBox delay={100}>
-              <Paper sx={{ p: 3, borderRadius: 4, border: "1px solid rgba(52,211,153,0.2)", bgcolor: "rgba(52,211,153,0.03)", height: { xs: "auto", md: 440 }, display: "flex", flexDirection: "column" }}>
+              <Paper sx={{ ...cardSx(PALETTE.green), p: { xs: 2, md: 2.5 }, height: { xs: 320, md: 360 }, display: "flex", flexDirection: "column" }}>
                 <MiniHeader
                   icon={<EmojiEventsIcon sx={{ color: "#34d399", fontSize: 20 }} />}
                   iconBg="rgba(52,211,153,0.2)"
@@ -668,11 +658,12 @@ export default function StudentAnalysisPage() {
                 </Box>
               </Paper>
             </RevealBox>
-          </Grid>
+        </Box>
 
-          <Grid item xs={12} md={12} lg={4}>
+        {/* ── GROWTH OPPORTUNITIES ── */}
+        <Box sx={{ gridColumn: { xs: "span 2", lg: "span 4" } }}>
             <RevealBox delay={200}>
-              <Paper sx={{ p: 3, borderRadius: 4, border: "1px solid rgba(248,113,113,0.2)", bgcolor: "rgba(248,113,113,0.03)", height: { xs: "auto", md: 440 }, display: "flex", flexDirection: "column" }}>
+              <Paper sx={{ ...cardSx(PALETTE.red), p: { xs: 2, md: 2.5 }, height: { xs: 320, md: 360 }, display: "flex", flexDirection: "column" }}>
                 <MiniHeader
                   icon={<TrendingDownIcon sx={{ color: "#f87171", fontSize: 20 }} />}
                   iconBg="rgba(248,113,113,0.2)"
@@ -697,21 +688,24 @@ export default function StudentAnalysisPage() {
                 </Box>
               </Paper>
             </RevealBox>
-          </Grid>
-        </Grid>
+        </Box>
 
         {/* ── CHAPTER ACCURACY ── */}
-        <SectionHeader icon={<AssessmentIcon fontSize="small" />} title="Chapter-Level Accuracy" subtitle="Detailed breakdown across all tested chapters" />
-        <Grid container spacing={3} sx={{ mb: 5 }}>
-          <Grid item xs={12}>
+        <Box sx={{ gridColumn: { xs: "span 2", lg: "span 12" } }}>
             <RevealBox>
-              <Paper sx={{ p: { xs: 2.5, md: 4 }, borderRadius: 4, border: "1px solid rgba(255,255,255,0.05)", bgcolor: "#0f172a", boxShadow: "0 10px 30px rgba(0,0,0,0.2)", height: { xs: 420, md: 480 } }}>
-                <ResponsiveContainer width="100%" height="100%">
+              <Paper sx={{ ...cardSx(PALETTE.amber), p: { xs: 2, md: 2.75 }, height: { xs: 400, md: 440 } }}>
+                <MiniHeader
+                  icon={<AssessmentIcon sx={{ color: "#fbbf24", fontSize: 20 }} />}
+                  iconBg="rgba(251,191,36,0.12)"
+                  title="Chapter-Level Accuracy"
+                  subtitle="Green 70%+ · amber 40–70% · red needs focus"
+                />
+                <ResponsiveContainer width="100%" height="84%">
                   <BarChart data={chapterChartData} layout="vertical" margin={{ top: 0, right: 20, bottom: 0, left: isMobile ? 0 : 40 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal vertical={false} />
                     <XAxis type="number" domain={[0, 100]} stroke="#64748b" tick={{ fill: "#64748b", fontSize: 12, fontFamily: ff }} axisLine={false} tickLine={false} />
                     <YAxis type="category" dataKey="chapter" width={isMobile ? 100 : 180} stroke="#64748b" tick={{ fill: "#94a3b8", fontSize: isMobile ? 10 : 12, fontFamily: ff }} axisLine={false} tickLine={false} />
-                    <Tooltip cursor={{ fill: "rgba(255,255,255,0.02)" }} content={<CustomTooltip />} />
+                    <Tooltip cursor={{ fill: "rgba(255,255,255,0.02)" }} content={<ChartTooltip />} />
                     <Bar dataKey="percentage" name="Accuracy" radius={[0, 4, 4, 0]} barSize={isMobile ? 16 : 24} isAnimationActive animationDuration={1300} animationEasing="ease-out">
                       {chapterChartData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.percentage > 70 ? "#34d399" : entry.percentage > 40 ? "#fbbf24" : "#f87171"} />
@@ -721,13 +715,18 @@ export default function StudentAnalysisPage() {
                 </ResponsiveContainer>
               </Paper>
             </RevealBox>
-          </Grid>
-        </Grid>
+        </Box>
 
         {/* ── EXAMINATION LEDGER ── */}
-        <SectionHeader icon={<TableChartIcon fontSize="small" />} title="Examination Ledger" subtitle="Complete, searchable history of every attempt" />
+        <Box sx={{ gridColumn: { xs: "span 2", lg: "span 12" } }}>
         <RevealBox>
-          <Paper sx={{ p: { xs: 2, md: 4 }, borderRadius: 4, border: "1px solid rgba(255,255,255,0.05)", bgcolor: "#0f172a", boxShadow: "0 10px 30px rgba(0,0,0,0.2)" }}>
+          <Paper sx={{ ...cardSx(PALETTE.blueLight), p: { xs: 2, md: 3 } }}>
+            <MiniHeader
+              icon={<TableChartIcon sx={{ color: "#60a5fa", fontSize: 20 }} />}
+              iconBg="rgba(96,165,250,0.12)"
+              title="Examination Ledger"
+              subtitle="Complete, searchable history of every attempt"
+            />
             <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "stretch", sm: "center" }} spacing={2} sx={{ mb: 3, px: { xs: 1, md: 0 } }}>
               <Typography sx={{ color: "#64748b", fontFamily: ff, fontSize: "0.85rem" }}>
                 {sortedRows.length} exam{sortedRows.length === 1 ? "" : "s"} {search ? "matching your search" : "on record"}
@@ -883,7 +882,8 @@ export default function StudentAnalysisPage() {
             )}
           </Paper>
         </RevealBox>
-      </Container>
+        </Box>
+      </Box>
     </Box>
   );
 }

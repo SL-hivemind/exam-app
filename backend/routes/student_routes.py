@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 from flask import jsonify, request
 from sqlalchemy import desc
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from models import (
     Exam,
@@ -37,10 +37,22 @@ def register_student_routes(
         query = ExamStudent.query.filter_by(student_id=student.user_id).join(Exam).order_by(desc(Exam.created_at))
         pagination = query.paginate(page=page, per_page=per_page, error_out=False)
 
+        # One attempts query for the whole page (avoids one query per exam).
+        page_exam_ids = [a.exam_id for a in pagination.items]
+        attempt_map = {}
+        if page_exam_ids:
+            attempt_map = {
+                a.exam_id: a
+                for a in StudentExamAttempt.query.filter(
+                    StudentExamAttempt.student_id == student.user_id,
+                    StudentExamAttempt.exam_id.in_(page_exam_ids),
+                ).all()
+            }
+
         exams_data = []
         for assignment in pagination.items:
             exam = assignment.exam
-            attempt = StudentExamAttempt.query.filter_by(exam_id=exam.id, student_id=student.user_id).first()
+            attempt = attempt_map.get(exam.id)
             in_progress = bool(attempt and attempt.submitted_time is None)
             exams_data.append(
                 {
@@ -122,7 +134,21 @@ def register_student_routes(
                 access_end_utc = to_utc_naive(exam.access_end)
                 allowed_end = min(allowed_end, access_end_utc)
             db.session.add(attempt)
-            db.session.commit()
+            try:
+                db.session.commit()
+            except IntegrityError:
+                # Race: two /start requests landed together (double-click or
+                # two tabs). The unique constraint kept one row — reuse it
+                # instead of returning a 500.
+                db.session.rollback()
+                attempt = StudentExamAttempt.query.filter_by(
+                    exam_id=exam.id, student_id=student.user_id
+                ).first()
+                if attempt is None:
+                    return jsonify({'message': 'could not start exam, please retry'}), 500
+                allowed_end = attempt.start_time + timedelta(minutes=exam.duration_minutes)
+                if exam.access_end:
+                    allowed_end = min(allowed_end, to_utc_naive(exam.access_end))
             return (
                 jsonify(
                     {
@@ -173,6 +199,16 @@ def register_student_routes(
             return jsonify({'message': 'exam already submitted'}), 403
 
         questions = Question.query.filter_by(exam_id=exam.id).all()
+
+        # Batch-fetch linked repo questions in ONE query (avoids N+1 under load).
+        repo_ids = [q.repo_question_id for q in questions if q.repo_question_id]
+        repo_map = {}
+        if repo_ids:
+            repo_map = {
+                r.id: r
+                for r in QuestionRepository.query.filter(QuestionRepository.id.in_(repo_ids)).all()
+            }
+
         questions_data = []
         for question in questions:
             final_text = question.text
@@ -184,7 +220,7 @@ def register_student_routes(
             final_image = question.image_path
 
             if question.repo_question_id:
-                repo_q = QuestionRepository.query.get(question.repo_question_id)
+                repo_q = repo_map.get(question.repo_question_id)
                 if repo_q:
                     final_text = repo_q.text
                     final_opt_a = repo_q.option_a
@@ -236,16 +272,23 @@ def register_student_routes(
         answers = payload.get('answers', [])
 
         try:
+            # Batch-fetch existing answers once (avoids one SELECT per answer).
+            existing_map = {
+                sa.question_id: sa
+                for sa in StudentAnswer.query.filter_by(attempt_id=attempt.id).all()
+            }
+            # Only accept question_ids that belong to THIS exam.
+            valid_qids = {
+                qid for (qid,) in db.session.query(Question.id).filter_by(exam_id=exam.id).all()
+            }
+
             for ans in answers:
                 qid = ans.get('question_id')
                 resp = ans.get('answer')
-                if not qid:
+                if not qid or qid not in valid_qids:
                     continue
 
-                existing = StudentAnswer.query.filter_by(
-                    attempt_id=attempt.id, question_id=qid
-                ).first()
-
+                existing = existing_map.get(qid)
                 if existing:
                     existing.answer = resp
                 else:
@@ -268,9 +311,12 @@ def register_student_routes(
         if attempt.submitted_time:
             return
 
+        # One query for the exam's questions instead of one per saved answer.
+        question_map = {q.id: q for q in Question.query.filter_by(exam_id=exam.id).all()}
+
         total_score = 0
         for sa in StudentAnswer.query.filter_by(attempt_id=attempt.id).all():
-            question = Question.query.get(sa.question_id)
+            question = question_map.get(sa.question_id)
             if not question:
                 continue
             is_correct = False
@@ -318,13 +364,23 @@ def register_student_routes(
 
         total_score = 0
         try:
+            # Batch-fetch this exam's questions and any auto-saved answers in
+            # TWO queries total (was 2 queries PER answer — the main submit
+            # bottleneck when a whole class submits at once).
+            question_map = {q.id: q for q in Question.query.filter_by(exam_id=exam.id).all()}
+            existing_map = {
+                sa.question_id: sa
+                for sa in StudentAnswer.query.filter_by(attempt_id=attempt.id).all()
+            }
+
             for ans in answers:
                 qid = ans.get('question_id')
                 resp = ans.get('answer')
                 if not qid:
                     continue
 
-                question = Question.query.get(qid)
+                # Only grade questions that belong to THIS exam.
+                question = question_map.get(qid)
                 if not question:
                     continue
 
@@ -335,9 +391,7 @@ def register_student_routes(
                     marks_awarded = int(question.marks or 0)
 
                 # Upsert: update if auto-saved answer exists, else insert
-                existing = StudentAnswer.query.filter_by(
-                    attempt_id=attempt.id, question_id=qid
-                ).first()
+                existing = existing_map.get(qid)
                 if existing:
                     existing.answer = resp
                     existing.is_correct = is_correct
@@ -359,9 +413,10 @@ def register_student_routes(
             db.session.commit()
             return jsonify({'message': 'submitted', 'score': total_score}), 200
 
-        except SQLAlchemyError as error:
+        except SQLAlchemyError:
             db.session.rollback()
-            return jsonify({'message': 'submission failed', 'detail': str(error.__dict__.get('orig') or error)}), 500
+            app.logger.exception('exam submission failed')
+            return jsonify({'message': 'submission failed - please try again'}), 500
 
     @app.get('/student/exams/<int:exam_id>/result')
     @role_required('student')
@@ -394,19 +449,44 @@ def register_student_routes(
         higher_scores = sum(1 for score in peer_scores if score > (attempt.score or 0))
         rank = higher_scores + 1 if peer_scores else None
 
+        # Batch everything: questions in one query, and ONE text-fallback
+        # query for legacy rows missing repo_question_id (was a full-table
+        # TEXT scan per answer — brutal when a whole class opens results).
+        question_map = {q.id: q for q in Question.query.filter_by(exam_id=exam.id).all()}
+
+        fallback_texts = []
+        for answer in attempt.answers:
+            question = question_map.get(answer.question_id)
+            if question is None:
+                continue
+            source = question.source
+            if not getattr(source, 'subject', None):
+                q_text = (getattr(source, 'text', None) or '').strip()
+                if q_text:
+                    fallback_texts.append(q_text)
+
+        fallback_map = {}
+        if fallback_texts:
+            for repo_row in (
+                QuestionRepository.query
+                .filter(QuestionRepository.text.in_(fallback_texts))
+                .order_by(QuestionRepository.id.asc())
+                .all()
+            ):
+                # ascending order + overwrite → highest id wins (same as before)
+                fallback_map[(repo_row.text or '').strip()] = repo_row
+
         answers_data = []
         for answer in attempt.answers:
-            question = Question.query.get(answer.question_id)
+            question = question_map.get(answer.question_id)
+            if question is None:
+                continue
             source = question.source
-            # Backward-compatibility: older picked questions may miss repo_question_id.
-            # Try lightweight text-based lookup to recover subject/chapter metadata.
             fallback_repo = None
             if not getattr(source, 'subject', None):
                 q_text = (getattr(source, 'text', None) or '').strip()
                 if q_text:
-                    fallback_repo = QuestionRepository.query.filter(
-                        QuestionRepository.text == q_text
-                    ).order_by(QuestionRepository.id.desc()).first()
+                    fallback_repo = fallback_map.get(q_text)
             answers_data.append(
                 {
                     'question_id': question.id,

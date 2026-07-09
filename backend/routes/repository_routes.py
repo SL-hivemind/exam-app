@@ -457,6 +457,12 @@ def register_repository_routes(app, token_required):
         
         result = []
         for r in reports:
+            resolution_notes = None
+            if r.status == 'resolved':
+                log = AuditLog.query.filter_by(action='REPORT_RESOLVED', target_type='report', target_id=r.id).first()
+                if log:
+                    resolution_notes = log.details
+
             result.append({
                 'id': r.id,
                 'repo_question_id': r.repo_question_id,
@@ -466,6 +472,7 @@ def register_repository_routes(app, token_required):
                 'created_at': r.created_at.isoformat() if r.created_at else None,
                 'resolved_at': r.resolved_at.isoformat() if r.resolved_at else None,
                 'resolver_name': r.resolver.username if r.resolver else None,
+                'resolution_notes': resolution_notes,
                 'question_text': r.question.text if r.question else None,
                 'question_custom_id': r.question.custom_id if r.question else None
             })

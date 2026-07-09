@@ -1,7 +1,10 @@
 import React,{useEffect,useState} from 'react';
 import {useParams,useNavigate} from 'react-router-dom';
-import {Box,Typography,Button,Paper,Stack,IconButton,Dialog,DialogTitle,DialogContent,DialogActions,TextField,Grid,Chip,CircularProgress,Snackbar,Alert} from '@mui/material';
-import {Delete as DeleteIcon,CloudUpload as CloudUploadIcon,Add as AddIcon,LibraryAdd as RepoIcon,Image as ImageIcon,Edit as EditIcon,Flag as FlagIcon} from '@mui/icons-material';
+import {Box,Typography,Button,Paper,Stack,IconButton,Dialog,DialogTitle,DialogContent,DialogActions,TextField,Chip,CircularProgress,Snackbar,Alert} from '@mui/material';
+import { GridLegacy as Grid } from '@mui/material';
+import {Delete as DeleteIcon,CloudUpload as CloudUploadIcon,Add as AddIcon,LibraryAdd as RepoIcon,Image as ImageIcon,Edit as EditIcon,Flag as FlagIcon,Download as DownloadIcon} from '@mui/icons-material';
+import downloadCsvTemplate from '../../utils/csvTemplates';
+import { WithHint, HelpCaption } from '../common/InfoTip';
 import api from '../../utils/api';
 import useAuth from '../../hooks/useAuth';
 import { PageHeader } from '../common';
@@ -52,6 +55,14 @@ finally{setUploadingImg(false);}
 };
 
 const handleAddManual=async()=>{
+// Guided validation before hitting the server
+if(!(newQ.text||'').trim()){notify('Please type the question text first.','warning');return;}
+const optCount=['option_a','option_b','option_c','option_d'].filter(k=>(newQ[k]||'').trim()).length;
+if(optCount<2){notify('Add at least two answer options (A and B).','warning');return;}
+const ca=(newQ.correct_answer||'').trim().toUpperCase();
+if(!ca){notify('Select the correct answer (A, B, C or D) so the exam can be auto-graded.','warning');return;}
+if(!['A','B','C','D'].includes(ca)){notify('Correct answer must be exactly A, B, C or D.','warning');return;}
+if(!(newQ[`option_${ca.toLowerCase()}`]||'').trim()){notify(`You marked ${ca} as correct, but option ${ca} is empty — fill it in or pick another.`,'warning');return;}
 try{
 await api.post(`/admin/exams/${examId}/questions`,newQ);
 setOpenDialog(false);
@@ -109,11 +120,23 @@ return(
   title="Exam Questions"
   subtitle={`Managing content for Exam #${examId}`}
   actions={<>
-    <Button variant="outlined" component="label" startIcon={<CloudUploadIcon/>}>Upload CSV<input type="file" hidden accept=".csv" onChange={handleCsvUpload}/></Button>
-    <Button variant="outlined" color="secondary" startIcon={<RepoIcon/>} onClick={()=>navigate(`${basePath}/repository/questions?examId=${examId}`)}>Pick from Repo</Button>
-    <Button variant="contained" startIcon={<AddIcon/>} onClick={()=>setOpenDialog(true)}>Add Question</Button>
+    <WithHint hint="Downloads a sample .csv showing the exact columns for adding many questions at once. Fill it in Excel, then use Upload CSV.">
+      <Button variant="text" startIcon={<DownloadIcon/>} onClick={()=>downloadCsvTemplate('examQuestions')}>CSV Format</Button>
+    </WithHint>
+    <WithHint hint="Upload a filled-in .csv to add many questions to this exam in one go. Get the file layout from the CSV Format button first.">
+      <Button variant="outlined" component="label" startIcon={<CloudUploadIcon/>}>Upload CSV<input type="file" hidden accept=".csv" onChange={handleCsvUpload}/></Button>
+    </WithHint>
+    <WithHint hint="Choose ready-made questions from the shared question bank instead of typing them.">
+      <Button variant="outlined" color="secondary" startIcon={<RepoIcon/>} onClick={()=>navigate(`${basePath}/repository/questions?examId=${examId}`)}>Pick from Repo</Button>
+    </WithHint>
+    <WithHint hint="Type a single question by hand.">
+      <Button variant="contained" startIcon={<AddIcon/>} onClick={()=>setOpenDialog(true)}>Add Question</Button>
+    </WithHint>
   </>}
 />
+<HelpCaption sx={{mt:-1.5,mb:2}}>
+  Three ways to add questions: type them one by one (<b>Add Question</b>), pick from the shared bank (<b>Pick from Repo</b>), or bulk-upload from Excel (<b>CSV Format</b> → fill → <b>Upload CSV</b>).
+</HelpCaption>
 
 {loading&&<Box display="flex" justifyContent="center" py={4}><CircularProgress/></Box>}
 

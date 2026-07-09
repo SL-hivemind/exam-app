@@ -228,44 +228,7 @@ function SpotlightCard({ children, className = "" }) {
   );
 }
 
-function CursorGlow({ targetRef }) {
-  const glowRef = useRef(null);
-  const pos = useRef({ x: 0, y: 0 });
-  const cur = useRef({ x: 0, y: 0 });
-
-  useEffect(() => {
-    const el = targetRef.current;
-    if (!el) return;
-    const reduceMotion =
-      window.matchMedia &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduceMotion) return;
-
-    const onMove = (e) => {
-      const rect = el.getBoundingClientRect();
-      pos.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-    };
-    el.addEventListener("mousemove", onMove);
-
-    let raf;
-    const tick = () => {
-      cur.current.x += (pos.current.x - cur.current.x) * 0.12;
-      cur.current.y += (pos.current.y - cur.current.y) * 0.12;
-      if (glowRef.current) {
-        glowRef.current.style.transform = `translate(${cur.current.x}px, ${cur.current.y}px)`;
-      }
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-
-    return () => {
-      el.removeEventListener("mousemove", onMove);
-      cancelAnimationFrame(raf);
-    };
-  }, [targetRef]);
-
-  return <div ref={glowRef} className="cursor-glow" />;
-}
+/* CursorGlow removed — replaced by mouse-interactive ThreeOrbit */
 
 function Marquee({ items, duration = 26 }) {
   return (
@@ -298,8 +261,8 @@ function ImpactStat({ stat }) {
   );
 }
 
-/* Rotating wireframe accent behind the hero mockup */
-function ThreeOrbit({ className }) {
+/* Rotating wireframe accent behind the hero mockup — mouse-interactive */
+function ThreeOrbit({ className, containerRef }) {
   const mountRef = useRef(null);
 
   useEffect(() => {
@@ -349,18 +312,65 @@ function ThreeOrbit({ className }) {
     mesh3.rotation.y = Math.PI / 5;
     scene.add(mesh3);
 
+    /* --- Mouse-driven spin ------------------------------------------------ */
+    const mouse = { x: 0, y: 0 };          // target  (-1…1)
+    const smoothMouse = { x: 0, y: 0 };    // lerped  (-1…1)
+    let isHovering = false;
+
+    const container = containerRef?.current || mount;
+
+    const onMouseMove = (e) => {
+      const rect = container.getBoundingClientRect();
+      mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;   // -1 → 1
+      mouse.y = ((e.clientY - rect.top) / rect.height) * 2 - 1;   // -1 → 1
+    };
+    const onMouseEnter = () => { isHovering = true; };
+    const onMouseLeave = () => {
+      isHovering = false;
+      mouse.x = 0;
+      mouse.y = 0;
+    };
+
+    container.addEventListener("mousemove", onMouseMove);
+    container.addEventListener("mouseenter", onMouseEnter);
+    container.addEventListener("mouseleave", onMouseLeave);
+
+    /* --- Animation loop --------------------------------------------------- */
     let raf;
     const reduceMotion =
       window.matchMedia &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+    const LERP = 0.06;           // smoothing factor
+    const MOUSE_STRENGTH = 0.012; // how strongly mouse affects spin speed
+    const AUTO_SPEED = 1;         // multiplier for idle auto-rotation
+
     const animate = () => {
+      // Smoothly interpolate towards the mouse target
+      smoothMouse.x += (mouse.x - smoothMouse.x) * LERP;
+      smoothMouse.y += (mouse.y - smoothMouse.y) * LERP;
+
       if (!reduceMotion) {
-        mesh1.rotation.x += 0.0022;
-        mesh1.rotation.y += 0.0032;
-        mesh2.rotation.z += 0.0016;
-        mesh3.rotation.z -= 0.001;
+        // Base auto-rotation (always running)
+        mesh1.rotation.x += 0.0022 * AUTO_SPEED;
+        mesh1.rotation.y += 0.0032 * AUTO_SPEED;
+        mesh2.rotation.z += 0.0016 * AUTO_SPEED;
+        mesh3.rotation.z -= 0.001 * AUTO_SPEED;
+
+        // Mouse-driven extra spin layered on top
+        const mx = smoothMouse.x * MOUSE_STRENGTH;
+        const my = smoothMouse.y * MOUSE_STRENGTH;
+
+        mesh1.rotation.y += mx * 2.5;
+        mesh1.rotation.x += my * 2.5;
+
+        mesh2.rotation.z += mx * 1.2;
+        mesh2.rotation.x += my * 0.8;
+
+        mesh3.rotation.z -= mx * 0.9;
+        mesh3.rotation.y += my * 0.6;
       }
+
       renderer.render(scene, camera);
       raf = requestAnimationFrame(animate);
     };
@@ -379,6 +389,9 @@ function ThreeOrbit({ className }) {
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener("resize", handleResize);
+      container.removeEventListener("mousemove", onMouseMove);
+      container.removeEventListener("mouseenter", onMouseEnter);
+      container.removeEventListener("mouseleave", onMouseLeave);
       try {
         mount.removeChild(renderer.domElement);
       } catch (e) {}
@@ -390,7 +403,7 @@ function ThreeOrbit({ className }) {
       mat3.dispose();
       renderer.dispose();
     };
-  }, []);
+  }, [containerRef]);
 
   return <div ref={mountRef} className={className} />;
 }
@@ -431,7 +444,7 @@ export default function Home() {
     return () => obs.disconnect();
   }, []);
 
-  const headline = ["Question", "bank", "to", "report", "card."];
+  const headline = ["Everything's", "instant.", "Why", "not", "exams?"];
 
   return (
     <div className="slexam">
@@ -472,7 +485,7 @@ export default function Home() {
         .slexam button { font-family: inherit; }
 
         .mono { font-family: 'JetBrains Mono', monospace; }
-        .container { max-width: 1180px; margin: 0 auto; padding: 0 28px; }
+        .container { max-width: 1320px; margin: 0 auto; padding: 0 28px; }
 
         .reveal { opacity: 0; transform: translateY(26px); transition: opacity .8s cubic-bezier(.16,.84,.44,1), transform .8s cubic-bezier(.16,.84,.44,1); }
         .reveal-in { opacity: 1; transform: none; }
@@ -541,7 +554,7 @@ export default function Home() {
         }
         @keyframes gridMove { from { background-position: 0 0, 0 0; } to { background-position: 0 46px, 46px 0; } }
 
-        .hero-inner { position: relative; z-index: 2; display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 50px; align-items: center; }
+        .hero-inner { position: relative; z-index: 2; display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 64px; align-items: center; }
         .eyebrow { display: inline-flex; align-items: center; gap: 8px; padding: 7px 15px; border: 1px solid var(--border); border-radius: 999px; font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--amber-soft); background: rgba(245,166,35,0.07); margin-bottom: 26px; }
         .eyebrow-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--mint); box-shadow: 0 0 8px var(--mint); animation: pulseDot 1.8s ease-in-out infinite; }
         @keyframes pulseDot { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
@@ -551,19 +564,18 @@ export default function Home() {
         @keyframes wordUp { to { opacity: 1; transform: translateY(0); } }
         .hero-title-line2 { display: block; margin-top: 4px; }
 
-        .hero-sub { font-size: 17.5px; color: var(--text-dim); max-width: 480px; margin-bottom: 34px; }
+        .hero-sub { font-size: 17.5px; color: var(--text-dim); max-width: 560px; margin-bottom: 34px; }
         .hero-ctas { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 44px; }
         .hero-stats { display: flex; gap: 34px; flex-wrap: wrap; }
         .hero-stat-value { font-family: 'Space Grotesk', sans-serif; font-size: 22px; font-weight: 700; color: var(--text); }
         .hero-stat-label { font-size: 12.5px; color: var(--text-faint); margin-top: 2px; }
 
         /* ---------------- Hero visual / mockup ---------------- */
-        .hero-visual { position: relative; height: 480px; display: flex; align-items: center; justify-content: center; }
+        .hero-visual { position: relative; height: 520px; display: flex; align-items: center; justify-content: center; }
         .hero-three { position: absolute; inset: -40px; z-index: 0; }
-        .cursor-glow { position: absolute; top: 0; left: 0; width: 220px; height: 220px; margin-left: -110px; margin-top: -110px; background: radial-gradient(circle, rgba(245,166,35,0.2), rgba(108,124,255,0.1) 45%, transparent 70%); border-radius: 50%; pointer-events: none; filter: blur(6px); z-index: 1; mix-blend-mode: screen; opacity: 0; transition: opacity .3s ease; }
-        .hero-visual:hover .cursor-glow { opacity: 1; }
+        /* cursor-glow removed — 3D orbit is now mouse-interactive */
         .tilt-card { transition: transform .15s ease-out; transform-style: preserve-3d; }
-        .hero-mock { position: relative; z-index: 2; width: 100%; max-width: 420px; }
+        .hero-mock { position: relative; z-index: 2; width: 100%; max-width: 480px; }
         .mock-window { background: linear-gradient(180deg, var(--surface-2), var(--surface)); border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 40px 80px -30px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.02) inset; overflow: hidden; }
         .mock-topbar { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--border-soft); background: rgba(255,255,255,0.02); }
         .mock-dots { display: flex; gap: 6px; }
@@ -672,6 +684,27 @@ export default function Home() {
         .impact-label { font-size: 13.5px; color: var(--text-dim); margin-top: 6px; }
         @media (max-width: 640px) { .impact-grid { grid-template-columns: 1fr; } }
 
+        /* ---------------- Explore SL (beyond exams) ---------------- */
+        .explore-card { position: relative; overflow: hidden; border-radius: 20px; border: 1px solid var(--border); background: linear-gradient(135deg, rgba(245,166,35,0.07), rgba(108,124,255,0.07)), var(--surface); padding: 46px; display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 40px; align-items: center; }
+        .explore-orb { position: absolute; width: 340px; height: 340px; border-radius: 50%; filter: blur(60px); opacity: .35; pointer-events: none; }
+        .explore-orb-1 { background: radial-gradient(circle, rgba(245,166,35,0.5), transparent 70%); top: -120px; right: -80px; animation: exploreDrift 11s ease-in-out infinite; }
+        .explore-orb-2 { background: radial-gradient(circle, rgba(108,124,255,0.45), transparent 70%); bottom: -140px; left: -60px; animation: exploreDrift 13s ease-in-out infinite reverse; }
+        @keyframes exploreDrift { 0%,100% { transform: translate(0,0); } 50% { transform: translate(-24px, 18px); } }
+        .explore-chips { display: flex; flex-wrap: wrap; gap: 10px; margin: 22px 0 30px; }
+        .explore-chip { font-size: 13px; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--border); background: rgba(255,255,255,0.04); color: var(--text-dim); transition: all .25s ease; }
+        .explore-chip:hover { border-color: rgba(245,166,35,0.45); color: var(--text); transform: translateY(-2px); }
+        .explore-visual { position: relative; display: flex; align-items: center; justify-content: center; }
+        .explore-logo-ring { position: relative; width: 210px; height: 210px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+        .explore-logo-ring::before { content: ''; position: absolute; inset: 0; border-radius: 50%; padding: 2px; background: conic-gradient(from 0deg, var(--amber), var(--indigo), transparent 65%, var(--amber)); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; animation: exploreSpin 7s linear infinite; }
+        @keyframes exploreSpin { to { transform: rotate(360deg); } }
+        .explore-logo-ring img { width: 120px; height: 120px; border-radius: 26%; box-shadow: 0 18px 44px rgba(0,0,0,0.5); }
+        .explore-cta-row { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
+        .btn-explore { display: inline-flex; align-items: center; gap: 9px; padding: 13px 26px; border-radius: 12px; font-weight: 600; font-size: 15px; color: #1a1305; background: linear-gradient(135deg, var(--amber), #ffc25e); border: none; cursor: pointer; text-decoration: none; box-shadow: 0 10px 26px rgba(245,166,35,0.35); transition: transform .2s ease, box-shadow .2s ease; }
+        .btn-explore:hover { transform: translateY(-2px); box-shadow: 0 14px 34px rgba(245,166,35,0.5); }
+        .btn-explore svg { transition: transform .2s ease; }
+        .btn-explore:hover svg { transform: translateX(4px); }
+        @media (max-width: 860px) { .explore-card { grid-template-columns: 1fr; padding: 30px 22px; } .explore-visual { order: -1; } }
+
         /* ---------------- Testimonial ---------------- */
         .testimonial-inner { max-width: 740px; margin: 0 auto; text-align: center; }
         .testimonial-card { position: relative; border-radius: 20px; border: 1px solid var(--border); background: var(--surface); padding: 48px 44px; }
@@ -690,7 +723,8 @@ export default function Home() {
         @media (max-width: 720px) {
           .hero-inner { grid-template-columns: 1fr; }
           .hero { padding: 140px 0 70px; }
-          .hero-visual { height: 380px; order: -1; margin-bottom: 20px; }
+          /* Mobile: text/CTAs first, visual below (was order:-1 = visual on top) */
+          .hero-visual { height: 380px; margin-top: 8px; }
           .section { padding: 80px 0; }
           .spotlight-inner, .hero-inner { grid-template-columns: 1fr; }
           .cta-card { padding: 50px 24px; }
@@ -711,7 +745,7 @@ export default function Home() {
         <div className="container hero-inner">
           <div>
             <span className="eyebrow">
-              <span className="eyebrow-dot" /> For Schools, Not Spreadsheets
+              <span className="eyebrow-dot" /> Instant Exams. Instant Results.
             </span>
             <h1 className="hero-title">
               {headline.map((w, i) => (
@@ -723,12 +757,14 @@ export default function Home() {
                   {w}
                 </span>
               ))}
-              <span className="hero-title-line2 grad-text">Zero paper. Zero panic.</span>
+              <span className="hero-title-line2 grad-text">From question bank to report card — in seconds.</span>
             </h1>
             <p className="hero-sub">
-              SLExam runs your school's tests end to end — build the paper from a
-              curated question bank, monitor the hall live, and put every
-              student's report on their own phone before they've left the hall.
+              Instant delivery, instant food, instant payments — your school's exams
+              deserve the same speed. SLExam generates papers in under 60 seconds,
+              auto-grades the moment the last student submits, and delivers
+              analytics straight to every phone. You focus on building students —
+              we'll handle the entire exam ecosystem.
             </p>
             <div className="hero-ctas">
               <button className="btn btn-primary" onClick={() => navigate("/login")}>
@@ -754,8 +790,7 @@ export default function Home() {
           </div>
 
           <div className="hero-visual" ref={heroVisualRef}>
-            <CursorGlow targetRef={heroVisualRef} />
-            <ThreeOrbit className="hero-three" />
+            <ThreeOrbit className="hero-three" containerRef={heroVisualRef} />
             <TiltCard className="hero-mock">
               <div className="mock-window glow-border glow-border-always">
                 <div className="mock-topbar">
@@ -832,11 +867,12 @@ export default function Home() {
       <section className="section" id="lifecycle">
         <div className="container">
           <Reveal className="section-head">
-            <span className="section-eyebrow">The Exam Lifecycle</span>
-            <h2 className="section-title">One workflow, from paper to parent.</h2>
+            <span className="section-eyebrow">The Exam Ecosystem</span>
+            <h2 className="section-title">Your exams, handled end to end — instantly.</h2>
             <p className="section-desc">
-              Every exam your school runs moves through the same four stages.
-              SLExam is built around that journey, not around a feature list.
+              From paper creation to final report card, every step of the exam
+              lifecycle is automated so your team stays focused on what really
+              matters — building students.
             </p>
           </Reveal>
 
@@ -955,11 +991,11 @@ export default function Home() {
       <section className="section">
         <div className="container">
           <Reveal className="section-head">
-            <span className="section-eyebrow">Go Green</span>
-            <h2 className="section-title">Every exam you don't print.</h2>
+            <span className="section-eyebrow">Instant & Green</span>
+            <h2 className="section-title">Speed that saves trees.</h2>
             <p className="section-desc">
-              No paper, no printing queue, no storage room full of answer
-              sheets — and no cost that comes with them.
+              No paper, no printing queues, no manual mark-sheets — just
+              instant exams, instant results, and instant analytics.
             </p>
           </Reveal>
           <div className="impact-grid">
@@ -970,6 +1006,42 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ---------------- Explore SL (beyond exams) ---------------- */}
+      <section className="section" id="explore">
+        <div className="container">
+          <Reveal>
+            <div className="explore-card">
+              <div className="explore-orb explore-orb-1" />
+              <div className="explore-orb explore-orb-2" />
+              <div>
+                <span className="section-eyebrow">Beyond Exams</span>
+                <h2 className="section-title">Exams are just the beginning.</h2>
+                <p className="section-desc">
+                  SL Exams is one part of the Saaradaa Learknowations universe — books &
+                  publications, school support services and EdTech innovation, all under one roof.
+                </p>
+                <div className="explore-chips">
+                  {['📚 Publications & Books', '🏫 School Support Services', '🔬 E2E India & Journals', '💡 EdTech Innovations'].map((c) => (
+                    <span className="explore-chip" key={c}>{c}</span>
+                  ))}
+                </div>
+                <div className="explore-cta-row">
+                  <a className="btn-explore" href="https://theslpl.in" target="_blank" rel="noreferrer">
+                    Explore theslpl.in <ArrowRight size={17} />
+                  </a>
+                  <span style={{ fontSize: 13, color: 'var(--text-faint)' }}>Check out everything else we build →</span>
+                </div>
+              </div>
+              <div className="explore-visual">
+                <div className="explore-logo-ring">
+                  <img src="/sl-logo-master.svg" alt="Saaradaa Learknowations" />
+                </div>
+              </div>
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
       {/* ---------------- Testimonial ---------------- */}
       <section className="section" id="testimonial">
         <div className="container testimonial-inner">
@@ -977,10 +1049,10 @@ export default function Home() {
             <div className="testimonial-card glow-border">
               <div className="quote-mark">"</div>
               <p className="quote-text">
-                Slip-test Sunday used to mean an evening of manual averages. Now the
-                internal marks register keeps itself, and by the time I open my
-                dashboard for PTM, most students have already checked their own
-                report on their phone.
+                We used to spend entire weekends compiling marks manually. Now the
+                exam is generated in a minute, results are out the second it ends,
+                and parents see the analytics before we even leave the exam hall.
+                It freed us up to actually focus on the students.
               </p>
               <p className="quote-attrib">
                 — <strong>Exam Cell Coordinator</strong>, Higher Secondary School
@@ -996,11 +1068,11 @@ export default function Home() {
           <Reveal>
             <div className="cta-card glow-border glow-border-always">
               <h2 className="cta-title">
-                Give your staff room its <span className="grad-text">afternoons back.</span>
+                You build students. <span className="grad-text">We handle exams.</span>
               </h2>
               <p className="cta-sub">
-                See your own question bank, your own exam, running live —
-                in a 20-minute walkthrough with your team.
+                Instant paper generation, instant grading, instant analytics —
+                see the whole ecosystem live in a 20-minute walkthrough.
               </p>
               <div className="cta-actions">
                 <button className="btn btn-primary" onClick={() => navigate("/login")}>
@@ -1010,7 +1082,7 @@ export default function Home() {
                   Explore Public Exams
                 </button>
               </div>
-              <p className="cta-note">No paperwork. Ironically, that's the whole point.</p>
+              <p className="cta-note">Everything instant — because your time belongs to your students, not spreadsheets.</p>
             </div>
           </Reveal>
         </div>

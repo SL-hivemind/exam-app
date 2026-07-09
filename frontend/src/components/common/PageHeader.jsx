@@ -14,7 +14,14 @@ export default function PageHeader({ title, subtitle, actions, icon, onBack, sx 
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      sx={{ mb: 3.5, ...sx }}
+      sx={{
+        mb: 3.5,
+        pb: 2,
+        // gradient hairline anchors the header on every admin page
+        borderBottom: '1px solid transparent',
+        borderImage: 'linear-gradient(90deg, rgba(246,137,20,0.45), rgba(255,255,255,0.08) 45%, transparent 85%) 1',
+        ...sx,
+      }}
     >
       <Stack
         direction={{ xs: 'column', sm: 'row' }}
@@ -43,8 +50,8 @@ export default function PageHeader({ title, subtitle, actions, icon, onBack, sx 
               sx={{
                 width: { xs: 38, sm: 46 }, height: { xs: 38, sm: 46 }, borderRadius: 3, flexShrink: 0,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: '#fff', background: 'linear-gradient(135deg,#6366f1,#f68914)',
-                boxShadow: '0 8px 22px rgba(99,102,241,0.40)',
+                color: '#fff', background: 'linear-gradient(135deg,#f68914,#ffb054)',
+                boxShadow: '0 8px 22px rgba(246,137,20,0.40)',
               }}
             >
               {icon}

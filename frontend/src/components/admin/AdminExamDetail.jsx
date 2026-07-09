@@ -11,7 +11,7 @@ import {
   DialogContent,
   DialogActions,
   TextField,
-  Grid,
+  
   Alert,
   CircularProgress,
   FormControl,
@@ -35,7 +35,8 @@ import {
   CardContent,
   useMediaQuery,
   useTheme,
-} from "@mui/material";
+} from '@mui/material';
+import { GridLegacy as Grid } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
   Edit as EditIcon,

@@ -1,5 +1,6 @@
 import React from 'react';
-import { Box, Typography, Grid, Stack, Chip } from '@mui/material';
+import { Box, Typography,  Stack, Chip } from '@mui/material';
+import { GridLegacy as Grid } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import WavingHandIcon from '@mui/icons-material/WavingHand';

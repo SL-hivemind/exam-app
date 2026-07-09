@@ -330,7 +330,11 @@ class StudentExamAttempt(db.Model):
     submitted_time = db.Column(db.DateTime, nullable=True)
     score = db.Column(db.Integer, nullable=True)
     submission_reason = db.Column(db.String(50), nullable=True, default='manual')
-    __table_args__ = (db.UniqueConstraint('exam_id', 'student_id', name='uq_exam_attempt'),)
+    __table_args__ = (
+        db.UniqueConstraint('exam_id', 'student_id', name='uq_exam_attempt'),
+        # Peer-score/percentile queries filter on (exam_id, submitted_time).
+        db.Index('ix_attempt_exam_submitted', 'exam_id', 'submitted_time'),
+    )
 
 class StudentAnswer(db.Model):
     __tablename__ = 'student_answers'
@@ -341,6 +345,11 @@ class StudentAnswer(db.Model):
     is_correct = db.Column(db.Boolean, default=False)
     marks_awarded = db.Column(db.Integer, default=0)
     attempt = db.relationship('StudentExamAttempt', backref=db.backref('answers', lazy=True, cascade='all, delete-orphan'))
+    __table_args__ = (
+        # One answer row per question per attempt: speeds up the autosave/
+        # submit upserts and prevents duplicate rows from racing requests.
+        db.UniqueConstraint('attempt_id', 'question_id', name='uq_attempt_question'),
+    )
 
 # -------------------- OTP FOR PASSWORD RESET --------------------
 
@@ -663,6 +672,8 @@ class PublicQuestionRepo(db.Model):
     chapter = db.Column(db.String(100), nullable=True)              # e.g. 'Kinematics', 'Time & Work'
     topic = db.Column(db.String(150), nullable=True)                # e.g. 'Projectile Motion'
     difficulty = db.Column(db.String(20), default='Medium')         # 'Easy', 'Medium', 'Hard'
+    # 'mcq' | 'assertion_reason' | 'match' | 'statement' — competitive-exam formats
+    question_format = db.Column(db.String(30), default='mcq')
     is_pyq = db.Column(db.Boolean, default=False)
     pyq_year = db.Column(db.Integer, nullable=True)
     text = db.Column(db.Text, nullable=False)
@@ -685,6 +696,7 @@ class PublicQuestionRepo(db.Model):
             'chapter': self.chapter,
             'topic': self.topic,
             'difficulty': self.difficulty,
+            'question_format': self.question_format or 'mcq',
             'is_pyq': self.is_pyq,
             'pyq_year': self.pyq_year,
             'text': self.text,

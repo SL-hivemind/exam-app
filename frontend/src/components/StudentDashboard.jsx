@@ -3,9 +3,10 @@ import {
   Box, Typography, Paper, Button, Alert, Chip, IconButton, Container, Toolbar,
   Stack, List, ListItem, ListItemIcon, ListItemText,
   Dialog, DialogTitle, DialogContent, DialogActions, DialogContentText,
-  Grid, Card, CardContent, CardActions, Divider, Tooltip, Zoom, CircularProgress,
+   Card, CardContent, CardActions, Divider, Tooltip, Zoom, CircularProgress,
   TablePagination
 } from '@mui/material';
+import { GridLegacy as Grid } from '@mui/material';
 import {
   Refresh as RefreshIcon,
   EventNote as EventNoteIcon,
@@ -264,9 +265,13 @@ export default function StudentDashboard() {
             {loading ? (
               <Box display="flex" justifyContent="center" py={5}><CircularProgress /></Box>
             ) : exams.length === 0 && !error ? (
-              <Paper sx={{ p: 5, textAlign: 'center', borderRadius: 3, bgcolor: 'white', border: '1px solid #e0e0e0' }}>
+              <Paper sx={{ p: 5, textAlign: 'center', borderRadius: 3 }}>
                 <AssignmentIcon sx={{ fontSize: 60, color: 'text.disabled', mb: 2 }} />
                 <Typography variant="h6" color="text.secondary">No exams assigned yet.</Typography>
+                <Typography variant="body2" sx={{ color: 'text.secondary', mt: 1, maxWidth: 420, mx: 'auto' }}>
+                  Exams appear here when your school assigns one to you — check back later or ask your teacher.
+                  When an exam shows <b>Active</b>, click <b>Start Exam</b> before its end time.
+                </Typography>
               </Paper>
             ) : (
               <Stack spacing={3}>
@@ -294,13 +299,22 @@ export default function StudentDashboard() {
 
                           <CardContent sx={{ flexGrow: 1, p: 3 }}>
                             <Stack direction="row" justifyContent="space-between" alignItems="start" mb={2}>
-                              <Chip
-                                icon={status.icon}
-                                label={status.label}
-                                color={status.color}
-                                size="small"
-                                sx={{ fontWeight: 'bold' }}
-                              />
+                              <Tooltip arrow title={
+                                status.label === 'Results Pending' ? 'You finished this exam. Your score appears here once your school releases the results.'
+                                : status.label === 'Upcoming' ? 'This exam has not opened yet — the Start button activates at the start time shown below.'
+                                : status.label === 'Missed' ? 'The exam window closed before you started. Talk to your teacher if you need another chance.'
+                                : status.label === 'In Progress' ? 'You already started this exam — resume it before the timer runs out.'
+                                : status.label === 'Active' ? 'This exam is open now. Click Start Exam before the window closes.'
+                                : 'You completed this exam — open View Results to see your score and correct answers.'
+                              }>
+                                <Chip
+                                  icon={status.icon}
+                                  label={status.label}
+                                  color={status.color}
+                                  size="small"
+                                  sx={{ fontWeight: 'bold', cursor: 'help' }}
+                                />
+                              </Tooltip>
                               <Typography variant="caption" fontWeight={600} color="text.secondary">
                                 ID: {exam.id}
                               </Typography>

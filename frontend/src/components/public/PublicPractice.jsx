@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
-  Box, Container, Typography, Grid, Stack, Button, Chip, MenuItem, TextField,
+  Box, Container, Typography,  Stack, Button, Chip, MenuItem, TextField,
   LinearProgress, CircularProgress, Alert, IconButton, Tooltip,
 } from '@mui/material';
+import { GridLegacy as Grid } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import BoltIcon from '@mui/icons-material/Bolt';
 import ScienceIcon from '@mui/icons-material/Science';
@@ -36,7 +37,7 @@ export default function PublicPractice() {
   const [stage, setStage] = useState('setup'); // setup | run | result
   const [meta, setMeta] = useState({ subjects: [], chapters_by_subject: {}, total_questions: 0 });
   const [form, setForm] = useState({
-    scope: 'mixed', subject: '', chapter: '', count: 15,
+    scope: 'mixed', subject: '', chapter: '', count: 15, format: '',
     mode: params.get('mode') === 'adaptive' || !params.get('mode') ? 'adaptive' : params.get('mode'),
   });
   const [loading, setLoading] = useState(false);
@@ -128,10 +129,11 @@ export default function PublicPractice() {
           count: Number(form.count),
           subject: form.scope === 'mixed' ? '' : form.subject,
           chapter: form.scope === 'chapter' ? form.chapter : '',
+          mode: modeToUse,
+          question_format: form.format || '',
         };
         if (modeToUse === 'pyq') {
            payload.pyq_year = autoYear || params.get('year');
-           payload.course_tags = params.get('course_tags') || '';
         }
         r = await publicApi.practiceAdaptiveStart(payload);
         p = r.data.pool || { easy: [], medium: [], hard: [] };
@@ -216,45 +218,92 @@ export default function PublicPractice() {
   };
 
   /* ─────────────── SETUP ─────────────── */
+  const isPremium = !!meta.is_premium;
+  const lockMsg = 'This is a Premium feature — upgrade to a paid course to unlock it.';
+
   const renderSetup = () => {
     const chapters = form.subject ? (meta.chapters_by_subject?.[form.subject] || []) : [];
     const scopeOptions = [
       { k: 'mixed', label: 'Mixed', icon: <ShuffleIcon />, desc: 'All subjects & chapters' },
       { k: 'subject', label: 'Subject-wise', icon: <ScienceIcon />, desc: 'Focus on one subject' },
-      { k: 'chapter', label: 'Chapter-wise', icon: <AutoStoriesIcon />, desc: 'Drill a single chapter' },
+      { k: 'chapter', label: 'Chapter-wise', icon: <AutoStoriesIcon />, desc: 'Drill a single chapter', premium: true },
     ];
     const modes = [
-      { k: 'adaptive', label: 'Adaptive', hint: 'Difficulty adjusts as you go' },
+      { k: 'adaptive', label: 'Adaptive', hint: 'Difficulty adjusts as you go', premium: true },
       { k: 'easy', label: 'Easy', hint: '' },
       { k: 'medium', label: 'Medium', hint: '' },
       { k: 'hard', label: 'Hard', hint: '' },
       { k: 'random', label: 'Random', hint: 'Mixed difficulty' },
     ];
+    const formats = [
+      { k: '', label: 'All formats' },
+      { k: 'assertion_reason', label: 'Assertion & Reason' },
+      { k: 'match', label: 'Match the Following' },
+      { k: 'statement', label: 'Statement-based' },
+    ];
+
+    // Not enrolled yet → guide to the catalog instead of an empty builder.
+    if (meta.enrolled === false) {
+      return (
+        <Container maxWidth="sm" sx={{ py: 8, textAlign: 'center' }}>
+          <Typography sx={{ fontFamily: ff, fontWeight: 800, fontSize: '1.5rem', color: '#f5f8ff', mb: 1 }}>
+            Enroll in a course to start practicing
+          </Typography>
+          <Typography sx={{ fontFamily: ff, color: '#aeb9e0', mb: 3 }}>
+            Practice pulls questions from the course you're enrolled in (JEE, NEET…). Pick a course — free ones count too.
+          </Typography>
+          <Button variant="gradient" size="large" onClick={() => navigate('/public')}>Browse courses</Button>
+        </Container>
+      );
+    }
+
     return (
       <Container maxWidth="md" sx={{ py: { xs: 3, md: 5 } }}>
         <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 3 }}>
           <IconButton onClick={() => navigate('/public/dashboard')} sx={{ color: '#aab4dd', border: '1px solid rgba(255,255,255,0.12)' }}><ArrowBackIcon /></IconButton>
-          <Box>
+          <Box sx={{ flex: 1 }}>
             <Typography sx={{ fontFamily: ff, fontWeight: 800, fontSize: '1.6rem', color: '#f5f8ff' }}>Build a practice test</Typography>
-            <Typography sx={{ fontFamily: ff, color: '#aeb9e0', fontSize: '0.9rem' }}>Pick your scope, length and difficulty mode.</Typography>
+            <Typography sx={{ fontFamily: ff, color: '#aeb9e0', fontSize: '0.9rem' }}>
+              Pick your scope, length and difficulty mode.
+              {(meta.allowed_tags || []).length > 0 && <> · Your course: <b style={{ color: '#ffce9e' }}>{(meta.allowed_tags || []).join(', ')}</b></>}
+            </Typography>
           </Box>
+          <Chip
+            label={isPremium ? '⭐ Premium' : 'Free plan'}
+            sx={{ fontFamily: ff, fontWeight: 800, fontSize: '0.72rem',
+              background: isPremium ? 'linear-gradient(135deg,#f68914,#ffb054)' : 'rgba(255,255,255,0.08)',
+              color: isPremium ? '#1a1206' : '#aeb9e0', border: isPremium ? 'none' : '1px solid rgba(255,255,255,0.14)' }}
+          />
         </Stack>
 
         {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
+        {!isPremium && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            Free plan: {'2 practice sessions/day and 2 mock attempts'}. <b>Premium</b> unlocks Adaptive, Chapter-wise, format-based practice and unlimited sessions.
+          </Alert>
+        )}
 
         {/* Scope */}
         <Typography sx={{ fontFamily: ff, fontWeight: 700, color: '#cdd6f4', mb: 1.5 }}>1 · What do you want to practice?</Typography>
         <Grid container spacing={2} sx={{ mb: 3 }}>
-          {scopeOptions.map(o => (
+          {scopeOptions.map(o => {
+            const locked = o.premium && !isPremium;
+            return (
             <Grid item xs={12} sm={4} key={o.k}>
-              <GlassCard interactive glow="blue" onClick={() => setForm(f => ({ ...f, scope: o.k }))}
-                sx={{ p: 2.25, border: form.scope === o.k ? '1px solid rgba(246,137,20,0.55)' : undefined, background: form.scope === o.k ? 'linear-gradient(135deg, rgba(47,107,255,0.16), rgba(246,137,20,0.14))' : undefined }}>
-                <Box sx={{ width: 42, height: 42, borderRadius: '12px', mb: 1.25, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', background: 'linear-gradient(135deg,#2f6bff,#f68914)' }}>{o.icon}</Box>
+              <GlassCard interactive glow="blue"
+                onClick={() => locked ? setError(lockMsg) : setForm(f => ({ ...f, scope: o.k }))}
+                sx={{ p: 2.25, opacity: locked ? 0.65 : 1,
+                  border: form.scope === o.k ? '1px solid rgba(246,137,20,0.55)' : undefined,
+                  background: form.scope === o.k ? 'linear-gradient(135deg, rgba(47,107,255,0.16), rgba(246,137,20,0.14))' : undefined }}>
+                <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+                  <Box sx={{ width: 42, height: 42, borderRadius: '12px', mb: 1.25, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', background: 'linear-gradient(135deg,#2f6bff,#f68914)' }}>{o.icon}</Box>
+                  {locked && <Chip label="🔒 Premium" size="small" sx={{ fontFamily: ff, fontWeight: 700, fontSize: '0.62rem', bgcolor: 'rgba(246,137,20,0.14)', color: '#ffce9e', border: '1px solid rgba(246,137,20,0.3)' }} />}
+                </Stack>
                 <Typography sx={{ fontFamily: ff, fontWeight: 700, color: '#f5f8ff' }}>{o.label}</Typography>
                 <Typography sx={{ fontFamily: ff, fontSize: '0.78rem', color: '#a9b4dd' }}>{o.desc}</Typography>
               </GlassCard>
             </Grid>
-          ))}
+          );})}
         </Grid>
 
         {/* Subject / chapter selectors */}
@@ -291,20 +340,41 @@ export default function PublicPractice() {
         {/* Difficulty mode */}
         <Typography sx={{ fontFamily: ff, fontWeight: 700, color: '#cdd6f4', mb: 1.5 }}>3 · Difficulty mode</Typography>
         <Stack direction="row" spacing={1.25} sx={{ mb: 1.5 }} flexWrap="wrap" useFlexGap>
-          {modes.map(m => (
-            <Chip key={m.k} label={m.label} clickable onClick={() => setForm(f => ({ ...f, mode: m.k }))}
-              icon={m.k === 'adaptive' ? <BoltIcon sx={{ fontSize: 16 }} /> : undefined}
+          {modes.map(m => {
+            const locked = m.premium && !isPremium;
+            return (
+            <Chip key={m.k} label={locked ? `🔒 ${m.label}` : m.label} clickable
+              onClick={() => locked ? setError(lockMsg) : setForm(f => ({ ...f, mode: m.k }))}
+              icon={m.k === 'adaptive' && !locked ? <BoltIcon sx={{ fontSize: 16 }} /> : undefined}
               sx={{ fontFamily: ff, fontWeight: 700, px: 1.5, py: 2.2, borderRadius: '10px',
+                opacity: locked ? 0.6 : 1,
                 background: form.mode === m.k ? 'linear-gradient(135deg,#2f6bff,#f68914)' : 'rgba(255,255,255,0.05)',
                 color: form.mode === m.k ? '#fff' : '#aeb9e0', border: form.mode === m.k ? 'none' : '1px solid rgba(255,255,255,0.12)',
                 '& .MuiChip-icon': { color: form.mode === m.k ? '#fff' : '#ffb054' } }} />
-          ))}
+          );})}
         </Stack>
         {form.mode === 'adaptive' && (
           <Typography sx={{ fontFamily: ff, fontSize: '0.82rem', color: '#9fc1ff', mb: 3 }}>
             ⚡ Starts easy. Get it right → it gets harder. Miss one → it eases back. Find your level automatically.
           </Typography>
         )}
+
+        {/* Question format — Assertion & Reason / Match the Following (Premium) */}
+        <Typography sx={{ fontFamily: ff, fontWeight: 700, color: '#cdd6f4', mb: 1.5 }}>
+          4 · Question format {!isPremium && <Box component="span" sx={{ color: '#ffce9e', fontSize: '0.78rem' }}>· 🔒 Premium</Box>}
+        </Typography>
+        <Stack direction="row" spacing={1.25} sx={{ mb: 3 }} flexWrap="wrap" useFlexGap>
+          {formats.map(fm => {
+            const locked = fm.k !== '' && !isPremium;
+            return (
+            <Chip key={fm.k || 'all'} label={locked ? `🔒 ${fm.label}` : fm.label} clickable
+              onClick={() => locked ? setError(lockMsg) : setForm(f => ({ ...f, format: fm.k }))}
+              sx={{ fontFamily: ff, fontWeight: 700, px: 1.5, py: 2.2, borderRadius: '10px',
+                opacity: locked ? 0.6 : 1,
+                background: form.format === fm.k ? 'linear-gradient(135deg,#2f6bff,#f68914)' : 'rgba(255,255,255,0.05)',
+                color: form.format === fm.k ? '#fff' : '#aeb9e0', border: form.format === fm.k ? 'none' : '1px solid rgba(255,255,255,0.12)' }} />
+          );})}
+        </Stack>
 
         <Button variant="gradient" size="large" fullWidth onClick={startSession}
           disabled={loading || (form.scope !== 'mixed' && !form.subject)}

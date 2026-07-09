@@ -7,15 +7,16 @@ import GlassCard from './GlassCard';
  * <StatCard icon={<PeopleIcon/>} value={1240} label="Students" color="blue" trend="+12%" />
  */
 const COLORS = {
-  blue: { grad: 'linear-gradient(135deg,#3b82f6,#60a5fa)', fg: '#93c5fd', glow: 'blue' },
-  indigo: { grad: 'linear-gradient(135deg,#6366f1,#818cf8)', fg: '#a5b4fc', glow: 'indigo' },
-  purple: { grad: 'linear-gradient(135deg,#f68914,#ffb054)', fg: '#ffce9e', glow: 'purple' },
+  blue: { grad: 'linear-gradient(135deg,#f68914,#ffb054)', fg: '#ffce9e', glow: 'orange' },
+  indigo: { grad: 'linear-gradient(135deg,#f68914,#ffb054)', fg: '#ffce9e', glow: 'orange' },
+  purple: { grad: 'linear-gradient(135deg,#f68914,#ffb054)', fg: '#ffce9e', glow: 'orange' },
+  orange: { grad: 'linear-gradient(135deg,#f68914,#ffb054)', fg: '#ffce9e', glow: 'orange' },
   success: { grad: 'linear-gradient(135deg,#10b981,#34d399)', fg: '#6ee7b7', glow: 'success' },
   warning: { grad: 'linear-gradient(135deg,#f59e0b,#fbbf24)', fg: '#fcd34d', glow: 'warning' },
-  primary: { grad: 'linear-gradient(135deg,#6366f1,#818cf8)', fg: '#a5b4fc', glow: 'indigo' },
+  primary: { grad: 'linear-gradient(135deg,#f68914,#ffb054)', fg: '#ffce9e', glow: 'orange' },
 };
 
-export default function StatCard({ icon, value, label, color = 'indigo', trend, trendUp = true, onClick, sx }) {
+export default function StatCard({ icon, value, label, color = 'orange', trend, trendUp = true, onClick, sx }) {
   const c = COLORS[color] || COLORS.indigo;
   return (
     <GlassCard interactive glow={c.glow} onClick={onClick} sx={{ p: 2.5, height: '100%', ...sx }}>
@@ -26,7 +27,7 @@ export default function StatCard({ icon, value, label, color = 'indigo', trend, 
               width: 46, height: 46, borderRadius: 2.5,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               color: '#fff', background: c.grad,
-              boxShadow: `0 8px 22px rgba(99,102,241,0.35)`,
+              boxShadow: `0 8px 22px rgba(246,137,20,0.35)`,
             }}
           >
             {icon}

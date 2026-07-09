@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Box, Typography, Container, Grid, TextField, InputAdornment, Chip, Button,
+  Box, Typography, Container,  TextField, InputAdornment, Chip, Button,
   Skeleton, Stack, Divider,
 } from '@mui/material';
+import { GridLegacy as Grid } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import LockIcon from '@mui/icons-material/Lock';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
@@ -101,10 +102,29 @@ export default function PublicCatalog() {
     <Box sx={{ fontFamily: ff }}>
 
       {/* ═══════════ HERO ═══════════ */}
-      <Box sx={{ position: 'relative', overflow: 'hidden', py: { xs: 7, md: 12 }, px: 3 }}>
+      <Box sx={{
+        position: 'relative', overflow: 'hidden', py: { xs: 7, md: 12 }, px: 3,
+        '@keyframes catFloat': {
+          '0%, 100%': { transform: 'translate(-50%,-50%) translateY(0)' },
+          '50%': { transform: 'translate(-50%,-50%) translateY(-16px)' },
+        },
+        '@keyframes catDrift': {
+          '0%, 100%': { transform: 'translate(0,0) scale(1)' },
+          '50%': { transform: 'translate(-30px, 22px) scale(1.08)' },
+        },
+        '@media (prefers-reduced-motion: reduce)': { '& *': { animation: 'none !important' } },
+      }}>
+        {/* Drifting aurora orbs */}
+        <Box sx={{ position: 'absolute', top: -140, left: '-6%', width: 420, height: 420, borderRadius: '50%', pointerEvents: 'none', background: 'radial-gradient(circle, rgba(47,107,255,0.22), transparent 68%)', filter: 'blur(50px)', animation: 'catDrift 12s ease-in-out infinite' }} />
+        <Box sx={{ position: 'absolute', bottom: -160, right: '-4%', width: 460, height: 460, borderRadius: '50%', pointerEvents: 'none', background: 'radial-gradient(circle, rgba(246,137,20,0.20), transparent 68%)', filter: 'blur(50px)', animation: 'catDrift 15s ease-in-out infinite reverse' }} />
+
         <Box sx={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
           {FLOATING.map((e, i) => (
-            <Typography key={i} sx={{ position: 'absolute', top: e.top, left: e.left, fontSize: e.s, fontWeight: 900, color: '#fff', opacity: e.o, letterSpacing: 2, whiteSpace: 'nowrap', transform: 'translate(-50%,-50%)' }}>
+            <Typography key={i} sx={{
+              position: 'absolute', top: e.top, left: e.left, fontSize: e.s, fontWeight: 900, color: '#fff',
+              opacity: e.o, letterSpacing: 2, whiteSpace: 'nowrap', transform: 'translate(-50%,-50%)',
+              animation: `catFloat ${8 + (i % 4) * 1.6}s ease-in-out ${i * 0.7}s infinite`,
+            }}>
               {e.t}
             </Typography>
           ))}
@@ -122,7 +142,13 @@ export default function PublicCatalog() {
             />
             <Typography sx={{ fontFamily: ff, fontWeight: 800, fontSize: { xs: '2.1rem', md: '3.3rem' }, lineHeight: 1.12, letterSpacing: '-0.025em', color: '#f5f8ff', mb: 2 }}>
               Crack your exam with{' '}
-              <Box component="span" sx={{ background: 'linear-gradient(120deg,#6f9bff,#f68914)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+              <Box component="span" sx={{
+                background: 'linear-gradient(120deg,#6f9bff,#f68914,#6f9bff)',
+                backgroundSize: '220% 100%',
+                WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+                animation: 'catGrad 7s ease infinite',
+                '@keyframes catGrad': { '0%,100%': { backgroundPosition: '0% 50%' }, '50%': { backgroundPosition: '100% 50%' } },
+              }}>
                 extensive question banks
               </Box>
             </Typography>
@@ -145,9 +171,15 @@ export default function PublicCatalog() {
 
             {/* Category quick chips */}
             <Stack direction="row" spacing={1} justifyContent="center" flexWrap="wrap" useFlexGap sx={{ mb: 4 }}>
-              {CATEGORIES.map(c => (
-                <Chip key={c} label={c} clickable onClick={() => { setSearch(c); scrollToCatalog(); }}
-                  sx={{ fontFamily: ff, fontWeight: 600, bgcolor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', color: '#cdd6f4', '&:hover': { bgcolor: 'rgba(246,137,20,0.14)', borderColor: 'rgba(246,137,20,0.4)', color: '#ffce9e' } }} />
+              {CATEGORIES.map((c, i) => (
+                <Box key={c} component={motion.div}
+                  initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.35, delay: 0.3 + i * 0.06 }}>
+                  <Chip label={c} clickable onClick={() => { setSearch(c); scrollToCatalog(); }}
+                    sx={{ fontFamily: ff, fontWeight: 600, bgcolor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', color: '#cdd6f4',
+                      transition: 'all .2s ease',
+                      '&:hover': { bgcolor: 'rgba(246,137,20,0.14)', borderColor: 'rgba(246,137,20,0.4)', color: '#ffce9e', transform: 'translateY(-3px)' } }} />
+                </Box>
               ))}
             </Stack>
 
@@ -218,7 +250,7 @@ export default function PublicCatalog() {
                 return (
                   <Grid item xs={12} sm={6} md={4} key={course.id} sx={{ display: 'flex' }}>
                     <Box component={motion.div} initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.35, delay: (i % 3) * 0.05 }} sx={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
-                      <GlassCard interactive glow={isFree ? 'success' : 'orange'} onClick={() => navigate(`/public/course/${course.id}`)} sx={{ p: 0, flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                      <GlassCard interactive tilt sheen glow={isFree ? 'success' : 'orange'} onClick={() => navigate(`/public/course/${course.id}`)} sx={{ p: 0, flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                         {/* Media */}
                         <Box sx={{
                           height: 130, position: 'relative', display: 'flex', alignItems: 'flex-end', p: 2,
@@ -269,7 +301,7 @@ export default function PublicCatalog() {
           <Box sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 3 }}>
             {FEATURES.map((f, i) => (
               <Box key={i} sx={{ width: { xs: '100%', sm: 320, md: 260 }, display: 'flex' }}>
-                <GlassCard glow={f.color} sx={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 240 }}>
+                <GlassCard interactive tilt sheen glow={f.color} sx={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 240 }}>
                   <Box sx={{ width: 50, height: 50, borderRadius: '14px', mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff',
                     background: f.color === 'orange' ? 'linear-gradient(135deg,#f68914,#ff7a00)' : f.color === 'success' ? 'linear-gradient(135deg,#10b981,#34d399)' : f.color === 'indigo' ? 'linear-gradient(135deg,#5b6cff,#818cf8)' : 'linear-gradient(135deg,#2f6bff,#60a5fa)',
                     boxShadow: '0 8px 22px rgba(47,107,255,0.3)' }}>

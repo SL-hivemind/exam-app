@@ -1,9 +1,10 @@
 // src/components/Footer.jsx
 import React, { useState } from "react";
 import {
-  Box, Typography, Link, Container, Grid, IconButton, Stack,
+  Box, Typography, Link, Container,  IconButton, Stack,
   Dialog, DialogTitle, DialogContent, DialogActions, Button, Divider
-} from "@mui/material";
+} from '@mui/material';
+import { GridLegacy as Grid } from '@mui/material';
 import XIcon from '@mui/icons-material/X';
 import InstagramIcon from '@mui/icons-material/Instagram';
 import PinterestIcon from '@mui/icons-material/Pinterest';
@@ -11,8 +12,9 @@ import YouTubeIcon from '@mui/icons-material/YouTube';
 import LinkedInIcon from '@mui/icons-material/LinkedIn';
 import SchoolIcon from "@mui/icons-material/School";
 
-const oswald = "'Oswald', sans-serif";
-const inter = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
+// Brand font (matches the app theme) — previously Oswald, which clashed.
+const oswald = "'Plus Jakarta Sans', 'Inter', sans-serif";
+const inter = "'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
 
 export default function Footer() {
   const [openAbout, setOpenAbout] = useState(false);
@@ -39,7 +41,7 @@ export default function Footer() {
                 <Box sx={{
                   width: 42, height: 42, borderRadius: '12px',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: 'linear-gradient(135deg,#2f6bff,#f68914)',
+                  background: 'linear-gradient(135deg,#f68914,#ffb054)',
                   boxShadow: '0 8px 22px rgba(246,137,20,0.4)',
                 }}>
                   <SchoolIcon sx={{ fontSize: 24, color: 'white' }} />

@@ -2,9 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   Box, Paper, Typography, TextField, Button, Stack, Alert,
-  Grid, CircularProgress, Divider, Snackbar, Card, CardMedia,
+   CircularProgress, Divider, Snackbar, Card, CardMedia,
   FormControl, InputLabel, Select, MenuItem
 } from '@mui/material';
+import { GridLegacy as Grid } from '@mui/material';
 import {
   Save as SaveIcon,
   Delete as DeleteIcon,

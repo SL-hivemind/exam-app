@@ -70,7 +70,12 @@ export default function DashboardLayout() {
                 content: '""', position: 'absolute', left: 0, top: '18%', bottom: '18%', width: 3,
                 borderRadius: 3, background: 'linear-gradient(#2f6bff,#f68914)',
               } : {},
-              '&:hover': { bgcolor: 'rgba(255,255,255,0.06)', color: '#fff' },
+              transition: 'all .18s ease',
+              '&:hover': {
+                bgcolor: 'rgba(255,255,255,0.06)', color: '#fff',
+                transform: 'translateX(3px)',
+                '& .MuiListItemIcon-root': { color: '#ffb054' },
+              },
             }}
           >
             <ListItemIcon sx={{ minWidth: 0, mr: open ? 2 : 'auto', justifyContent: 'center', color: 'inherit' }}>
@@ -91,22 +96,28 @@ export default function DashboardLayout() {
     }}>
       <Toolbar sx={{ display: 'flex', alignItems: 'center', justifyContent: open ? 'space-between' : 'center', px: 2 }}>
         {open && (
-          <Stack direction="row" alignItems="center" spacing={1.25}>
-            <Box sx={{
-              width: 34, height: 34, borderRadius: '10px',
-              background: 'linear-gradient(135deg, #2f6bff, #f68914)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 6px 18px rgba(246,137,20,0.5)',
-            }}>
-              <SchoolIcon sx={{ color: '#fff', fontSize: 19 }} />
-            </Box>
-            <Typography variant="subtitle1" fontWeight={800} sx={{
-              background: 'linear-gradient(120deg,#ffffff,#ffce9e)',
-              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-            }}>
-              SL Admin
-            </Typography>
-          </Stack>
+          <Tooltip title="Open the SL Exams website home" placement="bottom">
+            <Stack
+              direction="row" alignItems="center" spacing={1.25}
+              onClick={() => navigate('/')}
+              sx={{ cursor: 'pointer', '&:hover': { opacity: 0.85 }, transition: 'opacity .15s ease' }}
+            >
+              <Box sx={{
+                width: 34, height: 34, borderRadius: '10px',
+                background: 'linear-gradient(135deg, #2f6bff, #f68914)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: '0 6px 18px rgba(246,137,20,0.5)',
+              }}>
+                <SchoolIcon sx={{ color: '#fff', fontSize: 19 }} />
+              </Box>
+              <Typography variant="subtitle1" fontWeight={800} sx={{
+                background: 'linear-gradient(120deg,#ffffff,#ffce9e)',
+                WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+              }}>
+                SL Admin
+              </Typography>
+            </Stack>
+          </Tooltip>
         )}
         <IconButton onClick={() => setOpen(!open)} sx={{ color: '#aab4dd' }}>
           {open ? <ChevronLeftIcon /> : <MenuIcon />}
@@ -156,9 +167,21 @@ export default function DashboardLayout() {
     </Box>
   );
 
-  const pageTitle = pathname === basePath
-    ? 'Dashboard'
-    : (pathname.split('/').filter(Boolean).pop()?.replace(/-/g, ' ') || '');
+  // Title from the matched nav item (not the raw URL slug), plus its section
+  // as a breadcrumb — so the AppBar always mirrors the sidebar wording.
+  const { pageTitle, pageSection } = useMemo(() => {
+    if (pathname === basePath) return { pageTitle: 'Dashboard', pageSection: null };
+    for (const section of sections) {
+      const hit = section.items.find(
+        (i) => i.path === activeItemPath
+      );
+      if (hit) return { pageTitle: hit.text, pageSection: section.title };
+    }
+    return {
+      pageTitle: pathname.split('/').filter(Boolean).pop()?.replace(/-/g, ' ') || '',
+      pageSection: null,
+    };
+  }, [pathname, basePath, sections, activeItemPath]);
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'transparent' }}>
@@ -182,9 +205,16 @@ export default function DashboardLayout() {
                 <MenuIcon />
               </IconButton>
             )}
-            <Typography variant="subtitle1" fontWeight={700} sx={{ textTransform: 'capitalize' }}>
-              {pageTitle}
-            </Typography>
+            <Box>
+              {pageSection && (
+                <Typography variant="caption" sx={{ color: '#7e8abb', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', fontSize: '0.62rem', display: 'block', lineHeight: 1.1 }}>
+                  {pageSection}
+                </Typography>
+              )}
+              <Typography variant="subtitle1" fontWeight={700} sx={{ textTransform: 'capitalize', lineHeight: 1.2 }}>
+                {pageTitle}
+              </Typography>
+            </Box>
           </Stack>
 
           <Stack direction="row" alignItems="center" spacing={2}>

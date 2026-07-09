@@ -9,10 +9,11 @@ import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
  * <GlassCard interactive tilt glow="indigo" onClick={...}>...</GlassCard>
  */
 const GLOWS = {
-  indigo: '0 20px 50px rgba(91,108,255,0.30)',
-  blue: '0 20px 50px rgba(47,107,255,0.32)',
   orange: '0 20px 50px rgba(246,137,20,0.34)',
-  purple: '0 20px 50px rgba(246,137,20,0.34)', // alias → orange
+  amber: '0 20px 50px rgba(246,137,20,0.34)',
+  indigo: '0 20px 50px rgba(246,137,20,0.34)',
+  blue: '0 20px 50px rgba(246,137,20,0.34)',
+  purple: '0 20px 50px rgba(246,137,20,0.34)',
   success: '0 20px 50px rgba(52,211,153,0.26)',
   warning: '0 20px 50px rgba(251,191,36,0.26)',
   none: '0 24px 60px rgba(2,6,23,0.6)',
@@ -22,7 +23,7 @@ export default function GlassCard({
   children,
   interactive = false,
   tilt = false,
-  glow = 'indigo',
+  glow = 'orange',
   onClick,
   sx,
   sheen = false,

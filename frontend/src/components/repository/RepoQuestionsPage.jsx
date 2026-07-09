@@ -8,10 +8,11 @@ import MatrixFormatter from '../../utils/MatrixFormatter';
 
 import {
   Button, Checkbox, Box, Typography, IconButton, Paper, Stack,
-  Grid, Chip, CircularProgress, TablePagination,
+   Chip, CircularProgress, TablePagination,
   Snackbar, Alert, Dialog, DialogTitle, DialogContent, DialogActions,
   Drawer, Divider
 } from '@mui/material';
+import { GridLegacy as Grid } from '@mui/material';
 
 import {
   Edit as EditIcon,
@@ -21,8 +22,11 @@ import {
   LibraryAdd as LibraryAddIcon,
   ArrowBack as ArrowBackIcon,
   Close as CloseIcon,
-  Delete as DeleteIcon
+  Delete as DeleteIcon,
+  Download as DownloadIcon
 } from '@mui/icons-material';
+import downloadCsvTemplate from '../../utils/csvTemplates';
+import { WithHint } from '../common/InfoTip';
 
 export default function RepoQuestionsPage() {
   const { user } = useAuth();
@@ -273,22 +277,35 @@ export default function RepoQuestionsPage() {
             )}
 
             {canAddRepo && (
-              <Button
-                variant="outlined"
-                component="label"
-                size="small"
-                startIcon={<CloudUploadIcon />}
-                disabled={busy}
-              >
-                {busy ? "Uploading..." : "Upload CSV"}
-                <input
-                  type="file"
-                  hidden
-                  accept=".csv"
-                  onChange={handleRepoCsvUpload}
-                />
-              </Button>
-
+              <>
+                <WithHint hint="Downloads a sample .csv showing the exact columns for bulk-adding questions to the repository. Fill it in Excel, then use Upload CSV. Duplicate questions are skipped automatically.">
+                  <Button
+                    variant="text"
+                    size="small"
+                    startIcon={<DownloadIcon />}
+                    onClick={() => downloadCsvTemplate('repoQuestions')}
+                  >
+                    CSV Format
+                  </Button>
+                </WithHint>
+                <WithHint hint="Upload a filled-in .csv to add many questions to the shared bank at once. Question IDs are generated automatically from class + subject + chapter.">
+                  <Button
+                    variant="outlined"
+                    component="label"
+                    size="small"
+                    startIcon={<CloudUploadIcon />}
+                    disabled={busy}
+                  >
+                    {busy ? "Uploading..." : "Upload CSV"}
+                    <input
+                      type="file"
+                      hidden
+                      accept=".csv"
+                      onChange={handleRepoCsvUpload}
+                    />
+                  </Button>
+                </WithHint>
+              </>
             )}
 
             {canAddRepo && (

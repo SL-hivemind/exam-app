@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-    Box, Typography, Paper, Grid, Alert, CircularProgress,
+    Box, Typography, Paper,  Alert, CircularProgress,
     Container, Stack, Chip, Button, LinearProgress, Tooltip as MuiTooltip, useTheme, useMediaQuery
 } from '@mui/material';
+import { GridLegacy as Grid } from '@mui/material';
 import {
     CheckCircle as CorrectIcon,
     Cancel as WrongIcon,
@@ -221,11 +222,14 @@ export default function StudentResultsPage() {
                                     )}
                                 </Box>
                                 {rank && participants ? (
-                                    <Chip
-                                        color="primary"
-                                        variant="outlined"
-                                        label={`Rank: ${rank} / ${participants}`}
-                                    />
+                                    <MuiTooltip arrow title={`Your position among everyone who took this exam — you placed ${rank} out of ${participants} students. Equal scores share the same rank.`}>
+                                        <Chip
+                                            color="primary"
+                                            variant="outlined"
+                                            label={`Rank: ${rank} / ${participants}`}
+                                            sx={{ cursor: 'help' }}
+                                        />
+                                    </MuiTooltip>
                                 ) : null}
                             </Stack>
                         </Grid>

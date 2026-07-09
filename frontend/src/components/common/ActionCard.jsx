@@ -8,15 +8,16 @@ import GlassCard from './GlassCard';
  * on hover and an arrow that slides in. Generalizes the "Quick Prep Hub" cards.
  */
 const GRADIENTS = {
-  blue: { grad: 'linear-gradient(135deg,#3b82f6,#60a5fa)', glow: 'blue' },
-  indigo: { grad: 'linear-gradient(135deg,#6366f1,#818cf8)', glow: 'indigo' },
-  purple: { grad: 'linear-gradient(135deg,#f68914,#ffb054)', glow: 'purple' },
+  blue: { grad: 'linear-gradient(135deg,#f68914,#ffb054)', glow: 'orange' },
+  indigo: { grad: 'linear-gradient(135deg,#f68914,#ffb054)', glow: 'orange' },
+  purple: { grad: 'linear-gradient(135deg,#f68914,#ffb054)', glow: 'orange' },
+  orange: { grad: 'linear-gradient(135deg,#f68914,#ffb054)', glow: 'orange' },
   success: { grad: 'linear-gradient(135deg,#10b981,#34d399)', glow: 'success' },
   warning: { grad: 'linear-gradient(135deg,#f59e0b,#fbbf24)', glow: 'warning' },
-  primary: { grad: 'linear-gradient(135deg,#6366f1,#818cf8)', glow: 'indigo' },
+  primary: { grad: 'linear-gradient(135deg,#f68914,#ffb054)', glow: 'orange' },
 };
 
-export default function ActionCard({ icon, title, description, color = 'indigo', onClick, sx }) {
+export default function ActionCard({ icon, title, description, color = 'orange', onClick, sx }) {
   const c = GRADIENTS[color] || GRADIENTS.indigo;
   return (
     <GlassCard
@@ -36,7 +37,7 @@ export default function ActionCard({ icon, title, description, color = 'indigo',
           width: 52, height: 52, borderRadius: 3, mb: 2,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           color: '#fff', background: c.grad,
-          boxShadow: '0 10px 26px rgba(99,102,241,0.40)',
+          boxShadow: '0 10px 26px rgba(246,137,20,0.40)',
         }}
       >
         {icon}

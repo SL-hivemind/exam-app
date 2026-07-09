@@ -5,7 +5,7 @@ import {
   Button,
   CircularProgress,
   Container,
-  Grid,
+  
   IconButton,
   InputAdornment,
   Paper,
@@ -14,7 +14,8 @@ import {
   Typography,
   Chip,
   Divider,
-} from "@mui/material";
+} from '@mui/material';
+import { GridLegacy as Grid } from '@mui/material';
 import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
 import LockResetIcon from "@mui/icons-material/LockReset";
@@ -249,13 +250,15 @@ export default function ProfilePage() {
   }
 
   return (
-    <>
-      {/* ─── Digital ID Badge (Floating outside all cards) ─── */}
-      {!isStudent && profile && (
-        <DynamicIDBadge profile={profile} />
-      )}
-
-      <Container maxWidth="md" sx={{ py: 3 }}>
+    <Container maxWidth="lg" sx={{ py: 3 }}>
+      {/* Two columns on desktop: form left, ID badge right — the badge used
+          to float fixed over the page and blocked clicks on the form. */}
+      <Box
+        sx={{
+          display: 'grid', gap: 3, alignItems: 'start',
+          gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1fr) 340px' },
+        }}
+      >
         <Paper sx={{ p: 3, borderRadius: 3 }}>
         <Stack
           direction="row"
@@ -640,8 +643,15 @@ export default function ProfilePage() {
             </Box>
           )}
         </Paper>
-      </Paper>
+        </Paper>
+
+        {/* Digital ID badge — its own sticky column, never over the form */}
+        {!isStudent && profile && (
+          <Box sx={{ display: { xs: 'none', lg: 'block' }, position: 'sticky', top: 88, height: 560 }}>
+            <DynamicIDBadge profile={profile} />
+          </Box>
+        )}
+      </Box>
     </Container>
-    </>
   );
 }

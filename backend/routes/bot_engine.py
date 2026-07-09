@@ -117,10 +117,26 @@ def get_effective_school(entities, current_user, memory_ctx=None):
     return None
 
 # ── Intent Classification ──
-def classify_intent(msg):
+def classify_intent(msg, role=None):
     m = msg.lower().strip().rstrip('?!.')
     if m in ("hi","hello","hey","help","good morning","good evening") or m.startswith("hi ") or m.startswith("hello "):
         return "greeting"
+
+    # Personal intents FIRST for learners: a student asking "show my recent
+    # scores" means THEIR scores, not an admin data query.
+    if role in ('student', 'public_user'):
+        personal_rules = [
+            (r'(when|what).*(next|upcoming).*(exam|test)', 'my_upcoming'),
+            (r'(upcoming|next|pending|assigned)\s+\w*\s*(exam|test)', 'my_upcoming'),
+            (r'(do i have|any)\s+\w*\s*(exam|test)', 'my_upcoming'),
+            (r'(my|show my|what.*my|latest|recent|last).*(score|result|mark|performance|percentage)', 'my_scores'),
+            (r'(how (am|did) i (do|doing)|my progress|my summary|how.*performing)', 'my_summary'),
+            (r'(my|what is my|did i).*(rank|position|place)', 'my_rank'),
+            (r'(my|what are my|which).*(weak|weakness|study|improve|lose marks)', 'my_weaknesses'),
+        ]
+        for pattern, intent in personal_rules:
+            if re.search(pattern, m): return intent
+
     rules = [
         (r'(my|what is my|did i).*(rank|position|place)', 'my_rank'),
         (r'(my|what are my|which).*(weak|weakness|study|improve|lose marks)', 'my_weaknesses'),

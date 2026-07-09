@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Box, Typography, Grid, Card, CardContent, Chip, Button, Avatar, Divider,
+  Box, Typography,  Card, CardContent, Chip, Button, Avatar, Divider,
   Skeleton, List, ListItem, ListItemIcon, ListItemText, Alert, CircularProgress,
   Select, MenuItem, FormControl, InputLabel, IconButton, Drawer, Collapse,
   useMediaQuery, useTheme, LinearProgress, Badge, Chip as MuiChip, Stack,
 } from '@mui/material';
+import { GridLegacy as Grid } from '@mui/material';
 import SchoolIcon from '@mui/icons-material/School';
 import QuizIcon from '@mui/icons-material/Quiz';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
@@ -186,7 +187,7 @@ export default function PublicDashboard() {
                 <Box onClick={() => setExpandedCourse(expandedCourse === dc.course.id ? null : dc.course.id)}
                   sx={{
                     display: 'flex', alignItems: 'center', gap: 1, px: 1.5, py: 0.8, borderRadius: '8px', cursor: 'pointer', mb: 0.3,
-                    color: expandedCourse === dc.course.id ? '#93c5fd' : '#64748b', '&:hover': { color: 'rgba(255,255,255,0.10)', bgcolor: 'rgba(255,255,255,0.03)' }, transition: 'all 0.15s'
+                    color: expandedCourse === dc.course.id ? '#93c5fd' : '#64748b', '&:hover': { color: '#e2e8f0', bgcolor: 'rgba(255,255,255,0.05)' }, transition: 'all 0.15s'
                   }}>
                   <Typography sx={{ fontFamily: ff, fontWeight: 500, fontSize: '0.78rem', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dc.course.title}</Typography>
                   {expandedCourse === dc.course.id ? <ExpandLessIcon sx={{ fontSize: 16 }} /> : <ExpandMoreIcon sx={{ fontSize: 16 }} />}
@@ -199,7 +200,7 @@ export default function PublicDashboard() {
                       <Box key={content.id} onClick={() => handleContentClick(content)}
                         sx={{
                           display: 'flex', alignItems: 'center', gap: 1, px: 1.5, py: 0.6, borderRadius: '6px', cursor: content.locked ? 'not-allowed' : 'pointer',
-                          opacity: content.locked ? 0.5 : 1, color: '#aeb9e0', '&:hover': { color: content.locked ? '#94a3b8' : 'rgba(255,255,255,0.10)', bgcolor: content.locked ? 'transparent' : 'rgba(255,255,255,0.03)' }
+                          opacity: content.locked ? 0.5 : 1, color: '#aeb9e0', '&:hover': { color: content.locked ? '#94a3b8' : '#e2e8f0', bgcolor: content.locked ? 'transparent' : 'rgba(255,255,255,0.05)' }
                         }}>
                         <QuizIcon sx={{ fontSize: 14, color: content.locked ? '#475569' : '#60a5fa' }} />
                         <Typography sx={{ fontFamily: ff, fontSize: '0.72rem', fontWeight: 500, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{content.title}</Typography>

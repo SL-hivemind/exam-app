@@ -8,6 +8,9 @@ from urllib.parse import quote_plus
 
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+from werkzeug.middleware.proxy_fix import ProxyFix
 from dotenv import load_dotenv
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy import desc, or_
@@ -49,6 +52,14 @@ print(f"Loaded environment from: {ENV_PATH}")
 
 app = Flask(__name__)
 
+# Render terminates TLS at its proxy — trust X-Forwarded-* so request.remote_addr
+# is the real client IP (otherwise rate limits would apply to the proxy, i.e.
+# to EVERYONE at once) and request.is_secure reflects the original scheme.
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
+
+# Reject oversized uploads before they tie up a worker or fill the disk.
+app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024  # 10 MB
+
 # ------------------------------
 # Config: DB + Secrets
 # ------------------------------
@@ -71,15 +82,25 @@ else:
     app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{os.path.join(BASE_DIR, 'app.db')}"
 
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", secrets.token_hex(32))
+
+# JWT secret MUST come from the environment. A random fallback breaks
+# multi-worker gunicorn (each worker would sign with a different key, so
+# ~half of all requests would fail auth) and logs everyone out on restart.
+_jwt_secret = os.getenv("JWT_SECRET_KEY")
+if not _jwt_secret:
+    raise RuntimeError(
+        "JWT_SECRET_KEY environment variable is required. "
+        "Set it in Render (and your local .env) to a long random string."
+    )
+app.config["JWT_SECRET_KEY"] = _jwt_secret
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", secrets.token_hex(32))
 
-
-
-# SQLAlchemy pool settings
+# SQLAlchemy pool settings — sized PER WORKER. Render runs gunicorn -w 2
+# --threads N, so total connections = workers x (pool_size + max_overflow).
+# 2 x (5 + 5) = 20 max, safely under Aurora free-tier max_connections.
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-    "pool_size": 8,
-    "max_overflow": 4,
+    "pool_size": 5,
+    "max_overflow": 5,
     "pool_recycle": 1800,
     "pool_pre_ping": True,
 }
@@ -115,6 +136,30 @@ os.makedirs(IMAGES_DIR, exist_ok=True)
 os.makedirs(CSV_DIR, exist_ok=True)
 
 # ------------------------------
+# Rate limiting (brute-force protection on auth/OTP endpoints only —
+# no global default so school NATs with many students aren't throttled)
+# ------------------------------
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=[],
+    storage_uri="memory://",
+)
+
+# ------------------------------
+# Security headers on every response
+# ------------------------------
+@app.after_request
+def set_security_headers(resp):
+    resp.headers.setdefault("X-Content-Type-Options", "nosniff")
+    resp.headers.setdefault("X-Frame-Options", "DENY")
+    resp.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    resp.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+    if request.headers.get("X-Forwarded-Proto", "").lower() == "https" or request.is_secure:
+        resp.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+    return resp
+
+# ------------------------------
 # Helpers
 # ------------------------------
 def token_from_request():
@@ -126,8 +171,8 @@ def token_from_request():
             token = parts[1].strip()
     if not token:
         token = request.headers.get("auth_token")
-    if not token:
-        token = request.args.get("token") or request.args.get("auth_token")
+    # NOTE: tokens are deliberately NOT accepted via URL query params —
+    # URLs end up in server logs, browser history and Referer headers.
     return token
 
 def token_required(f):
@@ -217,19 +262,22 @@ def serve_local_image(filename):
 register_repository_routes(app, token_required)
 register_student_routes(app, role_required, no_cache, to_utc_naive)
 register_analysis_routes(app, token_required)
-register_public_routes(app, token_required, role_required)
+register_public_routes(app, token_required, role_required, limiter)
 register_quick_routes(app, token_required, role_required)
 register_bot_routes(app, role_required)
 
 # ------------------------------
 # DB init
 # ------------------------------
-with app.app_context():
-    try:
-        db.create_all()
-        logger.info("Database tables ensured.")
-    except Exception as e:
-        logger.error(f"Database init failed: {e}")
+# Runs once per worker boot. Set AUTO_CREATE_TABLES=0 in Render once the
+# schema is stable to skip the reflection round-trips to Aurora on deploy.
+if os.getenv("AUTO_CREATE_TABLES", "1") != "0":
+    with app.app_context():
+        try:
+            db.create_all()
+            logger.info("Database tables ensured.")
+        except Exception as e:
+            logger.error(f"Database init failed: {e}")
 
 # ------------------------------
 # Health
@@ -242,6 +290,7 @@ def health():
 # AUTH
 # ------------------------------
 @app.post('/login')
+@limiter.limit("5 per minute; 30 per hour")
 def login():
     try:
         data = request.json or {}
@@ -282,13 +331,15 @@ def login():
         
         return jsonify({'auth_token': token, 'user': profile}), 200
     except Exception as e:
-        return jsonify({'message': 'Login failed', 'detail': str(e)}), 500
+        app.logger.exception('login failed')
+        return jsonify({'message': 'Login failed'}), 500
 
 
 # ------------------------------
 # FORGOT PASSWORD (public, no token required)
 # ------------------------------
 @app.post('/forgot-password/init')
+@limiter.limit("3 per minute; 10 per hour")
 def forgot_password_init():
     """Look up user by username. If admin role → send OTP. If student → create request."""
     data = request.get_json(silent=True) or {}
@@ -367,6 +418,7 @@ def forgot_password_init():
 
 
 @app.post('/forgot-password/reset')
+@limiter.limit("5 per minute; 20 per hour")
 def forgot_password_reset():
     """Verify OTP and set new password (admin roles only, no token needed)."""
     data = request.get_json(silent=True) or {}
@@ -472,13 +524,15 @@ def update_me_profile(current_user):
 
     except IntegrityError as ie:
         db.session.rollback()
-        return jsonify({'message': 'profile update failed - duplicate value', 'detail': str(ie)}), 409
+        return jsonify({'message': 'profile update failed - duplicate value'}), 409
     except Exception as e:
         db.session.rollback()
-        return jsonify({'message': 'profile update failed', 'detail': str(e)}), 500
+        app.logger.exception('profile update failed')
+        return jsonify({'message': 'profile update failed'}), 500
 
 
 @app.post('/me/request-otp')
+@limiter.limit("5 per hour")
 @token_required
 def request_otp(current_user):
     """Send a 6-digit OTP to the user's email for password reset."""
@@ -509,6 +563,7 @@ def request_otp(current_user):
 
 
 @app.post('/me/change-password')
+@limiter.limit("5 per minute; 20 per hour")
 @token_required
 def change_my_password(current_user):
     if current_user.role == 'student':
@@ -736,6 +791,7 @@ def admin_create_user(current_user):
         return jsonify({'message': 'username already exists'}), 409
 
     # generate password if not provided
+    generated = not password
     if not password:
         password = secrets.token_urlsafe(8)
 
@@ -757,11 +813,12 @@ def admin_create_user(current_user):
         except Exception as e:
             app.logger.error(f"Failed to send welcome email to {email}: {e}")
 
-    # Return generated password for admin to share (remove in production)
+    # One-time display of the password ONLY when we generated it (so the
+    # admin can share it); a password the admin typed is never echoed back.
     return jsonify({
         'message': 'user created',
         'user': {'id': user.id, 'username': user.username, 'role': user.role, 'email': user.email},
-        'password': password
+        'password': password if generated else None,
     }), 201
 
 @app.post('/register')
@@ -813,10 +870,11 @@ def register_student():
         return jsonify({'message':'student created','username': user.username}), 201
     except IntegrityError as e:
         db.session.rollback()
-        return jsonify({'message': 'registration failed', 'detail': str(e)}), 400
+        return jsonify({'message': 'registration failed - please check your details'}), 400
     except Exception as e:
         db.session.rollback()
-        return jsonify({'message': 'registration failed', 'detail': str(e)}), 500
+        app.logger.exception('registration failed')
+        return jsonify({'message': 'registration failed'}), 500
 
 # ------------------------------
 # ADMIN / SCHOOL-ADMIN: Schools
@@ -954,7 +1012,7 @@ def admin_students_list(current_user):
 
     except Exception as e:
         app.logger.exception("admin_students_list failed")
-        return jsonify({"message": "Failed to fetch students", "detail": str(e)}), 500
+        return jsonify({"message": "Failed to fetch students"}), 500
 
 @app.route("/admin/students", methods=["POST", "OPTIONS"])
 @role_required("admin", "school_admin")
@@ -995,11 +1053,18 @@ def admin_students_create(current_user):
             username = f"{base_username}_{suffix}"
             suffix += 1
 
+        # No weak shared default: if the admin leaves the password blank we
+        # generate a random one and return it ONCE so they can share it.
+        generated_password = None
+        if not password:
+            generated_password = secrets.token_urlsafe(8)
+            password = generated_password
+
         u = User(
             username=username, role="student",
             email=email, mobile_number=mobile_number
         )
-        u.set_password(password or "student@123")
+        u.set_password(password)
         db.session.add(u)
         db.session.flush()
 
@@ -1016,7 +1081,7 @@ def admin_students_create(current_user):
         if email:
             try:
                 from utils.email import send_student_welcome_email
-                send_student_welcome_email(email, username, password or "student@123")
+                send_student_welcome_email(email, username, password)
             except Exception as e:
                 app.logger.error(f"Failed to send student welcome email to {email}: {e}")
 
@@ -1029,16 +1094,19 @@ def admin_students_create(current_user):
                 "class_number": stu.class_number,
                 "number": stu.number,
                 "student_id": stu.student_id
-            }
+            },
+            # One-time display only — shown so the admin can hand it to the
+            # student (it is never retrievable again).
+            "generated_password": generated_password,
         }), 201
 
     except IntegrityError as ie:
         db.session.rollback()
-        return jsonify({"message": "duplicate username/email/student_id", "detail": str(ie)}), 409
+        return jsonify({"message": "duplicate username/email/student_id"}), 409
     except Exception as e:
         db.session.rollback()
         app.logger.exception("admin_students_create failed")
-        return jsonify({"message": "Failed to create student", "detail": str(e)}), 500
+        return jsonify({"message": "Failed to create student"}), 500
 
 
 @app.route('/admin/students/<int:user_id>', methods=['GET','PUT','DELETE'])
@@ -1139,10 +1207,11 @@ def admin_student_detail(current_user, user_id):
         except IntegrityError as ie:
             db.session.rollback()
             # Catch uniqueness errors (e.g., if UNIQUE(student_id) is violated from another path)
-            return jsonify({'message': 'update failed - duplicate value', 'detail': str(ie)}), 409
+            return jsonify({'message': 'update failed - duplicate value'}), 409
         except Exception as e:
             db.session.rollback()
-            return jsonify({'message': 'update failed', 'detail': str(e)}), 500
+            app.logger.exception('student update failed')
+            return jsonify({'message': 'update failed'}), 500
 
     # DELETE
     db.session.delete(student)
@@ -1202,16 +1271,25 @@ def admin_student_attempts(current_user, user_id):
         .all()
     )
 
-    attempts = []
-    percentages = []
-    for att, exam in attempt_rows:
-        peer_scores = [
-            s for (s,) in db.session.query(StudentExamAttempt.score)
-            .filter(StudentExamAttempt.exam_id == exam.id)
+    # Batch peer scores: ONE query for all exams in the list instead of one
+    # query per attempt (this list can hold dozens of attempts).
+    exam_ids = list({exam.id for (_, exam) in attempt_rows})
+    peer_scores_map = {}
+    if exam_ids:
+        rows = (
+            db.session.query(StudentExamAttempt.exam_id, StudentExamAttempt.score)
+            .filter(StudentExamAttempt.exam_id.in_(exam_ids))
             .filter(StudentExamAttempt.submitted_time.isnot(None))
             .filter(StudentExamAttempt.score.isnot(None))
             .all()
-        ]
+        )
+        for ex_id, score in rows:
+            peer_scores_map.setdefault(ex_id, []).append(score)
+
+    attempts = []
+    percentages = []
+    for att, exam in attempt_rows:
+        peer_scores = peer_scores_map.get(exam.id, [])
         pct = round((att.score / exam.total_marks) * 100, 2) if exam.total_marks else None
         if pct is not None:
             percentages.append(pct)
@@ -1250,6 +1328,100 @@ def admin_student_attempts(current_user, user_id):
     }), 200
 
 
+@app.get('/admin/students/<int:user_id>/attempts/export')
+@role_required('admin', 'school_admin')
+def admin_student_attempts_export(current_user, user_id):
+    """Download one student's exam history as an Excel workbook."""
+    from io import BytesIO
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, Alignment
+
+    user = User.query.get_or_404(user_id)
+    if user.role != 'student':
+        return jsonify({'message': 'not a student user'}), 400
+
+    student = Student.query.filter_by(user_id=user_id).first_or_404()
+    if current_user.role == 'school_admin' and student.school_id != current_user.school_id:
+        return jsonify({'message': 'Forbidden'}), 403
+
+    attempt_rows = (
+        db.session.query(StudentExamAttempt, Exam)
+        .join(Exam, Exam.id == StudentExamAttempt.exam_id)
+        .filter(StudentExamAttempt.student_id == user_id)
+        .filter(StudentExamAttempt.submitted_time.isnot(None))
+        .order_by(desc(StudentExamAttempt.submitted_time))
+        .all()
+    )
+
+    # Batch peer scores for percentile/rank (one query for all exams).
+    exam_ids = list({exam.id for (_, exam) in attempt_rows})
+    peer_scores_map = {}
+    if exam_ids:
+        for ex_id, score in (
+            db.session.query(StudentExamAttempt.exam_id, StudentExamAttempt.score)
+            .filter(StudentExamAttempt.exam_id.in_(exam_ids))
+            .filter(StudentExamAttempt.submitted_time.isnot(None))
+            .filter(StudentExamAttempt.score.isnot(None))
+            .all()
+        ):
+            peer_scores_map.setdefault(ex_id, []).append(score)
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Exam History"
+
+    # Student info block
+    ws.append(["Student", user.username])
+    ws.append(["Student ID", student.student_id])
+    ws.append(["Class", student.class_number or "-"])
+    ws.append(["School", student.school.name if student.school else "-"])
+    ws.append([])
+    for r in range(1, 5):
+        ws.cell(row=r, column=1).font = Font(bold=True)
+
+    headers = [
+        "Exam", "Submitted On", "Score", "Total Marks", "Percentage",
+        "Percentile", "Rank", "Participants", "Submission"
+    ]
+    ws.append(headers)
+    header_row = ws.max_row
+    for col in range(1, len(headers) + 1):
+        c = ws.cell(row=header_row, column=col)
+        c.font = Font(bold=True)
+        c.alignment = Alignment(horizontal="center")
+
+    for att, exam in attempt_rows:
+        peer_scores = peer_scores_map.get(exam.id, [])
+        pct = round((att.score / exam.total_marks) * 100, 2) if exam.total_marks else None
+        ws.append([
+            exam.title,
+            att.submitted_time.strftime("%d %b %Y %H:%M") if att.submitted_time else "-",
+            att.score,
+            exam.total_marks,
+            f"{pct}%" if pct is not None else "-",
+            calculate_percentile(att.score, peer_scores),
+            competition_rank(att.score, peer_scores),
+            len(peer_scores),
+            getattr(att, 'submission_reason', 'manual'),
+        ])
+
+    # Column widths
+    for col in ws.columns:
+        width = max((len(str(c.value)) for c in col if c.value is not None), default=8)
+        ws.column_dimensions[col[0].column_letter].width = min(width + 2, 50)
+
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+    safe_sid = (student.student_id or f"user{user_id}").replace('/', '-')
+    return send_file(
+        output,
+        as_attachment=True,
+        download_name=f"{safe_sid}_exam_history.xlsx",
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+
+
 @app.route('/admin/students/import', methods=['POST', 'OPTIONS'])
 @role_required('admin', 'school_admin')
 def admin_import_students(current_user):
@@ -1267,7 +1439,8 @@ def admin_import_students(current_user):
         created = import_students_csv(csv_path)
         return jsonify({'message': f'{len(created)} students imported', 'students': created}), 201
     except Exception as e:
-        return jsonify({'message': 'Import failed', 'detail': str(e)}), 400
+        app.logger.exception('student import failed')
+        return jsonify({'message': f'Import failed: {e}' if isinstance(e, ValueError) else 'Import failed'}), 400
 
 # ------------------------------
 # ADMIN/SCHOOL-ADMIN: Exams
@@ -1468,7 +1641,8 @@ def admin_exam_questions(current_user, exam_id):
                 return jsonify({'message': f'Imported {count} questions'}), 201
             except Exception as e:
                 db.session.rollback()
-                return jsonify({'message': 'Import failed', 'detail': str(e)}), 500
+                app.logger.exception('question import failed')
+                return jsonify({'message': 'Import failed'}), 500
             finally:
                 try:
                     os.remove(csv_path)
@@ -1724,7 +1898,8 @@ def reset_student_attempt(current_user, exam_id, user_id):
         return jsonify({'message': 'Attempt reset. Student can start exam again.'}), 200
     except Exception as e:
         db.session.rollback()
-        return jsonify({'message': 'Reset failed', 'detail': str(e)}), 500
+        app.logger.exception('attempt reset failed')
+        return jsonify({'message': 'Reset failed'}), 500
     
 @app.post('/admin/exams/<int:exam_id>/clone')
 @role_required('admin', 'school_admin')
@@ -1753,7 +1928,8 @@ def clone_exam(current_user, exam_id):
         return jsonify({'message': 'Exam cloned successfully', 'new_exam_id': new_exam.id}), 201
     except Exception as e:
         db.session.rollback()
-        return jsonify({'message': 'Failed to clone exam', 'detail': str(e)}), 500
+        app.logger.exception('clone exam failed')
+        return jsonify({'message': 'Failed to clone exam'}), 500
 
 @app.post('/admin/exams/<int:exam_id>/assign')
 @role_required('admin', 'school_admin')
@@ -1871,21 +2047,33 @@ def admin_assign_students(current_user, exam_id):
 
         db.session.commit()
 
-        # Send exam notification emails to newly assigned students
+        # Send exam notification emails in a BACKGROUND thread. Sending
+        # inline meant bulk-assigning a class blocked the request for one
+        # SMTP round-trip per student (easily 1-2s each).
         if new_count > 0:
             try:
-                from utils.email import send_exam_notification_email
-                newly_assigned = [s for s in students_to_assign if s.user_id not in already]
-                for stu in newly_assigned:
-                    user_obj = User.query.get(stu.user_id)
-                    if user_obj and user_obj.email:
-                        try:
-                            send_exam_notification_email(
-                                user_obj.email, user_obj.username,
-                                exam.title, exam.description, exam.duration_minutes
-                            )
-                        except Exception:
-                            pass
+                newly_ids = [s.user_id for s in students_to_assign if s.user_id not in already]
+                recipients = [
+                    (u.email, u.username)
+                    for u in User.query.filter(User.id.in_(newly_ids)).all()
+                    if u.email
+                ]
+                if recipients:
+                    import threading
+
+                    exam_info = (exam.title, exam.description, exam.duration_minutes)
+
+                    def _send_bulk_emails(recips, info):
+                        from utils.email import send_exam_notification_email
+                        for email_addr, uname in recips:
+                            try:
+                                send_exam_notification_email(email_addr, uname, *info)
+                            except Exception:
+                                pass
+
+                    threading.Thread(
+                        target=_send_bulk_emails, args=(recipients, exam_info), daemon=True
+                    ).start()
             except Exception as mail_err:
                 app.logger.error(f"Bulk exam notification emails failed: {mail_err}")
 
@@ -1896,10 +2084,7 @@ def admin_assign_students(current_user, exam_id):
     except Exception as e:
         db.session.rollback()
         app.logger.exception("admin_assign_students failed")
-        return jsonify({
-            "message": "Assignment failed",
-            "detail": str(e)
-        }), 500
+        return jsonify({"message": "Assignment failed"}), 500
 
 @app.get('/admin/exams/<int:exam_id>/students')
 @role_required('admin', 'school_admin')
@@ -2019,7 +2204,7 @@ def admin_export_student_attempts(current_user):
     except Exception as e:
         tb = traceback.format_exc()
         app.logger.error("Export failed: %s\n%s", str(e), tb)
-        return jsonify({'message': 'Export failed', 'detail': str(e), 'trace': tb}), 500
+        return jsonify({'message': 'Export failed'}), 500
 
 
 # ------------------------------

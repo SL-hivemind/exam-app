@@ -1,11 +1,13 @@
 # routes/bot_routes.py
 # Level 2 Bot — Fuzzy Matching, Memory, Rich Data Queries
 import re
+from datetime import datetime
 from flask import request, jsonify
 from sqlalchemy import func, or_
 from models import (
     db, User, School, Student, Exam, Question, ExamStudent,
     StudentExamAttempt, StudentAnswer, QuestionRepository, StudentRequest,
+    PublicExamAttempt, PublicPracticeAttempt,
 )
 from routes.bot_engine import (
     extract_entities, classify_intent, get_effective_school,
@@ -357,7 +359,107 @@ def h_my_weaknesses(ent, sid, user):
     return '\n'.join(lines)
 
 
+def h_my_scores(ent, sid, user):
+    """Personal scores — students get exam scores, public users get mock/practice scores."""
+    if user.role == 'public_user':
+        attempts = (PublicExamAttempt.query
+                    .filter_by(public_user_id=user.id)
+                    .filter(PublicExamAttempt.submitted_at.isnot(None))
+                    .order_by(PublicExamAttempt.submitted_at.desc()).limit(8).all())
+        practice = (PublicPracticeAttempt.query
+                    .filter_by(public_user_id=user.id)
+                    .filter(PublicPracticeAttempt.submitted_at.isnot(None))
+                    .order_by(PublicPracticeAttempt.submitted_at.desc()).limit(5).all())
+        if not attempts and not practice:
+            return "📈 You haven't completed any tests yet. Try a **mock test** from your course or start a **practice session**!"
+        lines = []
+        if attempts:
+            lines.append("📈 **Your Recent Mock Scores:**\n")
+            for a in attempts:
+                title = a.content.title if a.content else f"Test #{a.content_id}"
+                dt = a.submitted_at.strftime('%d %b') if a.submitted_at else ''
+                lines.append(f"• **{title}** ({dt}): {a.score}/{a.total_questions}")
+        if practice:
+            lines.append("\n⚡ **Recent Practice Sessions:**\n")
+            for p in practice:
+                scope = p.chapter or p.subject or 'Mixed'
+                lines.append(f"• **{scope}** ({p.difficulty}): {p.score}/{p.total_questions}")
+        return '\n'.join(lines)
+    return h_student_performance(ent, sid, user)
+
+
+def h_my_upcoming(ent, sid, user):
+    """Student: assigned exams not yet submitted, with their access windows."""
+    if user.role != 'student':
+        return "📅 Upcoming-exam tracking is for school students. Try \"Show recent exams\" instead."
+    assigned = ExamStudent.query.filter_by(student_id=user.id).all()
+    exam_ids = [a.exam_id for a in assigned]
+    if not exam_ids:
+        return "📅 No exams assigned to you yet — they appear on your dashboard once your school assigns one."
+    done = {a.exam_id for a in StudentExamAttempt.query.filter(
+        StudentExamAttempt.student_id == user.id,
+        StudentExamAttempt.submitted_time.isnot(None)).all()}
+    now = datetime.utcnow()
+    upcoming = []
+    for e in Exam.query.filter(Exam.id.in_(exam_ids)).all():
+        if e.id in done:
+            continue
+        if e.access_end and now > e.access_end:
+            continue  # window already closed
+        upcoming.append(e)
+    if not upcoming:
+        return "✅ Nothing pending — you've completed every exam assigned to you. 🎉"
+    upcoming.sort(key=lambda e: e.access_start or now)
+    lines = ["📅 **Your Pending Exams:**\n"]
+    for e in upcoming[:8]:
+        if e.access_start and now < e.access_start:
+            when = "opens " + e.access_start.strftime('%d %b, %I:%M %p')
+        elif e.access_end:
+            when = "closes " + e.access_end.strftime('%d %b, %I:%M %p')
+        else:
+            when = "open now"
+        lines.append(f"• **{e.title}** — {when} · {e.duration_minutes} min · {e.total_marks} marks")
+    lines.append("\nGo to your dashboard and press **Start Exam** while it shows *Active*.")
+    return '\n'.join(lines)
+
+
+def h_my_summary(ent, sid, user):
+    """Personal progress summary for a student (admins get the platform one)."""
+    if user.role != 'student':
+        return h_dashboard_summary(ent, sid, user)
+    attempts = (StudentExamAttempt.query
+                .filter_by(student_id=user.id)
+                .filter(StudentExamAttempt.submitted_time.isnot(None)).all())
+    if not attempts:
+        return "📋 You haven't completed any exams yet. After your first one, ask me again for a progress summary!"
+    exams = {e.id: e for e in Exam.query.filter(Exam.id.in_([a.exam_id for a in attempts])).all()}
+    pcts, best = [], None
+    for a in attempts:
+        e = exams.get(a.exam_id)
+        if e and e.total_marks:
+            p = (a.score or 0) / e.total_marks * 100
+            pcts.append(p)
+            if best is None or p > best[1]:
+                best = (e.title, p)
+    avg = round(sum(pcts) / len(pcts)) if pcts else 0
+    lines = [
+        "📋 **Your Progress Summary**\n",
+        f"• 📝 Exams completed: **{len(attempts)}**",
+        f"• 📊 Average score: **{avg}%**",
+    ]
+    if best:
+        lines.append(f"• 🏆 Best: **{best[0]}** ({round(best[1])}%)")
+    if avg >= 75:
+        lines.append("\nExcellent consistency — keep it up! 🌟")
+    elif avg >= 50:
+        lines.append("\nSolid progress. Ask me **\"what are my weak subjects?\"** to push higher.")
+    else:
+        lines.append("\nAsk me **\"what are my weak subjects?\"** and revise those chapters first.")
+    return '\n'.join(lines)
+
+
 HANDLERS = {
+    'my_scores': h_my_scores, 'my_upcoming': h_my_upcoming, 'my_summary': h_my_summary,
     'student_count': h_student_count, 'list_students': h_list_students,
     'find_student': h_find_student, 'student_performance': h_student_performance,
     'school_info': h_school_info, 'school_count': h_school_count,
@@ -380,21 +482,36 @@ LINK_MAP = {
 ALLOWED_INTENTS = {
     'admin': 'all',
     'school_admin': 'all',
-    'student': ['greeting', 'my_rank', 'my_weaknesses', 'student_performance', 'kb_profile'],
+    'student': ['greeting', 'my_rank', 'my_weaknesses', 'my_scores', 'my_upcoming', 'my_summary',
+                'student_performance', 'kb_profile'],
     'subject_specialist': ['greeting', 'question_count', 'validate_questions', 'dashboard_summary', 'kb_question_repo', 'kb_profile'],
-    'public_user': ['greeting', 'kb_public_courses', 'kb_public_practice', 'kb_public_mocks', 'kb_daily_challenge']
+    'public_user': ['greeting', 'my_scores', 'kb_public_courses', 'kb_public_practice', 'kb_public_mocks', 'kb_daily_challenge']
+}
+
+# Learners phrase admin-ish questions naturally ("show recent exams", "give me
+# a summary"). Instead of denying, redirect those to the personal equivalent.
+ROLE_INTENT_REMAP = {
+    'student': {
+        'recent_exams': 'my_upcoming', 'exam_count': 'my_upcoming',
+        'dashboard_summary': 'my_summary', 'exam_avg': 'my_scores',
+        'kb_results': 'my_scores', 'student_performance': 'my_scores',
+    },
+    'public_user': {
+        'recent_exams': 'kb_public_mocks', 'exam_count': 'kb_public_mocks',
+        'dashboard_summary': 'my_scores', 'exam_avg': 'my_scores', 'kb_results': 'my_scores',
+    },
 }
 
 ROLE_GREETINGS = {
-    'student': "Hello! 👋 I'm your **Student Assistant**.\n\n• 🏆 **Rankings** — \"What is my rank in the last exam?\"\n• 📚 **Weaknesses** — \"What are my weak subjects?\"\n• 📈 **Performance** — \"Show my recent scores\"\n\nJust ask!",
+    'student': "Hello! 👋 I'm your **Student Assistant**. Ask me about YOUR exams:\n\n• 📅 **Upcoming** — \"When is my next exam?\"\n• 📈 **Scores** — \"Show my recent scores\"\n• 🏆 **Rank** — \"What is my rank?\"\n• 📚 **Weak areas** — \"What are my weak subjects?\"\n• 📋 **Progress** — \"How am I doing?\"\n\nJust ask!",
     'subject_specialist': "Hello! 👋 I'm your **Repository Assistant**.\n\n• ✅ **Validate** — \"Check my questions for errors\"\n• 📊 **Status** — \"Give me a repo summary\"\n• 📚 **Count** — \"How many questions do we have?\"\n\nJust ask!",
-    'public_user': "Hello! 👋 I'm your **Learning Assistant**.\n\n• 📚 **Course Info** — \"What courses are available?\"\n• ⚡ **Practice** — \"How do I start practice?\"\n• 🏆 **Mock Tests** — \"Where can I find full length mock tests?\"\n• 🔥 **Daily Challenge** — \"What is the daily challenge?\"\n\nJust ask!",
+    'public_user': "Hello! 👋 I'm your **Learning Assistant**.\n\n• 📈 **My scores** — \"Show my recent scores\"\n• 📚 **Course Info** — \"What courses are available?\"\n• ⚡ **Practice** — \"How do I start practice?\"\n• 🏆 **Mock Tests** — \"Where are the mock tests?\"\n• 🔥 **Daily Challenge** — \"What is the daily challenge?\"\n\nJust ask!",
 }
 
 ROLE_SUGGESTIONS = {
-    'student': ["What is my rank?", "What are my weak subjects?", "Show my recent scores"],
+    'student': ["When is my next exam?", "Show my recent scores", "What is my rank?", "What are my weak subjects?"],
     'subject_specialist': ["Check questions for errors", "Give me a repo summary", "How many questions do we have?"],
-    'public_user': ["What courses are available?", "How do I take a mock test?", "What is the daily challenge?"],
+    'public_user': ["Show my recent scores", "What courses are available?", "How do I take a mock test?", "What is the daily challenge?"],
 }
 
 
@@ -427,16 +544,25 @@ def register_bot_routes(app, role_required):
             add_to_memory(current_user.id, 'bot', resp)
             return jsonify({'response': resp, 'suggestions': [], 'link': None, 'intent': intent}), 200
 
-        intent = classify_intent(message)
+        role = current_user.role
+        intent = classify_intent(message, role)
         entities = extract_entities(message)
         entities['_raw'] = message
         memory_ctx = get_context(current_user.id)
-        role = current_user.role
+
+        # Redirect admin-shaped questions to the learner's personal equivalent
+        # (e.g. student asking "show recent exams" → their pending exams).
+        intent = ROLE_INTENT_REMAP.get(role, {}).get(intent, intent)
 
         allowed = ALLOWED_INTENTS.get(role, [])
         if allowed != 'all' and intent not in allowed and intent != 'unknown':
+            helper = {
+                'student': "I can only look up **your own** exams and scores. Try:\n\n• \"When is my next exam?\"\n• \"Show my recent scores\"\n• \"What are my weak subjects?\"",
+                'public_user': "I can help with **your** courses and scores. Try:\n\n• \"Show my recent scores\"\n• \"What courses are available?\"",
+                'subject_specialist': "I focus on the question repository. Try:\n\n• \"Check questions for errors\"\n• \"How many questions do we have?\"",
+            }.get(role, "That's outside what I can answer for your account.")
             return jsonify({
-                'response': "🔒 **Access Denied:** I am restricted from answering that based on your role.",
+                'response': f"🔒 {helper}",
                 'suggestions': ROLE_SUGGESTIONS.get(role, SUGGESTIONS),
                 'link': None, 'intent': intent
             }), 200
@@ -461,10 +587,12 @@ def register_bot_routes(app, role_required):
                 resp = HANDLERS[intent](entities, sid, current_user)
             except Exception as e:
                 resp = f"⚠️ Error: {str(e)}"
-            link = LINK_MAP.get(intent)
+            # Nav links point at staff dashboards — never send them to learners.
+            if role not in ('student', 'public_user'):
+                link = LINK_MAP.get(intent)
         else:
             if role == 'student':
-                resp = "🤔 I didn't quite get that. Try:\n\n• \"What is my rank?\"\n• \"What are my weak subjects?\"\n• \"Show my recent scores\""
+                resp = "🤔 I didn't quite get that. Try:\n\n• \"When is my next exam?\"\n• \"Show my recent scores\"\n• \"What is my rank?\"\n• \"What are my weak subjects?\""
             elif role == 'subject_specialist':
                 resp = "🤔 I didn't quite get that. Try:\n\n• \"Check questions for errors\"\n• \"Give me a repo summary\""
             elif role == 'public_user':

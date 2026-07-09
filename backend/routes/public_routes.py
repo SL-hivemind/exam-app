@@ -36,7 +36,7 @@ def allowed_pdf(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_PDF
 
 
-def register_public_routes(app, token_required, role_required):
+def register_public_routes(app, token_required, role_required, limiter):
     """Register all /public/* and /admin/public/* routes."""
 
     import jwt as pyjwt
@@ -47,11 +47,72 @@ def register_public_routes(app, token_required, role_required):
             return None
         return current_user
 
+    # ─── helper: enrollment scope + plan tier ───
+    def get_user_scope(profile):
+        """(allowed_tags, is_premium, enrolled) from ACTIVE subscriptions.
+
+        allowed_tags come from each enrolled course's target_tags — a JEE
+        enrollee must only ever see JEE-tagged questions, never NEET's.
+        Premium = at least one active PAID course subscription.
+        """
+        from sqlalchemy import or_  # noqa: F401 (used by scope_repo_query)
+        subs = CourseSubscription.query.filter_by(public_user_id=profile.id, status='active').all()
+        tags, premium = set(), False
+        for s in subs:
+            c = s.course
+            if not c:
+                continue
+            if (c.price or 0) > 0:
+                premium = True
+            for t in (c.target_tags or '').split(','):
+                t = t.strip()
+                if t:
+                    tags.add(t)
+        return tags, premium, bool(subs)
+
+    def scope_repo_query(query, tags):
+        """Hard-limit a PublicQuestionRepo query to the user's enrolled tags."""
+        from sqlalchemy import or_
+        if not tags:
+            return query.filter(PublicQuestionRepo.id < 0)  # no enrollment → empty
+        return query.filter(or_(*[PublicQuestionRepo.course_tags.ilike(f'%{t}%') for t in tags]))
+
+    # ─── helper: subject normalisation (Maths 1A/2B etc. → Mathematics) ───
+    _MATH_RE = re.compile(r'math', re.I)
+
+    def display_subject(s):
+        return 'Mathematics' if s and _MATH_RE.search(s) else s
+
+    def subject_filter(query, subject):
+        if not subject:
+            return query
+        if _MATH_RE.search(subject):
+            return query.filter(PublicQuestionRepo.subject.ilike('%math%'))
+        return query.filter(PublicQuestionRepo.subject.ilike(subject))
+
+    def normalize_subject_store(s):
+        """Store maths as one subject — never 'Maths 1A' / '2B' splits."""
+        s = (s or '').strip()
+        return 'Mathematics' if _MATH_RE.search(s) else s
+
+    # ─── helper: free-tier limits ───
+    FREE_DAILY_PRACTICE = 2      # practice sessions per day on the free tier
+    FREE_MOCK_ATTEMPTS = 2       # mock attempts (per mock) on the free tier
+
+    def free_practice_used_today(profile):
+        today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+        return (PublicPracticeAttempt.query
+                .filter(PublicPracticeAttempt.public_user_id == profile.id)
+                .filter(PublicPracticeAttempt.start_time >= today)
+                .filter(PublicPracticeAttempt.difficulty != 'Mock')
+                .count())
+
     # ═══════════════════════════════════════════════════
     # 1. PUBLIC AUTH (Registration, Login, Forgot Password)
     # ═══════════════════════════════════════════════════
 
     @app.post('/public/register/init')
+    @limiter.limit("3 per minute; 10 per hour")
     def public_register_init():
         """Step 1: Collect email, username, password — send OTP."""
         data = request.get_json(silent=True) or {}
@@ -92,6 +153,7 @@ def register_public_routes(app, token_required, role_required):
         return jsonify({'message': f'OTP sent to {masked}', 'email_hint': masked}), 200
 
     @app.post('/public/register/verify')
+    @limiter.limit("5 per minute; 20 per hour")
     def public_register_verify():
         """Step 2: Verify OTP and create account."""
         data = request.get_json(silent=True) or {}
@@ -171,6 +233,7 @@ def register_public_routes(app, token_required, role_required):
             return jsonify({'message': f'Registration failed: {str(e)}'}), 500
 
     @app.post('/public/login')
+    @limiter.limit("5 per minute; 30 per hour")
     def public_login():
         """Login for public users (email + password)."""
         data = request.get_json(silent=True) or {}
@@ -207,6 +270,7 @@ def register_public_routes(app, token_required, role_required):
         }), 200
 
     @app.post('/public/forgot-password/init')
+    @limiter.limit("3 per minute; 10 per hour")
     def public_forgot_init():
         """Send OTP to email for password reset."""
         data = request.get_json(silent=True) or {}
@@ -236,6 +300,7 @@ def register_public_routes(app, token_required, role_required):
         return jsonify({'message': f'OTP sent to {masked}', 'email_hint': masked}), 200
 
     @app.post('/public/forgot-password/reset')
+    @limiter.limit("5 per minute; 20 per hour")
     def public_forgot_reset():
         """Verify OTP and reset password."""
         data = request.get_json(silent=True) or {}
@@ -550,16 +615,22 @@ def register_public_routes(app, token_required, role_required):
             if not sub:
                 return jsonify({'message': 'Subscription required'}), 403
 
-        # Check if exam was already submitted — prevent retakes
-        submitted = PublicExamAttempt.query.filter(
+        # Retake policy: free plan = 2 attempts per mock, premium = unlimited.
+        _, is_premium, _ = get_user_scope(profile)
+        submitted_count = PublicExamAttempt.query.filter(
             PublicExamAttempt.public_user_id == profile.id,
             PublicExamAttempt.content_id == content_id,
             PublicExamAttempt.submitted_at.isnot(None)
-        ).first()
-        if submitted:
+        ).count()
+        if submitted_count > 0 and not is_premium and submitted_count >= FREE_MOCK_ATTEMPTS:
+            latest = (PublicExamAttempt.query
+                      .filter(PublicExamAttempt.public_user_id == profile.id,
+                              PublicExamAttempt.content_id == content_id,
+                              PublicExamAttempt.submitted_at.isnot(None))
+                      .order_by(PublicExamAttempt.submitted_at.desc()).first())
             return jsonify({
-                'message': 'Exam already completed',
-                'attempt': submitted.to_dict(),
+                'message': f'Free plan includes {FREE_MOCK_ATTEMPTS} attempts per mock. Upgrade to a paid course for unlimited retakes.',
+                'attempt': latest.to_dict(),
                 'total_questions': content.total_questions,
                 'already_submitted': True,
             }), 200
@@ -719,12 +790,53 @@ def register_public_routes(app, token_required, role_required):
             profile.address = (data['address'] or '').strip() or None
         if 'username' in data:
             new_un = (data['username'] or '').strip()
-            if new_un and new_un != current_user.username:
-                if User.query.filter(User.username == new_un, User.id != current_user.id).first():
+            if new_un and new_un != profile.username:
+                # Public users live in their own table — check the right one.
+                if PublicUser.query.filter(PublicUser.username == new_un, PublicUser.id != profile.id).first():
                     return jsonify({'message': 'Username already taken'}), 409
-                current_user.username = new_un
+                profile.username = new_un
         db.session.commit()
         return jsonify({'message': 'Profile updated', 'profile': profile.to_dict()}), 200
+
+    @app.post('/public/me/change-password')
+    @limiter.limit("5 per minute; 20 per hour")
+    @token_required
+    def public_change_password(current_user):
+        """Public users change their own password (needs the current one)."""
+        profile = get_public_profile(current_user)
+        if not profile:
+            return jsonify({'message': 'Public profile not found'}), 404
+        data = request.get_json(silent=True) or {}
+        current_pw = data.get('current_password') or ''
+        new_pw = data.get('new_password') or ''
+        if not current_pw or not new_pw:
+            return jsonify({'message': 'current_password and new_password are required'}), 400
+        if len(new_pw) < 8:
+            return jsonify({'message': 'New password must be at least 8 characters'}), 400
+        if not profile.check_password(current_pw):
+            return jsonify({'message': 'Current password is incorrect'}), 401
+        profile.set_password(new_pw)
+        db.session.commit()
+        return jsonify({'message': 'Password updated successfully'}), 200
+
+    @app.get('/public/me/plan')
+    @token_required
+    def public_my_plan(current_user):
+        """Plan tier + enrolled tags — powers premium locks in the UI."""
+        profile = get_public_profile(current_user)
+        if not profile:
+            return jsonify({'message': 'Public profile not found'}), 404
+        tags, is_premium, enrolled = get_user_scope(profile)
+        return jsonify({
+            'enrolled': enrolled,
+            'is_premium': is_premium,
+            'plan': 'premium' if is_premium else ('free' if enrolled else 'none'),
+            'allowed_tags': sorted(tags),
+            'limits': None if is_premium else {
+                'practice_per_day': FREE_DAILY_PRACTICE,
+                'mock_attempts': FREE_MOCK_ATTEMPTS,
+            },
+        }), 200
 
     @app.get('/public/me/subscriptions')
     @token_required
@@ -1309,10 +1421,11 @@ def register_public_routes(app, token_required, role_required):
 
         q = PublicQuestionRepo(
             course_tags=(data.get('course_tags') or '').strip() or None,
-            subject=data['subject'].strip(),
+            subject=normalize_subject_store(data['subject']),
             chapter=(data.get('chapter') or '').strip() or None,
             topic=(data.get('topic') or '').strip() or None,
             difficulty=data.get('difficulty', 'Medium'),
+            question_format=(data.get('question_format') or 'mcq').strip() or 'mcq',
             is_pyq=bool(data.get('is_pyq')),
             pyq_year=int(data['pyq_year']) if data.get('pyq_year') else None,
             text=data['text'].strip(),
@@ -1338,9 +1451,11 @@ def register_public_routes(app, token_required, role_required):
         data = request.get_json(silent=True) or {}
         for field in ['text', 'option_a', 'option_b', 'option_c', 'option_d',
                        'correct_answer', 'explanation', 'subject', 'chapter', 'topic',
-                       'difficulty', 'course_tags', 'image_path']:
+                       'difficulty', 'course_tags', 'image_path', 'question_format']:
             if field in data:
                 setattr(q, field, (data[field] or '').strip() if isinstance(data[field], str) else data[field])
+        if 'subject' in data:
+            q.subject = normalize_subject_store(q.subject)
         if 'marks' in data:
             q.marks = int(data['marks'] or 1)
         if 'is_pyq' in data:
@@ -1381,10 +1496,12 @@ def register_public_routes(app, token_required, role_required):
         if not batch_subject:
             return jsonify({'message': 'subject is required for batch metadata'}), 400
 
+        batch_subject = normalize_subject_store(batch_subject)  # Maths 1A/2B → Mathematics
         batch_chapter = (data.get('chapter') or '').strip() or None
         batch_topic = (data.get('topic') or '').strip() or None
         batch_tags = (data.get('course_tags') or '').strip() or None
         batch_difficulty = data.get('difficulty', 'Medium')
+        batch_format = (data.get('question_format') or 'mcq').strip() or 'mcq'
         batch_is_pyq = bool(data.get('is_pyq'))
         batch_pyq_year = int(data['pyq_year']) if data.get('pyq_year') else None
 
@@ -1426,6 +1543,7 @@ def register_public_routes(app, token_required, role_required):
                 chapter=batch_chapter,
                 topic=batch_topic,
                 difficulty=batch_difficulty,
+                question_format=batch_format,
                 is_pyq=batch_is_pyq,
                 pyq_year=batch_pyq_year,
                 text=q_text,
@@ -1462,42 +1580,61 @@ def register_public_routes(app, token_required, role_required):
 
         data = request.get_json(silent=True) or {}
         mode = data.get('mode')
-        course_tags = (data.get('course_tags') or '').strip()
         subject = (data.get('subject') or '').strip()
         chapter = (data.get('chapter') or '').strip()
         difficulty = (data.get('difficulty') or '').strip()
         count = min(int(data.get('count', 20)), 50)
-        
+
+        # SCOPE: server-side enrolled tags only (client tags are ignored —
+        # this is what let a JEE enrollee pull NEET Botany/Zoology before).
+        tags, is_premium, enrolled = get_user_scope(profile)
+        if not enrolled:
+            return jsonify({'message': 'Enroll in a course to unlock practice.', 'code': 'NOT_ENROLLED'}), 403
+        tag_str = ','.join(tags).upper()
+
         selected_ids = []
         if mode == 'mock':
-            is_jee = 'JEE' in course_tags.upper()
-            is_neet = 'NEET' in course_tags.upper()
-            
+            # FREE-TIER: 2 repo-mock attempts total, premium unlimited.
+            if not is_premium:
+                mock_count = (PublicPracticeAttempt.query
+                              .filter_by(public_user_id=profile.id, difficulty='Mock')
+                              .count())
+                if mock_count >= FREE_MOCK_ATTEMPTS:
+                    return jsonify({'message': f'Free plan includes {FREE_MOCK_ATTEMPTS} full mock tests. Upgrade to a paid course for unlimited mocks.', 'code': 'PREMIUM_REQUIRED'}), 403
+
+            is_jee = 'JEE' in tag_str
+            is_neet = 'NEET' in tag_str
+            scoped = scope_repo_query(PublicQuestionRepo.query, tags)
+
             def get_random_ids(subj_query, count):
                 ids = [r[0] for r in subj_query.with_entities(PublicQuestionRepo.id).all()]
                 return random.sample(ids, min(count, len(ids))) if ids else []
 
             if is_jee:
-                p_ids = get_random_ids(PublicQuestionRepo.query.filter(PublicQuestionRepo.subject.ilike('%Physics%')), 30)
-                c_ids = get_random_ids(PublicQuestionRepo.query.filter(PublicQuestionRepo.subject.ilike('%Chemistry%')), 30)
-                m_ids = get_random_ids(PublicQuestionRepo.query.filter(PublicQuestionRepo.subject.ilike('%Math%')), 30)
+                p_ids = get_random_ids(scoped.filter(PublicQuestionRepo.subject.ilike('%Physics%')), 30)
+                c_ids = get_random_ids(scoped.filter(PublicQuestionRepo.subject.ilike('%Chemistry%')), 30)
+                m_ids = get_random_ids(scoped.filter(PublicQuestionRepo.subject.ilike('%Math%')), 30)
                 selected_ids = p_ids + c_ids + m_ids
             elif is_neet:
-                p_ids = get_random_ids(PublicQuestionRepo.query.filter(PublicQuestionRepo.subject.ilike('%Physics%')), 45)
-                c_ids = get_random_ids(PublicQuestionRepo.query.filter(PublicQuestionRepo.subject.ilike('%Chemistry%')), 45)
-                b_ids = get_random_ids(PublicQuestionRepo.query.filter(PublicQuestionRepo.subject.ilike('%Botany%')), 45)
-                z_ids = get_random_ids(PublicQuestionRepo.query.filter(PublicQuestionRepo.subject.ilike('%Zoology%')), 45)
+                p_ids = get_random_ids(scoped.filter(PublicQuestionRepo.subject.ilike('%Physics%')), 45)
+                c_ids = get_random_ids(scoped.filter(PublicQuestionRepo.subject.ilike('%Chemistry%')), 45)
+                b_ids = get_random_ids(scoped.filter(PublicQuestionRepo.subject.ilike('%Botany%')), 45)
+                z_ids = get_random_ids(scoped.filter(PublicQuestionRepo.subject.ilike('%Zoology%')), 45)
                 selected_ids = p_ids + c_ids + b_ids + z_ids
             else:
-                # Fallback to a standard 90 question mock
-                ids = [r[0] for r in PublicQuestionRepo.query.with_entities(PublicQuestionRepo.id).all()]
+                # Standard 90-question mock from the user's own tag pool
+                ids = [r[0] for r in scoped.with_entities(PublicQuestionRepo.id).all()]
                 selected_ids = random.sample(ids, min(90, len(ids))) if ids else []
         else:
-            query = PublicQuestionRepo.query
-            if course_tags:
-                query = query.filter(PublicQuestionRepo.course_tags.ilike(f'%{course_tags}%'))
-            if subject:
-                query = query.filter(PublicQuestionRepo.subject.ilike(subject))
+            # FREE-TIER: chapter drills are premium; 2 sessions/day.
+            if not is_premium:
+                if chapter:
+                    return jsonify({'message': 'Chapter-wise practice is a Premium feature.', 'code': 'PREMIUM_REQUIRED'}), 403
+                if free_practice_used_today(profile) >= FREE_DAILY_PRACTICE:
+                    return jsonify({'message': f'Free plan includes {FREE_DAILY_PRACTICE} practice sessions per day. Upgrade for unlimited practice.', 'code': 'LIMIT_REACHED'}), 403
+
+            query = scope_repo_query(PublicQuestionRepo.query, tags)
+            query = subject_filter(query, subject)
             if chapter:
                 query = query.filter(PublicQuestionRepo.chapter.ilike(f'%{chapter}%'))
             if difficulty and difficulty != 'Random':
@@ -1527,7 +1664,8 @@ def register_public_routes(app, token_required, role_required):
             course_id=course_id,
             subject=subject or None,
             chapter=chapter or None,
-            difficulty=difficulty or 'Random',
+            # 'Mock' marks full mocks so the free-tier counter can find them
+            difficulty='Mock' if mode == 'mock' else (difficulty or 'Random'),
             questions_json=json.dumps(selected_ids),
             total_questions=len(selected_ids),
         )
@@ -1620,19 +1758,42 @@ def register_public_routes(app, token_required, role_required):
         if not profile:
             return jsonify({'message': 'Public profile required'}), 403
 
-        subjects = sorted([r[0] for r in db.session.query(PublicQuestionRepo.subject).distinct().all() if r[0]])
-        rows = db.session.query(PublicQuestionRepo.subject, PublicQuestionRepo.chapter).distinct().all()
+        # SCOPE: only subjects/chapters from the user's enrolled course tags —
+        # a JEE enrollee must not even SEE Botany/Zoology here.
+        tags, is_premium, enrolled = get_user_scope(profile)
+        if not enrolled:
+            return jsonify({
+                'subjects': [], 'chapters_by_subject': {}, 'total_questions': 0,
+                'formats': [], 'enrolled': False, 'is_premium': False,
+                'message': 'Enroll in a course to unlock practice.',
+            }), 200
+
+        base = scope_repo_query(PublicQuestionRepo.query, tags)
+        rows = base.with_entities(
+            PublicQuestionRepo.subject, PublicQuestionRepo.chapter
+        ).distinct().all()
         chapters_by_subject = {}
+        subjects = set()
         for subj, chap in rows:
-            if not subj or not chap:
+            if not subj:
                 continue
-            chapters_by_subject.setdefault(subj, set()).add(chap)
+            subj = display_subject(subj)  # Maths 1A/2B → Mathematics
+            subjects.add(subj)
+            if chap:
+                chapters_by_subject.setdefault(subj, set()).add(chap)
         chapters_by_subject = {k: sorted(v) for k, v in chapters_by_subject.items()}
-        total = db.session.query(PublicQuestionRepo.id).count()
+        formats = sorted({
+            (f or 'mcq') for (f,) in base.with_entities(PublicQuestionRepo.question_format).distinct().all()
+        })
+        total = base.with_entities(PublicQuestionRepo.id).count()
         return jsonify({
-            'subjects': subjects,
+            'subjects': sorted(subjects),
             'chapters_by_subject': chapters_by_subject,
             'total_questions': total,
+            'formats': formats,
+            'enrolled': True,
+            'is_premium': is_premium,
+            'allowed_tags': sorted(tags),
         }), 200
 
     # ── Interactive practice pool (powers adaptive + fixed difficulty) ──
@@ -1652,17 +1813,34 @@ def register_public_routes(app, token_required, role_required):
         data = request.get_json(silent=True) or {}
         subject = (data.get('subject') or '').strip()
         chapter = (data.get('chapter') or '').strip()
-        course_tags = (data.get('course_tags') or '').strip()
+        mode = (data.get('mode') or 'random').strip().lower()
+        question_format = (data.get('question_format') or '').strip()
         pyq_year = data.get('pyq_year')
         count = min(max(int(data.get('count', 15)), 5), 100)
 
-        query = PublicQuestionRepo.query
-        if course_tags:
-            query = query.filter(PublicQuestionRepo.course_tags.ilike(f'%{course_tags}%'))
-        if subject:
-            query = query.filter(PublicQuestionRepo.subject.ilike(subject))
+        # SCOPE: enrolled course tags only — ignore any client-sent tags.
+        tags, is_premium, enrolled = get_user_scope(profile)
+        if not enrolled:
+            return jsonify({'message': 'Enroll in a course to unlock practice.', 'code': 'NOT_ENROLLED'}), 403
+
+        # FREE-TIER GATES (premium = any active paid course)
+        if not is_premium:
+            if mode == 'adaptive':
+                return jsonify({'message': 'Adaptive practice is a Premium feature. Upgrade to a paid course to unlock it.', 'code': 'PREMIUM_REQUIRED'}), 403
+            if chapter:
+                return jsonify({'message': 'Chapter-wise practice is a Premium feature. Free plan covers subject-wise and mixed practice.', 'code': 'PREMIUM_REQUIRED'}), 403
+            if question_format:
+                return jsonify({'message': 'Format-based practice (Assertion & Reasoning, Match the Following) is a Premium feature.', 'code': 'PREMIUM_REQUIRED'}), 403
+            used = free_practice_used_today(profile)
+            if used >= FREE_DAILY_PRACTICE:
+                return jsonify({'message': f'Free plan includes {FREE_DAILY_PRACTICE} practice sessions per day. Upgrade for unlimited practice.', 'code': 'LIMIT_REACHED'}), 403
+
+        query = scope_repo_query(PublicQuestionRepo.query, tags)
+        query = subject_filter(query, subject)
         if chapter:
             query = query.filter(PublicQuestionRepo.chapter.ilike(f'%{chapter}%'))
+        if question_format:
+            query = query.filter(PublicQuestionRepo.question_format == question_format)
         if pyq_year:
             query = query.filter(PublicQuestionRepo.is_pyq == True, PublicQuestionRepo.pyq_year == int(pyq_year))
 
@@ -1798,12 +1976,10 @@ def register_public_routes(app, token_required, role_required):
 
         all_ids = [r[0] for r in query.with_entities(PublicQuestionRepo.id).all()]
 
-        # If not enough tagged questions, fall back to any questions
-        if len(all_ids) < 5:
-            all_ids = [r[0] for r in db.session.query(PublicQuestionRepo.id).all()]
-
+        # NO cross-tag fallback: a JEE enrollee must never receive NEET
+        # questions just because their own pool is small.
         if not all_ids:
-            return jsonify({'message': 'No questions available in the repository yet'}), 404
+            return jsonify({'message': 'No questions available for your course yet — check back soon!'}), 404
 
         selected_ids = random.sample(all_ids, min(5, len(all_ids)))
         questions = PublicQuestionRepo.query.filter(PublicQuestionRepo.id.in_(selected_ids)).all()

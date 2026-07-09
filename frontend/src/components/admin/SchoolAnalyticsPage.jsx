@@ -1,9 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import {
   Box,
   Typography,
   Paper,
-  Grid,
   Stack,
   Chip,
   Alert,
@@ -20,8 +19,6 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  useTheme,
-  useMediaQuery,
   LinearProgress
 } from "@mui/material";
 import {
@@ -52,6 +49,7 @@ import {
 } from "recharts";
 import api from "../../utils/api";
 import useAuth from "../../hooks/useAuth";
+import InfoTip from "../common/InfoTip";
 
 const ff = "'Inter', sans-serif";
 const PALETTE = {
@@ -70,22 +68,25 @@ function tierFor(pct) {
   return { label: "Needs Focus", color: PALETTE.red, bg: "rgba(248,113,113,0.15)" };
 }
 
-const WidgetCard = ({ title, children, sx, extraHeader }) => (
-  <Paper sx={{ 
-    p: 1.5, 
-    borderRadius: 2, 
-    bgcolor: "#0f172a", 
-    border: "1px solid rgba(255,255,255,0.05)", 
-    display: "flex", 
+const WidgetCard = ({ title, info, children, sx, extraHeader }) => (
+  <Paper sx={{
+    p: 1.5,
+    borderRadius: 2,
+    bgcolor: "#0f172a",
+    border: "1px solid rgba(255,255,255,0.05)",
+    display: "flex",
     flexDirection: "column",
     overflow: "hidden",
-    ...sx 
+    ...sx
   }}>
     <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.5 }}>
       {title && (
-        <Typography sx={{ color: "#94a3b8", fontFamily: ff, fontWeight: 600, fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-          {title}
-        </Typography>
+        <Stack direction="row" alignItems="center" spacing={0.6}>
+          <Typography sx={{ color: "#94a3b8", fontFamily: ff, fontWeight: 600, fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+            {title}
+          </Typography>
+          {info && <InfoTip text={info} size={14} />}
+        </Stack>
       )}
       {extraHeader}
     </Box>
@@ -97,8 +98,6 @@ const WidgetCard = ({ title, children, sx, extraHeader }) => (
 
 export default function SchoolAnalyticsPage() {
   const { user } = useAuth();
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -126,6 +125,28 @@ export default function SchoolAnalyticsPage() {
     fetchAnalysis(classFilter, subjectFilter);
   }, [user?.school_id, classFilter, subjectFilter]);
 
+  // Debounce search so filtering a large exam ledger doesn't recompute on every keystroke.
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 220);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  // Memoize the heavy derived views so typing/re-renders don't re-scan the full dataset.
+  const searchedRows = useMemo(() => {
+    const rows = data?.exam_wise || [];
+    const q = debouncedSearch.toLowerCase();
+    return rows
+      .filter((e) =>
+        (e.exam_title || "").toLowerCase().includes(q) ||
+        (e.student_id || "").toLowerCase().includes(q)
+      )
+      .sort((a, b) => new Date(b.submitted_time || 0) - new Date(a.submitted_time || 0));
+  }, [data, debouncedSearch]);
+
+  const classChartData = useMemo(() => (data?.class_breakdown || []).slice(0, 8), [data]);
+  const subjectChartData = useMemo(() => (data?.subject_breakdown || []).slice(0, 8), [data]);
+
   if (loading && !data) {
     return (
       <Box sx={{ height: "100%", display: "flex", justifyContent: "center", alignItems: "center" }}>
@@ -144,13 +165,7 @@ export default function SchoolAnalyticsPage() {
 
   if (!data) return null;
 
-  const { class_breakdown, subject_breakdown, exam_wise, strengths, summary, timeline, filters } = data;
-
-  const searchedRows = (exam_wise || []).filter((e) =>
-    (e.exam_title || "").toLowerCase().includes(search.toLowerCase()) || 
-    (e.student_id || "").toLowerCase().includes(search.toLowerCase())
-  ).sort((a,b) => new Date(b.submitted_time || 0) - new Date(a.submitted_time || 0));
-
+  const { strengths, summary, timeline, filters } = data;
   const trendPositive = summary.trend_delta >= 0;
 
   const CustomTooltip = ({ active, payload, label }) => {
@@ -169,27 +184,20 @@ export default function SchoolAnalyticsPage() {
     return null;
   };
 
-  if (isMobile) {
-    return (
-      <Box sx={{ p: 2 }}>
-        <Alert severity="info" sx={{ fontFamily: ff }}>This dense BI dashboard is optimized for laptop/desktop displays. Please rotate your device or use a larger screen for the best experience.</Alert>
-      </Box>
-    );
-  }
-
   return (
-    <Box sx={{ 
-      height: 'calc(100vh - 100px)', // Account for AppBar + parent padding
-      display: 'flex', 
+    <Box sx={{
+      height: { xs: 'auto', lg: 'calc(100vh - 108px)' }, // fill viewport on desktop, flow on mobile
+      display: 'flex',
       flexDirection: 'column',
       bgcolor: "transparent",
       gap: 1.5,
-      overflow: 'hidden'
+      overflow: { xs: 'visible', lg: 'hidden' },
+      pb: { xs: 2, lg: 0 }
     }}>
       {loading && <LinearProgress sx={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 9999, bgcolor: "rgba(246,137,20,0.2)", "& .MuiLinearProgress-bar": { bgcolor: PALETTE.orange } }} />}
       
       {/* ── TOP CONTROL BAR ── */}
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ flexShrink: 0 }}>
+      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ flexShrink: 0, flexWrap: 'wrap', gap: 1 }}>
         <Stack direction="row" alignItems="center" spacing={1.5}>
           <DashboardIcon sx={{ color: PALETTE.orange, fontSize: 24 }} />
           <Typography variant="h6" sx={{ color: "#fff", fontFamily: ff, fontWeight: 700, fontSize: "1.1rem" }}>
@@ -216,34 +224,37 @@ export default function SchoolAnalyticsPage() {
         </Stack>
       </Stack>
 
-      {/* ── KPI ROW ── */}
-      <Grid container spacing={1.5} sx={{ flexShrink: 0 }}>
+      {/* ── KPI ROW (CSS grid — MUI v7 removed legacy Grid item/xs props) ── */}
+      <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: { xs: "repeat(2, 1fr)", lg: "repeat(4, 1fr)" }, flexShrink: 0 }}>
         {[
-          { title: "Active Students", value: summary.total_students_attempted, icon: <PeopleAltIcon sx={{ color: PALETTE.blue, fontSize: 18 }} />, color: PALETTE.blue },
-          { title: "School Average", value: `${summary.average_percentage}%`, icon: <EmojiEventsIcon sx={{ color: PALETTE.green, fontSize: 18 }} />, color: PALETTE.green },
-          { title: "Total Attempts", value: summary.attempted_exams, icon: <InsightsIcon sx={{ color: PALETTE.purple, fontSize: 18 }} />, color: PALETTE.purple },
-          { title: "Recent Trend", value: `${trendPositive ? "+" : ""}${summary.trend_delta}%`, icon: trendPositive ? <TrendingUpIcon sx={{ color: PALETTE.green, fontSize: 18 }} /> : <TrendingDownIcon sx={{ color: PALETTE.red, fontSize: 18 }} />, color: trendPositive ? PALETTE.green : PALETTE.red }
+          { title: "Active Students", info: "Students who submitted at least one exam within the selected class/subject filters.", value: summary.total_students_attempted, icon: <PeopleAltIcon sx={{ color: PALETTE.blue, fontSize: 18 }} />, color: PALETTE.blue },
+          { title: "School Average", info: "Average percentage across all submitted attempts in the current filters.", value: `${summary.average_percentage}%`, icon: <EmojiEventsIcon sx={{ color: PALETTE.green, fontSize: 18 }} />, color: PALETTE.green },
+          { title: "Total Attempts", info: "Total number of exam submissions counted in these numbers.", value: summary.attempted_exams, icon: <InsightsIcon sx={{ color: PALETTE.purple, fontSize: 18 }} />, color: PALETTE.purple },
+          { title: "Recent Trend", info: "How the latest exam average compares with the one before it — a quick health check of the newest results.", value: `${trendPositive ? "+" : ""}${summary.trend_delta}%`, icon: trendPositive ? <TrendingUpIcon sx={{ color: PALETTE.green, fontSize: 18 }} /> : <TrendingDownIcon sx={{ color: PALETTE.red, fontSize: 18 }} />, color: trendPositive ? PALETTE.green : PALETTE.red }
         ].map((kpi, i) => (
-          <Grid item xs={3} key={i}>
-            <Paper sx={{ p: 1.5, borderRadius: 2, bgcolor: "#0f172a", border: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", gap: 1.5 }}>
+          <Box key={i}>
+            <Paper sx={{ p: 1.5, borderRadius: 2, bgcolor: "#0f172a", border: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", gap: 1.5, height: "100%" }}>
               <Box sx={{ p: 1, borderRadius: 1.5, bgcolor: `${kpi.color}15`, display: "flex" }}>{kpi.icon}</Box>
               <Box>
-                <Typography sx={{ color: "#94a3b8", fontFamily: ff, fontSize: "0.65rem", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.05em" }}>{kpi.title}</Typography>
+                <Stack direction="row" alignItems="center" spacing={0.5}>
+                  <Typography sx={{ color: "#94a3b8", fontFamily: ff, fontSize: "0.65rem", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.05em" }}>{kpi.title}</Typography>
+                  {kpi.info && <InfoTip text={kpi.info} size={13} />}
+                </Stack>
                 <Typography sx={{ color: "#fff", fontFamily: ff, fontSize: "1.1rem", fontWeight: 700, lineHeight: 1.2 }}>{kpi.value}</Typography>
               </Box>
             </Paper>
-          </Grid>
+          </Box>
         ))}
-      </Grid>
+      </Box>
 
       {/* ── MAIN DASHBOARD GRID (Fills remaining height) ── */}
-      <Grid container spacing={1.5} sx={{ flexGrow: 1, minHeight: 0 }}>
-        
+      <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: { xs: "1fr", lg: "2fr 1fr" }, flexGrow: 1, minHeight: 0 }}>
+
         {/* LEFT COLUMN: 8/12 */}
-        <Grid item xs={8} sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, height: '100%' }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, height: { xs: 'auto', lg: '100%' }, minWidth: 0, minHeight: 0 }}>
           
           {/* Top Half: Macro Trends */}
-          <WidgetCard title="Macro Trends (30 Days)" sx={{ flex: 1, minHeight: 0 }}>
+          <WidgetCard title="Macro Trends (30 Days)" info="The school's average exam score per day over the last 30 days. A rising line means recent exams are going better." sx={{ flex: { lg: 1 }, minHeight: 0, height: { xs: 340, lg: 'auto' } }}>
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={timeline} margin={{ top: 5, right: 0, left: -25, bottom: 0 }}>
                 <defs>
@@ -262,7 +273,7 @@ export default function SchoolAnalyticsPage() {
           </WidgetCard>
 
           {/* Bottom Half: Ledger */}
-          <WidgetCard title="Detailed Exam Ledger" sx={{ flex: 1, minHeight: 0 }} extraHeader={
+          <WidgetCard title="Detailed Exam Ledger" info="Every submitted attempt, newest first (latest 50 shown). Search by student ID or exam name." sx={{ flex: { lg: 1 }, minHeight: 0, height: { xs: 340, lg: 'auto' } }} extraHeader={
             <TextField
               size="small"
               placeholder="Search..."
@@ -321,16 +332,16 @@ export default function SchoolAnalyticsPage() {
               </Table>
             </TableContainer>
           </WidgetCard>
-        </Grid>
+        </Box>
 
         {/* RIGHT COLUMN: 4/12 */}
-        <Grid item xs={4} sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, height: '100%' }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, height: { xs: 'auto', lg: '100%' }, minWidth: 0, minHeight: 0 }}>
           
           {/* Radar Chart */}
-          <WidgetCard title="Subject Mastery" sx={{ flex: 1, minHeight: 0 }}>
-            {subject_breakdown.length > 2 ? (
+          <WidgetCard title="Subject Mastery" info="Average accuracy per subject across the whole school. A dent in the shape shows the subject that needs attention." sx={{ flex: { lg: 1 }, minHeight: 0, height: { xs: 340, lg: 'auto' } }}>
+            {subjectChartData.length > 2 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <RadarChart cx="50%" cy="50%" outerRadius="65%" data={subject_breakdown.slice(0,8)}>
+                <RadarChart cx="50%" cy="50%" outerRadius="65%" data={subjectChartData}>
                   <PolarGrid stroke="rgba(255,255,255,0.05)" />
                   <PolarAngleAxis dataKey="subject" tick={{ fill: "#94a3b8", fontSize: 9, fontFamily: ff }} />
                   <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
@@ -346,15 +357,15 @@ export default function SchoolAnalyticsPage() {
           </WidgetCard>
 
           {/* Bar Chart */}
-          <WidgetCard title="Class Accuracy" sx={{ flex: 1, minHeight: 0 }}>
+          <WidgetCard title="Class Accuracy" info="Average score by class. Green = 70%+, amber = 40–70%, red = below 40% and needs focus." sx={{ flex: { lg: 1 }, minHeight: 0, height: { xs: 340, lg: 'auto' } }}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={class_breakdown.slice(0,8)} layout="vertical" margin={{ top: 0, right: 10, bottom: 0, left: 10 }}>
+              <BarChart data={classChartData} layout="vertical" margin={{ top: 0, right: 10, bottom: 0, left: 10 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" horizontal vertical={false} />
                 <XAxis type="number" domain={[0, 100]} stroke="#64748b" tick={{ fill: "#64748b", fontSize: 9 }} axisLine={false} tickLine={false} />
                 <YAxis type="category" dataKey="class_number" width={40} stroke="#64748b" tick={{ fill: "#94a3b8", fontSize: 10, fontFamily: ff }} axisLine={false} tickLine={false} />
                 <Tooltip cursor={{ fill: "rgba(255,255,255,0.02)" }} content={<CustomTooltip />} />
                 <Bar dataKey="percentage" name="Accuracy" radius={[0, 3, 3, 0]} barSize={12}>
-                  {class_breakdown.map((entry, index) => (
+                  {classChartData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.percentage > 70 ? PALETTE.green : entry.percentage > 40 ? PALETTE.amber : PALETTE.red} />
                   ))}
                 </Bar>
@@ -363,7 +374,7 @@ export default function SchoolAnalyticsPage() {
           </WidgetCard>
 
           {/* Top Subjects */}
-          <WidgetCard title="Top Subjects" sx={{ flex: 0.8, minHeight: 0 }}>
+          <WidgetCard title="Top Subjects" info="Your school's three strongest subjects by average accuracy." sx={{ flex: { lg: 0.8 }, minHeight: { xs: 180, lg: 0 } }}>
             <Box sx={{ overflowY: "auto", pr: 0.5, height: '100%', '&::-webkit-scrollbar': { width: 4 }, '&::-webkit-scrollbar-thumb': { bgcolor: 'rgba(255,255,255,0.1)', borderRadius: 2 } }}>
               {strengths.length === 0 ? (
                  <Typography sx={{ color: "#64748b", fontFamily: ff, fontSize: "0.75rem" }}>No strengths identified.</Typography>
@@ -379,8 +390,8 @@ export default function SchoolAnalyticsPage() {
               )}
             </Box>
           </WidgetCard>
-        </Grid>
-      </Grid>
+        </Box>
+      </Box>
     </Box>
   );
 }

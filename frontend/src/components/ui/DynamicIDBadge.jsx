@@ -119,15 +119,15 @@ export default function DynamicIDBadge({ profile }) {
   }, [profile]);
 
   return (
-    <Box 
-      sx={{ 
-        position: 'fixed', 
-        top: 64, // Anchor below the navbar
-        right: { xs: 0, md: 40 }, // Hang on the right side
-        width: { xs: 280, md: 350 }, 
-        height: 600, 
-        zIndex: 1200, 
-        pointerEvents: 'none' // Let clicks pass through empty canvas areas
+    // Fills whatever container the page gives it (no more fixed overlay that
+    // sat on top of the profile form and swallowed clicks).
+    <Box
+      sx={{
+        position: 'relative',
+        width: '100%',
+        height: '100%',
+        minHeight: 480,
+        pointerEvents: 'none',
       }}
     >
       <Box sx={{ position: 'absolute', inset: 0, '& .lanyard-wrapper': { height: '100% !important' }, pointerEvents: 'auto', cursor: 'grab' }}>

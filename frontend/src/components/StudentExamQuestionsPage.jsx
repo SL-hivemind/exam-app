@@ -3,9 +3,12 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box, Typography, Button, Alert, RadioGroup,
   FormControlLabel, Radio, CircularProgress, Dialog, DialogTitle, DialogContent, DialogActions,
-  Drawer, IconButton, useTheme, useMediaQuery, Chip, Fab
+  Drawer, IconButton, useTheme, useMediaQuery, Chip, Fab, Tooltip
 } from '@mui/material';
-import { AccessTime as TimerIcon, Apps as AppsIcon, Close as CloseIcon, ArrowBack as ArrowBackIcon } from '@mui/icons-material';
+import {
+  AccessTime as TimerIcon, Apps as AppsIcon, Close as CloseIcon, ArrowBack as ArrowBackIcon,
+  CloudDone as CloudDoneIcon, CloudSync as CloudSyncIcon, CloudOff as CloudOffIcon
+} from '@mui/icons-material';
 import api from '../utils/api';
 import useAuth from '../hooks/useAuth';
 import useExamSecurity from '../hooks/useExamSecurity';
@@ -44,6 +47,7 @@ export default function StudentExamQuestionsPage() {
   const [timeLeft, setTimeLeft] = useState(0);
   const [violations, setViolations] = useState(0);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [saveStatus, setSaveStatus] = useState('idle'); // idle | saving | saved | error
 
   const [currentPage, setCurrentPage] = useState(1);
   const questionsPerPage = 1;
@@ -159,11 +163,16 @@ export default function StudentExamQuestionsPage() {
         const changedAnswers = Object.entries(mcqAnswers).filter(([qId, ans]) => lastSavedRef.current[qId] !== ans);
         if (changedAnswers.length > 0) {
           try {
+            setSaveStatus('saving');
             await api.post(`/student/exams/${examId}/autosave`, {
               answers: changedAnswers.map(([qId, ans]) => ({ question_id: parseInt(qId), answer: ans }))
             }, { headers: { auth_token: authToken } });
             lastSavedRef.current = { ...mcqAnswers };
-          } catch (err) { console.error("Autosave failed:", err); }
+            setSaveStatus('saved');
+          } catch (err) {
+            console.error("Autosave failed:", err);
+            setSaveStatus('error'); // answers are still kept on this device and sent again on submit
+          }
         }
       }
     }, 500);
@@ -284,10 +293,33 @@ export default function StudentExamQuestionsPage() {
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 2 } }}>
           {violations > 0 && (
-            <Chip label={`⚠ ${violations} warning${violations > 1 ? 's' : ''}`} size="small"
-              sx={{ fontFamily: ff, fontWeight: 700, bgcolor: 'rgba(239,68,68,0.15)', color: '#fca5a5', fontSize: '0.72rem', display: { xs: 'none', sm: 'flex' } }} />
+            <Tooltip arrow title="Leaving this tab is recorded. After 3 warnings the exam submits automatically — stay on this page.">
+              <Chip label={`⚠ ${violations} warning${violations > 1 ? 's' : ''}`} size="small"
+                sx={{ fontFamily: ff, fontWeight: 700, bgcolor: 'rgba(239,68,68,0.15)', color: '#fca5a5', fontSize: '0.72rem', display: { xs: 'none', sm: 'flex' } }} />
+            </Tooltip>
+          )}
+          {/* Auto-save indicator — reassures students their answers are safe */}
+          {saveStatus !== 'idle' && (
+            <Tooltip arrow title={
+              saveStatus === 'error'
+                ? "Couldn't reach the server just now — your answers are still stored on this device and will be sent when you submit. Keep going."
+                : 'Every answer you pick is saved to the server automatically. If your device or internet fails, log back in and continue — nothing is lost.'
+            }>
+              <Chip
+                size="small"
+                icon={saveStatus === 'saving' ? <CloudSyncIcon sx={{ fontSize: 15 }} /> : saveStatus === 'error' ? <CloudOffIcon sx={{ fontSize: 15 }} /> : <CloudDoneIcon sx={{ fontSize: 15 }} />}
+                label={saveStatus === 'saving' ? 'Saving…' : saveStatus === 'error' ? 'Saved on device' : 'Saved'}
+                sx={{
+                  fontFamily: ff, fontWeight: 700, fontSize: '0.72rem',
+                  bgcolor: saveStatus === 'error' ? 'rgba(245,158,11,0.15)' : 'rgba(34,197,94,0.12)',
+                  color: saveStatus === 'error' ? '#fcd34d' : '#86efac',
+                  '& .MuiChip-icon': { color: 'inherit' },
+                }}
+              />
+            </Tooltip>
           )}
           {/* Timer */}
+          <Tooltip arrow title="Time remaining. When it reaches zero the exam submits itself with all your saved answers — no need to rush the button.">
           <Box sx={{
             display: 'flex', alignItems: 'center', gap: 0.75,
             bgcolor: isLow ? 'rgba(239,68,68,0.12)' : 'rgba(37,99,235,0.12)',
@@ -304,6 +336,7 @@ export default function StudentExamQuestionsPage() {
               {formatTime(timeLeft)}
             </Typography>
           </Box>
+          </Tooltip>
 
           <Button
             variant="contained" onClick={() => setConfirmOpen(true)} disabled={submitLoading}
@@ -455,7 +488,10 @@ export default function StudentExamQuestionsPage() {
         <DialogContent>
           <Typography sx={{ fontFamily: ff, color: DARK.sub }}>
             You have answered <strong style={{ color: DARK.text }}>{answeredCount}</strong> out of <strong style={{ color: DARK.text }}>{totalQuestions}</strong> questions.
-            {answeredCount < totalQuestions && <><br /><span style={{ color: DARK.orange }}>⚠ {totalQuestions - answeredCount} questions unanswered.</span></>}
+            {answeredCount < totalQuestions && <><br /><span style={{ color: DARK.orange }}>⚠ {totalQuestions - answeredCount} questions unanswered — they will score zero.</span> <span style={{ color: DARK.muted }}>Use the question grid on the right to jump to them.</span></>}
+          </Typography>
+          <Typography sx={{ fontFamily: ff, color: DARK.muted, fontSize: '0.78rem', mt: 1.5 }}>
+            Once submitted you cannot reopen the exam. Your answers are already auto-saved, so nothing is lost either way.
           </Typography>
         </DialogContent>
         <DialogActions sx={{ p: 2, gap: 1 }}>

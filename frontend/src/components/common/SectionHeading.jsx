@@ -29,9 +29,9 @@ export default function SectionHeading({
             sx={{
               display: 'inline-block', px: 3, py: 0.5, mb: 2, borderRadius: 20,
               fontWeight: 800, letterSpacing: 4,
-              bgcolor: 'rgba(148,163,255,0.12)',
-              border: '1px solid rgba(148,163,255,0.20)',
-              color: '#c7d2fe',
+              bgcolor: 'rgba(246,137,20,0.10)',
+              border: '1px solid rgba(246,137,20,0.22)',
+              color: '#ffce9e',
             }}
           >
             {overline}

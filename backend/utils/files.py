@@ -3,16 +3,12 @@ import csv
 import secrets
 import boto3
 import re
-from flask import Blueprint, request, jsonify
 from werkzeug.utils import secure_filename
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy import func
-from models import db, School, User, Student, Question, Exam, StudentExamAttempt, QuestionRepository
-from openpyxl import Workbook
-from openpyxl.styles import Font, Alignment
-from models import db, QuestionRepository, generate_short_id
-
-files_bp = Blueprint("files", __name__)
+from models import (
+    db, School, User, Student, Question, Exam,
+    StudentExamAttempt, QuestionRepository, generate_short_id,
+)
 
 S3_BUCKET = os.getenv('S3_BUCKET_NAME')
 AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
@@ -76,99 +72,9 @@ def save_csv_file(file_storage):
     file_storage.save(path)
     return path
 
-    # ---------------- IMAGE UPLOAD ROUTE ---------------- #
-@files_bp.route("/upload/image", methods=["POST"])
-def upload_image():
-    if "file" not in request.files:
-        return jsonify({"message": "No file part"}), 400
-    file = request.files["file"]
-
-    if file.filename == "":
-        return jsonify({"message": "No selected file"}), 400
-
-    if file and allowed_file(file.filename, ALLOWED_IMG):
-       saved_url = save_image_file(file)
-       if saved_url:
-            return jsonify({
-                "message": "Image uploaded successfully",
-                "url": saved_url 
-            }), 201
-       else:
-            return jsonify({"message": "Image upload to S3 failed"}), 500
-    return jsonify({"message": "Invalid image type"}), 400
-
-
-# ---------------- CSV UPLOAD ROUTE ---------------- #
-@files_bp.route("/upload/csv", methods=["POST"])
-def upload_csv():
-    if "file" not in request.files:
-        return jsonify({"message": "No file part"}), 400
-    file = request.files["file"]
-
-    if file.filename == "":
-        return jsonify({"message": "No selected file"}), 400
-
-    if file and allowed_file(file.filename, ALLOWED_CSV):
-        saved_path = save_csv_file(file)
-        return jsonify({
-            "message": "CSV uploaded successfully",
-            "path": saved_path
-        }), 201
-    return jsonify({"message": "Invalid CSV file"}), 400
-
-# ---------------- UPLOAD QUESTIONS CSV TO EXAM ---------------- #
-@files_bp.route("/exam/<int:exam_id>/upload_questions", methods=["POST"])
-def upload_questions_csv(exam_id):
-    if "file" not in request.files:
-        return jsonify({"message": "No file part"}), 400
-    file = request.files["file"]
-
-    if file.filename == "":
-        return jsonify({"message": "No selected file"}), 400
-
-    if file and allowed_file(file.filename, ALLOWED_CSV):
-        saved_path = save_csv_file(file)
-        try:
-            count = import_questions_csv(saved_path, exam_id)
-            db.session.commit()
-            return jsonify({
-                "message": f"{count} questions imported successfully into exam {exam_id}"
-            }), 201
-        except Exception as e:
-            db.session.rollback()
-            return jsonify({"error": str(e)}), 500
-    return jsonify({"message": "Invalid CSV file"}), 400
-
-
-# ---------------- UPLOAD EXAM IMAGE ---------------- #
-@files_bp.route("/exam/<int:exam_id>/upload_image", methods=["POST"])
-def upload_exam_image(exam_id):
-    if "file" not in request.files:
-        return jsonify({"message": "No file part"}), 400
-    file = request.files["file"]
-
-    if file.filename == "":
-        return jsonify({"message": "No selected file"}), 400
-
-    if file and allowed_file(file.filename, ALLOWED_IMG):
-        saved_name = save_image_file(file, prefix=f"exam{exam_id}")
-        try:
-            exam = exam.query.get(exam_id)
-            if not exam:
-                return jsonify({"message": "Exam not found"}), 404
-
-            exam.image_path = saved_name
-            db.session.commit()
-            return jsonify({
-                "message": "Exam image uploaded successfully",
-                "filename": saved_name,
-                "url": f"/uploads/images/{saved_name}"
-            }), 201
-        except Exception as e:
-            db.session.rollback()
-            return jsonify({"error": str(e)}), 500
-    return jsonify({"message": "Invalid image type"}), 400
-
+# NOTE: this module used to define a `files_bp` Blueprint with upload routes,
+# but it was never registered on the app — the live upload endpoints are in
+# app.py (/admin/upload/image, /admin/exams/<id>/questions). Dead routes removed.
 
 # ---------------- STUDENT CSV IMPORT ---------------- #
 

@@ -31,7 +31,13 @@ function AppContent() {
     location.pathname.startsWith('/student') || 
     location.pathname.startsWith('/exam/');
   const showFooter = !authToken && NAVBAR_PATHS.includes(location.pathname);
-  const showBotForStudent = authToken && location.pathname.startsWith('/student') && !location.pathname.includes('/exam');
+  // Bot for students: on their dashboard pages AND the results page (so they
+  // can ask about scores/rank right where they see them) — never during a
+  // live exam (PlatformBot also hard-blocks exam surfaces internally).
+  const showBotForStudent = authToken && (
+    (location.pathname.startsWith('/student') && !location.pathname.includes('/exam')) ||
+    location.pathname.startsWith('/exam/')
+  );
 
   return (
     <Box minHeight="100vh" display="flex" flexDirection="column">

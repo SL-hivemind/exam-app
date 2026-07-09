@@ -64,7 +64,7 @@ export default function PublicLayout() {
                 textDecoration: 'none', mr: 4,
               }}
             >
-              <Box component="img" src="https://sl-exam-images.s3.ap-south-2.amazonaws.com/SL+LOGO.png" alt="SL Logo" sx={{ height: 34, width: 'auto' }} />
+              <Box component="img" src="/sl-logo-master.svg" alt="SL Logo" sx={{ height: 34, width: 34, borderRadius: '22%' }} />
               <Typography sx={{
                 fontFamily: ff, fontWeight: 800, fontSize: '1rem',
                 color: '#fff', letterSpacing: '-0.02em',
@@ -107,11 +107,21 @@ export default function PublicLayout() {
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                 {isLoggedIn ? (
                   <>
-                    <Box sx={{
-                      display: 'flex', alignItems: 'center', gap: 1.2,
-                      px: 1.5, py: 0.6, borderRadius: '10px',
-                      bgcolor: 'rgba(255,255,255,0.06)',
-                    }}>
+                    {/* Avatar chip → profile page */}
+                    <Box
+                      component={RouterLink}
+                      to="/public/profile"
+                      sx={{
+                        display: 'flex', alignItems: 'center', gap: 1.2,
+                        px: 1.5, py: 0.6, borderRadius: '10px',
+                        bgcolor: 'rgba(255,255,255,0.06)',
+                        textDecoration: 'none', cursor: 'pointer',
+                        border: '1px solid transparent',
+                        '&:hover': { bgcolor: 'rgba(255,255,255,0.1)', borderColor: 'rgba(246,137,20,0.35)' },
+                        transition: 'all .15s ease',
+                      }}
+                      title="My profile & settings"
+                    >
                       <Avatar sx={{
                         width: 30, height: 30, bgcolor: '#2563eb',
                         fontSize: '0.8rem', fontWeight: 800,
@@ -291,8 +301,12 @@ export default function PublicLayout() {
       {/* ── Page Content ── */}
       <Outlet />
 
-      {/* ── Chat Bot (For logged in users) ── */}
-      {isLoggedIn && !location.pathname.includes('/mock') && !location.pathname.includes('/viewer') && <PlatformBot />}
+      {/* ── Chat Bot (logged-in users, never on live test surfaces) ── */}
+      {isLoggedIn
+        && !location.pathname.includes('/mock')
+        && !location.pathname.includes('/viewer')
+        && !location.pathname.includes('/practice')
+        && <PlatformBot />}
     </Box>
   );
 }

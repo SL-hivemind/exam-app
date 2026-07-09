@@ -4,9 +4,8 @@ import {
   Paper,
   Typography,
   Button,
-  TextField,
-  Grid
-} from "@mui/material";
+  TextField} from '@mui/material';
+import { GridLegacy as Grid } from '@mui/material';
 import { useNavigate } from "react-router-dom";
 
 /* ---------------- QUESTIONS ---------------- */

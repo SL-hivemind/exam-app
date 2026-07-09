@@ -20,10 +20,22 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../../utils/api';
+import useAuth from '../../hooks/useAuth';
 
 const MotionBox = motion.create(Box);
 
-const oswald = "'Oswald', sans-serif";
+const oswald = "'Plus Jakarta Sans', 'Inter', sans-serif";
+
+// Live test-taking surfaces — the assistant must NEVER appear here, no matter
+// where it is mounted from. (Exam integrity + zero distraction.)
+const EXAM_SURFACES = [
+  /^\/exams\/[^/]+\/questions/,   // school student live exam
+  /^\/quick\/[^/]+\/exam/,        // quick exam
+  /^\/public\/viewer\//,          // public CBT viewer
+  /^\/public\/mock/,              // public mock interface
+  /^\/public\/practice/,          // adaptive practice run
+  /^\/primary/,                   // primary exam flow
+];
 
 /* ──── markdown-lite: bold **text** + `code` ──── */
 function renderBotText(text) {
@@ -47,6 +59,7 @@ export default function PlatformBot() {
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuth();
 
   const [open, setOpen] = useState(false);
   const [botMode, setBotMode] = useState('dashboard');
@@ -67,7 +80,19 @@ export default function PlatformBot() {
   useEffect(() => {
     if (open && messages.length === 0) {
       if (botMode === 'dashboard') {
-        if (location.pathname.startsWith('/public')) {
+        if (user?.role === 'student') {
+          setMessages([{
+            role: 'bot',
+            text: "Hello! 👋 I'm your **Student Assistant**. Ask me about YOUR exams:\n\n• 📅 **Upcoming** — \"When is my next exam?\"\n• 📈 **Scores** — \"Show my recent scores\"\n• 🏆 **Rank** — \"What is my rank?\"\n• 📚 **Weak areas** — \"What are my weak subjects?\"",
+            time: new Date(),
+          }]);
+          setSuggestions([
+            'When is my next exam?',
+            'Show my recent scores',
+            'What is my rank?',
+            'What are my weak subjects?',
+          ]);
+        } else if (location.pathname.startsWith('/public')) {
           setMessages([{
             role: 'bot',
             text: "Hello! 👋 I'm your **Learning Assistant**. I can help you with:\n\n• 📚 **Course Info** — \"What courses are available?\"\n• ⚡ **Practice** — \"How do I start practice?\"\n• 🏆 **Mock Tests** — \"Where can I find full length mock tests?\"\n• 🔥 **Daily Challenge** — \"What is the daily challenge?\"\n\nJust ask!",
@@ -144,11 +169,16 @@ export default function PlatformBot() {
   };
 
   const handleNavLink = (link) => {
+    // Nav links are staff-only shortcuts; learners stay where they are.
+    if (user?.role === 'student' || user?.role === 'public_user') return;
     navigate(`${basePath}/${link}`);
   };
 
   /* ───── Floating Action Button ───── */
   const fabSize = isMobile ? 52 : 58;
+
+  // Never render on a live test surface (all hooks above have already run).
+  if (EXAM_SURFACES.some((r) => r.test(location.pathname))) return null;
 
   return (
     <>

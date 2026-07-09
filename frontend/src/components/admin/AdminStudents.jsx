@@ -2,14 +2,18 @@ import React, { useState, useEffect, useCallback } from "react";
 import {
   Box, Typography, TextField, Button, Table, TableBody, TableCell,
   TableHead, TableRow, IconButton, Dialog, DialogActions, DialogContent,
-  DialogTitle, Paper, Alert, Grid, MenuItem, Select, FormControl, InputLabel,
+  DialogTitle, Paper, Alert,  MenuItem, Select, FormControl, InputLabel,
   Stack, InputAdornment, Chip, CircularProgress, TablePagination,
-  Card, CardContent, useMediaQuery, useTheme,
-} from "@mui/material";
+  Card, CardContent, useMediaQuery, useTheme, Snackbar,
+} from '@mui/material';
+import { GridLegacy as Grid } from '@mui/material';
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import AddIcon from "@mui/icons-material/Add";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
+import DownloadIcon from "@mui/icons-material/Download";
+import downloadCsvTemplate from "../../utils/csvTemplates";
+import { WithHint, HelpCaption } from "../common/InfoTip";
 import SearchIcon from "@mui/icons-material/Search";
 import FilterListIcon from "@mui/icons-material/FilterList";
 import ClassIcon from "@mui/icons-material/Class";
@@ -46,6 +50,7 @@ export default function AdminStudents() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [attemptsOpen, setAttemptsOpen] = useState(false);
+  const [exportingAttempts, setExportingAttempts] = useState(false);
   const [attemptsLoading, setAttemptsLoading] = useState(false);
   const [attemptsData, setAttemptsData] = useState(null);
   const [selectedStudent, setSelectedStudent] = useState(null);
@@ -149,8 +154,30 @@ export default function AdminStudents() {
     // FIX: If School Admin, use their ID if current.school_id is empty
     const finalSchoolId = isSuperAdmin ? current.school_id : (user.school_id || current.school_id);
 
-    if (!current.username || !finalSchoolId) {
-      setError("Username and School are required");
+    // Guided validation — say exactly what to fix.
+    const uname = (current.username || "").trim();
+    if (!uname) {
+      setError("Please enter a username — this is what the student will type to log in.");
+      return;
+    }
+    if (uname.length < 3) {
+      setError("Username is too short — use at least 3 characters (e.g. ravi_kumar).");
+      return;
+    }
+    if (!finalSchoolId) {
+      setError("Please select the student's school from the dropdown.");
+      return;
+    }
+    if (current.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(current.email.trim())) {
+      setError("That email doesn't look right — check for typos (e.g. name@example.com), or leave it blank.");
+      return;
+    }
+    if (current.mobile_number && !/^[0-9+\-\s()]{7,15}$/.test(current.mobile_number.trim())) {
+      setError("That mobile number doesn't look right — use digits only (7–15 numbers), or leave it blank.");
+      return;
+    }
+    if (current.password && current.password.length < 6) {
+      setError("Password is too short — use at least 6 characters, or leave it blank to auto-generate one.");
       return;
     }
 
@@ -169,8 +196,13 @@ export default function AdminStudents() {
         await api.put(`/admin/students/${current.id}`, data);
         setSuccess("Student updated successfully");
       } else {
-        await api.post("/admin/students", data);
-        setSuccess("Student created successfully");
+        const res = await api.post("/admin/students", data);
+        const genPw = res.data?.generated_password;
+        setSuccess(
+          genPw
+            ? `Student created. Auto-generated password: ${genPw} — copy it now, it won't be shown again.`
+            : "Student created successfully"
+        );
       }
       fetchStudents();
       handleClose();
@@ -224,25 +256,73 @@ export default function AdminStudents() {
     }
   };
 
+  const handleExportAttempts = async () => {
+    if (!selectedStudent) return;
+    try {
+      setExportingAttempts(true);
+      const res = await api.get(`/admin/students/${selectedStudent.id}/attempts/export`, {
+        responseType: "blob",
+      });
+      const url = URL.createObjectURL(res.data);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${selectedStudent.student_id || selectedStudent.username}_exam_history.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError("Failed to export exam history");
+    } finally {
+      setExportingAttempts(false);
+    }
+  };
+
   return (
     <Box>
       <PageHeader
         title="Students"
         subtitle="Manage student accounts and enrollments."
         actions={<>
-          <Button variant="outlined" component="label" startIcon={<UploadFileIcon />}>
-            Import CSV
-            <input type="file" accept=".csv" hidden onChange={handleCsvUpload} />
-          </Button>
-          <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpen()}>
-            Add Student
-          </Button>
+          <WithHint hint="Downloads a sample .csv file showing the exact columns needed to add many students at once. Fill it in Excel, then use Import CSV.">
+            <Button variant="text" startIcon={<DownloadIcon />} onClick={() => downloadCsvTemplate('students')}>
+              CSV Format
+            </Button>
+          </WithHint>
+          <WithHint hint="Upload a filled-in .csv file to create many student accounts in one go. Use the CSV Format button first to get the correct file layout.">
+            <Button variant="outlined" component="label" startIcon={<UploadFileIcon />}>
+              Import CSV
+              <input type="file" accept=".csv" hidden onChange={handleCsvUpload} />
+            </Button>
+          </WithHint>
+          <WithHint hint="Create one student account. The Student ID and roll number are generated automatically.">
+            <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpen()}>
+              Add Student
+            </Button>
+          </WithHint>
         </>}
       />
+      <HelpCaption sx={{ mt: -1.5, mb: 2 }}>
+        Tip: to add a whole class at once — click <b>CSV Format</b> to download the sample file, fill one row per student in Excel, then click <b>Import CSV</b>.
+      </HelpCaption>
 
-      {/* ALERTS */}
-      {error && <Alert severity="error" onClose={() => setError("")} sx={{ mb: 3 }}>{error}</Alert>}
-      {success && <Alert severity="success" onClose={() => setSuccess("")} sx={{ mb: 3 }}>{success}</Alert>}
+      {/* ALERTS — floating snackbars so they're visible wherever you're scrolled */}
+      <Snackbar
+        open={!!error}
+        autoHideDuration={5000}
+        onClose={() => setError("")}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert severity="error" variant="filled" onClose={() => setError("")}>{error}</Alert>
+      </Snackbar>
+      <Snackbar
+        open={!!success}
+        autoHideDuration={success.includes("password") ? 20000 : 3500}
+        onClose={() => setSuccess("")}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert severity="success" variant="filled" onClose={() => setSuccess("")}>{success}</Alert>
+      </Snackbar>
 
       {/* FILTERS */}
       {/* FILTERS — horizontal scroll on mobile */}
@@ -471,6 +551,13 @@ export default function AdminStudents() {
           )}
         </DialogContent>
         <DialogActions>
+          <Button
+            startIcon={<DownloadIcon />}
+            onClick={handleExportAttempts}
+            disabled={exportingAttempts || attemptsLoading || !(attemptsData?.attempts || []).length}
+          >
+            {exportingAttempts ? "Exporting…" : "Export Excel"}
+          </Button>
           <Button onClick={() => setAttemptsOpen(false)}>Close</Button>
         </DialogActions>
       </Dialog>
@@ -486,6 +573,7 @@ export default function AdminStudents() {
               fullWidth
               value={current.username}
               onChange={(e) => setCurrent({ ...current, username: e.target.value })}
+              helperText="What the student types to log in. Their Student ID is created automatically."
             />
 
             {!isEdit && (
@@ -569,6 +657,7 @@ export default function AdminStudents() {
               fullWidth
               value={current.email}
               onChange={(e) => setCurrent({ ...current, email: e.target.value })}
+              helperText="If given, the login details are emailed to the student automatically."
             />
 
           </Stack>

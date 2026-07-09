@@ -13,15 +13,11 @@ const FONT_FAMILY =
 export const tokens = {
   font: FONT_FAMILY,
 
-  // Brand accents (from logo: blue #024392, orange #f68914)
-  blue: '#3b82f6',
-  royal: '#2f6bff',
-  indigo: '#5b6cff',
+  // Brand accent — single amber/orange family (from logo #f68914)
   orange: '#f68914',
   orangeLight: '#ffb054',
   accent: '#f68914',
-  accentGradient: 'linear-gradient(135deg, #2f6bff 0%, #f68914 100%)',
-  blueGradient: 'linear-gradient(135deg, #2f6bff 0%, #1d4ed8 100%)',
+  accentGradient: 'linear-gradient(135deg, #f68914 0%, #ffb054 100%)',
   orangeGradient: 'linear-gradient(135deg, #f68914 0%, #ff7a00 100%)',
 
   // Base surfaces (deep navy)
@@ -48,7 +44,7 @@ export const tokens = {
 
   // Glows
   glowCard: '0 12px 44px rgba(2,6,23,0.6), inset 0 1px 0 rgba(255,255,255,0.06)',
-  glowBlue: '0 8px 28px rgba(47,107,255,0.40)',
+  glowPrimary: '0 8px 28px rgba(246,137,20,0.38)',
   glowOrange: '0 8px 28px rgba(246,137,20,0.42)',
   glowAccent: '0 10px 30px rgba(246,137,20,0.40)',
   radius: 16,
@@ -66,7 +62,7 @@ const glassSurface = {
 const theme = createTheme({
   palette: {
     mode: 'dark',
-    primary: { main: tokens.royal, light: '#6f9bff', dark: '#1d4ed8', contrastText: '#ffffff' },
+    primary: { main: tokens.orange, light: tokens.orangeLight, dark: '#d9740b', contrastText: '#1a1206' },
     secondary: { main: tokens.orange, light: tokens.orangeLight, dark: '#d9740b', contrastText: '#1a1206' },
     info: { main: tokens.info },
     success: { main: tokens.success },
@@ -104,9 +100,9 @@ const theme = createTheme({
           color: tokens.text,
           backgroundColor: tokens.bg0,
           backgroundImage: [
-            'radial-gradient(1100px 760px at 6% -8%, rgba(47,107,255,0.22), transparent 60%)',
+            'radial-gradient(1100px 760px at 6% -8%, rgba(246,137,20,0.14), transparent 60%)',
             'radial-gradient(1000px 720px at 100% -4%, rgba(246,137,20,0.16), transparent 55%)',
-            'radial-gradient(1200px 900px at 50% 120%, rgba(91,108,255,0.18), transparent 60%)',
+            'radial-gradient(1200px 900px at 50% 120%, rgba(246,137,20,0.10), transparent 60%)',
           ].join(','),
           backgroundAttachment: 'fixed',
           backgroundRepeat: 'no-repeat',
@@ -143,9 +139,10 @@ const theme = createTheme({
       styleOverrides: {
         root: { borderRadius: 12, fontWeight: 700, paddingInline: 18, paddingBlock: 8 },
         containedPrimary: {
-          background: tokens.blueGradient,
-          boxShadow: tokens.glowBlue,
-          '&:hover': { background: tokens.blueGradient, boxShadow: '0 10px 32px rgba(47,107,255,0.55)' },
+          background: tokens.accentGradient,
+          boxShadow: tokens.glowPrimary,
+          color: '#1a1206',
+          '&:hover': { background: tokens.accentGradient, boxShadow: '0 10px 32px rgba(246,137,20,0.55)' },
           transition: 'all 0.2s ease',
         },
         containedSecondary: {

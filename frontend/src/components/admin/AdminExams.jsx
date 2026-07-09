@@ -8,7 +8,7 @@ import {
   DialogActions,
   TextField,
   Typography,
-  Grid,
+  
   Paper,
   Table,
   TableBody,
@@ -27,7 +27,8 @@ import {
   CardContent,
   useMediaQuery,
   useTheme,
-} from "@mui/material";
+} from '@mui/material';
+import { GridLegacy as Grid } from '@mui/material';
 import {
   Add as AddIcon,
   Search as SearchIcon,
