@@ -39,7 +39,7 @@ def main():
                 "SET subject = 'Mathematics' "
                 "WHERE LOWER(subject) LIKE '%math%' AND subject <> 'Mathematics'"
             )).rowcount
-            print(f"Normalised {updated} maths subject rows → 'Mathematics'")
+            print(f"Normalised {updated} maths subject rows -> 'Mathematics'")
 
     print("Done.")
 
