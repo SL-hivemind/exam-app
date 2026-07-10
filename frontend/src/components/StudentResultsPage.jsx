@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
     Box, Typography, Paper,  Alert, CircularProgress,
-    Container, Stack, Chip, Button, LinearProgress, Tooltip as MuiTooltip, useTheme, useMediaQuery
+    Container, Stack, Chip, Button, LinearProgress, Toolbar, Tooltip as MuiTooltip, useTheme, useMediaQuery
 } from '@mui/material';
 import { GridLegacy as Grid } from '@mui/material';
 import {
@@ -84,7 +84,8 @@ export default function StudentResultsPage() {
 
     if (error) {
         return (
-            <Container maxWidth="sm" sx={{ mt: 8 }}>
+            <Container maxWidth="sm" sx={{ mt: 4 }}>
+                <Toolbar />
                 <Alert severity="error" variant="filled">{error}</Alert>
                 <Button startIcon={<BackIcon />} onClick={() => navigate('/student')} sx={{ mt: 2 }}>
                     Back to Dashboard
@@ -180,6 +181,7 @@ export default function StudentResultsPage() {
 
     return (
         <Box sx={{ bgcolor: 'transparent', minHeight: '100vh', py: { xs: 2, md: 4 } }}>
+            <Toolbar />
             <Container maxWidth="xl">
                 <Button startIcon={<BackIcon />} onClick={() => navigate('/student')} sx={{ mb: 2 }}>
                     Back to Dashboard

@@ -11,6 +11,7 @@ import {
   Paper,
   Stack,
   TextField,
+  Toolbar,
   Typography,
   Chip,
   Divider,
@@ -24,7 +25,7 @@ import SendIcon from "@mui/icons-material/Send";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import PendingIcon from "@mui/icons-material/Pending";
 import CancelIcon from "@mui/icons-material/Cancel";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import api from "../utils/api";
 import useAuth from "../hooks/useAuth";
 import DynamicIDBadge from "./ui/DynamicIDBadge";
@@ -38,7 +39,12 @@ function getBasePath(role) {
 
 export default function ProfilePage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { authToken, user, login } = useAuth();
+
+  // Student routes use the main fixed Navbar (not DashboardLayout), so we
+  // need a Toolbar spacer to push content below the 70 px navbar.
+  const needsNavbarSpacer = location.pathname.startsWith('/student');
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -250,6 +256,8 @@ export default function ProfilePage() {
   }
 
   return (
+    <>
+    {needsNavbarSpacer && <Toolbar />}
     <Container maxWidth="lg" sx={{ py: 3 }}>
       {/* Two columns on desktop: form left, ID badge right — the badge used
           to float fixed over the page and blocked clicks on the form. */}
@@ -653,5 +661,6 @@ export default function ProfilePage() {
         )}
       </Box>
     </Container>
+    </>
   );
 }
