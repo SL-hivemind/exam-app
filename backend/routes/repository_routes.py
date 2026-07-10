@@ -606,7 +606,7 @@ def register_repository_routes(app, token_required):
                     access_end=end_time,
                     created_by=current_user.id,
                     school_id=current_user.school_id if current_user.role == 'school_admin' else None,
-                    total_marks=sum(q.marks for q in repo_questions)
+                    total_marks=0  # Will be recalculated after adding questions
                 )
                 db.session.add(school_exam)
                 db.session.flush()
@@ -640,6 +640,7 @@ def register_repository_routes(app, token_required):
                         db.session.add(es)
                         assigned_count += 1
                 
+                school_exam.recalc_total_marks()
                 db.session.commit()
                 return jsonify({
                     'message': f'Exam generated successfully. Auto-assigned to {assigned_count} students.',

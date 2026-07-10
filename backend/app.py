@@ -1462,7 +1462,6 @@ def admin_exams(current_user):
         access_start = data.get('access_start')
         access_end = data.get('access_end')
         duration = int(data.get('duration_minutes') or data.get('duration') or 60)
-        total_marks = int(data.get('total_marks') or 0)
         
         # 1. Define the correct variable
         school_id_to_use = data.get('school_id') 
@@ -1478,7 +1477,7 @@ def admin_exams(current_user):
         exam = Exam(
             title=title, description=description,
             access_start=ast, access_end=aend,
-            duration_minutes=duration, total_marks=total_marks,
+            duration_minutes=duration, total_marks=0,  # auto-recalculated when questions are added
             created_by=current_user.id, 
             
             # --- FIX 1: Use the variable defined above (school_id_to_use) ---
@@ -1560,6 +1559,8 @@ def bulk_add_to_exam(current_user, exam_id):
             db.session.add(new_exam_q)
         
     db.session.commit()
+    exam.recalc_total_marks()
+    db.session.commit()
     return jsonify({"message": f"Successfully added {len(question_ids)} questions"}), 200
 
 @app.route('/admin/exams/<int:exam_id>', methods=['GET','PUT','DELETE','OPTIONS'])
@@ -1591,7 +1592,7 @@ def admin_exam_detail(current_user, exam_id):
         if 'access_end' in data:
             exam.access_end = datetime.fromisoformat(data['access_end']) if data['access_end'] else None
         if 'duration_minutes' in data: exam.duration_minutes = int(data['duration_minutes'])
-        if 'total_marks' in data: exam.total_marks = int(data['total_marks'])
+        # total_marks is auto-calculated from questions — manual override removed
         
         # Security: School Admins cannot release results for Admin Exams (double check)
         if 'results_released' in data: 
@@ -1638,6 +1639,8 @@ def admin_exam_questions(current_user, exam_id):
                 # Assuming import_questions_csv is defined in utils.files
                 count = import_questions_csv(csv_path, exam_id, uploaded_images_map={})
                 db.session.commit()
+                exam.recalc_total_marks()
+                db.session.commit()
                 return jsonify({'message': f'Imported {count} questions'}), 201
             except Exception as e:
                 db.session.rollback()
@@ -1667,9 +1670,11 @@ def admin_exam_questions(current_user, exam_id):
             q = Question(
                 exam_id=exam.id,
                 repo_question_id=repo_q.id,
-                marks=repo_q.marks # Copy default marks
+                marks=repo_q.marks  # Copy default marks
             )
             db.session.add(q)
+            db.session.commit()
+            exam.recalc_total_marks()
             db.session.commit()
             return jsonify({'message': 'Question linked', 'question': q.to_dict()}), 201
 
@@ -1690,6 +1695,8 @@ def admin_exam_questions(current_user, exam_id):
             image_path=data.get('image_path'),
         )
         db.session.add(q)
+        db.session.commit()
+        exam.recalc_total_marks()
         db.session.commit()
 
         return jsonify({
@@ -1745,6 +1752,8 @@ def admin_exam_question_detail(current_user, exam_id, question_id):
             ))
 
         db.session.commit()
+        exam.recalc_total_marks()
+        db.session.commit()
         return jsonify({'message': 'Question updated', 'question': q.to_dict()}), 200
 
     if request.method == 'DELETE':
@@ -1752,6 +1761,8 @@ def admin_exam_question_detail(current_user, exam_id, question_id):
             return jsonify({'message': 'Permission Denied: Cannot delete questions from Admin Exam.'}), 403
             
         db.session.delete(q)
+        db.session.commit()
+        exam.recalc_total_marks()
         db.session.commit()
         return jsonify({'message':'Question deleted'}), 200
 
@@ -1788,6 +1799,9 @@ def pick_repo_questions(current_user, exam_id):
         )
         db.session.add(q)
         created += 1
+    db.session.commit()
+    exam = Exam.query.get(exam_id)
+    exam.recalc_total_marks()
     db.session.commit()
     return jsonify({'message': f'{created} questions added from repository'}), 201
 

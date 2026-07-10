@@ -88,7 +88,7 @@ export default function AdminExamDetail() {
   const [editFields, setEditFields] = useState({
     title: "", description: "", duration_minutes: 60,
     access_start: "", access_end: "", results_released: false,
-    school_id: "", total_marks: 0,
+    school_id: "",
   });
 
   const [schools, setSchools] = useState([]);
@@ -132,7 +132,6 @@ export default function AdminExamDetail() {
           access_end: e.access_end || "",
           results_released: !!e.results_released,
           school_id: e.school_id || "",
-          total_marks: e.total_marks || 0,
         });
       })
       .catch((err) => setError(err.response?.data?.message || "failed to load exam"))
@@ -275,7 +274,6 @@ export default function AdminExamDetail() {
         access_end: exam.access_end || "",
         results_released: !!exam.results_released,
         school_id: exam.school_id || "",
-        total_marks: exam.total_marks || 0,
       });
     }
     setEditOpen(true);
@@ -327,7 +325,6 @@ export default function AdminExamDetail() {
         access_start: editFields.access_start || null,
         access_end: editFields.access_end || null,
         duration_minutes: parseInt(editFields.duration_minutes || 0, 10),
-        total_marks: parseInt(editFields.total_marks || 0, 10),
         results_released: !!editFields.results_released,
       };
 
@@ -401,7 +398,9 @@ export default function AdminExamDetail() {
                 </Grid>
                 <Grid item xs={12} sm={4}>
                   <Typography variant="caption">Total Marks</Typography>
-                  <Typography variant="subtitle1" fontWeight={600}>{exam.total_marks}</Typography>
+                  <Tooltip title="Auto-calculated from the sum of all question marks" arrow>
+                    <Typography variant="subtitle1" fontWeight={600}>{exam.total_marks} <Chip label="Auto" size="small" sx={{ ml: 0.5, fontSize: '0.65rem', height: 18 }} /></Typography>
+                  </Tooltip>
                 </Grid>
                 <Grid item xs={12} sm={4}>
                   <Typography variant="caption">Assigned</Typography>
@@ -640,7 +639,7 @@ export default function AdminExamDetail() {
             </Grid>
 
             <Grid item xs={6}><TextField label="Duration (min)" type="number" value={editFields.duration_minutes} onChange={(e) => setField('duration_minutes', e.target.value)} fullWidth /></Grid>
-            <Grid item xs={6}><TextField label="Total Marks" type="number" value={editFields.total_marks} onChange={(e) => setField('total_marks', e.target.value)} fullWidth /></Grid>
+            <Grid item xs={6}><TextField label="Total Marks" type="number" value={exam?.total_marks || 0} fullWidth disabled helperText="Auto-calculated from questions" /></Grid>
           </Grid>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}><Button onClick={() => setEditOpen(false)}>Cancel</Button><Button onClick={handleEditSave} variant="contained" disabled={editBusy}>Save</Button></DialogActions>

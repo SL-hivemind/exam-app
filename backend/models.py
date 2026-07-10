@@ -259,6 +259,10 @@ class Exam(db.Model):
     assigned = db.relationship('ExamStudent', backref='exam', lazy=True, cascade="all, delete-orphan")
     attempts = db.relationship('StudentExamAttempt', backref='exam', lazy=True, cascade="all, delete-orphan")
 
+    def recalc_total_marks(self):
+        """Recalculate total_marks as the sum of all question marks."""
+        self.total_marks = sum(q.marks or 0 for q in self.questions)
+
     def to_dict(self):
         return {
             "id": self.id, 
