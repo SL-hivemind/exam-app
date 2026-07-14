@@ -1478,10 +1478,11 @@ def admin_exams(current_user):
             title=title, description=description,
             access_start=ast, access_end=aend,
             duration_minutes=duration, total_marks=0,  # auto-recalculated when questions are added
-            created_by=current_user.id, 
-            
+            created_by=current_user.id,
+            include_in_analysis=bool(data.get('include_in_analysis', True)),
+
             # --- FIX 1: Use the variable defined above (school_id_to_use) ---
-            school_id=school_id_to_use 
+            school_id=school_id_to_use
         )
         db.session.add(exam); db.session.commit()
         return jsonify({'message':'exam created','exam': exam.to_dict()}), 201
@@ -1595,8 +1596,10 @@ def admin_exam_detail(current_user, exam_id):
         # total_marks is auto-calculated from questions — manual override removed
         
         # Security: School Admins cannot release results for Admin Exams (double check)
-        if 'results_released' in data: 
+        if 'results_released' in data:
             exam.results_released = bool(data['results_released'])
+        if 'include_in_analysis' in data:
+            exam.include_in_analysis = bool(data['include_in_analysis'])
             
         db.session.commit()
         return jsonify({'message':'exam updated','exam': exam.to_dict()}), 200

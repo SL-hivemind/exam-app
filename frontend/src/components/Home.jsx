@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import * as THREE from "three";
 import { useNavigate } from "react-router-dom";
 import {
@@ -20,6 +20,9 @@ import {
   AlertTriangle,
   RotateCcw,
   Sparkles,
+  BarChart3,
+  Library,
+  Monitor,
 } from "lucide-react";
 
 /* ----------------------------------------------------------------------- */
@@ -412,9 +415,13 @@ function ThreeOrbit({ className, containerRef }) {
 /* Main component                                                           */
 /* ----------------------------------------------------------------------- */
 
+const HERO_CARD_COUNT = 4;
+
 export default function Home() {
   const navigate = useNavigate();
   const [activeStage, setActiveStage] = useState(0);
+  const [activeHeroCard, setActiveHeroCard] = useState(0);
+  const heroCardInterval = useRef(null);
   const [loaded, setLoaded] = useState(
     () =>
       typeof window !== "undefined" &&
@@ -423,6 +430,24 @@ export default function Home() {
   );
   const stageRefs = useRef([]);
   const heroVisualRef = useRef(null);
+
+  // Auto-rotate hero cards
+  const startHeroRotation = useCallback(() => {
+    clearInterval(heroCardInterval.current);
+    heroCardInterval.current = setInterval(() => {
+      setActiveHeroCard((prev) => (prev + 1) % HERO_CARD_COUNT);
+    }, 4000);
+  }, []);
+
+  useEffect(() => {
+    startHeroRotation();
+    return () => clearInterval(heroCardInterval.current);
+  }, [startHeroRotation]);
+
+  const handleHeroCardClick = useCallback((idx) => {
+    setActiveHeroCard(idx);
+    startHeroRotation();
+  }, [startHeroRotation]);
 
   useEffect(() => {
     const t = setTimeout(() => setLoaded(true), 500);
@@ -596,6 +621,50 @@ export default function Home() {
         .mock-cell { aspect-ratio: 1; border-radius: 5px; border: 1px solid var(--border-soft); display: flex; align-items: center; justify-content: center; font-size: 8.5px; color: var(--text-faint); }
         .mock-cell.filled { background: rgba(108,124,255,0.14); border-color: rgba(108,124,255,0.3); color: var(--indigo); }
         .mock-cell.current { background: var(--amber); border-color: var(--amber); color: #1a1305; font-weight: 700; }
+
+        /* --- Analysis card styles --- */
+        .mock-analysis-body { padding: 18px 16px; }
+        .mock-stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
+        .mock-stat-box { text-align: center; padding: 10px 6px; border-radius: 8px; border: 1px solid var(--border-soft); background: rgba(255,255,255,0.02); }
+        .mock-stat-val { font-family: 'Space Grotesk', sans-serif; font-size: 18px; font-weight: 700; }
+        .mock-stat-lbl { font-size: 9.5px; color: var(--text-faint); margin-top: 2px; }
+        .mock-bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+        .mock-bar-label { font-size: 11px; color: var(--text-dim); width: 68px; flex-shrink: 0; }
+        .mock-bar-track { flex: 1; height: 6px; border-radius: 3px; background: rgba(255,255,255,0.06); overflow: hidden; }
+        .mock-bar-fill { height: 100%; border-radius: 3px; transition: width .6s ease; }
+        .mock-bar-pct { font-size: 10px; font-weight: 600; width: 32px; text-align: right; flex-shrink: 0; }
+
+        /* --- Repo card styles --- */
+        .mock-repo-body { padding: 18px 16px; }
+        .mock-repo-search { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--border-soft); background: rgba(255,255,255,0.02); margin-bottom: 12px; font-size: 11px; color: var(--text-faint); }
+        .mock-repo-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border-soft); }
+        .mock-repo-item:last-child { border-bottom: none; }
+        .mock-repo-num { width: 22px; height: 22px; border-radius: 6px; background: rgba(108,124,255,0.1); border: 1px solid rgba(108,124,255,0.25); display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; color: var(--indigo); flex-shrink: 0; margin-top: 1px; }
+        .mock-repo-text { font-size: 11.5px; color: var(--text); line-height: 1.4; }
+        .mock-repo-meta { font-size: 9.5px; color: var(--text-faint); margin-top: 3px; display: flex; gap: 8px; }
+        .mock-repo-tag { font-size: 9px; padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border-soft); color: var(--text-faint); }
+
+        /* --- Command center card styles --- */
+        .mock-cc-body { padding: 18px 16px; }
+        .mock-cc-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px; margin-bottom: 12px; }
+        .mock-cc-seat { aspect-ratio: 1; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: 600; }
+        .mock-cc-seat.normal { background: rgba(108,124,255,0.1); border: 1px solid rgba(108,124,255,0.25); color: var(--indigo); }
+        .mock-cc-seat.flagged { background: rgba(242,104,92,0.12); border: 1px solid rgba(242,104,92,0.35); color: var(--red); animation: flagPulse 1.6s ease-in-out infinite; }
+        .mock-cc-seat.done { background: rgba(74,222,128,0.1); border: 1px solid rgba(74,222,128,0.25); color: var(--mint); }
+        .mock-cc-alert-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 8px; background: rgba(242,104,92,0.08); border: 1px solid rgba(242,104,92,0.2); margin-bottom: 8px; font-size: 11px; color: #ffb3ac; }
+        .mock-cc-stat-bar { display: flex; gap: 8px; }
+        .mock-cc-stat { flex: 1; text-align: center; padding: 8px 4px; border-radius: 7px; border: 1px solid var(--border-soft); background: rgba(255,255,255,0.02); }
+        .mock-cc-stat-val { font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 700; }
+        .mock-cc-stat-lbl { font-size: 8.5px; color: var(--text-faint); margin-top: 2px; }
+
+        /* --- Hero card shuffle animation --- */
+        .hero-cards-container { position: relative; width: 100%; max-width: 480px; min-height: 340px; }
+        .hero-card-slide { position: absolute; inset: 0; opacity: 0; transform: translateY(30px) scale(0.96); transition: opacity .5s cubic-bezier(.16,.84,.44,1), transform .5s cubic-bezier(.16,.84,.44,1); pointer-events: none; }
+        .hero-card-slide.active { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; z-index: 2; }
+        .hero-card-indicators { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 20px; position: relative; z-index: 3; }
+        .hero-card-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.12); cursor: pointer; transition: all .3s ease; border: none; padding: 0; }
+        .hero-card-dot.active { width: 28px; border-radius: 4px; background: linear-gradient(135deg, var(--amber), var(--indigo)); }
+        .hero-card-label { font-size: 11px; color: var(--text-faint); margin-top: 8px; text-align: center; font-family: 'JetBrains Mono', monospace; letter-spacing: 0.05em; transition: opacity .3s ease; position: relative; z-index: 3; }
 
         .floating-badge { position: absolute; display: flex; align-items: center; gap: 6px; padding: 8px 13px; border-radius: 10px; background: rgba(18,24,42,0.9); border: 1px solid var(--border); font-size: 12px; font-weight: 500; color: var(--text); backdrop-filter: blur(6px); z-index: 3; animation: floatY 4.5s ease-in-out infinite; box-shadow: 0 12px 24px -12px rgba(0,0,0,0.6); }
         .badge-1 { top: -18px; right: -10px; color: var(--mint); animation-delay: 0s; }
@@ -792,48 +861,172 @@ export default function Home() {
           <div className="hero-visual" ref={heroVisualRef}>
             <ThreeOrbit className="hero-three" containerRef={heroVisualRef} />
             <TiltCard className="hero-mock">
-              <div className="mock-window glow-border glow-border-always">
-                <div className="mock-topbar">
-                  <div className="mock-dots">
-                    <span /> <span /> <span />
+              <div className="hero-cards-container">
+
+                {/* ── Card 0: Exam Interface (original) ── */}
+                <div className={`hero-card-slide ${activeHeroCard === 0 ? "active" : ""}`}>
+                  <div className="mock-window glow-border glow-border-always">
+                    <div className="mock-topbar">
+                      <div className="mock-dots"><span /> <span /> <span /></div>
+                      <span className="mock-timer mono"><Timer size={12} /> 42:15</span>
+                    </div>
+                    <div className="mock-body">
+                      <div className="mock-qpanel">
+                        <p className="mock-qlabel mono">QUESTION 7 / 30</p>
+                        <p className="mock-qtext">Which of these best explains photosynthesis's role in an ecosystem?</p>
+                        <div className="mock-options">
+                          {["A", "B", "C", "D"].map((o, i) => (
+                            <div key={o} className={`mock-opt ${i === 1 ? "mock-opt-active" : ""}`}>
+                              <span>{o}</span>
+                              {i === 1 ? "Converts light energy into chemical energy" : ["Breaks down cellular waste", "Regulates body temperature", "Transports oxygen in blood"][i > 1 ? i - 1 : i]}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="mock-side">
+                        <p className="mock-side-label mono">ANSWER SHEET</p>
+                        <div className="mock-grid">
+                          {Array.from({ length: 30 }).map((_, i) => (
+                            <span key={i} className={`mock-cell ${i < 12 ? "filled" : ""} ${i === 6 ? "current" : ""}`}>{i + 1}</span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <span className="mock-timer mono">
-                    <Timer size={12} /> 42:15
-                  </span>
                 </div>
-                <div className="mock-body">
-                  <div className="mock-qpanel">
-                    <p className="mock-qlabel mono">QUESTION 7 / 30</p>
-                    <p className="mock-qtext">
-                      Which of these best explains photosynthesis's role in an
-                      ecosystem?
-                    </p>
-                    <div className="mock-options">
-                      {["A", "B", "C", "D"].map((o, i) => (
-                        <div key={o} className={`mock-opt ${i === 1 ? "mock-opt-active" : ""}`}>
-                          <span>{o}</span>
-                          {i === 1
-                            ? "Converts light energy into chemical energy"
-                            : ["Breaks down cellular waste", "Regulates body temperature", "Transports oxygen in blood"][i > 1 ? i - 1 : i]}
+
+                {/* ── Card 1: Score Analysis ── */}
+                <div className={`hero-card-slide ${activeHeroCard === 1 ? "active" : ""}`}>
+                  <div className="mock-window glow-border glow-border-always">
+                    <div className="mock-topbar">
+                      <div className="mock-dots"><span /> <span /> <span /></div>
+                      <span className="mock-timer mono" style={{ background: 'rgba(74,222,128,0.1)', color: '#86efac' }}><BarChart3 size={12} /> REPORT</span>
+                    </div>
+                    <div className="mock-analysis-body">
+                      <p className="mock-qlabel mono">EXAM ANALYSIS — NEET MOCK 3</p>
+                      <div className="mock-stat-row">
+                        <div className="mock-stat-box">
+                          <div className="mock-stat-val" style={{ color: 'var(--mint)' }}>156</div>
+                          <div className="mock-stat-lbl">SCORE</div>
+                        </div>
+                        <div className="mock-stat-box">
+                          <div className="mock-stat-val" style={{ color: 'var(--indigo)' }}>87%</div>
+                          <div className="mock-stat-lbl">ACCURACY</div>
+                        </div>
+                        <div className="mock-stat-box">
+                          <div className="mock-stat-val" style={{ color: 'var(--amber-soft)' }}>#42</div>
+                          <div className="mock-stat-lbl">RANK</div>
+                        </div>
+                      </div>
+                      {[
+                        { label: 'Physics', pct: 92, color: 'var(--mint)' },
+                        { label: 'Chemistry', pct: 78, color: 'var(--indigo)' },
+                        { label: 'Botany', pct: 85, color: 'var(--amber-soft)' },
+                        { label: 'Zoology', pct: 71, color: 'var(--red)' },
+                      ].map((s) => (
+                        <div key={s.label} className="mock-bar-row">
+                          <span className="mock-bar-label">{s.label}</span>
+                          <div className="mock-bar-track">
+                            <div className="mock-bar-fill" style={{ width: `${s.pct}%`, background: s.color }} />
+                          </div>
+                          <span className="mock-bar-pct" style={{ color: s.color }}>{s.pct}%</span>
                         </div>
                       ))}
                     </div>
                   </div>
-                  <div className="mock-side">
-                    <p className="mock-side-label mono">ANSWER SHEET</p>
-                    <div className="mock-grid">
-                      {Array.from({ length: 30 }).map((_, i) => (
-                        <span
-                          key={i}
-                          className={`mock-cell ${i < 12 ? "filled" : ""} ${i === 6 ? "current" : ""}`}
-                        >
-                          {i + 1}
-                        </span>
+                </div>
+
+                {/* ── Card 2: Question Repository ── */}
+                <div className={`hero-card-slide ${activeHeroCard === 2 ? "active" : ""}`}>
+                  <div className="mock-window glow-border glow-border-always">
+                    <div className="mock-topbar">
+                      <div className="mock-dots"><span /> <span /> <span /></div>
+                      <span className="mock-timer mono" style={{ background: 'rgba(108,124,255,0.1)', color: '#a5b4fc' }}><Library size={12} /> REPOSITORY</span>
+                    </div>
+                    <div className="mock-repo-body">
+                      <div className="mock-repo-search">
+                        <Database size={11} /> Search 10,000+ questions by subject, chapter, topic…
+                      </div>
+                      {[
+                        { num: 'Q1', text: 'A ball is thrown vertically upward with velocity 20 m/s. Find the maximum height reached.', sub: 'Physics', ch: 'Kinematics', diff: 'Medium' },
+                        { num: 'Q2', text: 'Which reagent is used for Baeyer\'s test to detect unsaturation?', sub: 'Chemistry', ch: 'Organic', diff: 'Easy' },
+                        { num: 'Q3', text: 'The process of photophosphorylation occurs in which part of the chloroplast?', sub: 'Botany', ch: 'Photosynthesis', diff: 'Hard' },
+                      ].map((q, i) => (
+                        <div key={i} className="mock-repo-item">
+                          <div className="mock-repo-num">{q.num}</div>
+                          <div>
+                            <div className="mock-repo-text">{q.text}</div>
+                            <div className="mock-repo-meta">
+                              <span className="mock-repo-tag">{q.sub}</span>
+                              <span className="mock-repo-tag">{q.ch}</span>
+                              <span className="mock-repo-tag">{q.diff}</span>
+                            </div>
+                          </div>
+                        </div>
                       ))}
                     </div>
                   </div>
                 </div>
+
+                {/* ── Card 3: Live Command Center ── */}
+                <div className={`hero-card-slide ${activeHeroCard === 3 ? "active" : ""}`}>
+                  <div className="mock-window glow-border glow-border-always">
+                    <div className="mock-topbar">
+                      <div className="mock-dots"><span /> <span /> <span /></div>
+                      <span className="mock-timer mono" style={{ background: 'rgba(242,104,92,0.1)', color: '#fca5a5' }}>
+                        <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#f2685c', display: 'inline-block', boxShadow: '0 0 8px #f2685c', animation: 'pulseDot 1.4s ease-in-out infinite' }} /> LIVE
+                      </span>
+                    </div>
+                    <div className="mock-cc-body">
+                      <p className="mock-qlabel mono">LIVE MONITORING — SECTION A</p>
+                      <div className="mock-cc-grid">
+                        {['normal','normal','normal','flagged','normal','normal',
+                          'normal','done','normal','normal','normal','flagged',
+                          'normal','normal','done','normal','normal','normal'].map((s, i) => (
+                          <div key={i} className={`mock-cc-seat ${s}`}>
+                            {String(i + 1).padStart(2, '0')}
+                          </div>
+                        ))}
+                      </div>
+                      <div className="mock-cc-alert-row">
+                        <AlertTriangle size={13} />
+                        <span>Seat 04 — Tab switch detected (2×)</span>
+                      </div>
+                      <div className="mock-cc-stat-bar">
+                        <div className="mock-cc-stat">
+                          <div className="mock-cc-stat-val" style={{ color: 'var(--mint)' }}>14</div>
+                          <div className="mock-cc-stat-lbl">Active</div>
+                        </div>
+                        <div className="mock-cc-stat">
+                          <div className="mock-cc-stat-val" style={{ color: 'var(--indigo)' }}>2</div>
+                          <div className="mock-cc-stat-lbl">Submitted</div>
+                        </div>
+                        <div className="mock-cc-stat">
+                          <div className="mock-cc-stat-val" style={{ color: 'var(--red)' }}>2</div>
+                          <div className="mock-cc-stat-lbl">Flagged</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
               </div>
+
+              {/* Card indicators */}
+              <div className="hero-card-indicators">
+                {[0, 1, 2, 3].map((idx) => (
+                  <button
+                    key={idx}
+                    className={`hero-card-dot ${activeHeroCard === idx ? "active" : ""}`}
+                    onClick={() => handleHeroCardClick(idx)}
+                    aria-label={`Show card ${idx + 1}`}
+                  />
+                ))}
+              </div>
+              <div className="hero-card-label">
+                {["Exam Interface", "Score Analysis", "Question Repository", "Live Command Center"][activeHeroCard]}
+              </div>
+
               <div className="floating-badge badge-1">
                 <CheckCircle2 size={14} /> Auto-saved
               </div>

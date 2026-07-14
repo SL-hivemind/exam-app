@@ -27,6 +27,8 @@ import {
   CardContent,
   useMediaQuery,
   useTheme,
+  Switch,
+  FormControlLabel,
 } from '@mui/material';
 import { GridLegacy as Grid } from '@mui/material';
 import {
@@ -69,6 +71,7 @@ export default function AdminExams() {
   const [accessEnd, setAccessEnd] = useState("");
 
   const [schoolId, setSchoolId] = useState("");
+  const [includeInAnalysis, setIncludeInAnalysis] = useState(true);
   const [errors, setErrors] = useState({});
 
 
@@ -116,6 +119,7 @@ export default function AdminExams() {
     setAccessStart(null);
     setAccessEnd(null);
     setSchoolId("");
+    setIncludeInAnalysis(true);
     setOpenCreate(true);
   }
 
@@ -165,6 +169,7 @@ export default function AdminExams() {
         duration_minutes: Number(duration),
         access_start: accessStart || null,
         access_end: accessEnd || null,
+        include_in_analysis: includeInAnalysis,
       };
 
       const res = await api.post("/admin/exams", payload);
@@ -253,13 +258,17 @@ export default function AdminExams() {
                         {e.description || "No description provided"}
                       </Typography>
                     </Box>
-                    <Chip
-                      label={e.results_released ? "Released" : "Draft"}
-                      color={e.results_released ? "success" : "default"}
-                      size="small"
-                      variant={e.results_released ? "filled" : "outlined"}
-                      sx={{ flexShrink: 0 }}
-                    />
+                    <Stack spacing={0.5} alignItems="flex-end" sx={{ flexShrink: 0 }}>
+                      <Chip
+                        label={e.results_released ? "Released" : "Draft"}
+                        color={e.results_released ? "success" : "default"}
+                        size="small"
+                        variant={e.results_released ? "filled" : "outlined"}
+                      />
+                      {e.include_in_analysis === false && (
+                        <Chip label="Not in analysis" color="warning" size="small" variant="outlined" />
+                      )}
+                    </Stack>
                   </Stack>
 
                   {/* Info Row */}
@@ -360,12 +369,17 @@ export default function AdminExams() {
                     </TableCell>
 
                     <TableCell>
-                      <Chip
-                        label={e.results_released ? "Released" : "Draft"}
-                        color={e.results_released ? "success" : "default"}
-                        size="small"
-                        variant={e.results_released ? "filled" : "outlined"}
-                      />
+                      <Stack spacing={0.5} alignItems="flex-start">
+                        <Chip
+                          label={e.results_released ? "Released" : "Draft"}
+                          color={e.results_released ? "success" : "default"}
+                          size="small"
+                          variant={e.results_released ? "filled" : "outlined"}
+                        />
+                        {e.include_in_analysis === false && (
+                          <Chip label="Not in analysis" color="warning" size="small" variant="outlined" />
+                        )}
+                      </Stack>
                     </TableCell>
 
                     <TableCell align="right">
@@ -467,6 +481,21 @@ export default function AdminExams() {
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                   />
+                </Grid>
+                <Grid item xs={12}>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={includeInAnalysis}
+                        onChange={(e) => setIncludeInAnalysis(e.target.checked)}
+                        color="primary"
+                      />
+                    }
+                    label="Count this exam in overall analysis"
+                  />
+                  <Typography variant="caption" color="text.secondary" display="block" sx={{ ml: 6 }}>
+                    Turn off for practice/mock exams — results still show, but scores won't affect student or school analytics.
+                  </Typography>
                 </Grid>
               </Grid>
             </Box>

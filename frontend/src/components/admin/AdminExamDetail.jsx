@@ -20,6 +20,7 @@ import {
   MenuItem,
   FormControlLabel,
   Checkbox,
+  Switch,
   Stack,
   Chip,
   Divider,
@@ -88,6 +89,7 @@ export default function AdminExamDetail() {
   const [editFields, setEditFields] = useState({
     title: "", description: "", duration_minutes: 60,
     access_start: "", access_end: "", results_released: false,
+    include_in_analysis: true,
     school_id: "",
   });
 
@@ -131,6 +133,7 @@ export default function AdminExamDetail() {
           access_start: e.access_start || "",
           access_end: e.access_end || "",
           results_released: !!e.results_released,
+          include_in_analysis: e.include_in_analysis !== false,
           school_id: e.school_id || "",
         });
       })
@@ -197,6 +200,25 @@ export default function AdminExamDetail() {
       });
     } catch (err) {
       setMsg({ type: "error", text: "Failed to update status" });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleToggleAnalysis = async () => {
+    try {
+      setBusy(true);
+      const newStatus = exam.include_in_analysis === false;
+      await api.put(`/admin/exams/${examId}`, { include_in_analysis: newStatus });
+      setExam(prev => ({ ...prev, include_in_analysis: newStatus }));
+      setMsg({
+        type: newStatus ? "success" : "info",
+        text: newStatus
+          ? "This exam now COUNTS in overall analysis."
+          : "This exam is now EXCLUDED from overall analysis. Results still show to students."
+      });
+    } catch (err) {
+      setMsg({ type: "error", text: "Failed to update analysis setting" });
     } finally {
       setBusy(false);
     }
@@ -273,6 +295,7 @@ export default function AdminExamDetail() {
         access_start: exam.access_start || "",
         access_end: exam.access_end || "",
         results_released: !!exam.results_released,
+        include_in_analysis: exam.include_in_analysis !== false,
         school_id: exam.school_id || "",
       });
     }
@@ -326,6 +349,7 @@ export default function AdminExamDetail() {
         access_end: editFields.access_end || null,
         duration_minutes: parseInt(editFields.duration_minutes || 0, 10),
         results_released: !!editFields.results_released,
+        include_in_analysis: !!editFields.include_in_analysis,
       };
 
       await api.put(`/admin/exams/${examId}`, payload);
@@ -384,11 +408,18 @@ export default function AdminExamDetail() {
                   <Typography variant="h4" fontWeight={700} sx={{ color: '#cfe0ff', wordBreak: 'break-word' }} gutterBottom>{exam.title}</Typography>
                   <Typography variant="body1" color="text.secondary" paragraph sx={{ wordBreak: 'break-word' }}>{exam.description}</Typography>
                 </Box>
-                <Chip
-                  label={exam.results_released ? "Released" : "Draft/Hidden"}
-                  color={exam.results_released ? "success" : "warning"}
-                  variant={exam.results_released ? "filled" : "outlined"}
-                />
+                <Stack spacing={0.5} alignItems="flex-end" sx={{ flexShrink: 0 }}>
+                  <Chip
+                    label={exam.results_released ? "Released" : "Draft/Hidden"}
+                    color={exam.results_released ? "success" : "warning"}
+                    variant={exam.results_released ? "filled" : "outlined"}
+                  />
+                  {exam.include_in_analysis === false && (
+                    <Tooltip title="Scores from this exam are excluded from student and school analytics" arrow>
+                      <Chip label="Not in analysis" color="warning" size="small" variant="outlined" />
+                    </Tooltip>
+                  )}
+                </Stack>
               </Stack>
               <Divider sx={{ my: 3 }} />
               <Grid container spacing={2}>
@@ -421,6 +452,25 @@ export default function AdminExamDetail() {
                 <Button variant="outlined" startIcon={<GroupAddIcon />} onClick={() => setAssignOpen(true)} fullWidth>Assign Students</Button>
                 <Button variant="outlined" startIcon={<EditIcon />} onClick={() => setEditOpen(true)} fullWidth>Edit Details</Button>
                 <Divider />
+                <Box sx={{ px: 1.5, py: 1, borderRadius: 2, border: '1px solid rgba(255,255,255,0.10)' }}>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={exam.include_in_analysis !== false}
+                        onChange={handleToggleAnalysis}
+                        disabled={busy}
+                        color="primary"
+                      />
+                    }
+                    label="Count in overall analysis"
+                    sx={{ mr: 0 }}
+                  />
+                  <Typography variant="caption" color="text.secondary" display="block">
+                    {exam.include_in_analysis !== false
+                      ? "Scores affect student & school analytics."
+                      : "Excluded from analytics — results still visible to students."}
+                  </Typography>
+                </Box>
                 <Button variant="contained" color="secondary" startIcon={<DownloadIcon />} onClick={handleDownloadAttempts} fullWidth>Download Excel</Button>
               </Stack>
             </Paper>
@@ -640,6 +690,18 @@ export default function AdminExamDetail() {
 
             <Grid item xs={6}><TextField label="Duration (min)" type="number" value={editFields.duration_minutes} onChange={(e) => setField('duration_minutes', e.target.value)} fullWidth /></Grid>
             <Grid item xs={6}><TextField label="Total Marks" type="number" value={exam?.total_marks || 0} fullWidth disabled helperText="Auto-calculated from questions" /></Grid>
+            <Grid item xs={12}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={!!editFields.include_in_analysis}
+                    onChange={(e) => setField('include_in_analysis', e.target.checked)}
+                    color="primary"
+                  />
+                }
+                label="Count this exam in overall analysis"
+              />
+            </Grid>
           </Grid>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}><Button onClick={() => setEditOpen(false)}>Cancel</Button><Button onClick={handleEditSave} variant="contained" disabled={editBusy}>Save</Button></DialogActions>

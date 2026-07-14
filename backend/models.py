@@ -254,6 +254,9 @@ class Exam(db.Model):
     school_id = db.Column(db.Integer, db.ForeignKey('schools.id'), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     results_released = db.Column(db.Boolean, default=False)
+    # Practice/mock exams can opt out of aggregate analytics (student/school
+    # analysis endpoints); results and ranks for the exam itself still show.
+    include_in_analysis = db.Column(db.Boolean, nullable=False, default=True, server_default='1')
 
     questions = db.relationship('Question', backref='exam', lazy=True, cascade="all, delete-orphan")
     assigned = db.relationship('ExamStudent', backref='exam', lazy=True, cascade="all, delete-orphan")
@@ -272,8 +275,9 @@ class Exam(db.Model):
             "access_end": self.access_end.isoformat() if self.access_end else None,
             "duration_minutes": self.duration_minutes, 
             "total_marks": self.total_marks,
-            "school_id": self.school_id, 
+            "school_id": self.school_id,
             "results_released": self.results_released,
+            "include_in_analysis": self.include_in_analysis is not False,
             "school_name": self.school.name if self.school else "Global"
         }
 
