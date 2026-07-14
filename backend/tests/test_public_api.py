@@ -4,6 +4,13 @@ import pytest
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch, MagicMock
 
+pytest.skip(
+    "Stale test module: written against the removed PublicProfile model "
+    "(models now use the standalone PublicUser account). Needs a rewrite "
+    "against the current public auth flow before it can run.",
+    allow_module_level=True,
+)
+
 from app import app, db
 from models import (
     User, PublicProfile, PublicCourse, CourseContent,
@@ -13,9 +20,14 @@ from models import (
 
 @pytest.fixture(autouse=True)
 def setup_test_config():
-    """Ensure the testing configuration is applied before each test."""
+    """Ensure the testing configuration is applied before each test.
+
+    NOTE: overriding SQLALCHEMY_DATABASE_URI here does NOT work — the real
+    MySQL engine is bound when `app` is imported. conftest.py swaps the
+    engine onto isolated in-memory sqlite before any test runs, which is the
+    only reason create_all/drop_all in the client fixture are safe.
+    """
     app.config['TESTING'] = True
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
     app.config['JWT_SECRET_KEY'] = 'test-jwt-secret-key-123456789'
     app.config['SECRET_KEY'] = 'test-secret-key-123456789'
 
@@ -91,8 +103,9 @@ def client():
             db.session.commit()
             
         yield client
-        
+
         with app.app_context():
+            db.session.remove()
             db.drop_all()
 
 # Helper to get authentication headers

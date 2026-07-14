@@ -11,39 +11,42 @@ from app import app, db
 from models import Exam, School, Student, StudentExamAttempt, User
 
 
-@pytest.fixture(autouse=True)
-def setup_test_config():
-    app.config['TESTING'] = True
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
+@pytest.fixture
+def client():
+    # conftest.py has already swapped the engine onto isolated in-memory
+    # sqlite — create_all/drop_all here never touch the real database.
     app.config['JWT_SECRET_KEY'] = 'test-jwt-secret-key-123456789'
     app.config['SECRET_KEY'] = 'test-secret-key-123456789'
 
+    with app.app_context():
+        db.create_all()
 
-@pytest.fixture
-def client():
+        admin = User(username='admin', role='admin', email='admin@example.com')
+        admin.set_password('adminpass123')
+        db.session.add(admin)
+        db.session.commit()
+
+        school = School(name='Test School', code='TST', created_by=admin.id)
+        db.session.add(school)
+        db.session.commit()
+
+        student_user = User(username='stud1', role='student', school_id=school.id)
+        student_user.set_password('studpass123')
+        db.session.add(student_user)
+        db.session.commit()
+        student = Student(
+            user_id=student_user.id, student_id='TST00001', number='1',
+            class_number='10', school_id=school.id,
+        )
+        db.session.add(student)
+        db.session.commit()
+
     with app.test_client() as client:
-        with app.app_context():
-            db.create_all()
-            admin = User(username='admin', role='admin', email='admin@example.com')
-            admin.set_password('adminpass123')
-            db.session.add(admin)
-            school = School(name='Test School', code='TST', created_by=1)
-            db.session.add(school)
-            db.session.commit()
-
-            student_user = User(username='stud1', role='student', school_id=school.id)
-            student_user.set_password('studpass123')
-            db.session.add(student_user)
-            db.session.commit()
-            student = Student(
-                user_id=student_user.id, student_id='TST00001', number='1',
-                class_number='10', school_id=school.id,
-            )
-            db.session.add(student)
-            db.session.commit()
         yield client
-        with app.app_context():
-            db.drop_all()
+
+    with app.app_context():
+        db.session.remove()
+        db.drop_all()
 
 
 def admin_headers(client):
