@@ -11,7 +11,7 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.pool import StaticPool
 
-from app import app
+from app import app, limiter
 from models import db
 
 
@@ -19,6 +19,9 @@ from models import db
 def isolate_database():
     app.config["TESTING"] = True
     app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite://"
+    # Rate limits (e.g. on /login) would 429 once the suite logs in a few
+    # times in one process.
+    limiter.enabled = False
 
     with app.app_context():
         real_engine = db.engines.get(None)

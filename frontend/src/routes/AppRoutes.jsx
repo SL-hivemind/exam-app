@@ -30,6 +30,8 @@ const SpecialistActivityLog = lazy(() => import("../components/subject/Specialis
 const RepoReports = lazy(() => import("../components/repository/RepoReports"));
 const StudentDashboard = lazy(() => import("../components/StudentDashboard"));
 const PrimaryExamFlow = lazy(() => import("../components/primary/PrimaryExamFlow"));
+const PrimaryExamInterface = lazy(() => import("../components/primary/PrimaryExamInterface"));
+const PrimaryQuestionBuilder = lazy(() => import("../components/primary/PrimaryQuestionBuilder"));
 const StudentAnalysisPage = lazy(() => import("../components/StudentAnalysisPage"));
 const ProfilePage = lazy(() => import("../components/ProfilePage"));
 const SchoolAnalyticsPage = lazy(() => import("../components/admin/SchoolAnalyticsPage"));
@@ -78,6 +80,8 @@ export default function AppRoutes() {
           <Route path="exams" element={<AdminExams />} />
           <Route path="exams/:examId" element={<AdminExamDetail />} />
           <Route path="exams/:examId/questions" element={<AdminExamQuestions />} />
+          {/* Hidden (URL-only) while primary exams are dark-launched */}
+          <Route path="exams/:examId/primary-questions" element={<PrimaryQuestionBuilder />} />
           <Route path="students" element={<AdminStudents />} />
           <Route path="schools" element={<AdminSchools />} />
           <Route path="repository/questions" element={<RepoQuestionsPage />} />
@@ -107,6 +111,8 @@ export default function AppRoutes() {
           <Route path="exams" element={<AdminExams />} />
           <Route path="exams/:examId" element={<AdminExamDetail />} />
           <Route path="exams/:examId/questions" element={<AdminExamQuestions />} />
+          {/* Hidden (URL-only) while primary exams are dark-launched */}
+          <Route path="exams/:examId/primary-questions" element={<PrimaryQuestionBuilder />} />
           <Route path="repository/questions" element={<RepoQuestionsPage />} />
           <Route path="repository/questions/new" element={<RepoQuestionEditPage />} />
           <Route path="repository/questions/:id/edit" element={<RepoQuestionEditPage />} />
@@ -159,6 +165,14 @@ export default function AppRoutes() {
         <Route path="/exam/:examId/results" element={
           <ProtectedRoute roles={["student"]}>
             <StudentResultsPage />
+          </ProtectedRoute>
+        } />
+
+        {/* Primary (class 1-5) interactive exam — reached only via automatic
+            redirect from StudentExamQuestionsPage; no nav links. */}
+        <Route path="/exams/:examId/primary" element={
+          <ProtectedRoute roles={["student"]}>
+            <PrimaryExamInterface />
           </ProtectedRoute>
         } />
 
