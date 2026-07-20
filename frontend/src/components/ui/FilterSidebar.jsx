@@ -1,20 +1,28 @@
 import React,{useState,useEffect,useRef} from 'react';
 import {Box,Typography,TextField,MenuItem,Stack,Divider,IconButton,Autocomplete,Paper,useMediaQuery,useTheme,InputAdornment} from '@mui/material';
-import {FilterList as FilterIcon,RestartAlt as ResetIcon,Search as SearchIcon,Class as ClassIcon,Subject as SubjectIcon,MenuBook as MenuBookIcon,Topic as TopicIcon} from '@mui/icons-material';
+import {FilterList as FilterIcon,RestartAlt as ResetIcon,Search as SearchIcon,Class as ClassIcon,Subject as SubjectIcon,MenuBook as MenuBookIcon,Topic as TopicIcon,School as SchoolIcon} from '@mui/icons-material';
 import api from '../../utils/api';
 
+export const BOARD_LABELS={'AP-TS':'State Board (AP/TS)','CBSE':'CBSE / NCERT'};
+
 export default function FilterSidebar({filters,onFilterChange,onReset}){
-const [metadata,setMetadata]=useState({subjects:[],classes:[],chapters:[],topics:[]});
+const [metadata,setMetadata]=useState({boards:[],papers:[],subjects:[],classes:[],chapters:[],topics:[]});
 const theme = useTheme();
 const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
+// AP/TS Intermediate sits its exams as 1A/1B/2A/2B; CBSE has no such split,
+// so the paper filter is meaningless there and is hidden rather than shown empty.
+const showPaper = filters.board!=='CBSE' && (metadata.papers||[]).length>0;
+
 // Track previous cascading keys to only clear children on genuine user-driven changes
-const prevCascadeRef=useRef({class_number:filters.class_number,subject:filters.subject,chapter:filters.chapter});
+const prevCascadeRef=useRef({board:filters.board,paper_code:filters.paper_code,class_number:filters.class_number,subject:filters.subject,chapter:filters.chapter});
 
 useEffect(()=>{
 const fetchMetadata=async()=>{
 try{
 const params=new URLSearchParams();
+if(filters.board) params.set('board',filters.board);
+if(filters.paper_code) params.set('paper_code',filters.paper_code);
 if(filters.class_number) params.set('class_number',filters.class_number);
 if(filters.subject) params.set('subject',filters.subject);
 if(filters.chapter) params.set('chapter',filters.chapter);
@@ -23,7 +31,7 @@ setMetadata(res.data);
 }catch(err){console.error('Failed to fetch filter metadata',err);}
 };
 fetchMetadata();
-},[filters.class_number,filters.subject,filters.chapter]);
+},[filters.board,filters.paper_code,filters.class_number,filters.subject,filters.chapter]);
 
 const handleChange=(name,value)=>{
 const next={...filters,[name]:value||''};
@@ -31,6 +39,21 @@ const next={...filters,[name]:value||''};
 // Only cascade-clear children when the user explicitly changes a PARENT filter
 // (not when Autocomplete fires null because options list changed)
 const prev=prevCascadeRef.current;
+if(name==='board'){
+  if(prev.board!==next.board){
+    // The two boards use different chapter names, so a stale chapter would
+    // filter to nothing after switching.
+    next.paper_code='';
+    next.chapter='';
+    next.topic='';
+  }
+}
+if(name==='paper_code'){
+  if(prev.paper_code!==next.paper_code){
+    next.chapter='';
+    next.topic='';
+  }
+}
 if(name==='class_number'||name==='subject'){
   if(prev[name]!==next[name]){
     next.chapter='';
@@ -43,7 +66,7 @@ if(name==='chapter'){
   }
 }
 
-prevCascadeRef.current={class_number:next.class_number,subject:next.subject,chapter:next.chapter};
+prevCascadeRef.current={board:next.board,paper_code:next.paper_code,class_number:next.class_number,subject:next.subject,chapter:next.chapter};
 onFilterChange(next);
 };
 
@@ -68,6 +91,14 @@ if (isMobile) {
           sx={{ minWidth: 150 }}
         />
         <TextField
+          select size="small" label="Board" value={filters.board||''} onChange={e=>handleChange('board',e.target.value)}
+          InputProps={{ startAdornment: <InputAdornment position="start"><SchoolIcon color="action" fontSize="small" /></InputAdornment> }}
+          sx={{ minWidth: 130 }}
+        >
+          <MenuItem value="">All Boards</MenuItem>
+          {(metadata.boards||[]).map(b=><MenuItem key={b} value={b}>{BOARD_LABELS[b]||b}</MenuItem>)}
+        </TextField>
+        <TextField
           select size="small" label="Class" value={filters.class_number||''} onChange={e=>handleChange('class_number',e.target.value)}
           InputProps={{ startAdornment: <InputAdornment position="start"><ClassIcon color="action" fontSize="small" /></InputAdornment> }}
           sx={{ minWidth: 130 }}
@@ -75,6 +106,15 @@ if (isMobile) {
           <MenuItem value="">All</MenuItem>
           {metadata.classes.map(c=><MenuItem key={c} value={c}>Class {c}</MenuItem>)}
         </TextField>
+        {showPaper && (
+        <TextField
+          select size="small" label="Paper" value={filters.paper_code||''} onChange={e=>handleChange('paper_code',e.target.value)}
+          sx={{ minWidth: 110 }}
+        >
+          <MenuItem value="">All Papers</MenuItem>
+          {(metadata.papers||[]).map(p=><MenuItem key={p} value={p}>{p}</MenuItem>)}
+        </TextField>
+        )}
         <TextField
           select size="small" label="Subject" value={filters.subject||''} onChange={e=>handleChange('subject',e.target.value)}
           InputProps={{ startAdornment: <InputAdornment position="start"><SubjectIcon color="action" fontSize="small" /></InputAdornment> }}
@@ -132,6 +172,18 @@ InputProps={{startAdornment:(<SearchIcon fontSize="small" sx={{mr:1,color:'text.
 select
 fullWidth
 size="small"
+label="Select Board"
+value={filters.board||''}
+onChange={e=>handleChange('board',e.target.value)}
+sx={{mb:2}}>
+<MenuItem value="">All Boards</MenuItem>
+{(metadata.boards||[]).map(b=><MenuItem key={b} value={b}>{BOARD_LABELS[b]||b}</MenuItem>)}
+</TextField>
+
+<TextField
+select
+fullWidth
+size="small"
 label="Select Class"
 value={filters.class_number||''}
 onChange={e=>handleChange('class_number',e.target.value)}
@@ -139,6 +191,21 @@ sx={{mb:2}}>
 <MenuItem value="">All Classes</MenuItem>
 {metadata.classes.map(c=><MenuItem key={c} value={c}>Class {c}</MenuItem>)}
 </TextField>
+
+{showPaper && (
+<TextField
+select
+fullWidth
+size="small"
+label="Select Paper"
+value={filters.paper_code||''}
+onChange={e=>handleChange('paper_code',e.target.value)}
+helperText="Intermediate papers (1A/1B/2A/2B)"
+sx={{mb:2}}>
+<MenuItem value="">All Papers</MenuItem>
+{(metadata.papers||[]).map(p=><MenuItem key={p} value={p}>{p}</MenuItem>)}
+</TextField>
+)}
 
 <TextField
 select

@@ -31,7 +31,7 @@ from models import (
     Exam, Question, ExamStudent,
     StudentExamAttempt, StudentAnswer,
     QuestionRepository, QuestionAuditLog, AuditLog, QuestionReport, generate_short_id,
-    PasswordResetOTP, StudentRequest,
+    PasswordResetOTP, StudentRequest, SpecialistScope,
     PublicUser, PublicCourse, CourseContent,
     CourseSubscription, PublicExamAttempt, EmailVerificationOTP,
 )
@@ -321,6 +321,7 @@ def login():
             'username': user.username,
             'role': user.role,
             'specialist_subject': getattr(user, 'specialist_subject', None),
+            'scopes': [s.to_dict() for s in user.scopes],
             'school_id': user.school_id,  # Ensure this is sent
             'school_name': school_name
         }
@@ -807,6 +808,26 @@ def admin_create_user(current_user):
         except Exception:
             pass
     db.session.add(user)
+    db.session.flush()  # need user.id before attaching scopes
+
+    # `scopes` is a list of {subject, class_number?, board?, paper_code?}; a bare
+    # `specialist_subject` still works and becomes one unrestricted scope.
+    scopes = data.get('scopes')
+    if role == 'subject_specialist':
+        if not scopes and specialist_subject:
+            scopes = [{'subject': specialist_subject}]
+        for s in (scopes or []):
+            subject = (s.get('subject') or '').strip()
+            if not subject:
+                continue
+            db.session.add(SpecialistScope(
+                user_id=user.id,
+                subject=subject,
+                class_number=(s.get('class_number') or None),
+                board=(s.get('board') or None),
+                paper_code=(s.get('paper_code') or None),
+            ))
+
     db.session.commit()
 
     if email:

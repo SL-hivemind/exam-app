@@ -89,7 +89,51 @@ class User(db.Model):
             "email": self.email,
             "school_id": self.school_id,
             "specialist_subject": self.specialist_subject,
+            "scopes": [s.to_dict() for s in self.scopes],
             "is_verified": self.is_verified
+        }
+
+# -------------------- SPECIALIST SCOPE --------------------
+class SpecialistScope(db.Model):
+    """What a subject_specialist is allowed to see and edit.
+
+    One row per grant. NULL on class_number/board/paper_code means
+    "unrestricted on that axis", so a science specialist covering both
+    Physics and Chemistry across every class is two rows with three NULLs
+    each, while a maths specialist limited to first year is a single
+    ('Mathematics', '11', NULL, NULL).
+
+    Replaces the single User.specialist_subject string, which could only
+    ever express one subject and was exact-matched against
+    QuestionRepository.subject.
+    """
+    __tablename__ = 'specialist_scope'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'),
+                        nullable=False, index=True)
+
+    subject = db.Column(db.String(100), nullable=False)
+    class_number = db.Column(db.String(10), nullable=True)
+    board = db.Column(db.String(20), nullable=True)
+    paper_code = db.Column(db.String(4), nullable=True)
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    user = db.relationship('User', backref=db.backref('scopes', lazy=True,
+                                                      cascade='all, delete-orphan'))
+
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'subject', 'class_number', 'board', 'paper_code',
+                            name='uq_specialist_scope'),
+    )
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "subject": self.subject,
+            "class_number": self.class_number,
+            "board": self.board,
+            "paper_code": self.paper_code,
         }
 
 # -------------------- SCHOOL --------------------
@@ -175,6 +219,15 @@ class QuestionRepository(db.Model):
     topic = db.Column(db.String(150), nullable=True)
     difficulty = db.Column(db.String(20), nullable=True)
 
+    # Curriculum the question was authored against. NULL means untagged, which
+    # is treated as "visible under every board" so subjects can be tagged one
+    # at a time instead of all at once.
+    board = db.Column(db.String(20), nullable=True, index=True)   # 'AP-TS' | 'CBSE'
+    # AP/TS Intermediate splits each year into two papers and colleges pick by
+    # them. CBSE has no such division, so CBSE rows leave this NULL rather than
+    # being forced into an invented split.
+    paper_code = db.Column(db.String(4), nullable=True, index=True)  # '1A'|'1B'|'2A'|'2B'
+
     text = db.Column(db.Text, nullable=True)
     option_a = db.Column(db.String(500))
     option_b = db.Column(db.String(500))
@@ -205,6 +258,8 @@ class QuestionRepository(db.Model):
             "class_number": self.class_number,
             "chapter": self.chapter,
             "topic": self.topic,
+            "board": self.board,
+            "paper_code": self.paper_code,
             "difficulty": self.difficulty,
             "text": self.text,
             "option_a": self.option_a,
@@ -218,6 +273,55 @@ class QuestionRepository(db.Model):
             "content_json": self.content_json,
             "created_at": self.created_at.isoformat() if self.created_at else None
         }
+
+# -------------------- CHAPTER CATALOG --------------------
+class ChapterCatalog(db.Model):
+    """The canonical syllabus: which chapters exist, per board and class.
+
+    Chapters used to exist only as a side effect of a question row — the
+    dropdowns were built from `SELECT DISTINCT chapter`. That meant a school
+    could not see its full syllabus until questions had been loaded, and any
+    typo silently became a new chapter (which is how 'Mathematics 1A 1A' got
+    into the repository). This table is the vocabulary those inputs validate
+    against.
+
+    `concept_group` links chapters that teach the same material across boards.
+    It is deliberately many-to-many rather than a name alias, because the
+    syllabi disagree on granularity: NCERT's single 'Conic Sections' is five
+    separate AP chapters (Circle, System of Circles, Parabola, Ellipse,
+    Hyperbola). It powers "show me the state board's version of this chapter"
+    without moving or copying any question.
+    """
+    __tablename__ = 'chapter_catalog'
+    id = db.Column(db.Integer, primary_key=True)
+
+    board = db.Column(db.String(20), nullable=False)          # 'AP-TS' | 'CBSE'
+    subject = db.Column(db.String(100), nullable=False)
+    class_number = db.Column(db.String(10), nullable=False)
+    paper_code = db.Column(db.String(4), nullable=True)       # AP-TS only; NULL for CBSE
+    chapter = db.Column(db.String(100), nullable=False)
+
+    concept_group = db.Column(db.String(50), nullable=True, index=True)
+    sequence = db.Column(db.Integer, nullable=False, default=0)
+    is_active = db.Column(db.Boolean, default=True)
+
+    __table_args__ = (
+        db.UniqueConstraint('board', 'subject', 'class_number', 'chapter',
+                            name='uq_catalog_chapter'),
+    )
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "board": self.board,
+            "subject": self.subject,
+            "class_number": self.class_number,
+            "paper_code": self.paper_code,
+            "chapter": self.chapter,
+            "concept_group": self.concept_group,
+            "sequence": self.sequence,
+        }
+
 
 class AuditLog(db.Model):
     __tablename__ = 'audit_logs'

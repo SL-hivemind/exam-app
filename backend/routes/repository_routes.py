@@ -7,10 +7,11 @@ from flask import jsonify, request
 from sqlalchemy import desc, or_
 
 from models import (
-    AuditLog, QuestionRepository, QuestionReport, User, db,
+    AuditLog, ChapterCatalog, QuestionRepository, QuestionReport, User, db,
     Exam, Question, ExamStudent, Student, QuickExam, QuickQuestion
 )
 from utils.files import ALLOWED_CSV, allowed_file, import_repository_csv, save_csv_file
+from utils.scope import csv_contains, in_scope, scope_filter, scoped_subjects
 
 
 def register_repository_routes(app, token_required):
@@ -30,13 +31,21 @@ def register_repository_routes(app, token_required):
             subject = request.args.get('subject')
             chapter = request.args.get('chapter')
             topic = request.args.get('topic')
+            board = request.args.get('board')
+            paper = request.args.get('paper_code')
             search = request.args.get('search', '').strip()
 
-            query = QuestionRepository.query
-            if current_user.role == 'subject_specialist':
-                query = query.filter(QuestionRepository.subject.ilike(current_user.specialist_subject))
+            query = scope_filter(QuestionRepository.query, current_user)
+            # Untagged rows stay visible under every board — see the note in
+            # get_repository_metadata.
+            if board and board not in ('null', ''):
+                query = query.filter(or_(QuestionRepository.board == board,
+                                         QuestionRepository.board.is_(None)))
+            if paper and paper not in ('null', ''):
+                query = query.filter(or_(QuestionRepository.paper_code == paper,
+                                         QuestionRepository.paper_code.is_(None)))
             if cls and cls not in ('null', ''):
-                query = query.filter(QuestionRepository.class_number.contains(cls))
+                query = query.filter(csv_contains(QuestionRepository.class_number, cls))
             if subject and subject not in ('null', ''):
                 query = query.filter(QuestionRepository.subject.ilike(subject))
             if chapter and chapter not in ('null', ''):
@@ -79,8 +88,21 @@ def register_repository_routes(app, token_required):
 
         data = request.json or {}
         final_subject = data.get('subject')
+
+        # A specialist may hold several subjects, so there is no single value to
+        # force here any more — validate what they sent instead. Falling back to
+        # their one subject keeps single-subject specialists working unchanged.
         if current_user.role == 'subject_specialist':
-            final_subject = current_user.specialist_subject
+            allowed = scoped_subjects(current_user)
+            if not final_subject and len(allowed) == 1:
+                final_subject = allowed[0]
+            if not in_scope(current_user, final_subject,
+                            class_number=data.get('class_number')):
+                return jsonify({
+                    'message': 'subject is outside your assigned scope',
+                    'allowed_subjects': allowed,
+                }), 403
+
         if not final_subject:
             return jsonify({'message': 'subject is required'}), 400
 
@@ -92,6 +114,10 @@ def register_repository_routes(app, token_required):
             option_d=data.get('option_d'),
             correct_answer=(data.get('correct_answer') or '').strip() or None,
             class_number=data.get('class_number'),
+            chapter=(data.get('chapter') or '').strip() or None,
+            topic=(data.get('topic') or '').strip() or None,
+            board=(data.get('board') or '').strip() or None,
+            paper_code=(data.get('paper_code') or '').strip() or None,
             marks=int(data.get('marks') or 1),
             image_path=data.get('image_path'),
             subject=final_subject,
@@ -120,7 +146,11 @@ def register_repository_routes(app, token_required):
 
         try:
             csv_path = save_csv_file(file)
-            result = import_repository_csv(csv_path, current_user.id)
+            # Lets an uploader tag a whole file as one board without having to
+            # add the column to every row.
+            default_board = (request.form.get('board') or '').strip() or None
+            result = import_repository_csv(csv_path, current_user.id,
+                                           default_board=default_board)
             db.session.commit()
 
             try:
@@ -234,10 +264,11 @@ def register_repository_routes(app, token_required):
                     if not question:
                         continue
 
-                    if current_user.role == 'subject_specialist':
-                        subject = (current_user.specialist_subject or '').lower()
-                        if not question.subject or question.subject.lower() != subject:
-                            continue
+                    if not in_scope(current_user, question.subject,
+                                    class_number=question.class_number,
+                                    board=getattr(question, 'board', None),
+                                    paper_code=getattr(question, 'paper_code', None)):
+                        continue
 
                     changes = []
 
@@ -262,6 +293,13 @@ def register_repository_routes(app, token_required):
                     check_change(question, 'chapter', item.get('chapter'))
                     check_change(question, 'topic', item.get('topic'))
 
+                    # Only when sent, so a partial payload cannot silently
+                    # untag a question's board.
+                    if 'board' in item:
+                        check_change(question, 'board', item.get('board') or None)
+                    if 'paper_code' in item:
+                        check_change(question, 'paper_code', item.get('paper_code') or None)
+
                     if changes:
                         log = AuditLog(
                             user_id=current_user.id,
@@ -277,7 +315,9 @@ def register_repository_routes(app, token_required):
                     state = db.inspect(question)
                     if (state.attrs.chapter.history.has_changes() or
                         state.attrs.subject.history.has_changes() or
-                        state.attrs.class_number.history.has_changes()):
+                        state.attrs.class_number.history.has_changes() or
+                        state.attrs.board.history.has_changes() or
+                        state.attrs.paper_code.history.has_changes()):
                         scope_changed_questions.append(question)
 
                 # Batch-safe ID generation: compute unique serials per prefix
@@ -359,35 +399,66 @@ def register_repository_routes(app, token_required):
         cls = request.args.get('class_number')
         subject = request.args.get('subject')
         chapter = request.args.get('chapter')
+        board = request.args.get('board')
+        paper = request.args.get('paper_code')
 
         def _base():
-            q = QuestionRepository.query
-            if current_user.role == 'subject_specialist':
-                q = q.filter(QuestionRepository.subject.ilike(current_user.specialist_subject))
-            return q
+            return scope_filter(QuestionRepository.query, current_user)
 
         def _clean(val):
             return val and val not in ('null', '')
 
-        # Classes: always show all (no parent filter)
-        classes_q = _base().with_entities(QuestionRepository.class_number).distinct()
+        def _by_board(q):
+            """Filter to a board, keeping untagged rows visible.
 
-        # Subjects: narrowed by class only
-        subjects_q = _base().with_entities(QuestionRepository.subject).distinct()
-        if _clean(cls):
-            subjects_q = subjects_q.filter(QuestionRepository.class_number.contains(cls))
+            Most of the repository predates the board taxonomy and still has
+            board NULL. Those rows belong to every board until someone tags
+            them, otherwise picking a board would empty out Physics, Chemistry
+            and everything else that has not been migrated yet.
+            """
+            if not _clean(board):
+                return q
+            return q.filter(or_(QuestionRepository.board == board,
+                                QuestionRepository.board.is_(None)))
 
-        # Chapters: narrowed by class + subject
-        chapters_q = _base().with_entities(QuestionRepository.chapter).distinct()
+        def _by_paper(q):
+            if not _clean(paper):
+                return q
+            return q.filter(or_(QuestionRepository.paper_code == paper,
+                                QuestionRepository.paper_code.is_(None)))
+
+        # Boards: always show all (no parent filter)
+        boards_q = _base().with_entities(QuestionRepository.board).distinct()
+
+        # Classes: narrowed by board only
+        classes_q = _by_board(_base()).with_entities(
+            QuestionRepository.class_number).distinct()
+
+        # Papers: narrowed by board + class
+        papers_q = _by_board(_base()).with_entities(
+            QuestionRepository.paper_code).distinct()
         if _clean(cls):
-            chapters_q = chapters_q.filter(QuestionRepository.class_number.contains(cls))
+            papers_q = papers_q.filter(csv_contains(QuestionRepository.class_number, cls))
+
+        # Subjects: narrowed by board + class + paper
+        subjects_q = _by_paper(_by_board(_base())).with_entities(
+            QuestionRepository.subject).distinct()
+        if _clean(cls):
+            subjects_q = subjects_q.filter(csv_contains(QuestionRepository.class_number, cls))
+
+        # Chapters: narrowed by board + class + paper + subject
+        chapters_q = _by_paper(_by_board(_base())).with_entities(
+            QuestionRepository.chapter).distinct()
+        if _clean(cls):
+            chapters_q = chapters_q.filter(csv_contains(QuestionRepository.class_number, cls))
         if _clean(subject):
             chapters_q = chapters_q.filter(QuestionRepository.subject.ilike(subject))
 
-        # Topics: narrowed by class + subject + chapter
-        topics_q = _base().with_entities(QuestionRepository.topic).distinct()
+        # Topics: narrowed by everything above
+        topics_q = _by_paper(_by_board(_base())).with_entities(
+            QuestionRepository.topic).distinct()
         if _clean(cls):
-            topics_q = topics_q.filter(QuestionRepository.class_number.contains(cls))
+            topics_q = topics_q.filter(csv_contains(QuestionRepository.class_number, cls))
         if _clean(subject):
             topics_q = topics_q.filter(QuestionRepository.subject.ilike(subject))
         if _clean(chapter):
@@ -400,13 +471,87 @@ def register_repository_routes(app, token_required):
                 if part.strip():
                     split_classes.add(part.strip())
 
+        # Chapters come from the catalog first, in syllabus order, so a school
+        # sees its whole syllabus rather than only the parts that happen to
+        # have questions loaded. Anything in the repository but not (yet) in
+        # the catalog is appended so nothing disappears from the dropdown.
+        catalog_q = ChapterCatalog.query.filter_by(is_active=True)
+        if _clean(board):
+            catalog_q = catalog_q.filter(ChapterCatalog.board == board)
+        if _clean(cls):
+            catalog_q = catalog_q.filter(ChapterCatalog.class_number == cls)
+        if _clean(paper):
+            catalog_q = catalog_q.filter(ChapterCatalog.paper_code == paper)
+        if _clean(subject):
+            catalog_q = catalog_q.filter(ChapterCatalog.subject.ilike(subject))
+
+        catalog_chapters = [
+            c.chapter for c in catalog_q.order_by(
+                ChapterCatalog.class_number, ChapterCatalog.paper_code,
+                ChapterCatalog.sequence,
+            ).all()
+        ]
+        seen = set(catalog_chapters)
+        extra = sorted({r[0] for r in chapters_q.all() if r[0] and r[0] not in seen})
+
         metadata = {
+            'boards': sorted([r[0] for r in boards_q.all() if r[0]]),
+            'papers': sorted([r[0] for r in papers_q.all() if r[0]]),
             'classes': sorted(list(split_classes), key=lambda x: str(x)),
             'subjects': sorted([r[0] for r in subjects_q.all() if r[0]]),
-            'chapters': sorted([r[0] for r in chapters_q.all() if r[0]]),
+            'chapters': catalog_chapters + extra,
             'topics': sorted([r[0] for r in topics_q.all() if r[0]]),
         }
         return jsonify(metadata), 200
+
+    @app.route('/api/metadata/related-chapters', methods=['GET'])
+    @token_required
+    def get_related_chapters(current_user):
+        """Chapters in *other* boards that teach the same material.
+
+        Backs the "also available in <other board>" panel in the question
+        picker. Nothing is moved or copied: picking a question from another
+        board goes through the normal repo-pick flow, which copies it into the
+        exam and links back via Question.repo_question_id, leaving the
+        repository row on its original board.
+        """
+        board = request.args.get('board')
+        chapter = request.args.get('chapter')
+        subject = request.args.get('subject') or 'Mathematics'
+
+        if not board or not chapter:
+            return jsonify({'message': 'board and chapter are required'}), 400
+
+        source = ChapterCatalog.query.filter(
+            ChapterCatalog.board == board,
+            ChapterCatalog.chapter.ilike(chapter),
+            ChapterCatalog.subject.ilike(subject),
+        ).first()
+
+        if not source or not source.concept_group:
+            return jsonify({'concept_group': None, 'related': []}), 200
+
+        related = ChapterCatalog.query.filter(
+            ChapterCatalog.concept_group == source.concept_group,
+            ChapterCatalog.board != board,
+            ChapterCatalog.is_active.is_(True),
+        ).order_by(ChapterCatalog.board, ChapterCatalog.sequence).all()
+
+        result = []
+        for c in related:
+            count = scope_filter(QuestionRepository.query, current_user).filter(
+                QuestionRepository.board == c.board,
+                QuestionRepository.chapter.ilike(c.chapter),
+            ).count()
+            entry = c.to_dict()
+            entry['question_count'] = count
+            result.append(entry)
+
+        return jsonify({
+            'concept_group': source.concept_group,
+            'related': result,
+            'total_questions': sum(r['question_count'] for r in result),
+        }), 200
 
 
     @app.route('/admin/repository/questions/<int:q_id>/report', methods=['POST', 'OPTIONS'])
@@ -451,8 +596,9 @@ def register_repository_routes(app, token_required):
             query = query.filter_by(status=status_filter)
             
         if current_user.role == 'subject_specialist':
-            query = query.join(QuestionRepository).filter(QuestionRepository.subject.ilike(current_user.specialist_subject))
-            
+            query = scope_filter(query.join(QuestionRepository), current_user)
+
+
         reports = query.order_by(desc(QuestionReport.created_at)).all()
         
         result = []
@@ -493,9 +639,13 @@ def register_repository_routes(app, token_required):
         if report.status == 'resolved':
             return jsonify({'message': 'report already resolved'}), 400
             
-        if current_user.role == 'subject_specialist':
-            if not report.question or not report.question.subject or report.question.subject.lower() != (current_user.specialist_subject or '').lower():
-                return jsonify({'message': 'forbidden'}), 403
+        if not report.question or not in_scope(
+            current_user, report.question.subject,
+            class_number=report.question.class_number,
+            board=getattr(report.question, 'board', None),
+            paper_code=getattr(report.question, 'paper_code', None),
+        ):
+            return jsonify({'message': 'forbidden'}), 403
                 
         data = request.json or {}
         resolution_notes = (data.get('notes') or '').strip()

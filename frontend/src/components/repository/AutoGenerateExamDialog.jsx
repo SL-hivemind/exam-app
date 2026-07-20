@@ -6,6 +6,7 @@ import {
 } from '@mui/material';
 import { repoApi } from '../../utils/api';
 import api from '../../utils/api';
+import { BOARD_LABELS } from '../ui/FilterSidebar';
 
 export default function AutoGenerateExamDialog({ open, onClose, onSuccess, initialFilters }) {
   const [busy, setBusy] = useState(false);
@@ -23,6 +24,8 @@ export default function AutoGenerateExamDialog({ open, onClose, onSuccess, initi
 
   // Filters State
   const [filters, setFilters] = useState({
+    board: '',
+    paper_code: '',
     class_number: '',
     subject: '',
     chapter: '',
@@ -31,7 +34,7 @@ export default function AutoGenerateExamDialog({ open, onClose, onSuccess, initi
   });
 
   // Metadata dropdowns
-  const [metadata, setMetadata] = useState({ classes: [], subjects: [], chapters: [], topics: [] });
+  const [metadata, setMetadata] = useState({ boards: [], papers: [], classes: [], subjects: [], chapters: [], topics: [] });
 
   useEffect(() => {
     if (open) {
@@ -52,6 +55,17 @@ export default function AutoGenerateExamDialog({ open, onClose, onSuccess, initi
 
   const handleFilterChange = (field, val) => {
     const nextFilters = { ...filters, [field]: val };
+    // The boards name their chapters differently, so a chapter carried over
+    // from the previous board would match nothing.
+    if (field === 'board') {
+      nextFilters.paper_code = '';
+      nextFilters.chapter = '';
+      nextFilters.topic = '';
+    }
+    if (field === 'paper_code') {
+      nextFilters.chapter = '';
+      nextFilters.topic = '';
+    }
     setFilters(nextFilters);
     fetchMetadata(nextFilters);
   };
@@ -99,8 +113,29 @@ export default function AutoGenerateExamDialog({ open, onClose, onSuccess, initi
               1. Source Filters (Which questions to pick from?)
             </Typography>
             <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
-              <TextField 
-                select size="small" label="Class" value={filters.class_number || ''} 
+              <TextField
+                select size="small" label="Board" value={filters.board || ''}
+                onChange={e => handleFilterChange('board', e.target.value)} fullWidth
+              >
+                <MenuItem value="">Any</MenuItem>
+                {(metadata.boards || []).map(b => (
+                  <MenuItem key={b} value={b}>{BOARD_LABELS[b] || b}</MenuItem>
+                ))}
+              </TextField>
+              {/* AP/TS Intermediate only — CBSE has no paper split. */}
+              {filters.board !== 'CBSE' && (metadata.papers || []).length > 0 && (
+                <TextField
+                  select size="small" label="Paper" value={filters.paper_code || ''}
+                  onChange={e => handleFilterChange('paper_code', e.target.value)} fullWidth
+                >
+                  <MenuItem value="">Any</MenuItem>
+                  {(metadata.papers || []).map(p => <MenuItem key={p} value={p}>{p}</MenuItem>)}
+                </TextField>
+              )}
+            </Stack>
+            <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
+              <TextField
+                select size="small" label="Class" value={filters.class_number || ''}
                 onChange={e => handleFilterChange('class_number', e.target.value)} fullWidth
               >
                 <MenuItem value="">Any</MenuItem>

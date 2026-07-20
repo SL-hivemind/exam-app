@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import api from '../../utils/api';
 import useAuth from '../../hooks/useAuth';
 import FilterSidebar from '../ui/FilterSidebar';
+import RelatedChaptersPanel from './RelatedChaptersPanel';
 import AutoGenerateExamDialog from './AutoGenerateExamDialog';
 import MatrixFormatter from '../../utils/MatrixFormatter';
 
@@ -54,6 +55,8 @@ export default function RepoQuestionsPage() {
   /* ---------------- FILTER STATE (URL PERSISTED) ---------------- */
   const [filters, setFilters] = useState({
     search: query.get('search') || '',
+    board: query.get('board') || '',
+    paper_code: query.get('paper_code') || '',
     class_number: query.get('class_number') || '',
     subject: query.get('subject') || '',
     chapter: query.get('chapter') || '',
@@ -236,7 +239,7 @@ export default function RepoQuestionsPage() {
       <FilterSidebar
         filters={filters}
         onFilterChange={setFilters}
-        onReset={() => setFilters({ search: '', class_number: '', subject: '', chapter: '', topic: '' })}
+        onReset={() => setFilters({ search: '', board: '', paper_code: '', class_number: '', subject: '', chapter: '', topic: '' })}
       />
 
       <Box sx={{ flexGrow: 1, p: 3, overflowY: 'auto', bgcolor: 'transparent' }}>
@@ -250,6 +253,22 @@ export default function RepoQuestionsPage() {
               Total Questions Found: {total}
             </Typography>
           </Box>
+
+          {/* Ran out of questions in this board? The other board very likely
+              covers the same material under a different chapter name. */}
+          <RelatedChaptersPanel
+            board={filters.board}
+            chapter={filters.chapter}
+            subject={filters.subject}
+            onSelect={(c) => setFilters({
+              ...filters,
+              board: c.board,
+              paper_code: c.paper_code || '',
+              class_number: c.class_number,
+              chapter: c.chapter,
+              topic: '',
+            })}
+          />
 
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
             {canPickExam && examId && questions.length > 0 && (

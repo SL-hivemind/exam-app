@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   Box, Paper, Typography, TextField, Button, Stack, Alert,
    CircularProgress, Divider, Snackbar, Card, CardMedia,
-  FormControl, InputLabel, Select, MenuItem
+  FormControl, InputLabel, Select, MenuItem, Autocomplete
 } from '@mui/material';
 import { GridLegacy as Grid } from '@mui/material';
 import {
@@ -14,6 +14,7 @@ import {
 } from '@mui/icons-material';
 import api from '../../utils/api';
 import useAuth from '../../hooks/useAuth';
+import { BOARD_LABELS } from '../ui/FilterSidebar';
 
 export default function RepoQuestionEditPage() {
   const { id } = useParams();
@@ -31,6 +32,21 @@ export default function RepoQuestionEditPage() {
   const [uploadingImg, setUploadingImg] = useState(false);
   const [errors, setErrors] = useState({});
   const [snack, setSnack] = useState({ open: false, severity: 'success', message: '' });
+  const [catalogMeta, setCatalogMeta] = useState({ boards: [], papers: [], chapters: [] });
+
+  // Chapter options follow the question's own board/class/subject, so switching
+  // board swaps the syllabus rather than mixing both boards' names together.
+  useEffect(() => {
+    if (!q) return;
+    const params = new URLSearchParams();
+    if (q.board) params.set('board', q.board);
+    if (q.paper_code) params.set('paper_code', q.paper_code);
+    if (q.class_number) params.set('class_number', q.class_number);
+    if (q.subject) params.set('subject', q.subject);
+    api.get(`/api/metadata/repository?${params}`)
+      .then((res) => setCatalogMeta(res.data))
+      .catch((err) => console.error('Failed to load chapter catalog', err));
+  }, [q?.board, q?.paper_code, q?.class_number, q?.subject]);
 
   const basePath =
     user?.role === 'admin' ? '/admin' :
@@ -46,6 +62,8 @@ export default function RepoQuestionEditPage() {
             text: '',
             subject: isSubject ? user.specialist_subject || '' : '',
             class_number: '',
+            board: '',
+            paper_code: '',
             chapter: '',
             topic: '',
             difficulty: 'Medium',
@@ -171,12 +189,52 @@ export default function RepoQuestionEditPage() {
               </Grid>
               <Grid item xs={4}>
                 <TextField
-                  label="Chapter"
-                  value={q.chapter}
-                  onChange={(e) => setQ({ ...q, chapter: e.target.value })}
+                  select
+                  label="Board"
+                  value={q.board || ''}
+                  onChange={(e) => setQ({ ...q, board: e.target.value, chapter: '' })}
                   fullWidth
-                  error={!!errors.chapter}
-                  helperText={errors.chapter}
+                >
+                  <MenuItem value="">Not set</MenuItem>
+                  {(catalogMeta.boards || []).map((b) => (
+                    <MenuItem key={b} value={b}>{BOARD_LABELS[b] || b}</MenuItem>
+                  ))}
+                </TextField>
+
+                {/* AP/TS Intermediate only — CBSE has no paper split. */}
+                {q.board !== 'CBSE' && (
+                  <TextField
+                    select
+                    label="Paper"
+                    value={q.paper_code || ''}
+                    onChange={(e) => setQ({ ...q, paper_code: e.target.value })}
+                    fullWidth
+                  >
+                    <MenuItem value="">Not set</MenuItem>
+                    {(catalogMeta.papers || []).map((p) => (
+                      <MenuItem key={p} value={p}>{p}</MenuItem>
+                    ))}
+                  </TextField>
+                )}
+              </Grid>
+              <Grid item xs={4}>
+                {/* Catalog-backed rather than free text: a typo here used to
+                    create a whole new chapter silently. freeSolo is kept so a
+                    genuinely new chapter can still be added deliberately. */}
+                <Autocomplete
+                  freeSolo
+                  options={catalogMeta.chapters || []}
+                  value={q.chapter || null}
+                  onInputChange={(e, val) => setQ({ ...q, chapter: val })}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Chapter"
+                      fullWidth
+                      error={!!errors.chapter}
+                      helperText={errors.chapter || 'Pick from the syllabus, or type to add a new one'}
+                    />
+                  )}
                 />
               </Grid>
             </Grid>

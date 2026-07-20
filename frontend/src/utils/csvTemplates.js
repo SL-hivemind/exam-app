@@ -29,11 +29,15 @@ const TEMPLATES = {
   },
   repoQuestions: {
     filename: 'repository_questions_upload_format.csv',
-    headers: ['text', 'class', 'subject', 'chapter', 'topic', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_answer', 'marks', 'image'],
+    headers: ['text', 'class', 'subject', 'board', 'paper_code', 'chapter', 'topic', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_answer', 'marks', 'image'],
     // text + subject REQUIRED. class+subject+chapter drive the auto question ID. Duplicates auto-skipped.
+    // board: 'AP-TS' | 'CBSE', optional — leave blank to use the board picked on upload.
+    // paper_code: '1A'|'1B'|'2A'|'2B', AP-TS Intermediate only; leave blank for CBSE.
     rows: [
-      ['What is the SI unit of force?', '9', 'Physics', 'Laws of Motion', 'Force', 'Joule', 'Newton', 'Watt', 'Pascal', 'B', '1', ''],
-      ['Photosynthesis occurs in which organelle?', '10', 'Biology', 'Life Processes', 'Nutrition', 'Mitochondria', 'Nucleus', 'Chloroplast', 'Ribosome', 'C', '1', ''],
+      ['What is the SI unit of force?', '9', 'Physics', '', '', 'Laws of Motion', 'Force', 'Joule', 'Newton', 'Watt', 'Pascal', 'B', '1', ''],
+      ['Photosynthesis occurs in which organelle?', '10', 'Biology', '', '', 'Life Processes', 'Nutrition', 'Mitochondria', 'Nucleus', 'Chloroplast', 'Ribosome', 'C', '1', ''],
+      ['If A = {1,2} and B = {2,3}, find A ∪ B.', '11', 'Mathematics', 'CBSE', '', 'Sets', 'Union', '{1,2,3}', '{2}', '{1,3}', '{1,2}', 'A', '1', ''],
+      ['Find the eccentricity of the ellipse x²/25 + y²/16 = 1.', '12', 'Mathematics', 'AP-TS', '2B', 'Ellipse', 'Conics', '3/5', '4/5', '1/5', '2/5', 'A', '1', ''],
     ],
   },
 };

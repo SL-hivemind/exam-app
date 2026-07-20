@@ -368,7 +368,12 @@ def _norm_key_part(value, fallback=None, lower=False):
     return value
 
 
-def import_repository_csv(path, current_user_id):
+def import_repository_csv(path, current_user_id, default_board=None):
+    """Import repository questions from CSV.
+
+    `default_board` is applied to rows that do not carry a `board` column, so an
+    uploader can tag a whole file at once instead of adding the column by hand.
+    """
     count = 0
     skipped = 0
     seen_rows = set()
@@ -392,11 +397,22 @@ def import_repository_csv(path, current_user_id):
             option_d_key = _norm_key_part(row.get("option_d"), lower=True)
             correct_answer_key = _norm_key_part(row.get("correct_answer"), lower=True)
             image_url = row.get("image") or row.get("image_path") or row.get("image_url")
+
+            board = (row.get("board") or "").strip() or default_board
+            paper_code = (row.get("paper_code") or row.get("paper") or "").strip() or None
+            board_key = _norm_key_part(board, lower=True)
+
+            # Board belongs in the duplicate key. The two boards share chapter
+            # names ('Statistics', 'Binomial Theorem', 'Probability', ...), so
+            # without it a CBSE upload would look identical to an AP row that
+            # already exists and every question would be silently skipped —
+            # the school would see "N skipped" and no explanation.
             duplicate_key = (
                 text_key,
                 class_number,
                 subject_key,
                 chapter_key,
+                board_key,
                 option_a_key,
                 option_b_key,
                 option_c_key,
@@ -440,12 +456,16 @@ def import_repository_csv(path, current_user_id):
                 db_correct_answer = func.lower(
                     func.coalesce(func.nullif(func.trim(QuestionRepository.correct_answer), ''), '')
                 )
+                db_board = func.lower(
+                    func.coalesce(func.nullif(func.trim(QuestionRepository.board), ''), '')
+                )
                 exists = (
                     QuestionRepository.query
                     .filter(db_text == text_key)
                     .filter(db_class == class_number)
                     .filter(db_subject == subject_key)
                     .filter(db_chapter == chapter_key)
+                    .filter(db_board == board_key)
                     .filter(db_option_a == option_a_key)
                     .filter(db_option_b == option_b_key)
                     .filter(db_option_c == option_c_key)
@@ -470,6 +490,8 @@ def import_repository_csv(path, current_user_id):
                     class_number=class_number,
                     chapter=(row.get("chapter") or "GEN").strip() or "GEN",
                     topic=row.get("topic"),
+                    board=board or None,
+                    paper_code=paper_code,
                     image_path=image_url,
                     created_by=current_user_id
                 )

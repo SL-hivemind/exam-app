@@ -37,6 +37,8 @@ export default function BulkEditQuestions() {
   /* ---------------- FILTER / EDIT STATE ---------------- */
   const [filters, setFilters] = useState({
     search: '',
+    board: '',
+    paper_code: '',
     class_number: '',
     subject: '',
     chapter: '',
@@ -298,6 +300,8 @@ export default function BulkEditQuestions() {
               onReset={() =>
                 setFilters({
                   search: '',
+                  board: '',
+                  paper_code: '',
                   class_number: '',
                   subject: '',
                   chapter: '',
