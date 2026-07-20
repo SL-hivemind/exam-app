@@ -219,6 +219,8 @@ def register_repository_routes(app, token_required):
                 'class_number',
                 'chapter',
                 'topic',
+                'board',
+                'paper_code',
                 'marks',
                 'image_path',
             ]
@@ -692,8 +694,14 @@ def register_repository_routes(app, token_required):
         chapter = filters.get('chapter')
         topic = filters.get('topic')
         difficulty = filters.get('difficulty')
+        board = filters.get('board')
+        paper = filters.get('paper_code')
 
-        if cls: query = query.filter(QuestionRepository.class_number.contains(cls))
+        if board: query = query.filter(or_(QuestionRepository.board == board,
+                                            QuestionRepository.board.is_(None)))
+        if paper: query = query.filter(or_(QuestionRepository.paper_code == paper,
+                                            QuestionRepository.paper_code.is_(None)))
+        if cls: query = query.filter(csv_contains(QuestionRepository.class_number, cls))
         if subject: query = query.filter(QuestionRepository.subject.ilike(subject))
         if chapter: query = query.filter(QuestionRepository.chapter.ilike(chapter))
         if topic: query = query.filter(QuestionRepository.topic.ilike(topic))
