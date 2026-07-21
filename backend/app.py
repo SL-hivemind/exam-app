@@ -845,6 +845,96 @@ def admin_create_user(current_user):
         'password': password if generated else None,
     }), 201
 
+
+@app.route('/admin/specialists', methods=['GET', 'OPTIONS'])
+@token_required
+def list_specialists(current_user):
+    """Every subject specialist and the scope an admin has granted them."""
+    if request.method == 'OPTIONS':
+        return jsonify({'message': 'ok'}), 200
+    if current_user.role != 'admin':
+        return jsonify({'message': 'forbidden'}), 403
+
+    users = User.query.filter_by(role='subject_specialist').order_by(User.username).all()
+    return jsonify({'specialists': [
+        {
+            'id': u.id,
+            'username': u.username,
+            'email': u.email,
+            'scopes': [s.to_dict() for s in u.scopes],
+        }
+        for u in users
+    ]}), 200
+
+
+@app.route('/admin/specialists/<int:user_id>/scopes', methods=['PUT', 'OPTIONS'])
+@token_required
+def set_specialist_scopes(current_user, user_id):
+    """Replace a specialist's scope — the boundary they cannot read or write past.
+
+    Sent as a whole list rather than patched item-by-item so the admin screen
+    always states the complete grant; anything absent is revoked. An empty list
+    is allowed and means "no access", which is the safe default rather than an
+    accidental grant of everything.
+    """
+    if request.method == 'OPTIONS':
+        return jsonify({'message': 'ok'}), 200
+    if current_user.role != 'admin':
+        return jsonify({'message': 'forbidden'}), 403
+
+    user = User.query.get_or_404(user_id)
+    if user.role != 'subject_specialist':
+        return jsonify({'message': 'user is not a subject specialist'}), 400
+
+    data = request.json or {}
+    scopes = data.get('scopes')
+    if not isinstance(scopes, list):
+        return jsonify({'message': 'scopes must be a list'}), 400
+
+    cleaned = []
+    seen = set()
+    for s in scopes:
+        subject = (s.get('subject') or '').strip()
+        if not subject:
+            return jsonify({'message': 'every scope needs a subject'}), 400
+
+        # One row per (subject, class); a blank class means every class.
+        key = (subject.lower(), (s.get('class_number') or '').strip(),
+               (s.get('board') or '').strip(), (s.get('paper_code') or '').strip())
+        if key in seen:
+            continue
+        seen.add(key)
+
+        cleaned.append(SpecialistScope(
+            user_id=user.id,
+            subject=subject,
+            class_number=(s.get('class_number') or '').strip() or None,
+            board=(s.get('board') or '').strip() or None,
+            paper_code=(s.get('paper_code') or '').strip() or None,
+        ))
+
+    before = sorted(f"{s.subject}/{s.class_number or 'all'}" for s in user.scopes)
+
+    SpecialistScope.query.filter_by(user_id=user.id).delete()
+    for scope in cleaned:
+        db.session.add(scope)
+
+    after = sorted(f"{s.subject}/{s.class_number or 'all'}" for s in cleaned)
+    db.session.add(AuditLog(
+        user_id=current_user.id,
+        action='SPECIALIST_SCOPE_CHANGE',
+        target_type='user',
+        target_id=user.id,
+        details=f"{user.username}: [{', '.join(before)}] -> [{', '.join(after)}]",
+    ))
+    db.session.commit()
+
+    return jsonify({
+        'message': f'scope updated for {user.username}',
+        'scopes': [s.to_dict() for s in user.scopes],
+    }), 200
+
+
 @app.post('/register')
 def register_student():
     data = request.json or {}

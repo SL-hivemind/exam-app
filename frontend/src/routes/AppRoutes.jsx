@@ -18,6 +18,7 @@ const PublicLayout = lazy(() => import("../components/layout/PublicLayout"));
 const AdminExams = lazy(() => import("../components/admin/AdminExams"));
 const AdminStudents = lazy(() => import("../components/admin/AdminStudents"));
 const AdminSchools = lazy(() => import("../components/admin/AdminSchools"));
+const SpecialistScopeManager = lazy(() => import("../components/admin/SpecialistScopeManager"));
 const AdminExamQuestions = lazy(() => import("../components/admin/AdminExamQuestions"));
 const AdminExamDetail = lazy(() => import("../components/admin/AdminExamDetail"));
 const StudentRequests = lazy(() => import("../components/admin/StudentRequests"));
@@ -90,6 +91,7 @@ export default function AppRoutes() {
           <Route path="repository/bulk-edit" element={<BulkEditQuestions />} />
           <Route path="repository/reports" element={<RepoReports />} />
           <Route path="activity-log" element={<SpecialistActivityLog />} />
+          <Route path="specialist-access" element={<SpecialistScopeManager />} />
           <Route path="requests" element={<StudentRequests />} />
           <Route path="portal" element={<AdminPublicManager initialTab={0} />} />
           <Route path="portal/subscriptions" element={<AdminPublicManager initialTab={1} />} />

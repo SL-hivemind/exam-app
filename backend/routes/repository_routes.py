@@ -150,7 +150,8 @@ def register_repository_routes(app, token_required):
             # add the column to every row.
             default_board = (request.form.get('board') or '').strip() or None
             result = import_repository_csv(csv_path, current_user.id,
-                                           default_board=default_board)
+                                           default_board=default_board,
+                                           uploader=current_user)
             db.session.commit()
 
             try:
@@ -158,12 +159,21 @@ def register_repository_routes(app, token_required):
             except Exception:
                 pass
 
+            message = f"Successfully imported {result['inserted']} questions"
+            if result.get('rejected'):
+                message += (
+                    f" — {result['rejected']} rejected as outside your assigned "
+                    f"scope ({', '.join(result['rejected_subjects'])})"
+                )
+
             return (
                 jsonify(
                     {
-                        'message': f"Successfully imported {result['inserted']} questions",
+                        'message': message,
                         'inserted': result['inserted'],
                         'skipped': result['skipped'],
+                        'rejected': result.get('rejected', 0),
+                        'rejected_subjects': result.get('rejected_subjects', []),
                     }
                 ),
                 201,
@@ -180,6 +190,17 @@ def register_repository_routes(app, token_required):
             return jsonify({'message': 'ok'}), 200
 
         question = QuestionRepository.query.get_or_404(q_id)
+
+        # A specialist may only touch questions inside the scope an admin gave
+        # them. Checked here on the single-question route as well as on the
+        # list/bulk routes, because addressing a question directly by id would
+        # otherwise bypass the filter entirely.
+        if not in_scope(current_user, question.subject,
+                        class_number=question.class_number,
+                        board=question.board,
+                        paper_code=question.paper_code):
+            return jsonify({'message': 'forbidden'}), 403
+
         if request.method == 'GET':
             if current_user.role not in ('admin', 'school_admin', 'subject_specialist'):
                 return jsonify({'message': 'forbidden'}), 403
@@ -226,10 +247,23 @@ def register_repository_routes(app, token_required):
             ]
             if current_user.role == 'admin':
                 allowed_fields.append('subject')
-                
+
             for field in allowed_fields:
                 if field in data:
                     setattr(question, field, data.get(field))
+
+            # The edit itself must not push the question outside the boundary —
+            # class_number/board/paper_code are all editable, so a specialist
+            # could otherwise re-tag a question into a scope they do not hold.
+            if not in_scope(current_user, question.subject,
+                            class_number=question.class_number,
+                            board=question.board,
+                            paper_code=question.paper_code):
+                db.session.rollback()
+                return jsonify({
+                    'message': 'that change would move the question outside your assigned scope',
+                }), 403
+
             try:
                 question.last_edited_by = current_user.id
                 question.last_edited_at = datetime.now()

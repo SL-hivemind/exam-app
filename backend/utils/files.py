@@ -368,14 +368,24 @@ def _norm_key_part(value, fallback=None, lower=False):
     return value
 
 
-def import_repository_csv(path, current_user_id, default_board=None):
+def import_repository_csv(path, current_user_id, default_board=None,
+                          uploader=None):
     """Import repository questions from CSV.
 
     `default_board` is applied to rows that do not carry a `board` column, so an
     uploader can tag a whole file at once instead of adding the column by hand.
+
+    `uploader` is the User performing the import. When they are a subject
+    specialist, rows outside their assigned scope are rejected rather than
+    imported — otherwise a CSV would be a way around the boundary that every
+    other write path enforces.
     """
+    from utils.scope import in_scope
+
     count = 0
     skipped = 0
+    rejected = 0
+    rejected_subjects = set()
     seen_rows = set()
 
     with open(path, newline="", encoding="utf-8-sig") as fh:
@@ -401,6 +411,14 @@ def import_repository_csv(path, current_user_id, default_board=None):
             board = (row.get("board") or "").strip() or default_board
             paper_code = (row.get("paper_code") or row.get("paper") or "").strip() or None
             board_key = _norm_key_part(board, lower=True)
+
+            if uploader is not None and not in_scope(
+                uploader, (row.get("subject") or "").strip(),
+                class_number=class_number, board=board, paper_code=paper_code,
+            ):
+                rejected += 1
+                rejected_subjects.add((row.get("subject") or "").strip() or "(blank)")
+                continue
 
             # Board belongs in the duplicate key. The two boards share chapter
             # names ('Statistics', 'Binomial Theorem', 'Probability', ...), so
@@ -511,6 +529,8 @@ def import_repository_csv(path, current_user_id, default_board=None):
 
     return {
         "inserted": count,
-        "skipped": skipped
+        "skipped": skipped,
+        "rejected": rejected,
+        "rejected_subjects": sorted(rejected_subjects),
     }
 
