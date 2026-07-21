@@ -1,14 +1,11 @@
 """Student exam flow routes extracted from app.py."""
 
-import json
 from datetime import datetime, timedelta, timezone
 
 from flask import jsonify, request
 from sqlalchemy import desc
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
-from sqlalchemy.orm import joinedload
 
-from utils.grading import grade_answer, sanitize_content
 from models import (
     Exam,
     ExamStudent,
@@ -221,8 +218,6 @@ def register_student_routes(
             final_opt_d = question.option_d
             final_marks = question.marks
             final_image = question.image_path
-            final_format = question.question_format or 'mcq'
-            final_content = question.content_json
 
             if question.repo_question_id:
                 repo_q = repo_map.get(question.repo_question_id)
@@ -234,8 +229,6 @@ def register_student_routes(
                     final_opt_d = repo_q.option_d
                     final_marks = repo_q.marks
                     final_image = repo_q.image_path
-                    final_format = repo_q.question_format or 'mcq'
-                    final_content = repo_q.content_json
 
             questions_data.append(
                 {
@@ -247,9 +240,6 @@ def register_student_routes(
                     'option_d': final_opt_d,
                     'marks': final_marks,
                     'image_path': final_image,
-                    'question_format': final_format,
-                    # Answer keys stripped server-side for primary formats.
-                    'content': sanitize_content(final_format, final_content),
                 }
             )
 
@@ -297,10 +287,6 @@ def register_student_routes(
                 resp = ans.get('answer')
                 if not qid or qid not in valid_qids:
                     continue
-                # Primary-format answers arrive as JSON objects; the answer
-                # column is Text, so persist them serialized.
-                if isinstance(resp, (dict, list)):
-                    resp = json.dumps(resp)
 
                 existing = existing_map.get(qid)
                 if existing:
@@ -326,18 +312,19 @@ def register_student_routes(
             return
 
         # One query for the exam's questions instead of one per saved answer.
-        # joinedload(repo) so format-aware grading doesn't lazy-load per row.
-        question_map = {
-            q.id: q
-            for q in Question.query.options(joinedload(Question.repo)).filter_by(exam_id=exam.id).all()
-        }
+        question_map = {q.id: q for q in Question.query.filter_by(exam_id=exam.id).all()}
 
         total_score = 0
         for sa in StudentAnswer.query.filter_by(attempt_id=attempt.id).all():
             question = question_map.get(sa.question_id)
             if not question:
                 continue
-            is_correct, marks_awarded = grade_answer(question, sa.answer)
+            is_correct = False
+            marks_awarded = 0
+            if question.correct_answer and sa.answer and \
+               str(sa.answer).strip().upper() == str(question.correct_answer).strip().upper():
+                is_correct = True
+                marks_awarded = int(question.marks or 0)
             sa.is_correct = is_correct
             sa.marks_awarded = marks_awarded
             total_score += marks_awarded
@@ -380,10 +367,7 @@ def register_student_routes(
             # Batch-fetch this exam's questions and any auto-saved answers in
             # TWO queries total (was 2 queries PER answer — the main submit
             # bottleneck when a whole class submits at once).
-            question_map = {
-                q.id: q
-                for q in Question.query.options(joinedload(Question.repo)).filter_by(exam_id=exam.id).all()
-            }
+            question_map = {q.id: q for q in Question.query.filter_by(exam_id=exam.id).all()}
             existing_map = {
                 sa.question_id: sa
                 for sa in StudentAnswer.query.filter_by(attempt_id=attempt.id).all()
@@ -400,9 +384,11 @@ def register_student_routes(
                 if not question:
                     continue
 
-                if isinstance(resp, (dict, list)):
-                    resp = json.dumps(resp)
-                is_correct, marks_awarded = grade_answer(question, resp)
+                is_correct = False
+                marks_awarded = 0
+                if question.correct_answer and str(resp).strip().upper() == str(question.correct_answer).strip().upper():
+                    is_correct = True
+                    marks_awarded = int(question.marks or 0)
 
                 # Upsert: update if auto-saved answer exists, else insert
                 existing = existing_map.get(qid)

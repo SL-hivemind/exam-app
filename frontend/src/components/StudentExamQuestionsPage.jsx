@@ -120,16 +120,7 @@ export default function StudentExamQuestionsPage() {
         if (already_submitted) { navigate(`/exam/${examId}/results`); return; }
 
         const questionsRes = await api.get(`/student/exams/${examId}/questions`, { headers: { auth_token: authToken } });
-        const fetchedQuestions = questionsRes.data.questions || [];
-
-        // Primary (class 1-5) interactive exams render in their own
-        // kid-friendly interface instead of the MCQ page.
-        const primaryFormats = ['tap_select', 'count_tap', 'match_line', 'drag_drop_bucket'];
-        if (fetchedQuestions.some(q => primaryFormats.includes(q.question_format))) {
-          navigate(`/exams/${examId}/primary`, { replace: true });
-          return;
-        }
-        setExam({ ...canStartRes.data.exam, questions: fetchedQuestions });
+        setExam({ ...canStartRes.data.exam, questions: questionsRes.data.questions });
 
         const savedAnswersStr = localStorage.getItem(storageKey);
         let mergedAnswers = savedAnswersStr ? JSON.parse(savedAnswersStr) : {};

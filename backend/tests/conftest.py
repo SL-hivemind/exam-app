@@ -19,8 +19,8 @@ from models import db
 def isolate_database():
     app.config["TESTING"] = True
     app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite://"
-    # Rate limits (e.g. on /login) would 429 once the suite logs in a few
-    # times in one process.
+    # /login is capped at 5 per minute; a suite that logs in repeatedly would
+    # otherwise start getting 429s partway through.
     limiter.enabled = False
 
     with app.app_context():

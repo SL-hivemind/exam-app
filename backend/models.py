@@ -237,12 +237,6 @@ class QuestionRepository(db.Model):
     image_path = db.Column(db.String(255))
     marks = db.Column(db.Integer, nullable=False, default=1)
 
-    # Primary (class 1-5) interactive formats: 'mcq' | 'tap_select' |
-    # 'count_tap' | 'match_line' | 'drag_drop_bucket'. Non-mcq formats keep
-    # their structure (options/pairs/buckets + answer key) in content_json.
-    question_format = db.Column(db.String(30), nullable=False, default='mcq', server_default='mcq')
-    content_json = db.Column(db.Text, nullable=True)
-
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     last_edited_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     last_edited_at = db.Column(db.DateTime, nullable=True)
@@ -269,8 +263,6 @@ class QuestionRepository(db.Model):
             "correct_answer": self.correct_answer,
             "image_path": self.image_path,
             "marks": self.marks,
-            "question_format": self.question_format or 'mcq',
-            "content_json": self.content_json,
             "created_at": self.created_at.isoformat() if self.created_at else None
         }
 
@@ -407,10 +399,6 @@ class Question(db.Model):
     image_path = db.Column(db.String(255))
     marks = db.Column(db.Integer, nullable=False, default=1)
 
-    # See QuestionRepository — same primary-format fields for exam-local questions.
-    question_format = db.Column(db.String(30), nullable=False, default='mcq', server_default='mcq')
-    content_json = db.Column(db.Text, nullable=True)
-
     repo_question_id = db.Column(db.Integer, db.ForeignKey('question_repository.id'), nullable=True)
     repo = db.relationship('QuestionRepository', backref='linked_questions')
 
@@ -434,8 +422,6 @@ class Question(db.Model):
             'correct_answer': src.correct_answer,
             'marks': self.marks,
             'image_path': src.image_path if hasattr(src, 'image_path') else None,
-            'question_format': getattr(src, 'question_format', None) or 'mcq',
-            'content_json': getattr(src, 'content_json', None),
             'repo_question_id': self.repo_question_id,
             'is_global': bool(self.repo_question_id)
         }

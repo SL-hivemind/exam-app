@@ -21,9 +21,6 @@ from flask import make_response  # Make sure to import this
 
 import jwt
 import traceback
-import json as pyjson
-
-from utils.grading import PRIMARY_FORMATS
 
 from models import (
     db, bcrypt,
@@ -1800,20 +1797,6 @@ def admin_exam_questions(current_user, exam_id):
         if not text:
             return jsonify({'message': 'Question text is required'}), 400
 
-        question_format = (data.get('question_format') or 'mcq').strip().lower()
-        content_json = data.get('content_json')
-        if question_format in PRIMARY_FORMATS:
-            if isinstance(content_json, (dict, list)):
-                content_json = pyjson.dumps(content_json)
-            try:
-                parsed = pyjson.loads(content_json or '')
-                assert isinstance(parsed, dict)
-            except Exception:
-                return jsonify({'message': 'content_json must be a JSON object for primary formats'}), 400
-        else:
-            question_format = 'mcq'
-            content_json = None
-
         q = Question(
             exam_id=exam.id,
             text=text,
@@ -1824,8 +1807,6 @@ def admin_exam_questions(current_user, exam_id):
             correct_answer=data.get('correct_answer'),
             marks=int(data.get('marks') or 1),
             image_path=data.get('image_path'),
-            question_format=question_format,
-            content_json=content_json,
         )
         db.session.add(q)
         db.session.commit()
@@ -1876,11 +1857,6 @@ def admin_exam_question_detail(current_user, exam_id, question_id):
             q.correct_answer = data.get('correct_answer', q.correct_answer)
             q.marks = int(data.get('marks') or q.marks)
             q.image_path = data.get('image_path', q.image_path)
-            if 'question_format' in data:
-                q.question_format = (data.get('question_format') or 'mcq').strip().lower()
-            if 'content_json' in data:
-                cj = data['content_json']
-                q.content_json = pyjson.dumps(cj) if isinstance(cj, (dict, list)) else cj
             db.session.add(AuditLog(
                 user_id=current_user.id, 
                 action='LOCAL_QUESTION_EDIT', 
