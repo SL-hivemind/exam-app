@@ -106,3 +106,39 @@ def scoped_subjects(user):
     if user.role != 'subject_specialist':
         return None
     return sorted({s.subject for s in user.scopes})
+
+
+# ── taxonomy cascade ─────────────────────────────────────────────────────────
+# Not a permission check. Chapter and topic names are only unique *within* a
+# subject — 'Thermodynamics' is a chapter in both Physics and Chemistry, and
+# topics like 'Density' and 'Types' each occur under three subjects. Filtering
+# on one without a subject therefore returns a silent mix from every subject
+# that happens to share the name.
+
+def require_subject_for_children(subject, chapter=None, topic=None):
+    """Return an error payload if chapter/topic is used without a subject.
+
+    Returns None when the combination is fine, so callers read as:
+
+        err = require_subject_for_children(subject, chapter, topic)
+        if err:
+            return jsonify(err), 400
+    """
+    def _set(v):
+        return bool(v) and v not in ('null', '')
+
+    if _set(subject):
+        return None
+
+    offenders = [n for n, v in (('chapter', chapter), ('topic', topic)) if _set(v)]
+    if not offenders:
+        return None
+
+    return {
+        'message': (
+            f"Select a subject before filtering by {' or '.join(offenders)} — "
+            f"the same name is used by different subjects."
+        ),
+        'code': 'SUBJECT_REQUIRED',
+        'missing': 'subject',
+    }

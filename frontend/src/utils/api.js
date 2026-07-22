@@ -118,7 +118,9 @@ export const publicApi = {
 
   // Central Public Question Repository (Admin)
   adminRepoList: (params) => api.get('/admin/public/repository', { params }),
-  adminRepoMeta: () => api.get('/admin/public/repository/meta'),
+  // Chapters/topics only come back once a subject is given — the same names
+  // recur across subjects, so an unscoped list is ambiguous.
+  adminRepoMeta: (params) => api.get('/admin/public/repository/meta', { params }),
   adminRepoAdd: (data) => api.post('/admin/public/repository', data),
   adminRepoUpdate: (id, data) => api.put(`/admin/public/repository/${id}`, data),
   adminRepoDelete: (id) => api.delete(`/admin/public/repository/${id}`),

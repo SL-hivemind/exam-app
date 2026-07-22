@@ -25,6 +25,7 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import { useNavigate } from 'react-router-dom';
 import api, { publicApi } from '../../utils/api';
 import MatrixFormatter from '../../utils/MatrixFormatter';
+import usePublicRepoMeta from '../../hooks/usePublicRepoMeta';
 
 const ff = "'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
 
@@ -86,6 +87,12 @@ export default function AdminPublicManager({ initialTab = 0 }) {
 
   const [repoEditDialog, setRepoEditDialog] = useState(false);
   const [repoEditForm, setRepoEditForm] = useState(null);
+
+  // Each form's chapter/topic options follow the subject typed in that form,
+  // not the filter bar's — otherwise the suggestions belong to a different
+  // subject than the question being written. Debounced inside the hook.
+  const pasteMeta = usePublicRepoMeta(repoSmartPasteMeta.subject);
+  const editMeta = usePublicRepoMeta(repoEditForm?.subject, { enabled: repoEditDialog });
   const [uploadingImg, setUploadingImg] = useState(false);
   // ── PENDING IMAGES ──
   const [pendingImages, setPendingImages] = useState([]);
@@ -383,8 +390,8 @@ export default function AdminPublicManager({ initialTab = 0 }) {
       .finally(() => setRepoLoading(false));
   };
 
-  const loadRepoMeta = () => {
-    publicApi.adminRepoMeta()
+  const loadRepoMeta = (subject) => {
+    publicApi.adminRepoMeta(subject ? { subject } : undefined)
       .then(r => setRepoMeta(r.data))
       .catch(() => {});
   };
@@ -398,9 +405,11 @@ export default function AdminPublicManager({ initialTab = 0 }) {
     }
   }, [tab, repoPage, repoFilters]);
 
+  // Keyed off the committed filter-bar subject (a Select), never a freeSolo
+  // input value, so this cannot fire on every keystroke.
   useEffect(() => {
-    if (tab === 2) { loadRepoMeta(); }
-  }, [tab]);
+    if (tab === 2) { loadRepoMeta(repoFilters.subject); }
+  }, [tab, repoFilters.subject]);
 
   const deleteRepoQuestion = async (id) => {
     if (!window.confirm('Delete this question from the repository?')) return;
@@ -783,16 +792,18 @@ export default function AdminPublicManager({ initialTab = 0 }) {
                 <Grid item xs={12} sm={6} md={4}>
                   <FormControl fullWidth size="small" sx={inputSx}>
                     <InputLabel>Subject</InputLabel>
-                    <Select value={repoFilters.subject} label="Subject" onChange={e => { setRepoFilters({ ...repoFilters, subject: e.target.value }); setRepoPage(1); }}>
+                    <Select value={repoFilters.subject} label="Subject" onChange={e => { setRepoFilters({ ...repoFilters, subject: e.target.value, chapter: '' }); setRepoPage(1); }}>
                       <MenuItem value="">All Subjects</MenuItem>
                       {repoMeta.subjects.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
                     </Select>
                   </FormControl>
                 </Grid>
                 <Grid item xs={12} sm={6} md={4}>
-                  <FormControl fullWidth size="small" sx={inputSx}>
-                    <InputLabel>Chapter</InputLabel>
-                    <Select value={repoFilters.chapter} label="Chapter" onChange={e => { setRepoFilters({ ...repoFilters, chapter: e.target.value }); setRepoPage(1); }}>
+                  {/* Chapter names recur across subjects, so the server only
+                      offers them once a subject is picked. */}
+                  <FormControl fullWidth size="small" sx={inputSx} disabled={repoMeta.requires_subject === true}>
+                    <InputLabel>{repoMeta.requires_subject === true ? 'Chapter — pick a subject' : 'Chapter'}</InputLabel>
+                    <Select value={repoFilters.chapter} label={repoMeta.requires_subject === true ? 'Chapter — pick a subject' : 'Chapter'} onChange={e => { setRepoFilters({ ...repoFilters, chapter: e.target.value }); setRepoPage(1); }}>
                       <MenuItem value="">All Chapters</MenuItem>
                       {repoMeta.chapters.map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
                     </Select>
@@ -990,20 +1001,20 @@ export default function AdminPublicManager({ initialTab = 0 }) {
               <Autocomplete
                 fullWidth
                 freeSolo
-                options={repoMeta.chapters}
+                options={pasteMeta.chapters}
                 inputValue={repoSmartPasteMeta.chapter}
                 onInputChange={(e, newInputValue) => setRepoSmartPasteMeta({ ...repoSmartPasteMeta, chapter: newInputValue || '' })}
-                renderInput={(params) => <TextField {...params} label="Chapter" size="small" sx={inputSx} />}
+                renderInput={(params) => <TextField {...params} label="Chapter" size="small" sx={inputSx} helperText={pasteMeta.subjectHint} />}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
               <Autocomplete
                 fullWidth
                 freeSolo
-                options={repoMeta.topics}
+                options={pasteMeta.topics}
                 inputValue={repoSmartPasteMeta.topic}
                 onInputChange={(e, newInputValue) => setRepoSmartPasteMeta({ ...repoSmartPasteMeta, topic: newInputValue || '' })}
-                renderInput={(params) => <TextField {...params} label="Topic" size="small" sx={inputSx} />}
+                renderInput={(params) => <TextField {...params} label="Topic" size="small" sx={inputSx} helperText={pasteMeta.subjectHint} />}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -1142,20 +1153,20 @@ export default function AdminPublicManager({ initialTab = 0 }) {
               <Autocomplete
                 fullWidth
                 freeSolo
-                options={repoMeta.chapters}
+                options={editMeta.chapters}
                 inputValue={repoEditForm?.chapter || ''}
                 onInputChange={(e, newInputValue) => setRepoEditForm({ ...repoEditForm, chapter: newInputValue || '' })}
-                renderInput={(params) => <TextField {...params} label="Chapter" size="small" sx={inputSx} />}
+                renderInput={(params) => <TextField {...params} label="Chapter" size="small" sx={inputSx} helperText={editMeta.subjectHint} />}
               />
             </Grid>
             <Grid item xs={12} sm={12}>
               <Autocomplete
                 fullWidth
                 freeSolo
-                options={repoMeta.topics}
+                options={editMeta.topics}
                 inputValue={repoEditForm?.topic || ''}
                 onInputChange={(e, newInputValue) => setRepoEditForm({ ...repoEditForm, topic: newInputValue || '' })}
-                renderInput={(params) => <TextField {...params} label="Topic" size="small" sx={inputSx} />}
+                renderInput={(params) => <TextField {...params} label="Topic" size="small" sx={inputSx} helperText={editMeta.subjectHint} />}
               />
             </Grid>
             <Grid item xs={12} sm={12}>

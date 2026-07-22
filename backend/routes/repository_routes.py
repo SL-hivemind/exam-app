@@ -11,7 +11,10 @@ from models import (
     Exam, Question, ExamStudent, Student, QuickExam, QuickQuestion
 )
 from utils.files import ALLOWED_CSV, allowed_file, import_repository_csv, save_csv_file
-from utils.scope import csv_contains, in_scope, scope_filter, scoped_subjects
+from utils.scope import (
+    csv_contains, in_scope, require_subject_for_children, scope_filter,
+    scoped_subjects,
+)
 
 
 def register_repository_routes(app, token_required):
@@ -34,6 +37,13 @@ def register_repository_routes(app, token_required):
             board = request.args.get('board')
             paper = request.args.get('paper_code')
             search = request.args.get('search', '').strip()
+
+            # Chapter/topic names repeat across subjects, so filtering on one
+            # without a subject silently mixes them (asking for topic 'Density'
+            # would return Physics, Chemistry and Botany questions together).
+            err = require_subject_for_children(subject, chapter, topic)
+            if err:
+                return jsonify(err), 400
 
             query = scope_filter(QuestionRepository.query, current_user)
             # Untagged rows stay visible under every board — see the note in
@@ -444,6 +454,18 @@ def register_repository_routes(app, token_required):
         def _clean(val):
             return val and val not in ('null', '')
 
+        # Chapter and topic names are only meaningful inside a subject — the same
+        # string means different things in different ones ('Thermodynamics' is
+        # both a Physics and a Chemistry chapter). Returning them unfiltered
+        # bundles thousands of unrelated values into one list and makes any
+        # selection ambiguous, so a subject is required first.
+        if not _clean(subject):
+            only = scoped_subjects(current_user)
+            # A specialist with a single subject has nothing to choose, so pick
+            # it for them rather than showing an empty list.
+            if only and len(only) == 1:
+                subject = only[0]
+
         def _by_board(q):
             """Filter to a board, keeping untagged rows visible.
 
@@ -530,13 +552,17 @@ def register_repository_routes(app, token_required):
         seen = set(catalog_chapters)
         extra = sorted({r[0] for r in chapters_q.all() if r[0] and r[0] not in seen})
 
+        has_subject = bool(_clean(subject))
         metadata = {
             'boards': sorted([r[0] for r in boards_q.all() if r[0]]),
             'papers': sorted([r[0] for r in papers_q.all() if r[0]]),
             'classes': sorted(list(split_classes), key=lambda x: str(x)),
             'subjects': sorted([r[0] for r in subjects_q.all() if r[0]]),
-            'chapters': catalog_chapters + extra,
-            'topics': sorted([r[0] for r in topics_q.all() if r[0]]),
+            'chapters': (catalog_chapters + extra) if has_subject else [],
+            'topics': sorted([r[0] for r in topics_q.all() if r[0]]) if has_subject else [],
+            # Tells the UI the empty lists are a prompt, not a failure.
+            'requires_subject': not has_subject,
+            'applied_subject': subject if has_subject else None,
         }
         return jsonify(metadata), 200
 

@@ -14,6 +14,13 @@ const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 // so the paper filter is meaningless there and is hidden rather than shown empty.
 const showPaper = filters.board!=='CBSE' && (metadata.papers||[]).length>0;
 
+// Chapter and topic names repeat across subjects ('Thermodynamics' is both a
+// Physics and a Chemistry chapter), so the server only returns them once a
+// subject is chosen. Disable rather than hide, so it reads as a next step.
+// A single-subject specialist has one applied server-side and is never gated.
+const needsSubject = metadata.requires_subject === true;
+const subjectHint = needsSubject ? 'Select a subject first' : ' ';
+
 // Track previous cascading keys to only clear children on genuine user-driven changes
 const prevCascadeRef=useRef({board:filters.board,paper_code:filters.paper_code,class_number:filters.class_number,subject:filters.subject,chapter:filters.chapter});
 
@@ -124,17 +131,17 @@ if (isMobile) {
           {metadata.subjects.map(s=><MenuItem key={s} value={s}>{s}</MenuItem>)}
         </TextField>
         <Autocomplete
-          size="small" freeSolo options={metadata.chapters} value={filters.chapter||null} onChange={(e,val)=>handleChange('chapter',val)}
+          size="small" freeSolo disabled={needsSubject} options={metadata.chapters} value={filters.chapter||null} onChange={(e,val)=>handleChange('chapter',val)}
           sx={{ minWidth: 160 }}
           renderInput={params=>(
-            <TextField {...params} label="Chapter" InputProps={{ ...params.InputProps, startAdornment: (<><InputAdornment position="start"><MenuBookIcon color="action" fontSize="small" /></InputAdornment>{params.InputProps.startAdornment}</>) }} />
+            <TextField {...params} label={needsSubject?'Chapter — pick a subject':'Chapter'} InputProps={{ ...params.InputProps, startAdornment: (<><InputAdornment position="start"><MenuBookIcon color="action" fontSize="small" /></InputAdornment>{params.InputProps.startAdornment}</>) }} />
           )}
         />
         <Autocomplete
-          size="small" freeSolo options={metadata.topics} value={filters.topic||null} onChange={(e,val)=>handleChange('topic',val)}
+          size="small" freeSolo disabled={needsSubject} options={metadata.topics} value={filters.topic||null} onChange={(e,val)=>handleChange('topic',val)}
           sx={{ minWidth: 160 }}
           renderInput={params=>(
-            <TextField {...params} label="Topic" InputProps={{ ...params.InputProps, startAdornment: (<><InputAdornment position="start"><TopicIcon color="action" fontSize="small" /></InputAdornment>{params.InputProps.startAdornment}</>) }} />
+            <TextField {...params} label={needsSubject?'Topic — pick a subject':'Topic'} InputProps={{ ...params.InputProps, startAdornment: (<><InputAdornment position="start"><TopicIcon color="action" fontSize="small" /></InputAdornment>{params.InputProps.startAdornment}</>) }} />
           )}
         />
       </Box>
@@ -227,19 +234,21 @@ onChange={e=>handleChange('subject',e.target.value)}>
 <Autocomplete
 size="small"
 freeSolo
+disabled={needsSubject}
 options={metadata.chapters}
 value={filters.chapter||null}
 onChange={(e,val)=>handleChange('chapter',val)}
-renderInput={params=><TextField {...params} label="Chapter" margin="dense"/>}
+renderInput={params=><TextField {...params} label="Chapter" margin="dense" helperText={subjectHint}/>}
 sx={{mb:1}}/>
 
 <Autocomplete
 size="small"
 freeSolo
+disabled={needsSubject}
 options={metadata.topics}
 value={filters.topic||null}
 onChange={(e,val)=>handleChange('topic',val)}
-renderInput={params=><TextField {...params} label="Topic" margin="dense"/>}/>
+renderInput={params=><TextField {...params} label="Topic" margin="dense" helperText={subjectHint}/>}/>
 </Box>
 
 </Stack>

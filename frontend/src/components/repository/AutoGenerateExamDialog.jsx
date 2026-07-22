@@ -150,8 +150,12 @@ export default function AutoGenerateExamDialog({ open, onClose, onSuccess, initi
               </TextField>
             </Stack>
             <Stack direction="row" spacing={2}>
-              <TextField 
-                select size="small" label="Chapter" value={filters.chapter || ''} 
+              {/* Chapter names repeat across subjects, so the server only
+                  returns them once a subject is chosen. */}
+              <TextField
+                select size="small" label="Chapter" value={filters.chapter || ''}
+                disabled={metadata.requires_subject === true}
+                helperText={metadata.requires_subject === true ? 'Pick a subject first' : ' '}
                 onChange={e => handleFilterChange('chapter', e.target.value)} fullWidth
               >
                 <MenuItem value="">Any</MenuItem>

@@ -16,6 +16,8 @@ from flask import request, jsonify, send_file, current_app
 from sqlalchemy.exc import IntegrityError
 from werkzeug.utils import secure_filename
 
+from utils.scope import require_subject_for_children
+
 from models import (
     db, bcrypt, User,
     PublicUser, PublicCourse, CourseContent,
@@ -1372,9 +1374,16 @@ def register_public_routes(app, token_required, role_required, limiter):
         difficulty = request.args.get('difficulty', '').strip()
         search = request.args.get('search', '').strip()
 
+        # Chapter/topic names repeat across subjects, and these filters use
+        # substring matching, so without a subject 'Density' pulls Botany,
+        # Chemistry and Physics questions into one result set.
+        err = require_subject_for_children(subject, chapter, topic)
+        if err:
+            return jsonify(err), 400
+
         query = PublicQuestionRepo.query
         if subject:
-            query = query.filter(PublicQuestionRepo.subject.ilike(subject))
+            query = subject_filter(query, subject)
         if chapter:
             query = query.filter(PublicQuestionRepo.chapter.ilike(f'%{chapter}%'))
         if topic:
@@ -1405,11 +1414,51 @@ def register_public_routes(app, token_required, role_required, limiter):
     @app.get('/admin/public/repository/meta')
     @role_required('admin')
     def admin_repo_meta(current_user):
-        """Return distinct subjects, chapters, and topics for filter dropdowns."""
-        subjects = [r[0] for r in db.session.query(PublicQuestionRepo.subject).distinct().all() if r[0]]
-        chapters = [r[0] for r in db.session.query(PublicQuestionRepo.chapter).distinct().all() if r[0]]
-        topics = [r[0] for r in db.session.query(PublicQuestionRepo.topic).distinct().all() if r[0]]
-        return jsonify({'subjects': sorted(subjects), 'chapters': sorted(chapters), 'topics': sorted(topics)}), 200
+        """Distinct subjects, chapters and topics for the filter dropdowns.
+
+        Chapters and topics cascade off the subject rather than being returned
+        whole. The repository holds ~2,600 distinct topics across five subjects
+        and the names collide ('Density' is a topic under Botany, Chemistry and
+        Physics), so one flat list is both unusable and ambiguous.
+        """
+        subject = (request.args.get('subject') or '').strip()
+        chapter = (request.args.get('chapter') or '').strip()
+
+        subjects = sorted({
+            display_subject(r[0])
+            for r in db.session.query(PublicQuestionRepo.subject).distinct().all()
+            if r[0]
+        })
+
+        if not subject:
+            return jsonify({
+                'subjects': subjects,
+                'chapters': [],
+                'topics': [],
+                'requires_subject': True,
+            }), 200
+
+        scoped = subject_filter(PublicQuestionRepo.query, subject)
+        chapters = sorted({
+            r[0] for r in scoped.with_entities(PublicQuestionRepo.chapter).distinct().all()
+            if r[0]
+        })
+
+        topic_q = scoped
+        if chapter:
+            topic_q = topic_q.filter(PublicQuestionRepo.chapter.ilike(chapter))
+        topics = sorted({
+            r[0] for r in topic_q.with_entities(PublicQuestionRepo.topic).distinct().all()
+            if r[0]
+        })
+
+        return jsonify({
+            'subjects': subjects,
+            'chapters': chapters,
+            'topics': topics,
+            'requires_subject': False,
+            'applied_subject': subject,
+        }), 200
 
     @app.post('/admin/public/repository')
     @role_required('admin')
