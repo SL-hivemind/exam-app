@@ -276,15 +276,18 @@ function ThreeOrbit({ className, containerRef }) {
     let height = mount.clientHeight || 400;
 
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
-    camera.position.z = 6.2;
+    const aspect = width / height;
+    const camera = new THREE.PerspectiveCamera(45, aspect, 0.1, 100);
+    
+    // Calculate distance to fit the 3.3 radius torus (uses 8.2 to fill ~97% of canvas)
+    camera.position.z = Math.max(8.2, 8.2 / aspect);
 
     const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     mount.appendChild(renderer.domElement);
 
-    const geo1 = new THREE.IcosahedronGeometry(2.15, 1);
+    const geo1 = new THREE.IcosahedronGeometry(2.5, 1);
     const mat1 = new THREE.MeshBasicMaterial({
       color: 0xf5a623,
       wireframe: true,
@@ -383,7 +386,9 @@ function ThreeOrbit({ className, containerRef }) {
       if (!mount) return;
       width = mount.clientWidth || width;
       height = mount.clientHeight || height;
-      camera.aspect = width / height;
+      const aspect = width / height;
+      camera.aspect = aspect;
+      camera.position.z = Math.max(8.2, 8.2 / aspect);
       camera.updateProjectionMatrix();
       renderer.setSize(width, height);
     };
@@ -397,7 +402,7 @@ function ThreeOrbit({ className, containerRef }) {
       container.removeEventListener("mouseleave", onMouseLeave);
       try {
         mount.removeChild(renderer.domElement);
-      } catch (e) {}
+      } catch (e) { }
       geo1.dispose();
       mat1.dispose();
       geo2.dispose();
@@ -559,7 +564,7 @@ export default function Home() {
         .slexam a:focus-visible, .slexam button:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; border-radius: 6px; }
 
         /* ---------------- Hero ---------------- */
-        .hero { position: relative; padding: 168px 0 100px; overflow: hidden; }
+        .hero { position: relative; padding: 100px 0 32px; overflow: hidden; min-height: calc(100vh - 60px); display: flex; flex-direction: column; justify-content: center; }
         .perspective-grid {
           position: absolute;
           left: 50%;
@@ -584,20 +589,18 @@ export default function Home() {
         .eyebrow-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--mint); box-shadow: 0 0 8px var(--mint); animation: pulseDot 1.8s ease-in-out infinite; }
         @keyframes pulseDot { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
 
-        .hero-title { font-family: 'Space Grotesk', sans-serif; font-size: clamp(38px, 5vw, 60px); line-height: 1.06; font-weight: 700; letter-spacing: -0.02em; margin: 0 0 22px; }
+        .hero-title { font-family: 'Space Grotesk', sans-serif; font-size: clamp(30px, 3.8vw, 44px); line-height: 1.1; font-weight: 700; letter-spacing: -0.02em; margin: 0 0 18px; }
         .hero-title-word { display: inline-block; opacity: 0; transform: translateY(30px); animation: wordUp .7s cubic-bezier(.16,.84,.44,1) forwards; margin-right: 0.24em; }
         @keyframes wordUp { to { opacity: 1; transform: translateY(0); } }
-        .hero-title-line2 { display: block; margin-top: 4px; }
+        .hero-title-line2 { display: block; margin-top: 4px; font-size: clamp(18px, 2.2vw, 24px); }
 
-        .hero-sub { font-size: 17.5px; color: var(--text-dim); max-width: 560px; margin-bottom: 34px; }
-        .hero-ctas { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 44px; }
+        .hero-ctas { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 30px; }
         .hero-stats { display: flex; gap: 34px; flex-wrap: wrap; }
         .hero-stat-value { font-family: 'Space Grotesk', sans-serif; font-size: 22px; font-weight: 700; color: var(--text); }
         .hero-stat-label { font-size: 12.5px; color: var(--text-faint); margin-top: 2px; }
 
-        /* ---------------- Hero visual / mockup ---------------- */
-        .hero-visual { position: relative; height: 520px; display: flex; align-items: center; justify-content: center; }
-        .hero-three { position: absolute; inset: -40px; z-index: 0; }
+        .hero-visual { position: relative; height: 440px; display: flex; align-items: center; justify-content: center; }
+        .hero-three { position: absolute; inset: -80px; z-index: 0; pointer-events: none; }
         /* cursor-glow removed — 3D orbit is now mouse-interactive */
         .tilt-card { transition: transform .15s ease-out; transform-style: preserve-3d; }
         .hero-mock { position: relative; z-index: 2; width: 100%; max-width: 480px; }
@@ -658,7 +661,7 @@ export default function Home() {
         .mock-cc-stat-lbl { font-size: 8.5px; color: var(--text-faint); margin-top: 2px; }
 
         /* --- Hero card shuffle animation --- */
-        .hero-cards-container { position: relative; width: 100%; max-width: 480px; min-height: 340px; }
+        .hero-cards-container { position: relative; width: 100%; max-width: 440px; min-height: 300px; }
         .hero-card-slide { position: absolute; inset: 0; opacity: 0; transform: translateY(30px) scale(0.96); transition: opacity .5s cubic-bezier(.16,.84,.44,1), transform .5s cubic-bezier(.16,.84,.44,1); pointer-events: none; }
         .hero-card-slide.active { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; z-index: 2; }
         .hero-card-indicators { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 20px; position: relative; z-index: 3; }
@@ -791,9 +794,9 @@ export default function Home() {
 
         @media (max-width: 720px) {
           .hero-inner { grid-template-columns: 1fr; }
-          .hero { padding: 140px 0 70px; }
+          .hero { padding: 100px 0 40px; min-height: auto; }
           /* Mobile: text/CTAs first, visual below (was order:-1 = visual on top) */
-          .hero-visual { height: 380px; margin-top: 8px; }
+          .hero-visual { height: 340px; margin-top: 8px; }
           .section { padding: 80px 0; }
           .spotlight-inner, .hero-inner { grid-template-columns: 1fr; }
           .cta-card { padding: 50px 24px; }
@@ -826,15 +829,8 @@ export default function Home() {
                   {w}
                 </span>
               ))}
-              <span className="hero-title-line2 grad-text">From question bank to report card — in seconds.</span>
+              <span className="hero-title-line2 grad-text">From question bank to report card, in seconds.</span>
             </h1>
-            <p className="hero-sub">
-              Instant delivery, instant food, instant payments — your school's exams
-              deserve the same speed. SLExam generates papers in under 60 seconds,
-              auto-grades the moment the last student submits, and delivers
-              analytics straight to every phone. You focus on building students —
-              we'll handle the entire exam ecosystem.
-            </p>
             <div className="hero-ctas">
               <button className="btn btn-primary" onClick={() => navigate("/login")}>
                 Login / Dashboard <ArrowRight size={17} />
@@ -980,13 +976,13 @@ export default function Home() {
                     <div className="mock-cc-body">
                       <p className="mock-qlabel mono">LIVE MONITORING — SECTION A</p>
                       <div className="mock-cc-grid">
-                        {['normal','normal','normal','flagged','normal','normal',
-                          'normal','done','normal','normal','normal','flagged',
-                          'normal','normal','done','normal','normal','normal'].map((s, i) => (
-                          <div key={i} className={`mock-cc-seat ${s}`}>
-                            {String(i + 1).padStart(2, '0')}
-                          </div>
-                        ))}
+                        {['normal', 'normal', 'normal', 'flagged', 'normal', 'normal',
+                          'normal', 'done', 'normal', 'normal', 'normal', 'flagged',
+                          'normal', 'normal', 'done', 'normal', 'normal', 'normal'].map((s, i) => (
+                            <div key={i} className={`mock-cc-seat ${s}`}>
+                              {String(i + 1).padStart(2, '0')}
+                            </div>
+                          ))}
                       </div>
                       <div className="mock-cc-alert-row">
                         <AlertTriangle size={13} />
