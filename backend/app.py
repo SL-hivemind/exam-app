@@ -39,7 +39,7 @@ from utils.files import (
     IMAGES_DIR, CSV_DIR, export_student_attempts_to_excel
 )
 
-from routes import register_analysis_routes, register_repository_routes, register_student_routes, register_public_routes, register_quick_routes, register_bot_routes
+from routes import register_analysis_routes, register_repository_routes, register_student_routes, register_public_routes, register_quick_routes, register_bot_routes, register_game_routes
 from utils.math_utils import calculate_percentile, competition_rank
 
 # ------------------------------
@@ -265,6 +265,7 @@ register_analysis_routes(app, token_required)
 register_public_routes(app, token_required, role_required, limiter)
 register_quick_routes(app, token_required, role_required)
 register_bot_routes(app, role_required)
+register_game_routes(app, role_required)
 
 # ------------------------------
 # DB init

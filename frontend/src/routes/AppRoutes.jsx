@@ -34,6 +34,8 @@ const PrimaryExamFlow = lazy(() => import("../components/primary/PrimaryExamFlow
 const StudentAnalysisPage = lazy(() => import("../components/StudentAnalysisPage"));
 const ProfilePage = lazy(() => import("../components/ProfilePage"));
 const SchoolAnalyticsPage = lazy(() => import("../components/admin/SchoolAnalyticsPage"));
+const GamePlayPage = lazy(() => import("../components/games/GamePlayPage"));
+const GamesAdminPanel = lazy(() => import("../components/admin/GamesAdminPanel"));
 const ForgotPassword = lazy(() => import("../components/ForgotPassword"));
 
 const PublicCatalog = lazy(() => import("../components/public/PublicCatalog"));
@@ -94,6 +96,7 @@ export default function AppRoutes() {
           <Route path="portal/question-bank" element={<AdminPublicManager initialTab={2} />} />
           <Route path="portal/pending-images" element={<AdminPublicManager initialTab={3} />} />
           <Route path="quick" element={<AdminQuickExams />} />
+          <Route path="games" element={<GamesAdminPanel />} />
           <Route path="profile" element={<ProfilePage />} />
         </Route>
 
@@ -113,6 +116,7 @@ export default function AppRoutes() {
           <Route path="repository/questions/new" element={<RepoQuestionEditPage />} />
           <Route path="repository/questions/:id/edit" element={<RepoQuestionEditPage />} />
           <Route path="requests" element={<StudentRequests />} />
+          <Route path="games" element={<GamesAdminPanel />} />
           <Route path="profile" element={<ProfilePage />} />
         </Route>
 
@@ -142,6 +146,14 @@ export default function AppRoutes() {
         <Route path="/student/profile" element={
           <ProtectedRoute roles={["student"]}>
             <ProfilePage />
+          </ProtectedRoute>
+        } />
+
+        {/* Must precede the /student/* catch-all below, or the dashboard
+            would swallow it. */}
+        <Route path="/student/games/:key" element={
+          <ProtectedRoute roles={["student"]}>
+            <GamePlayPage />
           </ProtectedRoute>
         } />
 

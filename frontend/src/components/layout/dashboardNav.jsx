@@ -13,6 +13,7 @@ import {
   EditNote as EditNoteIcon,
   FlagOutlined as FlagIcon,
   Assessment as AssessmentIcon,
+  Extension as ExtensionIcon,
 } from '@mui/icons-material';
 
 export const getBasePath = (role) =>
@@ -51,6 +52,7 @@ export function getDashboardSections(role) {
         title: 'Quick Exams',
         items: [
           { text: 'Quick Exams', desc: 'Zero-auth shareable tests', icon: <FlashOnIcon />, path: '/admin/quick', color: 'orange' },
+          { text: 'Daily Puzzles', desc: 'Participation & school switches', icon: <ExtensionIcon />, path: '/admin/games', color: 'orange' },
         ],
       },
     ];
@@ -66,6 +68,7 @@ export function getDashboardSections(role) {
           { text: 'Exams', desc: 'Create & manage assessments', icon: <QuizIcon />, path: '/school/exams', color: 'orange' },
           { text: 'Question Repository', desc: 'Shared question bank', icon: <RepoIcon />, path: '/school/repository/questions', color: 'success' },
           { text: 'Requests', desc: 'Student approvals', icon: <NotificationsIcon />, path: '/school/requests', color: 'warning' },
+          { text: 'Daily Puzzles', desc: 'Participation & on/off switch', icon: <ExtensionIcon />, path: '/school/games', color: 'orange' },
         ],
       },
     ];

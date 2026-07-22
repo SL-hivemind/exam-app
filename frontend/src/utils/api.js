@@ -167,3 +167,27 @@ export const quickApi = {
   getQuestions: (code) => api.get(`/quick/${code}/questions`),
   submit: (code, data) => api.post(`/quick/${code}/submit`, data),
 };
+
+
+// ─── MODULE 4: DAILY PUZZLE GAMES (school students, classes 6-10) ───
+export const gamesApi = {
+  // Public (no account) — guest puzzles for the marketing site. Ships the
+  // solution so the browser can grade locally; nothing is stored either side.
+  publicList: () => api.get('/public/games'),
+
+  // Student
+  list: () => api.get('/student/games'),
+  start: (key) => api.post(`/student/games/${key}/start`),
+  saveState: (key, state) => api.post(`/student/games/${key}/state`, { state }),
+  hint: (key, state) => api.post(`/student/games/${key}/hint`, { state }),
+  reveal: (key) => api.post(`/student/games/${key}/reveal`),
+  submit: (key, submission) => api.post(`/student/games/${key}/submit`, { submission }),
+  standings: (key) => api.get(`/student/games/${key}/standings`),
+
+  // Admin
+  overview: (date) => api.get('/admin/games/overview', { params: date ? { date } : {} }),
+  preview: (key, params) => api.get(`/admin/games/${key}/preview`, { params }),
+  reroll: (key, data) => api.post(`/admin/games/${key}/reroll`, data),
+  toggleSchool: (schoolId, enabled) =>
+    api.patch(`/admin/schools/${schoolId}/games`, { enabled }),
+};

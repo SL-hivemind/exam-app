@@ -27,6 +27,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import useAuth from '../hooks/useAuth';
 import AnimatedText from './ui/AnimatedText';
+import GamesHub from './games/GamesHub';
 
 const upcomingAssessments = [
   "Monthly Tests (October 2025)",
@@ -409,6 +410,12 @@ export default function StudentDashboard() {
                 </Paper>
               </Stack>
             )}
+          </Grid>
+
+          {/* SIDEBAR: daily puzzle games. Renders nothing for classes outside
+              6-10 or when a school has games switched off. */}
+          <Grid item xs={12} md={4}>
+            <GamesHub />
           </Grid>
 
         </Grid>

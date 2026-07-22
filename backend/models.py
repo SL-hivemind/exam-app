@@ -3,6 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
 from datetime import datetime
 from sqlalchemy import Integer, event
+from sqlalchemy.dialects import mysql
 import re
 
 db = SQLAlchemy()
@@ -146,16 +147,22 @@ class School(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     owner_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
 
+    # Per-school switch for the daily puzzle games. Schools that would rather
+    # their students not see games during exam season can turn them off
+    # without affecting anything else.
+    games_enabled = db.Column(db.Boolean, nullable=False, default=True, server_default='1')
+
     students = db.relationship('Student', backref='school', lazy=True)
     exams = db.relationship('Exam', backref='school', lazy=True)
     admins = db.relationship('User', foreign_keys='User.school_id', backref='owned_school', lazy=True)
 
     def to_dict(self):
         return {
-            "id": self.id, 
-            "name": self.name, 
+            "id": self.id,
+            "name": self.name,
             "code": self.code,
-            "total_students": len(self.students)
+            "total_students": len(self.students),
+            "games_enabled": self.games_enabled is not False
         }
 
 # -------------------- STUDENT --------------------
@@ -913,6 +920,138 @@ class PublicDailyChallengeAttempt(db.Model):
             'score': self.score,
             'completed_at': self.completed_at.isoformat() if self.completed_at else None,
         }
+
+# ==================== DAILY PUZZLE GAMES (School side) ====================
+# Self-contained: nothing here references the question repository. School
+# students already answer repository questions all day as exams, so the games
+# are logic puzzles generated from a date seed instead — see utils/games/.
+
+class GamePuzzle(db.Model):
+    """One day's puzzle for one game at one difficulty band.
+
+    Rows are created lazily on the first student request of the day rather
+    than by a scheduler, so there is nothing to keep running and nothing to
+    upload. The unique constraint is what guarantees a whole band shares one
+    puzzle, which is the only reason ranking them by solve time is fair.
+
+    `solution_json` must never be serialised to a student. It stays here so
+    grading and hints can be computed server-side, the same split
+    `utils/grading.py:sanitize_content` applies to exam questions.
+    """
+    __tablename__ = 'game_puzzles'
+    id = db.Column(db.Integer, primary_key=True)
+
+    game_key = db.Column(db.String(30), nullable=False)   # 'gridlock'|'weave'|'splice'
+    band = db.Column(db.String(10), nullable=False)       # '6-7'|'8-10'
+    puzzle_date = db.Column(db.Date, nullable=False)
+
+    seed = db.Column(db.BigInteger, nullable=False)
+    payload_json = db.Column(db.Text, nullable=False)     # safe to send to students
+    solution_json = db.Column(db.Text, nullable=False)    # server-only
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        db.UniqueConstraint('game_key', 'band', 'puzzle_date', name='uq_game_puzzle_day'),
+    )
+
+    def to_dict(self):
+        """Deliberately omits solution_json — see the class docstring."""
+        return {
+            'id': self.id,
+            'game_key': self.game_key,
+            'band': self.band,
+            'puzzle_date': self.puzzle_date.isoformat() if self.puzzle_date else None,
+        }
+
+
+class GamePlay(db.Model):
+    """One student's run at one puzzle. At most one row per puzzle per student.
+
+    `school_id` and `class_number` are copied from the student rather than
+    joined: the standings endpoint groups by them on every request, and
+    denormalising keeps that a single-table scan over an index.
+    """
+    __tablename__ = 'game_plays'
+    id = db.Column(db.Integer, primary_key=True)
+    puzzle_id = db.Column(db.Integer, db.ForeignKey('game_puzzles.id', ondelete='CASCADE'), nullable=False)
+    student_user_id = db.Column(db.Integer, db.ForeignKey('students.user_id', ondelete='CASCADE'), nullable=False)
+
+    school_id = db.Column(db.Integer, db.ForeignKey('schools.id'), nullable=True)
+    class_number = db.Column(db.String(50), nullable=True)
+
+    # DATETIME(3) on MySQL, plain DateTime elsewhere (sqlite already keeps
+    # microseconds). A bare MySQL DATETIME stores whole seconds and ROUNDS, so
+    # a play started at .650 is written as the next second and a fast solve
+    # computes a negative elapsed — which sorts as the fastest run of the day.
+    # Declared here as well as in migrate_add_games.py because db.create_all()
+    # runs on worker boot in production (app.py:277) and would otherwise
+    # recreate these columns without precision on a fresh deploy.
+    started_at = db.Column(
+        db.DateTime().with_variant(mysql.DATETIME(fsp=3), 'mysql'),
+        nullable=False, default=datetime.utcnow)
+    completed_at = db.Column(
+        db.DateTime().with_variant(mysql.DATETIME(fsp=3), 'mysql'),
+        nullable=True)
+    # Always computed server-side from started_at. The client's own timer is
+    # display only, so a forged elapsed time changes nothing.
+    elapsed_ms = db.Column(db.Integer, nullable=True)
+
+    hints_used = db.Column(db.Integer, nullable=False, default=0)
+    revealed = db.Column(db.Boolean, nullable=False, default=False)
+    solved = db.Column(db.Boolean, nullable=False, default=False)
+    state_json = db.Column(db.Text, nullable=True)   # in-progress board, for resume
+
+    puzzle = db.relationship('GamePuzzle', backref=db.backref('plays', lazy=True, cascade='all, delete-orphan'))
+
+    __table_args__ = (
+        db.UniqueConstraint('puzzle_id', 'student_user_id', name='uq_game_play'),
+        # Leaderboard: solved plays for a puzzle, ordered by time.
+        db.Index('ix_gameplay_puzzle_solved', 'puzzle_id', 'solved', 'elapsed_ms'),
+        # Class and school cohort slices of the same puzzle.
+        db.Index('ix_gameplay_cohort', 'puzzle_id', 'school_id', 'class_number'),
+    )
+
+    @property
+    def ranking_ms(self):
+        """Time used for standings: hints cost 30s each so they stay useful
+        without being a free route to a top time. Reveals do not rank at all.
+        """
+        if not self.solved or self.revealed or self.elapsed_ms is None:
+            return None
+        from utils.games import HINT_PENALTY_SECONDS
+        return self.elapsed_ms + (self.hints_used or 0) * HINT_PENALTY_SECONDS * 1000
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'puzzle_id': self.puzzle_id,
+            'started_at': self.started_at.isoformat() if self.started_at else None,
+            'completed_at': self.completed_at.isoformat() if self.completed_at else None,
+            'elapsed_ms': self.elapsed_ms,
+            'hints_used': self.hints_used or 0,
+            'revealed': bool(self.revealed),
+            'solved': bool(self.solved),
+        }
+
+
+class GameProfile(db.Model):
+    """Per-student streak and lifetime totals across all games."""
+    __tablename__ = 'game_profiles'
+    student_user_id = db.Column(db.Integer, db.ForeignKey('students.user_id', ondelete='CASCADE'),
+                                primary_key=True)
+    current_streak = db.Column(db.Integer, nullable=False, default=0)
+    longest_streak = db.Column(db.Integer, nullable=False, default=0)
+    last_played_date = db.Column(db.Date, nullable=True)
+    total_solved = db.Column(db.Integer, nullable=False, default=0)
+
+    def to_dict(self):
+        return {
+            'current_streak': self.current_streak or 0,
+            'longest_streak': self.longest_streak or 0,
+            'last_played_date': self.last_played_date.isoformat() if self.last_played_date else None,
+            'total_solved': self.total_solved or 0,
+        }
+
 
 # -------------------- EVENT LISTENERS --------------------
 
