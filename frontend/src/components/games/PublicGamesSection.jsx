@@ -49,11 +49,13 @@ const formatClock = (ms) => {
   return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
 };
 
-export default function PublicGamesSection() {
+export default function PublicGamesSection({ onAvailability }) {
   const navigate = useNavigate();
 
   const [games, setGames] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const [activeKey, setActiveKey] = useState(null);
 
   // Per-game play state, all client side and all disposable.
@@ -69,14 +71,34 @@ export default function PublicGamesSection() {
   // would latch and the board would never grade itself again.
   const checked = useRef({});
 
+  // "Switched off" and "could not reach the server" are different answers and
+  // must not collapse into the same silent disappearance. The section is
+  // advertised in the page nav, so vanishing on a dropped request turns that
+  // link into a dead end; a failure gets a retry instead.
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
+    setFailed(false);
     gamesApi.publicList()
-      .then((res) => { if (!cancelled) setGames(res.data?.enabled ? res.data.games : []); })
-      .catch(() => { if (!cancelled) setGames([]); })
+      .then((res) => {
+        if (cancelled) return;
+        setGames(res.data?.enabled ? res.data.games || [] : []);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setGames([]);
+        setFailed(true);
+      })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, []);
+  }, [attempt]);
+
+  // Tell the page whether there is anything here, so it can drop the "Play"
+  // jump link rather than scroll to an empty region.
+  useEffect(() => {
+    if (loading) return;
+    onAvailability?.(failed || Boolean(games?.length));
+  }, [loading, failed, games, onAvailability]);
 
   const active = games?.find((game) => game.key === activeKey) || null;
   const outcome = activeKey ? results[activeKey] : null;
@@ -149,8 +171,39 @@ export default function PublicGamesSection() {
     );
   }
 
-  // Games switched off, or the endpoint is unreachable — the marketing page
-  // simply carries on without this segment.
+  // Could not reach the server. Say so and offer a retry — silence here would
+  // read as "this site is broken".
+  if (failed) {
+    return (
+      <Box component="section" id="play-fallback" sx={{ pt: { xs: 7, md: 10 } }}>
+        <Paper
+          elevation={0}
+          sx={{
+            p: { xs: 2.5, sm: 4 }, borderRadius: 4, textAlign: "center",
+            bgcolor: "rgba(30, 41, 59, 0.6)", border: `1px solid ${g.border}`,
+          }}
+        >
+          <Typography variant="h6" sx={{ color: "#fff", fontWeight: 800, mb: 1 }}>
+            Today&apos;s puzzles didn&apos;t load
+          </Typography>
+          <Typography sx={{ color: g.textSoft, mb: 3 }}>
+            The connection dropped on the way. Nothing is lost — they are generated fresh.
+          </Typography>
+          <Button
+            variant="contained"
+            onClick={() => setAttempt((a) => a + 1)}
+            startIcon={<RestartAltIcon />}
+            sx={{ minHeight: 44 }}
+          >
+            Try again
+          </Button>
+        </Paper>
+      </Box>
+    );
+  }
+
+  // Genuinely switched off — the marketing page carries on without the
+  // segment, and the page drops the nav link via onAvailability.
   if (!games?.length) return null;
 
   const Board = active ? BOARDS[active.key] : null;
@@ -159,7 +212,7 @@ export default function PublicGamesSection() {
     : times[activeKey] || 0;
 
   return (
-    <Box component="section" sx={{ mt: { xs: 8, md: 12 } }} aria-labelledby="daily-puzzles-heading">
+    <Box component="section" sx={{ pt: { xs: 7, md: 10 } }} aria-labelledby="daily-puzzles-heading">
       <Stack
         direction={{ xs: "column", sm: "row" }}
         alignItems={{ xs: "flex-start", sm: "flex-end" }}

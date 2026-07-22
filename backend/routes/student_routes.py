@@ -76,6 +76,109 @@ def register_student_routes(
             200,
         )
 
+    @app.get('/student/exams/summary')
+    @role_required('student')
+    @no_cache
+    def student_exams_summary(current_user):
+        """Counts across *every* assignment, plus whatever needs attention now.
+
+        `/student/exams` is paginated, so a dashboard tallying the rows it
+        received would be reporting on one page of five — "2 completed" when
+        the real figure is thirty. Anything shown as a headline number has to
+        be computed over the whole set, which is what this endpoint is for.
+
+        It also returns the exam to resume or start next. That cannot be
+        derived from a page either: the exam a student most urgently needs is
+        frequently not on the page they happen to be looking at.
+        """
+        student = Student.query.filter_by(user_id=current_user.id).first()
+        if not student:
+            return jsonify({'message': 'student profile not found'}), 400
+
+        assignments = (
+            ExamStudent.query.filter_by(student_id=student.user_id).join(Exam).all()
+        )
+        exam_ids = [a.exam_id for a in assignments]
+
+        attempts = {}
+        if exam_ids:
+            attempts = {
+                a.exam_id: a
+                for a in StudentExamAttempt.query.filter(
+                    StudentExamAttempt.student_id == student.user_id,
+                    StudentExamAttempt.exam_id.in_(exam_ids),
+                ).all()
+            }
+
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+
+        counts = {
+            'total': len(assignments),
+            'in_progress': 0,
+            'active_now': 0,
+            'upcoming': 0,
+            'missed': 0,
+            'results_pending': 0,
+            'completed': 0,
+        }
+        in_progress = []
+        active = []
+        upcoming = []
+        scored = []
+
+        for assignment in assignments:
+            exam = assignment.exam
+            attempt = attempts.get(exam.id)
+            start = to_utc_naive(exam.access_start)
+            end = to_utc_naive(exam.access_end)
+
+            if attempt and attempt.submitted_time is None:
+                counts['in_progress'] += 1
+                in_progress.append((attempt.start_time, exam))
+            elif attempt:
+                if exam.results_released:
+                    counts['completed'] += 1
+                    if attempt.score is not None:
+                        scored.append(attempt.score)
+                else:
+                    counts['results_pending'] += 1
+            elif start and now < start:
+                counts['upcoming'] += 1
+                upcoming.append((start, exam))
+            elif end and now > end:
+                counts['missed'] += 1
+            else:
+                counts['active_now'] += 1
+                active.append((end, exam))
+
+        # Resuming always outranks starting something new; among several, the
+        # one begun earliest is closest to running out of time.
+        resume = min(in_progress, key=lambda p: (p[0] is None, p[0]))[1] if in_progress else None
+
+        # Then whatever is open and closing soonest — that is the one actually
+        # at risk of being missed. Only if nothing is open do we look ahead.
+        if active:
+            next_up = min(active, key=lambda p: (p[0] is None, p[0]))[1]
+        elif upcoming:
+            next_up = min(upcoming, key=lambda p: p[0])[1]
+        else:
+            next_up = None
+
+        average = round(sum(scored) / len(scored), 1) if scored else None
+
+        return (
+            jsonify(
+                {
+                    **counts,
+                    'average_score': average,
+                    'scored_count': len(scored),
+                    'resume': resume.to_dict() if resume else None,
+                    'next_up': next_up.to_dict() if next_up else None,
+                }
+            ),
+            200,
+        )
+
     @app.get('/student/exams/<int:exam_id>/can_start')
     @role_required('student')
     @no_cache

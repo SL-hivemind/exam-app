@@ -36,7 +36,7 @@ const STATUS_ICON = {
   not_started: <PlayArrowIcon sx={{ fontSize: 16 }} />,
 };
 
-export default function GamesHub() {
+export default function GamesHub({ onAvailability }) {
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -49,6 +49,14 @@ export default function GamesHub() {
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, []);
+
+  // The dashboard sizes its exam column from this. Without it, a panel that
+  // renders nothing still occupies its grid cell and leaves a third of a
+  // desktop screen blank.
+  useEffect(() => {
+    if (loading) return;
+    onAvailability?.(Boolean(data?.enabled));
+  }, [loading, data, onAvailability]);
 
   if (loading) {
     return (

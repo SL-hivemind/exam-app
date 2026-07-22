@@ -171,6 +171,15 @@ export const quickApi = {
 };
 
 
+// ─── STUDENT DASHBOARD ───
+export const studentApi = {
+  // Counts across every assignment. /student/exams is paginated, so its rows
+  // can only ever describe one page — anything shown as a headline number has
+  // to come from here.
+  summary: () => api.get('/student/exams/summary'),
+};
+
+
 // ─── MODULE 4: DAILY PUZZLE GAMES (school students, classes 6-10) ───
 export const gamesApi = {
   // Public (no account) — guest puzzles for the marketing site. Ships the
