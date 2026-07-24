@@ -28,3 +28,6 @@ backend/uploads/
 # Databases
 *.db
 app.db
+
+# Local utility scripts
+tools/
