@@ -15,12 +15,15 @@ const oswald = "'Plus Jakarta Sans', 'Inter', sans-serif";
 const inter = "'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
 
 const ScrollHandler = (props) => {
-  const { children, window } = props;
+  const { children, window, isAuthenticated } = props;
   const trigger = useScrollTrigger({ disableHysteresis: true, threshold: 0, target: window ? window() : undefined });
+  // When authenticated, use a more opaque initial background so the navbar is
+  // clearly visible over the Home hero section even before scrolling.
+  const initialBg = isAuthenticated ? "rgba(10, 16, 46, 0.82)" : "rgba(10, 16, 46, 0.35)";
   return React.cloneElement(children, {
     elevation: trigger ? 4 : 0,
     sx: {
-      backgroundColor: trigger ? "rgba(10, 16, 46, 0.85)" : "rgba(10, 16, 46, 0.35)",
+      backgroundColor: trigger ? "rgba(10, 16, 46, 0.85)" : initialBg,
       backdropFilter: "blur(20px)", color: "#eaf0ff", transition: "all 0.3s ease",
       borderBottom: trigger ? "1px solid rgba(255,255,255,0.10)" : "1px solid rgba(255,255,255,0.05)",
     },
@@ -111,7 +114,7 @@ export default function Navbar(props) {
 
   return (
     <>
-      <ScrollHandler {...props}>
+      <ScrollHandler {...props} isAuthenticated={isAuthenticated}>
         <AppBar position="fixed">
           <Container maxWidth="xl">
             <Toolbar disableGutters sx={{ justifyContent: "space-between", height: 70 }}>

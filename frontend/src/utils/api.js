@@ -12,6 +12,72 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// ─── Silent token refresh on 401 ───
+// When the server responds with 401 (token expired), we try to refresh it
+// once. If the refresh succeeds the original request is retried transparently.
+// If it fails the user is logged out.
+let isRefreshing = false;
+let refreshSubscribers = [];
+
+function subscribeTokenRefresh(cb) {
+  refreshSubscribers.push(cb);
+}
+
+function onTokenRefreshed(newToken) {
+  refreshSubscribers.forEach((cb) => cb(newToken));
+  refreshSubscribers = [];
+}
+
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+
+    // Only attempt refresh on 401 and not on the refresh endpoint itself
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry &&
+      !originalRequest.url?.includes('/refresh-token') &&
+      !originalRequest.url?.includes('/login')
+    ) {
+      originalRequest._retry = true;
+
+      if (!isRefreshing) {
+        isRefreshing = true;
+        try {
+          const { data } = await api.post('/refresh-token');
+          const newToken = data.auth_token;
+          localStorage.setItem('auth_token', newToken);
+          isRefreshing = false;
+          onTokenRefreshed(newToken);
+
+          // Retry the original request with the new token
+          originalRequest.headers.Authorization = `Bearer ${newToken}`;
+          return api(originalRequest);
+        } catch (refreshError) {
+          isRefreshing = false;
+          refreshSubscribers = [];
+          // Refresh failed — clear auth and redirect to login
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('user');
+          window.location.href = '/login';
+          return Promise.reject(refreshError);
+        }
+      } else {
+        // Another request is already refreshing — queue this one
+        return new Promise((resolve) => {
+          subscribeTokenRefresh((newToken) => {
+            originalRequest.headers.Authorization = `Bearer ${newToken}`;
+            resolve(api(originalRequest));
+          });
+        });
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);
+
 export default api;
 
 // --- repository ---

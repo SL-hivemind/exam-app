@@ -6,10 +6,9 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Box, IconButton, Typography, TextField, Stack, Chip, Avatar,
   Fade, useMediaQuery, useTheme, CircularProgress,
-  SpeedDial, SpeedDialIcon, SpeedDialAction
 } from '@mui/material';
 import {
-  SmartToy as BotIcon,
+  ChatBubbleOutline as ChatIcon,
   Close as CloseIcon,
   Send as SendIcon,
   AutoAwesome as SparkleIcon,
@@ -182,7 +181,7 @@ export default function PlatformBot() {
 
   return (
     <>
-      {/* FAB */}
+      {/* FAB — simple chat bubble, no SpeedDial overlay */}
       <AnimatePresence>
         {!open && (
           <MotionBox
@@ -194,66 +193,28 @@ export default function PlatformBot() {
               position: 'fixed', bottom: 24, right: 24, zIndex: 1400,
             }}
           >
-            <SpeedDial
-              ariaLabel="SL Assistant Options"
-              icon={<SpeedDialIcon icon={<BotIcon sx={{ fontSize: 28 }} />} />}
-              direction="up"
+            <IconButton
+              aria-label="Open SL Assistant"
+              onClick={() => setOpen(true)}
               sx={{
-                '& .MuiSpeedDial-fab': {
-                  width: fabSize, height: fabSize,
-                  background: 'linear-gradient(135deg, #2f6bff 0%, #f68914 100%)',
-                  color: '#fff',
-                  boxShadow: '0 6px 28px rgba(47,107,255,0.45), 0 2px 8px rgba(246,137,20,0.3)',
-                  '&:hover': {
-                    background: 'linear-gradient(135deg, #1d5ae0 0%, #e07b0e 100%)',
-                    transform: 'scale(1.08)',
-                  },
-                  transition: 'all 0.25s ease',
-                  animation: 'botPulse 2.5s ease-in-out infinite',
+                width: fabSize, height: fabSize,
+                background: 'linear-gradient(135deg, #2f6bff 0%, #f68914 100%)',
+                color: '#fff',
+                boxShadow: '0 6px 28px rgba(47,107,255,0.45), 0 2px 8px rgba(246,137,20,0.3)',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #1d5ae0 0%, #e07b0e 100%)',
+                  transform: 'scale(1.08)',
                 },
+                transition: 'all 0.25s ease',
+                animation: 'botPulse 2.5s ease-in-out infinite',
                 '@keyframes botPulse': {
                   '0%, 100%': { boxShadow: '0 6px 28px rgba(47,107,255,0.45), 0 2px 8px rgba(246,137,20,0.3)' },
                   '50%': { boxShadow: '0 8px 38px rgba(47,107,255,0.65), 0 4px 14px rgba(246,137,20,0.5)' },
                 },
-                '& .MuiSpeedDialAction-staticTooltipLabel': {
-                  fontFamily: oswald, fontWeight: 500, letterSpacing: 0.5,
-                  bgcolor: 'rgba(9,14,42,0.9)', color: '#fff', border: '1px solid rgba(255,255,255,0.15)',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.3)', whiteSpace: 'nowrap',
-                  px: 1.5, py: 0.5, borderRadius: 2
-                }
               }}
             >
-              <SpeedDialAction
-                icon={<MenuBookIcon sx={{ color: '#fff', fontSize: 22 }} />}
-                tooltipTitle={<Typography sx={{ fontFamily: oswald, fontWeight: 500, fontSize: '0.85rem' }}>Study Mode</Typography>}
-                tooltipOpen
-                onClick={() => { setBotMode('study'); setMessages([]); setOpen(true); }}
-                FabProps={{
-                  sx: { 
-                    bgcolor: '#f59e0b',
-                    width: 48, height: 48,
-                    boxShadow: '0 4px 12px rgba(245,158,11,0.4)',
-                    '&:hover': { bgcolor: '#d97706', transform: 'scale(1.1)' },
-                    transition: 'all 0.2s ease'
-                  }
-                }}
-              />
-              <SpeedDialAction
-                icon={<DashboardIcon sx={{ color: '#fff', fontSize: 22 }} />}
-                tooltipTitle={<Typography sx={{ fontFamily: oswald, fontWeight: 500, fontSize: '0.85rem' }}>Dashboard Mode</Typography>}
-                tooltipOpen
-                onClick={() => { setBotMode('dashboard'); setMessages([]); setOpen(true); }}
-                FabProps={{
-                  sx: { 
-                    bgcolor: '#3b82f6',
-                    width: 48, height: 48,
-                    boxShadow: '0 4px 12px rgba(59,130,246,0.4)',
-                    '&:hover': { bgcolor: '#2563eb', transform: 'scale(1.1)' },
-                    transition: 'all 0.2s ease'
-                  }
-                }}
-              />
-            </SpeedDial>
+              <ChatIcon sx={{ fontSize: 28 }} />
+            </IconButton>
           </MotionBox>
         )}
       </AnimatePresence>
@@ -282,44 +243,80 @@ export default function PlatformBot() {
               boxShadow: '0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05)',
             }}
           >
-            {/* ── Header ── */}
+            {/* ── Header with mode toggle ── */}
             <Box sx={{
-              px: 2.5, py: 1.8,
+              px: 2.5, py: 1.5,
               background: 'linear-gradient(135deg, rgba(15,20,55,0.97), rgba(25,35,80,0.97))',
               backdropFilter: 'blur(20px)',
               borderBottom: '1px solid rgba(255,255,255,0.08)',
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             }}>
-              <Stack direction="row" alignItems="center" spacing={1.5}>
-                <Avatar sx={{
-                  width: 36, height: 36,
-                  background: 'linear-gradient(135deg, #2f6bff, #f68914)',
-                  boxShadow: '0 4px 14px rgba(47,107,255,0.35)',
-                }}>
-                  <SparkleIcon sx={{ fontSize: 20 }} />
-                </Avatar>
-                <Box>
-                  <Typography sx={{
-                    fontFamily: oswald, fontWeight: 700, fontSize: '1rem',
-                    color: '#fff', letterSpacing: '0.04em',
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                <Stack direction="row" alignItems="center" spacing={1.5}>
+                  <Avatar sx={{
+                    width: 36, height: 36,
+                    background: 'linear-gradient(135deg, #2f6bff, #f68914)',
+                    boxShadow: '0 4px 14px rgba(47,107,255,0.35)',
                   }}>
-                    SL Assistant — {botMode === 'study' ? 'Study' : 'Dashboard'}
-                  </Typography>
-                  <Typography sx={{
-                    fontSize: '0.68rem', color: '#6ee7b7', fontWeight: 600,
-                    display: 'flex', alignItems: 'center', gap: 0.5,
-                  }}>
-                    <Box component="span" sx={{
-                      width: 6, height: 6, borderRadius: '50%', bgcolor: '#6ee7b7',
-                      display: 'inline-block',
-                    }} />
-                    Online
-                  </Typography>
-                </Box>
+                    <SparkleIcon sx={{ fontSize: 20 }} />
+                  </Avatar>
+                  <Box>
+                    <Typography sx={{
+                      fontFamily: oswald, fontWeight: 700, fontSize: '1rem',
+                      color: '#fff', letterSpacing: '0.04em',
+                    }}>
+                      SL Assistant
+                    </Typography>
+                    <Typography sx={{
+                      fontSize: '0.68rem', color: '#6ee7b7', fontWeight: 600,
+                      display: 'flex', alignItems: 'center', gap: 0.5,
+                    }}>
+                      <Box component="span" sx={{
+                        width: 6, height: 6, borderRadius: '50%', bgcolor: '#6ee7b7',
+                        display: 'inline-block',
+                      }} />
+                      Online
+                    </Typography>
+                  </Box>
+                </Stack>
+                <IconButton onClick={() => setOpen(false)} sx={{ color: '#aab4dd', '&:hover': { color: '#fff' } }}>
+                  <CloseIcon />
+                </IconButton>
+              </Box>
+              {/* Mode toggle */}
+              <Stack direction="row" spacing={0.5} sx={{
+                p: 0.4,
+                borderRadius: '10px',
+                background: 'rgba(255,255,255,0.06)',
+                border: '1px solid rgba(255,255,255,0.08)',
+              }}>
+                {[
+                  { key: 'dashboard', label: 'Dashboard', icon: <DashboardIcon sx={{ fontSize: 15 }} /> },
+                  { key: 'study', label: 'Study', icon: <MenuBookIcon sx={{ fontSize: 15 }} /> },
+                ].map((m) => (
+                  <Box
+                    key={m.key}
+                    onClick={() => { if (botMode !== m.key) { setBotMode(m.key); setMessages([]); } }}
+                    sx={{
+                      flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      gap: 0.6, py: 0.6, px: 1, borderRadius: '8px', cursor: 'pointer',
+                      fontSize: '0.74rem', fontWeight: 600, fontFamily: oswald,
+                      letterSpacing: '0.03em', transition: 'all 0.2s ease',
+                      ...(botMode === m.key
+                        ? {
+                            background: 'linear-gradient(135deg, rgba(47,107,255,0.25), rgba(246,137,20,0.18))',
+                            color: '#fff',
+                            boxShadow: '0 2px 8px rgba(47,107,255,0.2)',
+                          }
+                        : {
+                            color: '#7e8abb',
+                            '&:hover': { color: '#c7d2fe', background: 'rgba(255,255,255,0.04)' },
+                          }),
+                    }}
+                  >
+                    {m.icon} {m.label}
+                  </Box>
+                ))}
               </Stack>
-              <IconButton onClick={() => setOpen(false)} sx={{ color: '#aab4dd', '&:hover': { color: '#fff' } }}>
-                <CloseIcon />
-              </IconButton>
             </Box>
 
             {/* ── Messages ── */}
