@@ -1621,7 +1621,8 @@ def register_public_routes(app, token_required, role_required, limiter):
     def public_practice_start(current_user):
         """
         Generate a dynamic practice session from the central repository.
-        Accepts: course_tags, subject (optional), chapter (optional), difficulty (optional), count (default 20).
+        Accepts: course_tags, subject (optional), chapter (optional),
+        difficulty (optional), question_format (optional), count (default 20).
         """
         profile = get_public_profile(current_user)
         if not profile:
@@ -1632,6 +1633,9 @@ def register_public_routes(app, token_required, role_required, limiter):
         subject = (data.get('subject') or '').strip()
         chapter = (data.get('chapter') or '').strip()
         difficulty = (data.get('difficulty') or '').strip()
+        # Lets a student drill one question type — assertion-reason, match the
+        # following, statement — instead of the whole mixed pool.
+        question_format = (data.get('question_format') or '').strip()
         count = min(int(data.get('count', 20)), 50)
 
         # SCOPE: server-side enrolled tags only (client tags are ignored —
@@ -1688,6 +1692,16 @@ def register_public_routes(app, token_required, role_required, limiter):
                 query = query.filter(PublicQuestionRepo.chapter.ilike(f'%{chapter}%'))
             if difficulty and difficulty != 'Random':
                 query = query.filter(PublicQuestionRepo.difficulty == difficulty)
+            if question_format and question_format not in ('Random', 'all'):
+                # 'mcq' is the default for legacy rows, so treat NULL as mcq
+                # rather than hiding everything that predates the tagging.
+                if question_format == 'mcq':
+                    query = query.filter(db.or_(
+                        PublicQuestionRepo.question_format == 'mcq',
+                        PublicQuestionRepo.question_format.is_(None)))
+                else:
+                    query = query.filter(
+                        PublicQuestionRepo.question_format == question_format)
 
             # Pull random questions for standard mode
             all_ids = [r[0] for r in query.with_entities(PublicQuestionRepo.id).all()]

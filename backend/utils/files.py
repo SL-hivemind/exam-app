@@ -503,7 +503,7 @@ def import_repository_csv(path, current_user_id, default_board=None,
                     option_c=row.get("option_c"),
                     option_d=row.get("option_d"),
                     correct_answer=row.get("correct_answer"),
-                    marks=int(row.get("marks") or 1),
+                    marks=(int(row.get("marks")) if str(row.get("marks") or '').strip().isdigit() else 1),
                     subject=(row.get("subject") or "").strip(),
                     class_number=class_number,
                     chapter=(row.get("chapter") or "GEN").strip() or "GEN",
@@ -511,6 +511,11 @@ def import_repository_csv(path, current_user_id, default_board=None,
                     board=board or None,
                     paper_code=paper_code,
                     image_path=image_url,
+                    # Worked solution shown after an exam. Without this the
+                    # column silently stayed NULL for every CSV import, so
+                    # explanations present in the file were thrown away.
+                    explanation=(row.get("explanation") or "").strip() or None,
+                    difficulty=(row.get("difficulty") or "").strip() or None,
                     created_by=current_user_id
                 )
 

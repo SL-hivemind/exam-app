@@ -338,6 +338,72 @@ def login():
 
 
 # ------------------------------
+# TOKEN REFRESH (silent re-auth)
+# ------------------------------
+@app.post('/refresh-token')
+@limiter.limit("10 per minute")
+def refresh_token():
+    """Accept a valid or recently-expired JWT and return a fresh one.
+
+    The grace window allows tokens that expired up to 7 days ago to be
+    refreshed — this keeps active users logged in while still expiring
+    truly idle sessions.
+    """
+    try:
+        token = token_from_request()
+        if not token:
+            return jsonify({'message': 'No token provided'}), 401
+
+        # First try normal decode (token still valid)
+        try:
+            decoded = jwt.decode(token, app.config['JWT_SECRET_KEY'], algorithms=['HS256'])
+        except jwt.ExpiredSignatureError:
+            # Token expired — decode without exp verification and check grace window
+            decoded = jwt.decode(
+                token, app.config['JWT_SECRET_KEY'],
+                algorithms=['HS256'],
+                options={'verify_exp': False}
+            )
+            exp_ts = decoded.get('exp', 0)
+            exp_dt = datetime.fromtimestamp(exp_ts, tz=timezone.utc)
+            grace_limit = datetime.now(timezone.utc) - timedelta(days=7)
+            if exp_dt < grace_limit:
+                return jsonify({'message': 'Token too old to refresh'}), 401
+        except jwt.InvalidTokenError:
+            return jsonify({'message': 'Invalid token'}), 401
+
+        user_id = int(decoded.get('sub'))
+        role = decoded.get('role')
+        user_type = decoded.get('user_type')
+
+        # Verify user still exists
+        if user_type == 'public':
+            user = PublicUser.query.get(user_id)
+        else:
+            user = User.query.get(user_id)
+
+        if not user:
+            return jsonify({'message': 'User no longer exists'}), 401
+
+        # Issue a fresh token
+        new_payload = {
+            'sub': str(user_id),
+            'role': role,
+            'iat': datetime.now(timezone.utc),
+            'exp': datetime.now(timezone.utc) + timedelta(hours=6),
+        }
+        if user_type:
+            new_payload['user_type'] = user_type
+
+        new_token = jwt.encode(new_payload, app.config['JWT_SECRET_KEY'], algorithm='HS256')
+        return jsonify({'auth_token': new_token}), 200
+
+    except Exception as e:
+        app.logger.exception('token refresh failed')
+        return jsonify({'message': 'Token refresh failed'}), 500
+
+
+# ------------------------------
 # FORGOT PASSWORD (public, no token required)
 # ------------------------------
 @app.post('/forgot-password/init')

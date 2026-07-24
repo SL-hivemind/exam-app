@@ -241,6 +241,9 @@ class QuestionRepository(db.Model):
     option_c = db.Column(db.String(500))
     option_d = db.Column(db.String(500))
     correct_answer = db.Column(db.String(10))
+    # Worked solution shown to a student once the exam is over. Mirrors
+    # PublicQuestionRepo.explanation so both banks can carry the same content.
+    explanation = db.Column(db.Text, nullable=True)
     image_path = db.Column(db.String(255))
     marks = db.Column(db.Integer, nullable=False, default=1)
 
@@ -268,6 +271,7 @@ class QuestionRepository(db.Model):
             "option_c": self.option_c,
             "option_d": self.option_d,
             "correct_answer": self.correct_answer,
+            "explanation": self.explanation,
             "image_path": self.image_path,
             "marks": self.marks,
             "created_at": self.created_at.isoformat() if self.created_at else None
