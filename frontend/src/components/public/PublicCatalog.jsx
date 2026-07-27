@@ -25,16 +25,16 @@ import { GlassCard } from '../common';
 
 const ff = "'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
 
-const CATEGORIES = ['NEET', 'JEE', 'UPSC', 'SSC', 'Banking', 'Railways', 'GATE', 'CAT'];
+const CATEGORIES = ['NEET', 'JEE', 'SSC CGL', 'Banking', 'Railways', 'Police', 'GATE', 'UPSC'];
 
 const FLOATING = [
-  { t: 'UPSC', top: '12%', left: '6%', s: '2.6rem', o: 0.06 },
+  { t: 'SSC CGL', top: '12%', left: '6%', s: '2.6rem', o: 0.06 },
   { t: 'NEET', top: '22%', left: '82%', s: '3rem', o: 0.05 },
-  { t: 'SSC CGL', top: '64%', left: '10%', s: '2.4rem', o: 0.05 },
+  { t: 'RRB NTPC', top: '64%', left: '10%', s: '2.4rem', o: 0.05 },
   { t: 'JEE', top: '74%', left: '86%', s: '2.8rem', o: 0.06 },
   { t: 'IBPS PO', top: '40%', left: '90%', s: '2rem', o: 0.05 },
   { t: 'GATE', top: '80%', left: '44%', s: '2.2rem', o: 0.05 },
-  { t: 'CAT', top: '14%', left: '46%', s: '2.4rem', o: 0.05 },
+  { t: 'POLICE', top: '14%', left: '46%', s: '2.4rem', o: 0.05 },
 ];
 
 const FEATURES = [
@@ -153,8 +153,8 @@ export default function PublicCatalog() {
               </Box>
             </Typography>
             <Typography sx={{ fontFamily: ff, fontSize: { xs: '1rem', md: '1.15rem' }, color: '#b4c0e4', maxWidth: 600, mx: 'auto', lineHeight: 1.7, mb: 4 }}>
-              Browse courses for NEET, JEE, UPSC, SSC, Banking and more. Start free, practice with
-              our massive question repository, and get instant results.
+              Browse courses for NEET, JEE, SSC CGL, Banking, Railways, Police, GATE and more. Start free,
+              practice with our massive question repository, and get instant results.
             </Typography>
 
             {/* Search */}

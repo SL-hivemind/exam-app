@@ -795,7 +795,7 @@ class PublicQuestionRepo(db.Model):
     chapter = db.Column(db.String(100), nullable=True)              # e.g. 'Kinematics', 'Time & Work'
     topic = db.Column(db.String(150), nullable=True)                # e.g. 'Projectile Motion'
     difficulty = db.Column(db.String(20), default='Medium')         # 'Easy', 'Medium', 'Hard'
-    # 'mcq' | 'assertion_reason' | 'match' | 'statement' — competitive-exam formats
+    # 'mcq' | 'assertion_reason' | 'match' | 'statement' | 'nat' | 'msq' — competitive-exam formats
     question_format = db.Column(db.String(30), default='mcq')
     is_pyq = db.Column(db.Boolean, default=False)
     pyq_year = db.Column(db.Integer, nullable=True)
@@ -804,10 +804,16 @@ class PublicQuestionRepo(db.Model):
     option_b = db.Column(db.String(500))
     option_c = db.Column(db.String(500))
     option_d = db.Column(db.String(500))
-    correct_answer = db.Column(db.String(10), nullable=False)       # 'A', 'B', 'C', 'D'
+    option_e = db.Column(db.String(500))                            # 5th option (Banking / some SSC)
+    # Answer semantics depend on question_format:
+    #   mcq/assertion_reason/match/statement -> single letter 'A'..'E'
+    #   msq  -> sorted comma letters, e.g. 'A,C'
+    #   nat  -> a number '12.5' or an inclusive range 'low|high' e.g. '12.4|12.6'
+    correct_answer = db.Column(db.String(30), nullable=False)
     explanation = db.Column(db.Text, nullable=True)
     image_path = db.Column(db.String(255), nullable=True)
     marks = db.Column(db.Integer, default=1)
+    negative_marks = db.Column(db.Float, default=0)                 # penalty for a wrong (non-blank) answer, e.g. 0.25
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def to_dict(self, include_answer=False):
@@ -827,7 +833,9 @@ class PublicQuestionRepo(db.Model):
             'option_b': self.option_b,
             'option_c': self.option_c,
             'option_d': self.option_d,
+            'option_e': self.option_e,
             'marks': self.marks,
+            'negative_marks': self.negative_marks or 0,
             'image_path': self.image_path,
             'created_at': self.created_at.isoformat() if self.created_at else None,
         }
@@ -847,6 +855,7 @@ class PublicPendingImageQuestion(db.Model):
     chapter = db.Column(db.String(100), nullable=True)
     topic = db.Column(db.String(150), nullable=True)
     difficulty = db.Column(db.String(20), default='Medium')
+    question_format = db.Column(db.String(30), default='mcq')
     is_pyq = db.Column(db.Boolean, default=False)
     pyq_year = db.Column(db.Integer, nullable=True)
     text = db.Column(db.Text, nullable=False)
@@ -854,10 +863,12 @@ class PublicPendingImageQuestion(db.Model):
     option_b = db.Column(db.String(500))
     option_c = db.Column(db.String(500))
     option_d = db.Column(db.String(500))
-    correct_answer = db.Column(db.String(10), nullable=False)
+    option_e = db.Column(db.String(500))
+    correct_answer = db.Column(db.String(30), nullable=False)
     explanation = db.Column(db.Text, nullable=True)
     image_path = db.Column(db.String(255), nullable=True)
     marks = db.Column(db.Integer, default=1)
+    negative_marks = db.Column(db.Float, default=0)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class PublicCourseContentQuestion(db.Model):
@@ -882,7 +893,7 @@ class PublicPracticeAttempt(db.Model):
     difficulty = db.Column(db.String(20), default='Random')
     questions_json = db.Column(db.Text, nullable=False)  # JSON list of PublicQuestionRepo IDs
     answers_json = db.Column(db.Text, nullable=True)
-    score = db.Column(db.Integer, nullable=True)
+    score = db.Column(db.Float, nullable=True)           # float: negative marking yields fractional scores
     total_questions = db.Column(db.Integer, default=30)
     is_adaptive = db.Column(db.Boolean, default=False)
     current_index = db.Column(db.Integer, default=0)

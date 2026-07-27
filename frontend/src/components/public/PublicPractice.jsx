@@ -28,7 +28,7 @@ const DIFF_META = {
   medium: { label: 'Medium', color: '#fbbf24', bg: 'rgba(251,191,36,0.16)' },
   hard: { label: 'Hard', color: '#fb7185', bg: 'rgba(251,113,133,0.16)' },
 };
-const LETTERS = ['A', 'B', 'C', 'D'];
+const LETTERS = ['A', 'B', 'C', 'D', 'E'];
 
 export default function PublicPractice() {
   const navigate = useNavigate();
@@ -389,7 +389,7 @@ export default function PublicPractice() {
   const renderRun = () => {
     const q = current?.q;
     if (!q) return null;
-    const opts = { A: q.option_a, B: q.option_b, C: q.option_c, D: q.option_d };
+    const opts = { A: q.option_a, B: q.option_b, C: q.option_c, D: q.option_d, E: q.option_e };
     const correct = (q.correct_answer || '').toUpperCase();
     const dm = DIFF_META[current.bucket] || DIFF_META.medium;
     const progress = (asked.length / Number(form.count)) * 100;
@@ -506,7 +506,7 @@ export default function PublicPractice() {
         <Typography sx={{ fontFamily: ff, fontWeight: 700, color: '#f5f8ff', mb: 1.5 }}>Review</Typography>
         <Stack spacing={1.5}>
           {(result.asked || []).map((a, i) => {
-            const opts = { A: a.option_a, B: a.option_b, C: a.option_c, D: a.option_d };
+            const opts = { A: a.option_a, B: a.option_b, C: a.option_c, D: a.option_d, E: a.option_e };
             const correct = (a.correct_answer || '').toUpperCase();
             return (
               <GlassCard key={i} sx={{ p: 2.25 }}>

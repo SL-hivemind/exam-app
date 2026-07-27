@@ -422,9 +422,10 @@ export default function AdminPublicManager({ initialTab = 0 }) {
 
   const openRepoEdit = (q = null) => {
     setRepoEditForm(q ? { ...q } : {
-      text: '', option_a: '', option_b: '', option_c: '', option_d: '',
+      text: '', option_a: '', option_b: '', option_c: '', option_d: '', option_e: '',
       correct_answer: 'A', explanation: '', subject: '', chapter: '',
-      topic: '', course_tags: '', difficulty: 'Medium', is_pyq: false, pyq_year: ''
+      topic: '', course_tags: '', difficulty: 'Medium', question_format: 'mcq',
+      marks: 1, negative_marks: 0, is_pyq: false, pyq_year: ''
     });
     setRepoEditDialog(true);
   };
@@ -1097,30 +1098,53 @@ export default function AdminPublicManager({ initialTab = 0 }) {
             onChange={e => setRepoEditForm({ ...repoEditForm, text: e.target.value })}
             sx={{ ...inputSx, mb: 2 }} size="small" multiline rows={3} required />
 
-          <Grid container spacing={2} sx={{ mb: 2 }}>
-            {['a', 'b', 'c', 'd'].map((opt) => (
-              <Grid item xs={12} sm={6} key={opt}>
-                <TextField fullWidth label={`Option ${opt.toUpperCase()}`} value={repoEditForm?.[`option_${opt}`] || ''}
-                  onChange={e => setRepoEditForm({ ...repoEditForm, [`option_${opt}`]: e.target.value })}
-                  sx={inputSx} size="small" />
-              </Grid>
-            ))}
-          </Grid>
+          {repoEditForm?.question_format !== 'nat' && (
+            <Grid container spacing={2} sx={{ mb: 2 }}>
+              {['a', 'b', 'c', 'd', 'e'].map((opt) => (
+                <Grid item xs={12} sm={6} key={opt}>
+                  <TextField fullWidth label={`Option ${opt.toUpperCase()}${opt === 'e' ? ' (optional)' : ''}`} value={repoEditForm?.[`option_${opt}`] || ''}
+                    onChange={e => setRepoEditForm({ ...repoEditForm, [`option_${opt}`]: e.target.value })}
+                    sx={inputSx} size="small" />
+                </Grid>
+              ))}
+            </Grid>
+          )}
 
           <Grid container spacing={2} sx={{ mb: 2 }}>
             <Grid item xs={12} sm={6}>
               <FormControl fullWidth size="small" sx={inputSx}>
-                <InputLabel>Correct Ans *</InputLabel>
-                <Select value={repoEditForm?.correct_answer || 'A'} label="Correct Ans *"
-                  onChange={e => setRepoEditForm({ ...repoEditForm, correct_answer: e.target.value })}>
-                  <MenuItem value="A">A</MenuItem>
-                  <MenuItem value="B">B</MenuItem>
-                  <MenuItem value="C">C</MenuItem>
-                  <MenuItem value="D">D</MenuItem>
+                <InputLabel>Question Format</InputLabel>
+                <Select value={repoEditForm?.question_format || 'mcq'} label="Question Format"
+                  onChange={e => setRepoEditForm({ ...repoEditForm, question_format: e.target.value })}>
+                  <MenuItem value="mcq">MCQ (single answer)</MenuItem>
+                  <MenuItem value="msq">MSQ (multiple correct)</MenuItem>
+                  <MenuItem value="nat">NAT (numerical)</MenuItem>
+                  <MenuItem value="assertion_reason">Assertion &amp; Reason</MenuItem>
+                  <MenuItem value="match">Match the following</MenuItem>
+                  <MenuItem value="statement">Statement-based</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
             <Grid item xs={12} sm={6}>
+              {repoEditForm?.question_format === 'msq' ? (
+                <TextField fullWidth label="Correct Ans *" value={repoEditForm?.correct_answer || ''}
+                  onChange={e => setRepoEditForm({ ...repoEditForm, correct_answer: e.target.value })}
+                  sx={inputSx} size="small" placeholder="e.g. A,C" helperText="Comma-separated letters" />
+              ) : repoEditForm?.question_format === 'nat' ? (
+                <TextField fullWidth label="Correct Ans *" value={repoEditForm?.correct_answer || ''}
+                  onChange={e => setRepoEditForm({ ...repoEditForm, correct_answer: e.target.value })}
+                  sx={inputSx} size="small" placeholder="e.g. 12.5 or 12.4|12.6" helperText="Number or low|high range" />
+              ) : (
+                <FormControl fullWidth size="small" sx={inputSx}>
+                  <InputLabel>Correct Ans *</InputLabel>
+                  <Select value={repoEditForm?.correct_answer || 'A'} label="Correct Ans *"
+                    onChange={e => setRepoEditForm({ ...repoEditForm, correct_answer: e.target.value })}>
+                    {['A', 'B', 'C', 'D', 'E'].map(l => <MenuItem key={l} value={l}>{l}</MenuItem>)}
+                  </Select>
+                </FormControl>
+              )}
+            </Grid>
+            <Grid item xs={12} sm={4}>
               <FormControl fullWidth size="small" sx={inputSx}>
                 <InputLabel>Difficulty</InputLabel>
                 <Select value={repoEditForm?.difficulty || 'Medium'} label="Difficulty"
@@ -1131,10 +1155,15 @@ export default function AdminPublicManager({ initialTab = 0 }) {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12} sm={12}>
+            <Grid item xs={6} sm={4}>
               <TextField fullWidth label="Marks" type="number" value={repoEditForm?.marks || 1}
                 onChange={e => setRepoEditForm({ ...repoEditForm, marks: parseInt(e.target.value, 10) || 1 })}
                 sx={inputSx} size="small" />
+            </Grid>
+            <Grid item xs={6} sm={4}>
+              <TextField fullWidth label="Negative Marks" type="number" value={repoEditForm?.negative_marks ?? 0}
+                onChange={e => setRepoEditForm({ ...repoEditForm, negative_marks: parseFloat(e.target.value) || 0 })}
+                sx={inputSx} size="small" inputProps={{ step: '0.25', min: 0 }} helperText="Penalty if wrong" />
             </Grid>
           </Grid>
 

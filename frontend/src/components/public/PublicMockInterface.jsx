@@ -44,6 +44,7 @@ export default function PublicMockInterface() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeSubject, setActiveSubject] = useState(null);
   const [reviewMarked, setReviewMarked] = useState(new Set());
+  const [mockTitle, setMockTitle] = useState('Mock Test');
   
   useEffect(() => {
     setVisitedPages(prev => new Set(prev).add(currentPage));
@@ -64,7 +65,11 @@ export default function PublicMockInterface() {
         
         setExamId(res.data.attempt_id);
         setQuestions(res.data.questions || []);
-        
+        // Duration + title are data-driven per exam (backend mock blueprint),
+        // falling back to the client default for older responses.
+        if (res.data.duration_minutes) setTimeLeft(res.data.duration_minutes * 60);
+        if (res.data.title) setMockTitle(res.data.title);
+
         timerRef.current = setInterval(() => {
           setTimeLeft(prev => {
             if (prev <= 1) {
@@ -112,6 +117,24 @@ export default function PublicMockInterface() {
   const handleMcqAnswerChange = (mcqId, answer) => {
     if (submitted) return;
     setMcqAnswers(prev => ({ ...prev, [mcqId]: answer }));
+  };
+
+  // Multi-select (MSQ) toggles a letter within a sorted comma list, e.g. 'A,C'.
+  const toggleMsqAnswer = (mcqId, letter) => {
+    if (submitted) return;
+    setMcqAnswers(prev => {
+      const set = new Set((prev[mcqId] || '').split(',').map(s => s.trim()).filter(Boolean));
+      if (set.has(letter)) set.delete(letter); else set.add(letter);
+      const joined = [...set].sort().join(',');
+      const next = { ...prev };
+      if (joined) next[mcqId] = joined; else delete next[mcqId];
+      return next;
+    });
+  };
+
+  const handleOptionClick = (q, val) => {
+    if (q.question_format === 'msq') toggleMsqAnswer(q.id, val);
+    else handleMcqAnswerChange(q.id, val);
   };
 
   const formatTime = (seconds) => {
@@ -277,7 +300,7 @@ export default function PublicMockInterface() {
         <Box display="flex" alignItems="center" gap={2}>
           <IconButton onClick={() => navigate('/public/dashboard')}><ArrowBackIcon /></IconButton>
           <Box>
-            <Typography variant="h6" fontWeight={800} sx={{ fontSize: { xs: '1rem', sm: '1.25rem' }, fontFamily: ff, color: '#eaf0ff' }}>{isJee ? 'JEE Full Mock Test' : isNeet ? 'NEET Full Mock Test' : 'Mock Test'}</Typography>
+            <Typography variant="h6" fontWeight={800} sx={{ fontSize: { xs: '1rem', sm: '1.25rem' }, fontFamily: ff, color: '#eaf0ff' }}>{mockTitle}</Typography>
             <Typography variant="caption" fontFamily={ff} sx={{ color: '#a9b4dd' }}>
               Attempted: {answeredCount} / {questions.length}
             </Typography>
@@ -321,7 +344,16 @@ export default function PublicMockInterface() {
                   <Box sx={{ px: 1.5, py: 0.5, borderRadius: 2, bgcolor: 'rgba(37,99,235,0.12)', color: '#93c5fd', fontFamily: ff, fontWeight: 700, fontSize: '0.75rem' }}>
                     Question {indexOfFirstQ + idx + 1} of {questions.length}
                   </Box>
-                  <Typography sx={{ fontFamily: ff, fontSize: '0.75rem', color: '#6b7db3' }}>{q.subject || 'General'}</Typography>
+                  <Box sx={{ textAlign: 'right' }}>
+                    <Typography sx={{ fontFamily: ff, fontSize: '0.75rem', color: '#6b7db3' }}>{q.subject || 'General'}</Typography>
+                    {(q.question_format === 'msq' || q.question_format === 'nat' || q.negative_marks > 0) && (
+                      <Typography sx={{ fontFamily: ff, fontSize: '0.68rem', color: '#93c5fd', mt: 0.3 }}>
+                        {q.question_format === 'msq' && 'Multiple correct • '}
+                        {q.question_format === 'nat' && 'Numerical • '}
+                        +{q.marks || 1}{q.negative_marks > 0 ? ` / -${q.negative_marks}` : ''}
+                      </Typography>
+                    )}
+                  </Box>
                 </Box>
 
                 {q.image_path && (
@@ -335,21 +367,34 @@ export default function PublicMockInterface() {
                 </Typography>
 
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
-                  {['a','b','c','d'].map((opt) => {
-                    if (!q[`option_${opt}`]) return null;
-                    const val = opt.toUpperCase();
-                    const isSelected = mcqAnswers[q.id] === val;
-                    return (
-                      <Box key={opt} onClick={() => handleMcqAnswerChange(q.id, val)}
-                        sx={{ display: 'flex', alignItems: 'center', gap: 2, p: { xs: 1.5, sm: 2 }, borderRadius: 2.5, cursor: 'pointer', transition: 'all 0.2s', border: `2px solid ${isSelected ? '#2563eb' : 'rgba(255,255,255,0.08)'}`, bgcolor: isSelected ? 'rgba(37,99,235,0.08)' : 'rgba(255,255,255,0.03)', '&:hover': { borderColor: isSelected ? '#2563eb' : 'rgba(37,99,235,0.35)' } }}>
-                        <Box sx={{ width: 32, height: 32, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontFamily: ff, fontWeight: 800, fontSize: '0.8rem', bgcolor: isSelected ? '#2563eb' : 'rgba(255,255,255,0.07)', color: isSelected ? '#fff' : '#a9b4dd', transition: 'all 0.2s' }}>{val}</Box>
-                        <Typography sx={{ fontFamily: ff, fontSize: '0.95rem', color: isSelected ? '#eaf0ff' : '#a9b4dd', fontWeight: isSelected ? 600 : 400, flex: 1, whiteSpace: 'pre-wrap' }}>
-                          <MatrixFormatter text={q[`option_${opt}`]} />
-                        </Typography>
-                        {isSelected && <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#2563eb', flexShrink: 0 }} />}
-                      </Box>
-                    );
-                  })}
+                  {q.question_format === 'nat' ? (
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      value={mcqAnswers[q.id] || ''}
+                      onChange={(e) => handleMcqAnswerChange(q.id, e.target.value)}
+                      placeholder="Type your numerical answer"
+                      style={{ width: '100%', maxWidth: 340, padding: '14px 16px', borderRadius: 12, background: 'rgba(255,255,255,0.05)', border: '2px solid rgba(255,255,255,0.12)', color: '#eaf0ff', fontFamily: ff, fontSize: '1rem', outline: 'none' }}
+                    />
+                  ) : (
+                    ['a','b','c','d','e'].map((opt) => {
+                      if (!q[`option_${opt}`]) return null;
+                      const val = opt.toUpperCase();
+                      const isMsq = q.question_format === 'msq';
+                      const selected = (mcqAnswers[q.id] || '').split(',').map(s => s.trim());
+                      const isSelected = isMsq ? selected.includes(val) : mcqAnswers[q.id] === val;
+                      return (
+                        <Box key={opt} onClick={() => handleOptionClick(q, val)}
+                          sx={{ display: 'flex', alignItems: 'center', gap: 2, p: { xs: 1.5, sm: 2 }, borderRadius: 2.5, cursor: 'pointer', transition: 'all 0.2s', border: `2px solid ${isSelected ? '#2563eb' : 'rgba(255,255,255,0.08)'}`, bgcolor: isSelected ? 'rgba(37,99,235,0.08)' : 'rgba(255,255,255,0.03)', '&:hover': { borderColor: isSelected ? '#2563eb' : 'rgba(37,99,235,0.35)' } }}>
+                          <Box sx={{ width: 32, height: 32, borderRadius: isMsq ? '8px' : '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontFamily: ff, fontWeight: 800, fontSize: '0.8rem', bgcolor: isSelected ? '#2563eb' : 'rgba(255,255,255,0.07)', color: isSelected ? '#fff' : '#a9b4dd', transition: 'all 0.2s' }}>{val}</Box>
+                          <Typography sx={{ fontFamily: ff, fontSize: '0.95rem', color: isSelected ? '#eaf0ff' : '#a9b4dd', fontWeight: isSelected ? 600 : 400, flex: 1, whiteSpace: 'pre-wrap' }}>
+                            <MatrixFormatter text={q[`option_${opt}`]} />
+                          </Typography>
+                          {isSelected && <Box sx={{ width: 10, height: 10, borderRadius: isMsq ? '3px' : '50%', bgcolor: '#2563eb', flexShrink: 0 }} />}
+                        </Box>
+                      );
+                    })
+                  )}
                 </Box>
                 
                 {/* ACTION BUTTONS (CLEAR & REVIEW) */}

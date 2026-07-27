@@ -104,7 +104,7 @@ const STAGES = [
       {
         icon: Target,
         title: "Competitive Exam Ready",
-        desc: "JEE, NEET and EAMCET aspirants rehearse on the same professional digital interface they'll meet on the real exam day.",
+        desc: "JEE, NEET, SSC, Banking, Railways and GATE aspirants rehearse on the same professional digital interface they'll meet on the real exam day.",
       },
     ],
   },
@@ -1043,10 +1043,12 @@ export default function Home() {
           items={[
             "BOARD EXAMS",
             "SLIP TESTS",
-            "WEEKLY ASSESSMENTS",
             "JEE PRACTICE",
             "NEET PRACTICE",
-            "EAMCET PRACTICE",
+            "SSC CGL",
+            "BANKING",
+            "RAILWAYS",
+            "GATE",
             "EXAM REPORTS",
           ]}
         />

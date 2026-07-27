@@ -17,6 +17,7 @@ from sqlalchemy.exc import IntegrityError
 from werkzeug.utils import secure_filename
 
 from utils.scope import require_subject_for_children
+from taxonomy import grade_answer, is_correct, mock_blueprint
 
 from models import (
     db, bcrypt, User,
@@ -1482,9 +1483,11 @@ def register_public_routes(app, token_required, role_required, limiter):
             option_b=(data.get('option_b') or '').strip(),
             option_c=(data.get('option_c') or '').strip(),
             option_d=(data.get('option_d') or '').strip(),
+            option_e=(data.get('option_e') or '').strip() or None,
             correct_answer=data['correct_answer'].strip().upper(),
             explanation=(data.get('explanation') or '').strip() or None,
             marks=int(data.get('marks') or 1),
+            negative_marks=float(data.get('negative_marks') or 0),
         )
         db.session.add(q)
         db.session.commit()
@@ -1498,7 +1501,7 @@ def register_public_routes(app, token_required, role_required, limiter):
         if not q:
             return jsonify({'message': 'Question not found'}), 404
         data = request.get_json(silent=True) or {}
-        for field in ['text', 'option_a', 'option_b', 'option_c', 'option_d',
+        for field in ['text', 'option_a', 'option_b', 'option_c', 'option_d', 'option_e',
                        'correct_answer', 'explanation', 'subject', 'chapter', 'topic',
                        'difficulty', 'course_tags', 'image_path', 'question_format']:
             if field in data:
@@ -1507,6 +1510,8 @@ def register_public_routes(app, token_required, role_required, limiter):
             q.subject = normalize_subject_store(q.subject)
         if 'marks' in data:
             q.marks = int(data['marks'] or 1)
+        if 'negative_marks' in data:
+            q.negative_marks = float(data['negative_marks'] or 0)
         if 'is_pyq' in data:
             q.is_pyq = bool(data['is_pyq'])
         if 'pyq_year' in data:
@@ -1551,6 +1556,7 @@ def register_public_routes(app, token_required, role_required, limiter):
         batch_tags = (data.get('course_tags') or '').strip() or None
         batch_difficulty = data.get('difficulty', 'Medium')
         batch_format = (data.get('question_format') or 'mcq').strip() or 'mcq'
+        batch_negative = float(data.get('negative_marks') or 0)
         batch_is_pyq = bool(data.get('is_pyq'))
         batch_pyq_year = int(data['pyq_year']) if data.get('pyq_year') else None
 
@@ -1602,6 +1608,7 @@ def register_public_routes(app, token_required, role_required, limiter):
                 option_d=opt_d,
                 correct_answer=correct,
                 explanation=explanation,
+                negative_marks=batch_negative,
             )
             db.session.add(q)
             created.append(q)
@@ -1702,6 +1709,14 @@ def register_public_routes(app, token_required, role_required, limiter):
                 else:
                     query = query.filter(
                         PublicQuestionRepo.question_format == question_format)
+            else:
+                # The instant-feedback drill assumes a single answer, so NAT
+                # (numeric) and MSQ (multi-select) are kept out of the mixed pool
+                # — they are served in the server-graded mock instead. A user can
+                # still target one explicitly via the question_format filter above.
+                query = query.filter(db.or_(
+                    PublicQuestionRepo.question_format.is_(None),
+                    PublicQuestionRepo.question_format.notin_(['nat', 'msq'])))
 
             # Pull random questions for standard mode
             all_ids = [r[0] for r in query.with_entities(PublicQuestionRepo.id).all()]
@@ -1735,11 +1750,18 @@ def register_public_routes(app, token_required, role_required, limiter):
         db.session.add(attempt)
         db.session.commit()
 
-        return jsonify({
+        # Full mocks carry an exam-specific duration + title so the client
+        # timer/heading are data-driven (not hardcoded to JEE/NEET).
+        resp = {
             'attempt_id': attempt.id,
             'questions': [q.to_dict(include_answer=False) for q in questions],
             'total': len(questions),
-        }), 200
+        }
+        if mode == 'mock':
+            bp = mock_blueprint(tags)
+            resp['duration_minutes'] = bp['minutes']
+            resp['title'] = bp['title']
+        return jsonify(resp), 200
 
     @app.post('/public/practice/<int:attempt_id>/submit')
     @token_required
@@ -1769,14 +1791,15 @@ def register_public_routes(app, token_required, role_required, limiter):
             if not q:
                 continue
             user_ans = answers.get(str(qid), '')
-            is_correct = user_ans.upper() == q.correct_answer.upper() if user_ans else False
-            if is_correct:
-                score += q.marks
+            correct, awarded = grade_answer(
+                q.question_format, q.correct_answer, user_ans,
+                q.marks or 1, q.negative_marks or 0)
+            score += awarded
             results.append({
                 'question_id': qid,
                 'user_answer': user_ans,
                 'correct_answer': q.correct_answer,
-                'is_correct': is_correct,
+                'is_correct': correct,
                 'explanation': q.explanation,
             })
 
@@ -1964,9 +1987,10 @@ def register_public_routes(app, token_required, role_required, limiter):
             q = q_map.get(qid)
             if not q:
                 continue
-            ua = (answers.get(str(qid)) or '').upper()
-            if ua and ua == (q.correct_answer or '').upper():
-                score += q.marks or 1
+            _, awarded = grade_answer(
+                q.question_format, q.correct_answer, answers.get(str(qid), ''),
+                q.marks or 1, q.negative_marks or 0)
+            score += awarded
 
         attempt.questions_json = json.dumps(asked_ids)
         attempt.answers_json = json.dumps(answers)
@@ -2091,15 +2115,17 @@ def register_public_routes(app, token_required, role_required, limiter):
             if not q:
                 continue
             user_ans = answers.get(str(qid), '')
-            is_correct = user_ans.upper() == q.correct_answer.upper() if user_ans else False
-            if is_correct:
+            # Daily challenge is a correctness count (streaks), not weighted marks
+            # — use the shared grader for format handling, but no negative marking.
+            correct = is_correct(q.question_format, q.correct_answer, user_ans)
+            if correct:
                 score += 1
             results.append({
                 'question_id': qid,
                 'text': q.text,
                 'user_answer': user_ans,
                 'correct_answer': q.correct_answer,
-                'is_correct': is_correct,
+                'is_correct': correct,
                 'explanation': q.explanation,
             })
 
