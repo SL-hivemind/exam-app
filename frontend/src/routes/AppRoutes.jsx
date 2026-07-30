@@ -1,6 +1,6 @@
 import React, { Suspense, lazy } from "react";
 import { Routes, Route } from "react-router-dom";
-import { Box, CircularProgress } from "@mui/material";
+import { Box } from "@mui/material";
 
 import ProtectedRoute from "./ProtectedRoute";
 import PublicOnlyRoute from "./PublicOnlyRoute";
@@ -58,8 +58,68 @@ const AdminQuickExams = lazy(() => import("../components/quick/AdminQuickExams")
 
 function RouteFallback() {
   return (
-    <Box sx={{ minHeight: "60vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <CircularProgress />
+    <Box
+      sx={{
+        minHeight: "60vh",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 2,
+      }}
+    >
+      {/* Branded logo loader */}
+      <Box
+        sx={{
+          width: 64,
+          height: 64,
+          position: "relative",
+          animation: "routeLoaderPulse 1.6s ease-in-out infinite",
+          "@keyframes routeLoaderPulse": {
+            "0%, 100%": {
+              transform: "scale(1)",
+              filter: "drop-shadow(0 0 8px rgba(56,149,248,.3))",
+            },
+            "50%": {
+              transform: "scale(1.08)",
+              filter:
+                "drop-shadow(0 0 20px rgba(56,149,248,.5)) drop-shadow(0 0 30px rgba(246,137,20,.25))",
+            },
+          },
+        }}
+      >
+        <img
+          src="/SL-instant-Logo.png"
+          alt=""
+          width={64}
+          height={64}
+          style={{ width: "100%", height: "100%", objectFit: "contain" }}
+        />
+      </Box>
+      {/* Mini loading bar */}
+      <Box
+        sx={{
+          width: 80,
+          height: 2.5,
+          borderRadius: 2,
+          bgcolor: "rgba(255,255,255,.06)",
+          overflow: "hidden",
+          position: "relative",
+          "&::after": {
+            content: '""',
+            position: "absolute",
+            inset: 0,
+            borderRadius: 2,
+            background: "linear-gradient(90deg, #024392, #3895f8, #f68914)",
+            animation: "routeBarSlide 1.5s ease-in-out infinite",
+          },
+          "@keyframes routeBarSlide": {
+            "0%": { transform: "translateX(-100%)" },
+            "50%": { transform: "translateX(0%)" },
+            "100%": { transform: "translateX(100%)" },
+          },
+        }}
+      />
     </Box>
   );
 }

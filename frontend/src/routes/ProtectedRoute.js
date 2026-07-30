@@ -7,7 +7,12 @@ export default function ProtectedRoute({ children, roles = [] }) {
   const location = useLocation();
 
   // 1. Wait for Auth Context to finish initialization
-  if (loading) return <div>Loading session...</div>;
+  if (loading) return (
+    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', minHeight:'60vh' }}>
+      <img src="/SL-instant-Logo.png" alt="" width={80} height={80} style={{ objectFit:'contain', animation:'pulse 1.6s ease-in-out infinite' }} />
+      <style>{`@keyframes pulse{0%,100%{transform:scale(1);opacity:.7}50%{transform:scale(1.06);opacity:1}}`}</style>
+    </div>
+  );
 
   // 2. Check if logged in
   if (!isAuthenticated) {

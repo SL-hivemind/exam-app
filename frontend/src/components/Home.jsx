@@ -550,8 +550,8 @@ export default function Home() {
         /* ---------------- Reveal loader ---------------- */
         .mount-curtain { position: fixed; inset: 0; z-index: 200; background: #0a0e1a; display: flex; align-items: center; justify-content: center; transition: opacity .6s cubic-bezier(.16,.84,.44,1), visibility .6s; }
         .curtain-hide { opacity: 0; pointer-events: none; visibility: hidden; }
-        .curtain-mark { width: 44px; height: 44px; border-radius: 12px; background: linear-gradient(135deg, var(--amber), var(--indigo)); animation: curtainPulse 0.9s ease-in-out infinite; }
-        @keyframes curtainPulse { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(0.82); opacity: 0.65; } }
+        .curtain-logo { width: 72px; height: 72px; object-fit: contain; animation: curtainPulse 1.6s ease-in-out infinite; }
+        @keyframes curtainPulse { 0%,100% { transform: scale(1); filter: drop-shadow(0 0 6px rgba(56,149,248,.25)); } 50% { transform: scale(1.06); filter: drop-shadow(0 0 16px rgba(56,149,248,.45)) drop-shadow(0 0 24px rgba(246,137,20,.2)); } }
 
         /* ---------------- Buttons ---------------- */
         .btn { display: inline-flex; align-items: center; gap: 9px; padding: 14px 26px; border-radius: 11px; font-weight: 600; font-size: 15px; cursor: pointer; border: 1px solid transparent; transition: transform .25s ease, box-shadow .25s ease, background .25s ease, border-color .25s ease; white-space: nowrap; }
@@ -808,7 +808,7 @@ export default function Home() {
       `}</style>
 
       <div className={`mount-curtain ${loaded ? "curtain-hide" : ""}`} aria-hidden="true">
-        <div className="curtain-mark" />
+        <img src="/SL-instant-Logo.png" alt="Loading..." className="curtain-logo" />
       </div>
 
       {/* ---------------- Hero ---------------- */}

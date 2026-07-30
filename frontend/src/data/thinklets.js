@@ -30,7 +30,7 @@ export const ARTICLES = [
       'Roughly a third of the world keeps left, the rest keeps right. The reason is older than the car — and it involves swords.',
     minutes: 3,
     image:
-      'https://images.unsplash.com/photo-1502920917128-1aa500764cbd?auto=format&fit=crop&q=80&w=800',
+      'https://sl-exam-images.s3.ap-south-2.amazonaws.com/images/img_2f64fcb9ca16b3def097.png',
     body: [
       {
         type: 'lead',
