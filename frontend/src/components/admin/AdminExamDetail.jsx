@@ -53,6 +53,7 @@ import {
 import api from "../../utils/api";
 import useAuth from "../../hooks/useAuth";
 import { PageHeader } from "../common";
+import ProctoringSettings from "./ProctoringSettings";
 
 // Live integrity refresh. Long enough that a hall full of admins costs the
 // server almost nothing, short enough that an invigilator sees a problem
@@ -77,6 +78,7 @@ export default function AdminExamDetail() {
   const [loadingStudents, setLoadingStudents] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [liveData, setLiveData] = useState(null);
+  const [livePolicy, setLivePolicy] = useState(null);
 
   // --- SAFE RESET STATE ---
   const [resetDialog, setResetDialog] = useState({ open: false, studentId: null, studentUsername: '' });
@@ -141,10 +143,19 @@ export default function AdminExamDetail() {
           results_released: !!e.results_released,
           include_in_analysis: e.include_in_analysis !== false,
           school_id: e.school_id || "",
+          proctor_profile_id: e.proctor_profile_id ?? null,
+          proctor_overrides: e.proctor_overrides || {},
         });
       })
       .catch((err) => setError(err.response?.data?.message || "failed to load exam"))
       .finally(() => setLoading(false));
+
+    // The exam record carries the profile and the override diff, but not the
+    // two layered together. This endpoint returns what will actually be
+    // enforced, which is the thing worth showing on the overview.
+    api.get(`/admin/exams/${examId}/proctor-policy`)
+      .then((res) => setLivePolicy(res.data.policy))
+      .catch(() => setLivePolicy(null));
   };
 
   const fetchStudentAttempts = async () => {
@@ -327,6 +338,8 @@ export default function AdminExamDetail() {
         results_released: !!exam.results_released,
         include_in_analysis: exam.include_in_analysis !== false,
         school_id: exam.school_id || "",
+        proctor_profile_id: exam.proctor_profile_id ?? null,
+        proctor_overrides: exam.proctor_overrides || {},
       });
     }
     setEditOpen(true);
@@ -380,6 +393,8 @@ export default function AdminExamDetail() {
         duration_minutes: parseInt(editFields.duration_minutes || 0, 10),
         results_released: !!editFields.results_released,
         include_in_analysis: !!editFields.include_in_analysis,
+        proctor_profile_id: editFields.proctor_profile_id ?? null,
+        proctor_overrides: editFields.proctor_overrides || {},
       };
 
       await api.put(`/admin/exams/${examId}`, payload);
@@ -478,6 +493,40 @@ export default function AdminExamDetail() {
                   <Typography variant="caption">Assigned</Typography>
                   <Typography variant="subtitle1" fontWeight={600}>{exam.assigned_users?.length || 0}</Typography>
                 </Grid>
+                <Grid item xs={12}>
+                  <Typography variant="caption">Monitoring</Typography>
+                  {/* What is actually enforced, without opening a dialog — the
+                      question an invigilator asks first on exam day. */}
+                  <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mt: 0.5 }}>
+                    <Chip
+                      size="small"
+                      label={exam.proctor_profile_label || 'Platform defaults'}
+                      color={exam.proctor_profile_label ? 'primary' : 'default'}
+                      variant={exam.proctor_profile_label ? 'filled' : 'outlined'}
+                    />
+                    {livePolicy?.requireFullscreen && (
+                      <Chip size="small" variant="outlined" label="Fullscreen" />
+                    )}
+                    {livePolicy?.detectTabSwitch && (
+                      <Chip size="small" variant="outlined" label="Tab detection" />
+                    )}
+                    {livePolicy?.cameraRequired && (
+                      <Chip size="small" variant="outlined" color="info" label="Camera" />
+                    )}
+                    {livePolicy?.facePresence && (
+                      <Chip size="small" variant="outlined" color="info" label="Face presence" />
+                    )}
+                    {livePolicy?.autoSubmitOnMaxViolations === false && (
+                      <Tooltip title="Violations are recorded for review but will never end a student's exam automatically." arrow>
+                        <Chip size="small" variant="outlined" color="warning" label="No auto-submit" />
+                      </Tooltip>
+                    )}
+                    {Object.keys(exam.proctor_overrides || {}).length > 0 && (
+                      <Chip size="small" color="secondary" variant="outlined"
+                        label={`${Object.keys(exam.proctor_overrides).length} customised`} />
+                    )}
+                  </Stack>
+                </Grid>
               </Grid>
             </Paper>
           </Grid>
@@ -491,7 +540,11 @@ export default function AdminExamDetail() {
                 </Button>
                 <Button variant="outlined" startIcon={<QuizIcon />} onClick={() => navigate(`${basePath}/exams/${examId}/questions`)} fullWidth>Manage Questions</Button>
                 <Button variant="outlined" startIcon={<GroupAddIcon />} onClick={() => setAssignOpen(true)} fullWidth>Assign Students</Button>
-                <Button variant="outlined" startIcon={<EditIcon />} onClick={() => setEditOpen(true)} fullWidth>Edit Details</Button>
+                {/* openEditDialog re-seeds the form from the exam as currently
+                    loaded. The button previously opened the dialog without it,
+                    relying on the seed done at page load — which left the form
+                    stale after any change made elsewhere on the page. */}
+                <Button variant="outlined" startIcon={<EditIcon />} onClick={openEditDialog} fullWidth>Edit Details</Button>
                 <Divider />
                 <Box sx={{ px: 1.5, py: 1, borderRadius: 2, border: '1px solid rgba(255,255,255,0.10)' }}>
                   <FormControlLabel
@@ -741,6 +794,20 @@ export default function AdminExamDetail() {
                   />
                 }
                 label="Count this exam in overall analysis"
+              />
+            </Grid>
+
+            {/* Monitoring policy. Same component the create dialog uses, so the
+                two can never drift apart. Without this, an exam created before
+                proctoring existed could never be given a profile at all. */}
+            <Grid item xs={12}>
+              <Divider sx={{ mb: 2 }} />
+              <ProctoringSettings
+                profileId={editFields.proctor_profile_id}
+                overrides={editFields.proctor_overrides}
+                onProfileChange={(v) => setField('proctor_profile_id', v)}
+                onOverridesChange={(v) => setField('proctor_overrides', v)}
+                disabled={editBusy}
               />
             </Grid>
           </Grid>

@@ -3,6 +3,10 @@ import useAuth from '../hooks/useAuth'; // if you have one; otherwise set header
 
 const api = axios.create({
   baseURL: process.env.REACT_APP_API_URL || "https://sl-exams.onrender.com",
+  // Without a timeout axios waits forever, so a stalled request leaves a
+  // student watching a spinner with no error and no way to recover. 20s is
+  // generous for this API even with the cross-region hop to the database.
+  timeout: 20000,
 });
 
 // attach token if you already do it globally; else keep as-is
@@ -28,10 +32,34 @@ function onTokenRefreshed(newToken) {
   refreshSubscribers = [];
 }
 
+// Endpoints worth retrying once on a timeout or dropped connection. All are
+// either reads or idempotent by construction: /start returns the existing
+// attempt rather than creating a second one, and /autosave and /events are
+// upserts keyed on (attempt, question) and (attempt, seq).
+//
+// /submit is deliberately absent. It is the one request where a blind retry
+// could do damage, and the student is watching the button anyway.
+const RETRY_SAFE = [/\/can_start$/, /\/questions$/, /\/start$/, /\/autosave$/, /\/events$/];
+
+function isRetryable(error) {
+  // No response at all: timeout, DNS failure, or the connection dropped —
+  // which on a school wifi link is routine rather than exceptional.
+  if (error.response) return false;
+  const url = error.config?.url || '';
+  return RETRY_SAFE.some((re) => re.test(url));
+}
+
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
+
+    if (originalRequest && !originalRequest._retriedOnce && isRetryable(error)) {
+      originalRequest._retriedOnce = true;
+      // Brief pause: an immediate retry usually lands in the same bad moment.
+      await new Promise((r) => setTimeout(r, 800));
+      return api(originalRequest);
+    }
 
     // Only attempt refresh on 401 and not on the refresh endpoint itself
     if (

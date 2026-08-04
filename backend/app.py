@@ -97,14 +97,24 @@ if not _jwt_secret:
 app.config["JWT_SECRET_KEY"] = _jwt_secret
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", secrets.token_hex(32))
 
-# SQLAlchemy pool settings — sized PER WORKER. Render runs gunicorn -w 2
-# --threads N, so total connections = workers x (pool_size + max_overflow).
-# 2 x (5 + 5) = 20 max, safely under Aurora free-tier max_connections.
+# SQLAlchemy pool settings — sized PER PROCESS. Production runs a single
+# waitress process with WAITRESS_THREADS (default 8), so the ceiling here is
+# 10 + 10 = 20 connections, well under any managed-MySQL limit.
+#
+# Raised from 5 + 5, which dated from the single-threaded-Flask era. Compute
+# (Render, Singapore) and the database (RDS, ap-south-2) are in different
+# regions, so every query carries roughly 60ms of round trip and each request
+# therefore holds its connection materially longer than a co-located one
+# would. Pool headroom is the cheapest insurance against that.
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-    "pool_size": 5,
-    "max_overflow": 5,
+    "pool_size": 10,
+    "max_overflow": 10,
     "pool_recycle": 1800,
     "pool_pre_ping": True,
+    # Fail fast rather than hanging a waitress thread forever when the pool is
+    # genuinely exhausted — a queued request that never returns is worse than
+    # an error the client can retry.
+    "pool_timeout": 10,
 }
 # Logging
 logging.basicConfig(level=logging.INFO)
@@ -274,7 +284,7 @@ def serve_local_image(filename):
     return send_from_directory(IMAGES_DIR, filename)
 
 register_repository_routes(app, token_required)
-register_student_routes(app, role_required, no_cache, to_utc_naive)
+register_student_routes(app, role_required, no_cache, to_utc_naive, limiter)
 register_analysis_routes(app, token_required)
 register_public_routes(app, token_required, role_required, limiter)
 register_quick_routes(app, token_required, role_required)

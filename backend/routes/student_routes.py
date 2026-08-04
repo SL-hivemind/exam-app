@@ -1,5 +1,6 @@
 """Student exam flow routes extracted from app.py."""
 
+import hashlib
 from datetime import datetime, timedelta, timezone
 
 from flask import jsonify, request
@@ -27,7 +28,30 @@ def register_student_routes(
     role_required,
     no_cache,
     to_utc_naive,
+    limiter=None,
 ):
+    # Rate limits on the exam endpoints are a BACKSTOP against a runaway
+    # client, not traffic shaping. They are set far above anything a real
+    # student can produce: autosave is debounced at 500ms, so ~2/second is the
+    # human ceiling, and the fallback event flush fires once every 120s.
+    #
+    # Keyed per student session rather than per IP. A whole school sits behind
+    # one NAT address, which is exactly why app.py sets no global default —
+    # an IP-keyed limit here would throttle a classroom as if it were one
+    # abusive client.
+    def _student_key():
+        token = request.headers.get('auth_token') or request.headers.get('Authorization', '')
+        if token:
+            return f'stu:{hashlib.sha256(token.encode()).hexdigest()[:32]}'
+        return f'ip:{request.remote_addr}'
+
+    def exam_limit(spec):
+        """No-op when the limiter isn't wired, so tests and any other caller
+        that omits it keep working unchanged."""
+        if limiter is None:
+            return lambda f: f
+        return limiter.limit(spec, key_func=_student_key)
+
     @app.get('/student/exams')
     @role_required('student')
     def student_list_exams(current_user):
@@ -218,6 +242,7 @@ def register_student_routes(
         )
 
     @app.post('/student/exams/<int:exam_id>/start')
+    @exam_limit('30 per minute')
     @role_required('student')
     @no_cache
     def student_start_exam(current_user, exam_id):
@@ -429,6 +454,7 @@ def register_student_routes(
         return written
 
     @app.post('/student/exams/<int:exam_id>/events')
+    @exam_limit('60 per minute')
     @role_required('student')
     def student_proctor_events(current_user, exam_id):
         """Fallback flush for students who are idle (no autosave to ride on)
@@ -461,6 +487,7 @@ def register_student_routes(
             return jsonify({'message': 'event save failed'}), 500
 
     @app.post('/student/exams/<int:exam_id>/autosave')
+    @exam_limit('180 per minute')
     @role_required('student')
     def student_autosave(current_user, exam_id):
         student = Student.query.filter_by(user_id=current_user.id).first()
@@ -570,6 +597,7 @@ def register_student_routes(
         db.session.commit()
 
     @app.post('/student/exams/<int:exam_id>/submit')
+    @exam_limit('20 per minute')
     @role_required('student')
     @no_cache
     def student_submit_exam(current_user, exam_id):
