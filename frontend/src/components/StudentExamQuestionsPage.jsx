@@ -14,6 +14,7 @@ import api from '../utils/api';
 import useAuth from '../hooks/useAuth';
 import useExamSecurity from '../hooks/useExamSecurity';
 import useCameraMonitor from '../hooks/useCameraMonitor';
+import useFaceMonitor from '../hooks/useFaceMonitor';
 import { EVENT, EVENT_MESSAGE } from '../utils/proctorEvents';
 import MatrixFormatter from '../utils/MatrixFormatter';
 
@@ -61,6 +62,7 @@ export default function StudentExamQuestionsPage() {
   const [notice, setNotice] = useState(null);   // transient, non-blocking
   const [policy, setPolicy] = useState(null);   // resolved server-side
   const [cameraPromptDismissed, setCameraPromptDismissed] = useState(false);
+  const [faceSkipped, setFaceSkipped] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [saveStatus, setSaveStatus] = useState('idle'); // idle | saving | saved | error
 
@@ -107,6 +109,26 @@ export default function StudentExamQuestionsPage() {
     enabled: policy?.cameraRequired === true,
     onEvent: emit,
   });
+
+  // Face monitoring is gated on BOTH the policy and a live camera. The ~3 MB
+  // of model and WASM is only ever fetched for exams that actually asked for
+  // it — a classroom or practice exam never pays that cost.
+  const face = useFaceMonitor({
+    active: !loading && !submitted,
+    enabled: policy?.cameraRequired === true &&
+             policy?.facePresence === true &&
+             camera.status === 'active' &&
+             !faceSkipped,
+    stream: camera.stream,
+    onEvent: emit,
+  });
+
+  // Skipping is recorded rather than prevented. A student who cannot get
+  // calibration to work must still be able to sit the exam; the teacher sees
+  // that monitoring was not running and can weigh it themselves.
+  useEffect(() => {
+    if (faceSkipped) emit(EVENT.FACE_MONITOR_UNAVAILABLE, { reason: 'skipped_by_student' });
+  }, [faceSkipped, emit]);
 
   const maxViolations = policy?.maxViolations ?? DEFAULT_MAX_VIOLATIONS;
 
@@ -419,12 +441,19 @@ export default function StudentExamQuestionsPage() {
                 icon={camera.status === 'active'
                   ? <VideocamIcon sx={{ fontSize: 15 }} />
                   : <VideocamOffIcon sx={{ fontSize: 15 }} />}
-                label={camera.status === 'active' ? 'Camera on' : 'No camera'}
+                label={
+                  camera.status !== 'active' ? 'No camera'
+                    : face.status === 'monitoring' && face.attention === 'absent' ? 'Not visible'
+                    : face.status === 'monitoring' ? 'Monitoring'
+                    : 'Camera on'
+                }
                 sx={{
                   fontFamily: ff, fontWeight: 700, fontSize: '0.72rem',
                   display: { xs: 'none', sm: 'flex' },
-                  bgcolor: camera.status === 'active' ? 'rgba(34,197,94,0.12)' : 'rgba(245,158,11,0.15)',
-                  color: camera.status === 'active' ? '#86efac' : '#fcd34d',
+                  bgcolor: camera.status === 'active' && face.attention !== 'absent'
+                    ? 'rgba(34,197,94,0.12)' : 'rgba(245,158,11,0.15)',
+                  color: camera.status === 'active' && face.attention !== 'absent'
+                    ? '#86efac' : '#fcd34d',
                   '& .MuiChip-icon': { color: 'inherit' },
                 }}
               />
@@ -658,6 +687,53 @@ export default function StudentExamQuestionsPage() {
           >
             Return
           </Button>
+        </Box>
+      )}
+
+      {/* Calibration. Deliberately explicit rather than silent: the student
+          is told what is being measured and can redo it, which is both fairer
+          and the only way a bad calibration (slouched, off-centre, camera
+          half-covered) gets corrected before it causes false flags. */}
+      {(face.status === 'loading' || face.status === 'calibrating') && (
+        <Box sx={{
+          position: 'fixed', inset: 0, zIndex: 1500,
+          bgcolor: 'rgba(7,11,26,0.94)', backdropFilter: 'blur(8px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', p: 3,
+        }}>
+          <Box sx={{ maxWidth: 420, textAlign: 'center' }}>
+            <CircularProgress
+              variant={face.status === 'calibrating' ? 'determinate' : 'indeterminate'}
+              value={Math.round(face.calibrationProgress * 100)}
+              size={72} thickness={4} sx={{ color: DARK.blueLight, mb: 3 }}
+            />
+            <Typography sx={{ fontFamily: ff, fontWeight: 800, color: DARK.text, fontSize: '1.15rem', mb: 1 }}>
+              {face.status === 'loading' ? 'Preparing camera check…' : 'Sit normally and look at your screen'}
+            </Typography>
+            <Typography sx={{ fontFamily: ff, color: DARK.sub, fontSize: '0.88rem', lineHeight: 1.6 }}>
+              {face.status === 'loading'
+                ? 'This runs entirely on your device. It only takes a moment.'
+                : 'We are learning your normal position so that small movements are ignored later. Nothing is recorded or uploaded.'}
+            </Typography>
+
+            {face.calibrationError && (
+              <Alert severity="warning" sx={{ mt: 3, textAlign: 'left' }}>
+                {face.calibrationError === 'face_not_steady'
+                  ? "We couldn't see your face clearly enough. Check your lighting and that the camera is not covered, then try again."
+                  : 'Not enough was captured. Please try again.'}
+                <Button size="small" onClick={face.recalibrate} sx={{ mt: 1, textTransform: 'none', fontWeight: 700 }}>
+                  Try again
+                </Button>
+              </Alert>
+            )}
+
+            {/* Never a trap: monitoring is optional, the exam is not. */}
+            <Button
+              size="small" onClick={() => setFaceSkipped(true)}
+              sx={{ mt: 3, textTransform: 'none', color: DARK.muted, fontFamily: ff }}
+            >
+              Skip and continue to the exam
+            </Button>
+          </Box>
         </Box>
       )}
 

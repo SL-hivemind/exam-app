@@ -696,6 +696,11 @@ KNOWN_EVENT_TYPES = {
     'network_offline', 'network_online',
     'camera_granted', 'camera_denied', 'camera_lost',
     'camera_restored', 'camera_unavailable',
+    # Soft/inferred (Phase 4). Present in this list so they can be STORED,
+    # and deliberately absent from HARD_EVENT_TYPES so they can never be
+    # counted toward an auto-submit.
+    'face_calibrated', 'face_recalibrated', 'face_absent',
+    'face_out_of_region', 'face_returned', 'face_monitor_unavailable',
 }
 
 # -------------------- OTP FOR PASSWORD RESET --------------------

@@ -373,6 +373,46 @@ def test_soft_events_cannot_trigger_a_violation_submit(client):
         assert attempt.submission_reason == 'manual'
 
 
+def test_face_events_are_stored_but_never_enforce(client):
+    """The Phase 4 guarantee: inferred signals are review flags only.
+
+    Face detection is probabilistic and will produce false positives at
+    scale. If one of these could reach the auto-submit path it would end a
+    child's exam over a misfiring inference, which is unrecoverable.
+    """
+    headers = student_headers(client)
+    exam_id = only_exam_id()
+    attempt_id = start_attempt(client, headers, exam_id)
+
+    face_events = [
+        event(1, 'face_calibrated', 0), event(2, 'face_absent', 2),
+        event(3, 'face_out_of_region', 1), event(4, 'face_absent', 2),
+        event(5, 'face_returned', 0), event(6, 'face_absent', 2),
+    ]
+    r = client.post(f'/student/exams/{exam_id}/events',
+                    json={'events': face_events}, headers=headers)
+    assert r.get_json()['stored'] == 6      # stored for review
+
+    with app.app_context():
+        assert ProctorEvent.query.filter_by(attempt_id=attempt_id).count() == 6
+
+    # ...but three face_absent events must not satisfy a violation claim.
+    client.post(f'/student/exams/{exam_id}/submit',
+                json={'answers': [], 'reason': 'tab_switch'}, headers=headers)
+
+    with app.app_context():
+        attempt = StudentExamAttempt.query.filter_by(exam_id=exam_id).first()
+        assert attempt.submission_reason == 'manual'
+
+
+def test_hard_and_soft_event_sets_do_not_overlap():
+    """Structural guard: nothing inferred may creep into the enforcement set."""
+    from models import HARD_EVENT_TYPES, KNOWN_EVENT_TYPES
+    soft = {e for e in KNOWN_EVENT_TYPES if e.startswith(('face_', 'camera_'))}
+    assert HARD_EVENT_TYPES.isdisjoint(soft)
+    assert HARD_EVENT_TYPES <= KNOWN_EVENT_TYPES
+
+
 def test_arbitrary_reason_strings_are_rejected(client):
     headers = student_headers(client)
     exam_id = only_exam_id()

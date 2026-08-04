@@ -27,6 +27,9 @@ import { EVENT } from '../utils/proctorEvents';
 export default function useCameraMonitor({ active, enabled, onEvent } = {}) {
   // idle | requesting | active | denied | unavailable | lost
   const [status, setStatus] = useState('idle');
+  // Held as state as well as a ref: consumers (face monitoring) need to react
+  // when the stream arrives, and a ref mutation does not re-render.
+  const [stream, setStream] = useState(null);
 
   const streamRef = useRef(null);
   const onEventRef = useRef(onEvent);
@@ -42,6 +45,7 @@ export default function useCameraMonitor({ active, enabled, onEvent } = {}) {
       t.stop();
     });
     streamRef.current = null;
+    setStream(null);
   }, []);
 
   const attachTrackHandlers = useCallback((stream) => {
@@ -86,6 +90,7 @@ export default function useCameraMonitor({ active, enabled, onEvent } = {}) {
         audio: false,
       });
       streamRef.current = stream;
+      setStream(stream);
       attachTrackHandlers(stream);
       setStatus('active');
       emit(EVENT.CAMERA_GRANTED);
@@ -170,7 +175,7 @@ export default function useCameraMonitor({ active, enabled, onEvent } = {}) {
 
   return {
     status,
-    stream: streamRef.current,
+    stream,
     requestCamera,
     // Never blocks the exam — the caller uses this only to decide whether to
     // show a "retry camera" prompt, never to gate entry.

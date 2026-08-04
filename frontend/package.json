@@ -5,6 +5,7 @@
   "dependencies": {
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
+    "@mediapipe/tasks-vision": "^0.10.17",
     "@mui/icons-material": "^7.3.1",
     "@mui/lab": "^7.0.0-beta.17",
     "@mui/material": "^7.3.2",
@@ -40,6 +41,8 @@
     "web-vitals": "^2.1.4"
   },
   "scripts": {
+    "prestart": "node scripts/copy-proctoring-assets.js",
+    "prebuild": "node scripts/copy-proctoring-assets.js",
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",

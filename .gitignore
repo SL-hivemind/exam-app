@@ -31,3 +31,8 @@ app.db
 
 # Local utility scripts
 tools/
+
+# MediaPipe WASM runtime (~19MB) — copied out of node_modules by
+# frontend/scripts/copy-proctoring-assets.js on prestart/prebuild.
+# The face model itself IS committed: it is small and version-sensitive.
+frontend/public/mediapipe/wasm/

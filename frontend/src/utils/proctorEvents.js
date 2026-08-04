@@ -51,6 +51,16 @@ export const EVENT = {
   CAMERA_LOST: 'camera_lost',
   CAMERA_RESTORED: 'camera_restored',
   CAMERA_UNAVAILABLE: 'camera_unavailable',
+
+  // ── SOFT: face presence & attention (Phase 4) ──
+  // Inferred, probabilistic, and therefore review-only. None of these appear
+  // in HARD_EVENTS and none may ever end an exam.
+  FACE_CALIBRATED: 'face_calibrated',
+  FACE_RECALIBRATED: 'face_recalibrated',
+  FACE_ABSENT: 'face_absent',
+  FACE_OUT_OF_REGION: 'face_out_of_region',
+  FACE_RETURNED: 'face_returned',
+  FACE_MONITOR_UNAVAILABLE: 'face_monitor_unavailable',
 };
 
 // Events that may contribute to automatic enforcement. Everything not in this
@@ -88,6 +98,16 @@ export const SEVERITY_BY_EVENT = {
   [EVENT.CAMERA_LOST]: SEVERITY.HIGH,
   [EVENT.CAMERA_RESTORED]: SEVERITY.INFO,
   [EVENT.CAMERA_UNAVAILABLE]: SEVERITY.MEDIUM,
+
+  // Capped at MEDIUM on purpose. These are the events most likely to be
+  // wrong, and severity drives what a teacher is asked to review — a
+  // misfiring inference must not shout louder than a recorded tab switch.
+  [EVENT.FACE_CALIBRATED]: SEVERITY.INFO,
+  [EVENT.FACE_RECALIBRATED]: SEVERITY.LOW,
+  [EVENT.FACE_ABSENT]: SEVERITY.MEDIUM,
+  [EVENT.FACE_OUT_OF_REGION]: SEVERITY.LOW,
+  [EVENT.FACE_RETURNED]: SEVERITY.INFO,
+  [EVENT.FACE_MONITOR_UNAVAILABLE]: SEVERITY.INFO,
 };
 
 // Student-facing copy. Kept here so the exam UI never invents its own wording
@@ -103,6 +123,10 @@ export const EVENT_MESSAGE = {
   [EVENT.NETWORK_ONLINE]: 'Connection restored.',
   [EVENT.CAMERA_LOST]: 'Camera stopped. Please reconnect it.',
   [EVENT.CAMERA_DENIED]: 'Camera access was denied. You may continue; this is recorded.',
+  // Worded as a nudge, not an accusation. The signal is probabilistic and the
+  // student may well have done nothing wrong.
+  [EVENT.FACE_ABSENT]: 'We can no longer see you on camera.',
+  [EVENT.FACE_OUT_OF_REGION]: 'Please face your screen.',
 };
 
 // The default policy — every capability independently switchable. Phase 1
