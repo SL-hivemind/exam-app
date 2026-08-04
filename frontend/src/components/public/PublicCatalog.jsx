@@ -10,7 +10,6 @@ import LockOpenIcon from '@mui/icons-material/LockOpen';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import BoltIcon from '@mui/icons-material/Bolt';
 import QuizIcon from '@mui/icons-material/Quiz';
-import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import TimerIcon from '@mui/icons-material/Timer';
 import InsightsIcon from '@mui/icons-material/Insights';
 import WorkspacePremiumIcon from '@mui/icons-material/WorkspacePremium';
@@ -43,6 +42,20 @@ const FEATURES = [
   { icon: <InsightsIcon />, title: 'Instant scoring & analytics', desc: 'Get your score the moment you submit and track progress on your dashboard.', color: 'indigo' },
   { icon: <BoltIcon />, title: 'Daily challenge + streaks', desc: '5 fresh questions every day from your courses to keep momentum going.', color: 'success' },
 ];
+
+/* Card footer metric. content_count is 0 for every repository-backed course, so
+   lead with the question count and only fall back to items when there are any. */
+const courseMetric = (course) => {
+  const q = course.question_count || 0;
+  if (q > 0) {
+    const subjects = course.subject_count || 0;
+    return subjects > 0
+      ? `${q.toLocaleString()} questions · ${subjects} subject${subjects === 1 ? '' : 's'}`
+      : `${q.toLocaleString()} questions`;
+  }
+  const items = course.content_count || 0;
+  return items > 0 ? `${items} item${items === 1 ? '' : 's'}` : 'Content coming soon';
+};
 
 const STEPS = [
   { icon: <MenuBookIcon />, title: 'Pick your exam', desc: 'Choose a course for your target exam — enrollment is free.' },
@@ -81,7 +94,10 @@ export default function PublicCatalog() {
     return a.title.localeCompare(b.title);
   });
 
-  const freeCount = courses.filter(c => !c.price || c.price === 0).length;
+  // Distinct questions can't be summed across courses (shared pools like APTITUDE
+  // are counted by every course that claims them), so take the largest course as
+  // a conservative floor rather than overstating the bank.
+  const totalQuestions = courses.reduce((max, c) => Math.max(max, c.question_count || 0), 0);
   const scrollToCatalog = () => document.getElementById('catalog')?.scrollIntoView({ behavior: 'smooth' });
 
   const sectionLabel = (overline, title) => (
@@ -203,7 +219,11 @@ export default function PublicCatalog() {
 
             {/* Trust row */}
             <Stack direction="row" spacing={4} justifyContent="center" flexWrap="wrap" useFlexGap sx={{ mt: 5 }}>
-              {[`${courses.length || '50'}+ courses`, '10,000+ Questions', 'Instant results'].map(t => (
+              {[
+                `${courses.length || '—'} exam courses`,
+                totalQuestions ? `${totalQuestions.toLocaleString()}+ questions` : 'Extensive question bank',
+                'Instant results',
+              ].map(t => (
                 <Stack key={t} direction="row" alignItems="center" spacing={0.8}>
                   <CheckCircleIcon sx={{ fontSize: 17, color: '#34d399' }} />
                   <Typography sx={{ fontFamily: ff, fontSize: '0.82rem', color: '#b4c0e4', fontWeight: 600 }}>{t}</Typography>
@@ -270,13 +290,15 @@ export default function PublicCatalog() {
                           <Typography sx={{ fontFamily: ff, fontWeight: 700, fontSize: '1.05rem', color: '#f5f8ff', mb: 1, lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                             {course.title}
                           </Typography>
-                          <Typography sx={{ fontFamily: ff, fontSize: '0.83rem', color: '#a9b4dd', lineHeight: 1.6, mb: 2, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                          <Typography sx={{ fontFamily: ff, fontSize: '0.83rem', color: '#a9b4dd', lineHeight: 1.6, mb: 2, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                             {course.description || 'Explore questions and CBT mock tests for this exam.'}
                           </Typography>
                           <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mt: 'auto' }}>
                             <Stack direction="row" alignItems="center" spacing={0.7}>
                               <MenuBookIcon sx={{ fontSize: 16, color: '#9fc1ff' }} />
-                              <Typography sx={{ fontFamily: ff, fontSize: '0.78rem', color: '#aeb9e0', fontWeight: 600 }}>{course.content_count || 0} items</Typography>
+                              <Typography sx={{ fontFamily: ff, fontSize: '0.78rem', color: '#aeb9e0', fontWeight: 600 }}>
+                                {courseMetric(course)}
+                              </Typography>
                             </Stack>
                             <Stack direction="row" alignItems="center" spacing={0.5} sx={{ color: '#ffb054' }}>
                               <Typography sx={{ fontFamily: ff, fontSize: '0.8rem', fontWeight: 700 }}>View</Typography>

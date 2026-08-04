@@ -64,7 +64,7 @@ export default function PublicLayout() {
                 textDecoration: 'none', mr: 4,
               }}
             >
-              <Box component="img" src="/sl-logo-master.svg" alt="SL Logo" sx={{ height: 34, width: 34, borderRadius: '22%' }} />
+              <Box component="img" src="/Sl-metalic-png.png" alt="SL Logo" sx={{ height: 34, width: 34, borderRadius: '22%' }} />
               <Typography sx={{
                 fontFamily: ff, fontWeight: 800, fontSize: '1rem',
                 color: '#fff', letterSpacing: '-0.02em',

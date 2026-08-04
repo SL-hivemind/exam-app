@@ -1,3 +1,15 @@
 # https://www.robotstxt.org/robotstxt.html
 User-agent: *
-Disallow:
+Disallow: /admin/
+Disallow: /student/
+Disallow: /school/
+Disallow: /specialist/
+Disallow: /exam/
+Disallow: /exams/
+Disallow: /primary/
+Allow: /public/
+Allow: /quick/
+Allow: /thinklets
+Allow: /
+
+Sitemap: https://www.slexams.com/sitemap.xml

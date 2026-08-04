@@ -8,8 +8,8 @@ export default function ProtectedRoute({ children, roles = [] }) {
 
   // 1. Wait for Auth Context to finish initialization
   if (loading) return (
-    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', minHeight:'60vh' }}>
-      <img src="/SL-instant-Logo.png" alt="" width={80} height={80} style={{ objectFit:'contain', animation:'pulse 1.6s ease-in-out infinite' }} />
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+      <img src="/Sl-metalic-png.png" alt="" width={80} height={80} style={{ objectFit: 'contain', animation: 'pulse 1.6s ease-in-out infinite' }} />
       <style>{`@keyframes pulse{0%,100%{transform:scale(1);opacity:.7}50%{transform:scale(1.06);opacity:1}}`}</style>
     </div>
   );
@@ -32,7 +32,7 @@ export default function ProtectedRoute({ children, roles = [] }) {
     if (user.role === "subject_specialist") return <Navigate to="/specialist" replace />;
     if (user.role === "student") return <Navigate to="/student" replace />;
     if (user.role === "public_user") return <Navigate to="/portal/dashboard" replace />;
-    
+
     // Fallback
     return <Navigate to="/login" replace />;
   }

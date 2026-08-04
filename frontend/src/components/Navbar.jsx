@@ -71,7 +71,7 @@ export default function Navbar(props) {
     <Box sx={{ width: 300, height: '100%', display: 'flex', flexDirection: 'column', bgcolor: 'rgba(10,16,46,0.95)', backdropFilter: 'blur(20px)' }} role="presentation">
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 2.5, py: 2, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
         <Stack direction="row" alignItems="center" spacing={1} onClick={() => { navigate("/"); setMobileOpen(false); }} sx={{ cursor: 'pointer' }}>
-          <SLLogo sx={{ height: 32, width: 32 }} />
+          <SLLogo sx={{ height: 100, width: 100 }} />
           <Typography sx={{ fontFamily: oswald, fontWeight: 700, fontSize: '1.3rem', color: '#eaf0ff', letterSpacing: '0.05em' }}>SL EXAMS</Typography>
         </Stack>
         <IconButton onClick={() => setMobileOpen(false)} sx={{ color: '#a9b4dd' }}><CloseIcon /></IconButton>
@@ -119,7 +119,7 @@ export default function Navbar(props) {
           <Container maxWidth="xl">
             <Toolbar disableGutters sx={{ justifyContent: "space-between", height: 70 }}>
               <Stack direction="row" alignItems="center" spacing={1} onClick={() => navigate("/")} sx={{ cursor: "pointer", '&:hover': { opacity: 0.85 }, transition: 'opacity 0.2s' }}>
-                <SLLogo sx={{ height: 40, width: 40 }} />
+                <SLLogo sx={{ height: 70, width: 70 }} />
                 <Typography noWrap sx={{ fontFamily: oswald, fontWeight: 700, fontSize: '1.4rem', color: "inherit", letterSpacing: "0.06em" }}>SL EXAMS</Typography>
               </Stack>
 

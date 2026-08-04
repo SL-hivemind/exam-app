@@ -1,7 +1,7 @@
 // src/components/Footer.jsx
 import React, { useState } from "react";
 import {
-  Box, Typography, Link, Container,  IconButton, Stack,
+  Box, Typography, Link, Container, IconButton, Stack,
   Dialog, DialogTitle, DialogContent, DialogActions, Button, Divider
 } from '@mui/material';
 import { GridLegacy as Grid } from '@mui/material';
@@ -10,7 +10,6 @@ import InstagramIcon from '@mui/icons-material/Instagram';
 import PinterestIcon from '@mui/icons-material/Pinterest';
 import YouTubeIcon from '@mui/icons-material/YouTube';
 import LinkedInIcon from '@mui/icons-material/LinkedIn';
-import SchoolIcon from "@mui/icons-material/School";
 
 // Brand font (matches the app theme) — previously Oswald, which clashed.
 const oswald = "'Plus Jakarta Sans', 'Inter', sans-serif";
@@ -38,14 +37,8 @@ export default function Footer() {
             {/* Column 1: Brand and Mission */}
             <Grid item xs={12} md={4}>
               <Box display="flex" alignItems="center" mb={2} sx={{ gap: 1.25 }}>
-                <Box sx={{
-                  width: 42, height: 42, borderRadius: '12px',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: 'linear-gradient(135deg,#f68914,#ffb054)',
-                  boxShadow: '0 8px 22px rgba(246,137,20,0.4)',
-                }}>
-                  <SchoolIcon sx={{ fontSize: 24, color: 'white' }} />
-                </Box>
+                <Box component="img" src="/sl-logo-master.svg" alt="Saaradaa Learknowations" sx={{ width: 56, height: 56, objectFit: 'contain', borderRadius: '22%' }} />
+                <Box component="img" src="/Sl-metalic-png.png" alt="SL Exams" sx={{ width: 100, height: 100, objectFit: 'contain' }} />
                 <Typography sx={{
                   fontFamily: oswald, fontWeight: 700, fontSize: '1.5rem', letterSpacing: '0.06em',
                   background: 'linear-gradient(120deg,#ffffff,#ffce9e)',

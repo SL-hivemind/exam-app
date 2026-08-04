@@ -86,6 +86,105 @@ def register_public_routes(app, token_required, role_required, limiter):
     def display_subject(s):
         return 'Mathematics' if s and _MATH_RE.search(s) else s
 
+    # ─── helper: a course's tag list (target_tags, else the title) ───
+    def course_tag_list(course):
+        if getattr(course, 'target_tags', None):
+            return [t.strip().upper() for t in course.target_tags.split(',') if t.strip()]
+        return [(course.title or '').strip().upper()]
+
+    def tags_overlap(question_tags, course_tags):
+        """Python mirror of scope_repo_query's OR-of-ilike('%tag%') match."""
+        qt = (question_tags or '').upper()
+        return any(t in qt for t in course_tags)
+
+    def course_coverage_map():
+        """{(course_tags, subject): count} for the whole repo — ONE query.
+
+        Lets the catalog show a real question count per course without running a
+        scoped COUNT per card. Group cardinality is tiny (distinct tag combos ×
+        subjects), so matching the rows in Python is cheaper than N queries.
+        """
+        from sqlalchemy import func
+        return db.session.query(
+            PublicQuestionRepo.course_tags,
+            PublicQuestionRepo.subject,
+            func.count(PublicQuestionRepo.id),
+        ).group_by(PublicQuestionRepo.course_tags, PublicQuestionRepo.subject).all()
+
+    def summarise_coverage(course, rows):
+        """(question_count, subject_count) for one course against course_coverage_map rows."""
+        tags = course_tag_list(course)
+        total, subjects = 0, set()
+        for q_tags, subject, n in rows:
+            if tags_overlap(q_tags, tags):
+                total += n
+                if subject:
+                    subjects.add(display_subject(subject))
+        return total, len(subjects)
+
+    def course_syllabus(course):
+        """Live syllabus for a course: subjects → chapters + counts, formats, PYQ years.
+
+        Derived from the repository via the course's tags, so a course page shows
+        what a learner can ACTUALLY practise today rather than a hardcoded list.
+        """
+        from sqlalchemy import func, or_
+        tags = course_tag_list(course)
+        tag_filter = or_(*[PublicQuestionRepo.course_tags.ilike(f'%{t}%') for t in tags])
+
+        rows = db.session.query(
+            PublicQuestionRepo.subject,
+            PublicQuestionRepo.chapter,
+            func.count(PublicQuestionRepo.id),
+        ).filter(tag_filter).group_by(
+            PublicQuestionRepo.subject, PublicQuestionRepo.chapter
+        ).all()
+
+        by_subject = {}
+        total = 0
+        for subject, chapter, n in rows:
+            if not subject:
+                continue
+            name = display_subject(subject)
+            entry = by_subject.setdefault(name, {'subject': name, 'question_count': 0, 'chapters': []})
+            entry['question_count'] += n
+            total += n
+            if chapter:
+                entry['chapters'].append({'chapter': chapter, 'question_count': n})
+
+        subjects = sorted(by_subject.values(), key=lambda s: -s['question_count'])
+        for s in subjects:
+            # Merge duplicate chapter names (same chapter under Maths 1A/1B etc.)
+            merged = {}
+            for ch in s['chapters']:
+                merged[ch['chapter']] = merged.get(ch['chapter'], 0) + ch['question_count']
+            s['chapters'] = sorted(
+                ({'chapter': k, 'question_count': v} for k, v in merged.items()),
+                key=lambda c: -c['question_count'],
+            )
+            s['chapter_count'] = len(s['chapters'])
+
+        pyq_years = sorted(
+            {y for (y,) in db.session.query(PublicQuestionRepo.pyq_year)
+             .filter(tag_filter, PublicQuestionRepo.is_pyq.is_(True)).distinct().all() if y},
+            reverse=True,
+        )
+        formats = sorted({
+            (f or 'mcq') for (f,) in db.session.query(PublicQuestionRepo.question_format)
+            .filter(tag_filter).distinct().all()
+        })
+        blueprint = mock_blueprint(tags)
+        return {
+            'subjects': subjects,
+            'total_questions': total,
+            'subject_count': len(subjects),
+            'pyq_years': pyq_years,
+            'formats': formats,
+            'mock_minutes': blueprint['minutes'],
+            'mock_title': blueprint['title'],
+            'tags': tags,
+        }
+
     def subject_filter(query, subject):
         if not subject:
             return query
@@ -343,9 +442,20 @@ def register_public_routes(app, token_required, role_required, limiter):
 
     @app.get('/public/courses')
     def public_list_courses():
-        """List all published courses — accessible to anyone."""
+        """List all published courses — accessible to anyone.
+
+        Each card carries a live question/subject count so the catalog can show
+        what the course actually contains; content_count alone reads '0 items'
+        for every repository-backed course.
+        """
         courses = PublicCourse.query.filter_by(status='published').order_by(PublicCourse.created_at.desc()).all()
-        return jsonify({'courses': [c.to_dict() for c in courses]}), 200
+        rows = course_coverage_map()
+        out = []
+        for c in courses:
+            d = c.to_dict()
+            d['question_count'], d['subject_count'] = summarise_coverage(c, rows)
+            out.append(d)
+        return jsonify({'courses': out}), 200
 
     @app.get('/public/courses/<int:course_id>')
     def public_course_detail(course_id):
@@ -417,9 +527,15 @@ def register_public_routes(app, token_required, role_required, limiter):
 
             content_list.append(d)
 
+        syllabus = course_syllabus(course)
+        course_dict = course.to_dict()
+        course_dict['question_count'] = syllabus['total_questions']
+        course_dict['subject_count'] = syllabus['subject_count']
+
         return jsonify({
-            'course': course.to_dict(),
+            'course': course_dict,
             'contents': content_list,
+            'syllabus': syllabus,
             'is_enrolled': is_enrolled,
             'is_subscribed': is_subscribed,
         }), 200

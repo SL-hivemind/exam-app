@@ -150,7 +150,7 @@ export default function PaperIntakeLaptop({ scale = 1 }) {
       <Box className="pil-screen">
         <Box className="pil-cam" />
         <Box className="pil-logo">
-          <img src="/sl-logo-master.svg" alt="" />
+          <img src="/Sl-metalic-png.png" alt="" />
         </Box>
       </Box>
       <Box className="pil-base" />

@@ -105,7 +105,7 @@ def send_welcome_email(to_email, username, password, role):
             </p>
         </div>
         <div style="text-align: center; margin-bottom: 24px;">
-            <a href="https://sl-exam.onrender.com/" style="display: inline-block; background: #2563eb; color: #fff;
+            <a href="https://exams.theslpl.in/" style="display: inline-block; background: #2563eb; color: #fff;
                       text-decoration: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; font-size: 14px;">
                 Login to Your Account
             </a>
@@ -173,7 +173,7 @@ def send_student_welcome_email(to_email, username, password):
             </p>
         </div>
         <div style="text-align: center; margin-bottom: 24px;">
-            <a href="https://sl-exam.onrender.com/" style="display: inline-block; background: #2563eb; color: #fff;
+            <a href="https://exams.theslpl.in/" style="display: inline-block; background: #2563eb; color: #fff;
                       text-decoration: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; font-size: 14px;">
                 Login to Your Account
             </a>
@@ -198,7 +198,7 @@ def send_student_welcome_email(to_email, username, password):
         f"Hi {username}, your account has been created.\n"
         f"Username: {username}\n"
         f"Password: {password}\n"
-        f"Login: https://sl-exam.onrender.com/"
+        f"Login: https://exams.theslpl.in/"
     )
     msg.attach(MIMEText(plain, 'plain'))
     msg.attach(MIMEText(html_body, 'html'))
@@ -269,7 +269,7 @@ def send_exam_notification_email(to_email, username, exam_title, exam_descriptio
         </div>
 
         <div style="text-align: center; margin-bottom: 24px;">
-            <a href="https://sl-exam.onrender.com/" style="display: inline-block; background: #2563eb; color: #fff;
+            <a href="https://exams.theslpl.in/" style="display: inline-block; background: #2563eb; color: #fff;
                       text-decoration: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; font-size: 14px;">
                 Login &amp; Start Exam
             </a>
@@ -296,7 +296,7 @@ def send_exam_notification_email(to_email, username, exam_title, exam_descriptio
         f"- Do not close the browser before your duration ends.\n"
         f"- If disconnected, re-login and continue.\n"
         f"- For problems, contact: 040 45632683\n\n"
-        f"Login: https://sl-exam.onrender.com/"
+        f"Login: https://exams.theslpl.in/"
     )
     msg.attach(MIMEText(plain, 'plain'))
     msg.attach(MIMEText(html_body, 'html'))

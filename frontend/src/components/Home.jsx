@@ -278,7 +278,7 @@ function ThreeOrbit({ className, containerRef }) {
     const scene = new THREE.Scene();
     const aspect = width / height;
     const camera = new THREE.PerspectiveCamera(45, aspect, 0.1, 100);
-    
+
     // Calculate distance to fit the 3.3 radius torus (uses 8.2 to fill ~97% of canvas)
     camera.position.z = Math.max(8.2, 8.2 / aspect);
 
@@ -515,7 +515,7 @@ export default function Home() {
         .slexam button { font-family: inherit; }
 
         .mono { font-family: 'JetBrains Mono', monospace; }
-        .container { max-width: 1320px; margin: 0 auto; padding: 0 28px; }
+        .container { max-width: 1520px; margin: 0 auto; padding: 0 20px; }
 
         .reveal { opacity: 0; transform: translateY(26px); transition: opacity .8s cubic-bezier(.16,.84,.44,1), transform .8s cubic-bezier(.16,.84,.44,1); }
         .reveal-in { opacity: 1; transform: none; }
@@ -550,7 +550,7 @@ export default function Home() {
         /* ---------------- Reveal loader ---------------- */
         .mount-curtain { position: fixed; inset: 0; z-index: 200; background: #0a0e1a; display: flex; align-items: center; justify-content: center; transition: opacity .6s cubic-bezier(.16,.84,.44,1), visibility .6s; }
         .curtain-hide { opacity: 0; pointer-events: none; visibility: hidden; }
-        .curtain-logo { width: 72px; height: 72px; object-fit: contain; animation: curtainPulse 1.6s ease-in-out infinite; }
+        .curtain-logo { width: 280px; height: 280px; object-fit: contain; animation: curtainPulse 1.6s ease-in-out infinite; }
         @keyframes curtainPulse { 0%,100% { transform: scale(1); filter: drop-shadow(0 0 6px rgba(56,149,248,.25)); } 50% { transform: scale(1.06); filter: drop-shadow(0 0 16px rgba(56,149,248,.45)) drop-shadow(0 0 24px rgba(246,137,20,.2)); } }
 
         /* ---------------- Buttons ---------------- */
@@ -564,7 +564,7 @@ export default function Home() {
         .slexam a:focus-visible, .slexam button:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; border-radius: 6px; }
 
         /* ---------------- Hero ---------------- */
-        .hero { position: relative; padding: 100px 0 32px; overflow: hidden; min-height: calc(100vh - 60px); display: flex; flex-direction: column; justify-content: center; }
+        .hero { position: relative; padding: 80px 0 24px; overflow: hidden; min-height: calc(100vh - 60px); display: flex; flex-direction: column; justify-content: center; }
         .perspective-grid {
           position: absolute;
           left: 50%;
@@ -584,12 +584,12 @@ export default function Home() {
         }
         @keyframes gridMove { from { background-position: 0 0, 0 0; } to { background-position: 0 46px, 46px 0; } }
 
-        .hero-inner { position: relative; z-index: 2; display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 64px; align-items: center; }
+        .hero-inner { position: relative; z-index: 2; display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center; }
         .eyebrow { display: inline-flex; align-items: center; gap: 8px; padding: 7px 15px; border: 1px solid var(--border); border-radius: 999px; font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--amber-soft); background: rgba(245,166,35,0.07); margin-bottom: 26px; }
         .eyebrow-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--mint); box-shadow: 0 0 8px var(--mint); animation: pulseDot 1.8s ease-in-out infinite; }
         @keyframes pulseDot { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
 
-        .hero-title { font-family: 'Space Grotesk', sans-serif; font-size: clamp(30px, 3.8vw, 44px); line-height: 1.1; font-weight: 700; letter-spacing: -0.02em; margin: 0 0 18px; }
+        .hero-title { font-family: 'Space Grotesk', sans-serif; font-size: clamp(32px, 4vw, 52px); line-height: 1.1; font-weight: 700; letter-spacing: -0.02em; margin: 0 0 18px; }
         .hero-title-word { display: inline-block; opacity: 0; transform: translateY(30px); animation: wordUp .7s cubic-bezier(.16,.84,.44,1) forwards; margin-right: 0.24em; }
         @keyframes wordUp { to { opacity: 1; transform: translateY(0); } }
         .hero-title-line2 { display: block; margin-top: 4px; font-size: clamp(18px, 2.2vw, 24px); }
@@ -599,11 +599,11 @@ export default function Home() {
         .hero-stat-value { font-family: 'Space Grotesk', sans-serif; font-size: 22px; font-weight: 700; color: var(--text); }
         .hero-stat-label { font-size: 12.5px; color: var(--text-faint); margin-top: 2px; }
 
-        .hero-visual { position: relative; height: 440px; display: flex; align-items: center; justify-content: center; }
+        .hero-visual { position: relative; height: 500px; display: flex; align-items: center; justify-content: center; }
         .hero-three { position: absolute; inset: -80px; z-index: 0; pointer-events: none; }
         /* cursor-glow removed — 3D orbit is now mouse-interactive */
         .tilt-card { transition: transform .15s ease-out; transform-style: preserve-3d; }
-        .hero-mock { position: relative; z-index: 2; width: 100%; max-width: 480px; }
+        .hero-mock { position: relative; z-index: 2; width: 100%; max-width: 540px; }
         .mock-window { background: linear-gradient(180deg, var(--surface-2), var(--surface)); border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 40px 80px -30px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.02) inset; overflow: hidden; }
         .mock-topbar { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--border-soft); background: rgba(255,255,255,0.02); }
         .mock-dots { display: flex; gap: 6px; }
@@ -661,7 +661,7 @@ export default function Home() {
         .mock-cc-stat-lbl { font-size: 8.5px; color: var(--text-faint); margin-top: 2px; }
 
         /* --- Hero card shuffle animation --- */
-        .hero-cards-container { position: relative; width: 100%; max-width: 440px; min-height: 300px; }
+        .hero-cards-container { position: relative; width: 100%; max-width: 520px; min-height: 340px; }
         .hero-card-slide { position: absolute; inset: 0; opacity: 0; transform: translateY(30px) scale(0.96); transition: opacity .5s cubic-bezier(.16,.84,.44,1), transform .5s cubic-bezier(.16,.84,.44,1); pointer-events: none; }
         .hero-card-slide.active { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; z-index: 2; }
         .hero-card-indicators { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 20px; position: relative; z-index: 3; }
@@ -684,10 +684,10 @@ export default function Home() {
         @keyframes marqueeScroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 
         /* ---------------- Section shared ---------------- */
-        .section { padding: 110px 0; position: relative; }
+        .section { padding: 90px 0; position: relative; }
         .section-head { max-width: 620px; margin-bottom: 56px; }
         .section-eyebrow { font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--amber-soft); margin-bottom: 14px; display: block; }
-        .section-title { font-family: 'Space Grotesk', sans-serif; font-size: clamp(28px, 3.4vw, 40px); font-weight: 700; letter-spacing: -0.02em; margin: 0 0 14px; }
+        .section-title { font-family: 'Space Grotesk', sans-serif; font-size: clamp(30px, 3.6vw, 46px); font-weight: 700; letter-spacing: -0.02em; margin: 0 0 14px; }
         .section-desc { color: var(--text-dim); font-size: 16px; }
 
         /* ---------------- Lifecycle (signature) ---------------- */
@@ -808,7 +808,7 @@ export default function Home() {
       `}</style>
 
       <div className={`mount-curtain ${loaded ? "curtain-hide" : ""}`} aria-hidden="true">
-        <img src="/SL-instant-Logo.png" alt="Loading..." className="curtain-logo" />
+        <img src="/Sl-metalic-png.png" alt="Loading..." className="curtain-logo" />
       </div>
 
       {/* ---------------- Hero ---------------- */}

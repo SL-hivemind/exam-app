@@ -38,7 +38,7 @@ export default function LoadingState({ message = 'Loading…', fullHeight = fals
         }}
       >
         <img
-          src="/SL-instant-Logo.png"
+          src="/Sl-metalic-png.png"
           alt=""
           width={72}
           height={72}

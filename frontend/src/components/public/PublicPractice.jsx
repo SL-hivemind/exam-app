@@ -78,7 +78,9 @@ export default function PublicPractice() {
     } else if (m === 'pyq') {
       startSession(true, 'pyq', params.get('year'));
     } else if (m === 'subject') {
-      setForm(f => ({ ...f, scope: 'subject', mode: 'adaptive' }));
+      // ?subject= lets a course page deep-link straight into one subject
+      const s = params.get('subject');
+      setForm(f => ({ ...f, scope: 'subject', mode: 'adaptive', ...(s ? { subject: s } : {}) }));
     } else if (m === 'chapter') {
       setForm(f => ({ ...f, scope: 'chapter', mode: 'adaptive' }));
     } else if (m === 'mock') {

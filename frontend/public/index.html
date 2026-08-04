@@ -1,353 +1,827 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <link rel="icon" type="image/svg+xml" href="%PUBLIC_URL%/sl-logo-master.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#070b1d" />
-    <meta
-      name="description"
-      content="SL Exams by Saaradaa Learknowations — secure online exams for schools, plus JEE/NEET practice tests, mocks and analytics."
-    />
-    <link rel="apple-touch-icon" href="%PUBLIC_URL%/sl-logo-master.svg" />
-    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
 
-    <!-- Social sharing (WhatsApp / LinkedIn / X) -->
-    <meta property="og:type" content="website" />
-    <meta property="og:title" content="SL Exams | Saaradaa Learknowations" />
-    <meta property="og:description" content="Secure online exams for schools, plus JEE/NEET practice tests, mocks and analytics." />
-    <meta property="og:image" content="%PUBLIC_URL%/SLlogo.png" />
-    <meta name="twitter:card" content="summary" />
+<head>
+  <meta charset="utf-8" />
+  <link rel="icon" type="image/png" href="%PUBLIC_URL%/favicon.png" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#070b1d" />
+  <meta name="description"
+    content="SL Exams provides secure online exams, practice tests for JEE/NEET, CBSE, State Boards, and advanced analytics for schools, students, and competitive exam aspirants." />
+  <meta name="keywords" content="online exams, JEE practice tests, NEET mock exams, school examination software, CBSE online tests, competitive exams prep, student analytics, education assessment platform, Saaradaa Learknowations, SL Exams" />
+  <meta name="author" content="Saaradaa Learknowations Pvt Ltd" />
+  <link rel="canonical" href="https://www.slexams.com/" />
+  <link rel="apple-touch-icon" href="%PUBLIC_URL%/favicon.png" />
+  <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
 
-    <title>SL EXAMS | Saaradaa Learknowations</title>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.7/dist/katex.min.css">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap">
-<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-  </head>
-  <body>
-    <noscript>SL Exams needs JavaScript enabled to run.</noscript>
-    <!-- ═══════ SL EXAMS — Instant Splash Intro ═══════ -->
-    <div id="sl-splash" aria-label="Loading SL Exams">
-      <style>
-        /* ── Container ────────────────────────────────── */
-        #sl-splash {
-          position: fixed; inset: 0; z-index: 99999;
-          display: flex; flex-direction: column;
-          align-items: center; justify-content: center;
-          background: radial-gradient(ellipse at 50% 42%, #0c1435 0%, #060a1f 65%, #020517 100%);
-          overflow: hidden;
-          transition: opacity .45s ease, visibility .45s ease;
-        }
-        #sl-splash.splash-hidden { opacity:0; visibility:hidden; pointer-events:none; }
+  <!-- Social sharing (WhatsApp / LinkedIn / X) -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="SL Exams | Premier Online Assessment & Practice Platform" />
+  <meta property="og:description"
+    content="Secure online exams for schools, plus JEE/NEET practice tests, mocks, and smart analytics for students." />
+  <meta property="og:url" content="https://www.slexams.com/" />
+  <meta property="og:image" content="%PUBLIC_URL%/SLlogo.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="SL Exams | Online Assessment Platform" />
+  <meta name="twitter:description" content="Secure online exams for schools, JEE/NEET practice tests, and smart analytics." />
+  
+  <!-- Structured Data (JSON-LD) for Google -->
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "EducationalOrganization",
+      "name": "Saaradaa Learknowations Pvt Ltd",
+      "alternateName": "SL Exams",
+      "url": "https://www.slexams.com/",
+      "logo": "https://www.slexams.com/SLlogo.png",
+      "description": "Secure online exams for schools, plus JEE/NEET practice tests, mocks, and advanced analytics.",
+      "sameAs": []
+    }
+  </script>
 
-        /* ── Anchor — everything positions relative to this ── */
-        .sp-center {
-          position: relative;
-          width: 240px; height: 240px;
-          z-index: 2;
-        }
+  <title>SL EXAMS | Saaradaa Learknowations</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.7/dist/katex.min.css">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap">
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+</head>
 
-        /* ── Motion trail ghosts (logo streaking in) ─── */
-        .sp-trail {
-          position: absolute; inset: 0;
-          background: url('%PUBLIC_URL%/SL-instant-Logo.png') center/contain no-repeat;
-          opacity: 0; will-change: transform, opacity;
-        }
-        .sp-trail:nth-child(1) { filter: blur(6px); animation: trailIn .3s .02s cubic-bezier(.15,.8,.25,1) both; --tx:-85vw; --ty:8vh; }
-        .sp-trail:nth-child(2) { filter: blur(10px); animation: trailIn .3s .06s cubic-bezier(.15,.8,.25,1) both; --tx:-60vw; --ty:4vh; }
-        .sp-trail:nth-child(3) { filter: blur(16px); animation: trailIn .3s .10s cubic-bezier(.15,.8,.25,1) both; --tx:-38vw; --ty:2vh; }
-        @keyframes trailIn {
-          0%   { transform: translate(var(--tx),var(--ty)) scale(.6); opacity: 0; }
-          35%  { opacity: .3; }
-          100% { transform: translate(0,0) scale(1); opacity: 0; }
-        }
+<body>
+  <noscript>SL Exams needs JavaScript enabled to run.</noscript>
+  <!-- ═══════ SL EXAMS — Instant Splash Intro ═══════ -->
+  <div id="sl-splash" aria-label="Loading SL Exams">
+    <style>
+      /* ── Container ────────────────────────────────── */
+      #sl-splash {
+        position: fixed;
+        inset: 0;
+        z-index: 99999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: radial-gradient(ellipse at 50% 42%, #0c1435 0%, #060a1f 65%, #020517 100%);
+        overflow: hidden;
+        transition: opacity .45s ease, visibility .45s ease;
+      }
 
-        /* ── Main logo — streaks in fast from left ───── */
-        .sp-logo {
-          position: absolute; inset: 0; z-index: 2;
-        }
-        .sp-logo img {
-          width: 100%; height: 100%; object-fit: contain;
-          animation: logoStrike .38s .06s cubic-bezier(.1,.82,.18,1) both;
-          will-change: transform, opacity;
-        }
-        @keyframes logoStrike {
-          0%   { transform: translateX(-100vw) scale(.55); opacity:0; filter: blur(8px) brightness(2.5); }
-          55%  { transform: translateX(10px) scale(1.08); opacity:1; filter: blur(0) brightness(1.4); }
-          78%  { transform: translateX(-4px) scale(.97); filter: blur(0) brightness(1); }
-          100% { transform: translateX(0) scale(1); opacity:1; filter: blur(0) brightness(1); }
-        }
+      #sl-splash.splash-hidden {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+      }
 
-        /* ── Tech ring — spins in around logo ─────────── */
-        .sp-ring {
-          position: absolute;
-          inset: -28px; border-radius: 50%; z-index: 1;
-          border: 1.5px solid rgba(56,149,248,.15);
-          box-shadow: 0 0 30px rgba(56,149,248,.08), inset 0 0 30px rgba(56,149,248,.04);
+      /* ── Anchor — everything positions relative to this ── */
+      .sp-center {
+        position: relative;
+        width: 240px;
+        height: 240px;
+        z-index: 2;
+      }
+
+      /* ── Motion trail ghosts (logo streaking in) ─── */
+      .sp-trail {
+        position: absolute;
+        inset: 0;
+        background: url('%PUBLIC_URL%/Sl-metalic-png.png') center/contain no-repeat;
+        opacity: 0;
+        will-change: transform, opacity;
+      }
+
+      .sp-trail:nth-child(1) {
+        filter: blur(6px);
+        animation: trailIn .3s .02s cubic-bezier(.15, .8, .25, 1) both;
+        --tx: -85vw;
+        --ty: 8vh;
+      }
+
+      .sp-trail:nth-child(2) {
+        filter: blur(10px);
+        animation: trailIn .3s .06s cubic-bezier(.15, .8, .25, 1) both;
+        --tx: -60vw;
+        --ty: 4vh;
+      }
+
+      .sp-trail:nth-child(3) {
+        filter: blur(16px);
+        animation: trailIn .3s .10s cubic-bezier(.15, .8, .25, 1) both;
+        --tx: -38vw;
+        --ty: 2vh;
+      }
+
+      @keyframes trailIn {
+        0% {
+          transform: translate(var(--tx), var(--ty)) scale(.6);
           opacity: 0;
-          animation: ringIn .5s .4s cubic-bezier(.22,1,.36,1) both, ringSpin 8s 1s linear infinite;
         }
-        .sp-ring::before, .sp-ring::after {
-          content: ''; position: absolute; border-radius: 50%;
-        }
-        .sp-ring::before {
-          inset: -12px;
-          border: 1px solid rgba(56,149,248,.07);
-          border-top-color: rgba(246,137,20,.25);
-          animation: ringSpinRev 12s 1s linear infinite;
-        }
-        .sp-ring::after {
-          inset: 6px;
-          border: 1px dashed rgba(56,149,248,.1);
-          animation: ringSpin 6s 1.2s linear infinite;
-        }
-        @keyframes ringIn { 0%{transform:scale(0) rotate(-90deg);opacity:0;} 100%{transform:scale(1) rotate(0deg);opacity:1;} }
-        @keyframes ringSpin { to { transform: rotate(360deg); } }
-        @keyframes ringSpinRev { to { transform: rotate(-360deg); } }
 
-        /* ── Tick marks on ring ────────────────────────── */
-        .sp-tick {
-          position: absolute; width: 1px; height: 8px;
-          background: rgba(56,149,248,.3);
-          top: -28px; left: 50%;
-          transform-origin: 50% calc(28px + 120px);
+        35% {
+          opacity: .3;
+        }
+
+        100% {
+          transform: translate(0, 0) scale(1);
           opacity: 0;
-          animation: tickIn .3s .5s ease both;
         }
-        .sp-tick:nth-child(6)  { transform: rotate(0deg); }
-        .sp-tick:nth-child(7)  { transform: rotate(30deg); }
-        .sp-tick:nth-child(8)  { transform: rotate(60deg); }
-        .sp-tick:nth-child(9)  { transform: rotate(90deg); background: rgba(246,137,20,.3); }
-        .sp-tick:nth-child(10) { transform: rotate(120deg); }
-        .sp-tick:nth-child(11) { transform: rotate(150deg); }
-        .sp-tick:nth-child(12) { transform: rotate(180deg); }
-        .sp-tick:nth-child(13) { transform: rotate(210deg); }
-        .sp-tick:nth-child(14) { transform: rotate(240deg); background: rgba(246,137,20,.3); }
-        .sp-tick:nth-child(15) { transform: rotate(270deg); }
-        .sp-tick:nth-child(16) { transform: rotate(300deg); }
-        .sp-tick:nth-child(17) { transform: rotate(330deg); }
-        @keyframes tickIn { to { opacity: 1; } }
+      }
 
-        /* ── Impact flash when logo lands ──────────────── */
-        .sp-impact {
-          position: absolute; inset: 0; z-index: 1; pointer-events: none;
-          border-radius: 50%;
-          background: radial-gradient(circle, rgba(255,255,255,.25) 0%, rgba(56,149,248,.3) 20%, transparent 60%);
+      /* ── Main logo — streaks in fast from left ───── */
+      .sp-logo {
+        position: absolute;
+        inset: 0;
+        z-index: 2;
+      }
+
+      .sp-logo img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        animation: logoStrike .38s .06s cubic-bezier(.1, .82, .18, 1) both;
+        will-change: transform, opacity;
+      }
+
+      @keyframes logoStrike {
+        0% {
+          transform: translateX(-100vw) scale(.55);
           opacity: 0;
-          animation: impactPop .35s .38s ease-out forwards;
-        }
-        @keyframes impactPop {
-          0%   { transform: scale(.3); opacity: 1; }
-          100% { transform: scale(2.8); opacity: 0; }
+          filter: blur(8px) brightness(2.5);
         }
 
-        /* ═══ Feature labels — BLOW OUT then PULL BACK ═══ */
-        .sp-label {
-          position: absolute;
-          top: 50%; left: 50%;
-          font-family: 'Plus Jakarta Sans','Inter',sans-serif;
-          font-weight: 600;
-          font-size: 12px;
-          letter-spacing: 1.5px;
-          text-transform: uppercase;
-          white-space: nowrap;
-          color: rgba(170,180,221,.9);
-          z-index: 5;
+        55% {
+          transform: translateX(10px) scale(1.08);
+          opacity: 1;
+          filter: blur(0) brightness(1.4);
+        }
+
+        78% {
+          transform: translateX(-4px) scale(.97);
+          filter: blur(0) brightness(1);
+        }
+
+        100% {
+          transform: translateX(0) scale(1);
+          opacity: 1;
+          filter: blur(0) brightness(1);
+        }
+      }
+
+      /* ── Tech ring — spins in around logo ─────────── */
+      .sp-ring {
+        position: absolute;
+        inset: -28px;
+        border-radius: 50%;
+        z-index: 1;
+        border: 1.5px solid rgba(56, 149, 248, .15);
+        box-shadow: 0 0 30px rgba(56, 149, 248, .08), inset 0 0 30px rgba(56, 149, 248, .04);
+        opacity: 0;
+        animation: ringIn .5s .4s cubic-bezier(.22, 1, .36, 1) both, ringSpin 8s 1s linear infinite;
+      }
+
+      .sp-ring::before,
+      .sp-ring::after {
+        content: '';
+        position: absolute;
+        border-radius: 50%;
+      }
+
+      .sp-ring::before {
+        inset: -12px;
+        border: 1px solid rgba(56, 149, 248, .07);
+        border-top-color: rgba(246, 137, 20, .25);
+        animation: ringSpinRev 12s 1s linear infinite;
+      }
+
+      .sp-ring::after {
+        inset: 6px;
+        border: 1px dashed rgba(56, 149, 248, .1);
+        animation: ringSpin 6s 1.2s linear infinite;
+      }
+
+      @keyframes ringIn {
+        0% {
+          transform: scale(0) rotate(-90deg);
           opacity: 0;
-          will-change: transform, opacity;
-          pointer-events: none;
-        }
-        /* Connector line from label toward center */
-        .sp-label::before {
-          content: '';
-          position: absolute;
-          width: 30px; height: 1px;
-          top: 50%;
-        }
-        /* Left-side labels: connector on right edge pointing right */
-        .sp-label.lbl-left::before {
-          right: -34px;
-          background: linear-gradient(90deg, transparent, rgba(56,149,248,.4));
-        }
-        /* Right-side labels: connector on left edge pointing left */
-        .sp-label.lbl-right::before {
-          left: -34px;
-          background: linear-gradient(270deg, transparent, rgba(246,137,20,.4));
         }
 
-        /* ── Per-label positions (blow-out destinations) ── */
-        /* Top-left: Question Repository */
-        .sp-label:nth-child(18) {
-          --bx: -220px; --by: -120px;
-          animation: labelBlowOut .4s .5s cubic-bezier(.22,1,.36,1) both,
-                     labelPullBack .35s 1.4s cubic-bezier(.6,.04,.98,.34) forwards;
+        100% {
+          transform: scale(1) rotate(0deg);
+          opacity: 1;
         }
-        /* Left: Live Exams */
-        .sp-label:nth-child(19) {
-          --bx: -230px; --by: 0px;
-          animation: labelBlowOut .4s .56s cubic-bezier(.22,1,.36,1) both,
-                     labelPullBack .35s 1.44s cubic-bezier(.6,.04,.98,.34) forwards;
+      }
+
+      @keyframes ringSpin {
+        to {
+          transform: rotate(360deg);
         }
-        /* Bottom-left: Instant Results */
-        .sp-label:nth-child(20) {
-          --bx: -220px; --by: 120px;
-          animation: labelBlowOut .4s .62s cubic-bezier(.22,1,.36,1) both,
-                     labelPullBack .35s 1.48s cubic-bezier(.6,.04,.98,.34) forwards;
+      }
+
+      @keyframes ringSpinRev {
+        to {
+          transform: rotate(-360deg);
         }
-        /* Top-right: Student Progress */
-        .sp-label:nth-child(21) {
-          --bx: 220px; --by: -120px;
-          animation: labelBlowOut .4s .53s cubic-bezier(.22,1,.36,1) both,
-                     labelPullBack .35s 1.42s cubic-bezier(.6,.04,.98,.34) forwards;
+      }
+
+      /* ── Tick marks on ring ────────────────────────── */
+      .sp-tick {
+        position: absolute;
+        width: 1px;
+        height: 8px;
+        background: rgba(56, 149, 248, .3);
+        top: -28px;
+        left: 50%;
+        transform-origin: 50% calc(28px + 120px);
+        opacity: 0;
+        animation: tickIn .3s .5s ease both;
+      }
+
+      .sp-tick:nth-child(6) {
+        transform: rotate(0deg);
+      }
+
+      .sp-tick:nth-child(7) {
+        transform: rotate(30deg);
+      }
+
+      .sp-tick:nth-child(8) {
+        transform: rotate(60deg);
+      }
+
+      .sp-tick:nth-child(9) {
+        transform: rotate(90deg);
+        background: rgba(246, 137, 20, .3);
+      }
+
+      .sp-tick:nth-child(10) {
+        transform: rotate(120deg);
+      }
+
+      .sp-tick:nth-child(11) {
+        transform: rotate(150deg);
+      }
+
+      .sp-tick:nth-child(12) {
+        transform: rotate(180deg);
+      }
+
+      .sp-tick:nth-child(13) {
+        transform: rotate(210deg);
+      }
+
+      .sp-tick:nth-child(14) {
+        transform: rotate(240deg);
+        background: rgba(246, 137, 20, .3);
+      }
+
+      .sp-tick:nth-child(15) {
+        transform: rotate(270deg);
+      }
+
+      .sp-tick:nth-child(16) {
+        transform: rotate(300deg);
+      }
+
+      .sp-tick:nth-child(17) {
+        transform: rotate(330deg);
+      }
+
+      @keyframes tickIn {
+        to {
+          opacity: 1;
         }
-        /* Right: School Insights */
-        .sp-label:nth-child(22) {
-          --bx: 250px; --by: 0px;
-          animation: labelBlowOut .4s .59s cubic-bezier(.22,1,.36,1) both,
-                     labelPullBack .35s 1.46s cubic-bezier(.6,.04,.98,.34) forwards;
-        }
-        /* Bottom-right: Smart Analytics */
-        .sp-label:nth-child(23) {
-          --bx: 220px; --by: 120px;
-          animation: labelBlowOut .4s .65s cubic-bezier(.22,1,.36,1) both,
-                     labelPullBack .35s 1.5s cubic-bezier(.6,.04,.98,.34) forwards;
+      }
+
+      /* ── Impact flash when logo lands ──────────────── */
+      .sp-impact {
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+        pointer-events: none;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(255, 255, 255, .25) 0%, rgba(56, 149, 248, .3) 20%, transparent 60%);
+        opacity: 0;
+        animation: impactPop .35s .38s ease-out forwards;
+      }
+
+      @keyframes impactPop {
+        0% {
+          transform: scale(.3);
+          opacity: 1;
         }
 
-        @keyframes labelBlowOut {
-          0%   { transform: translate(-50%,-50%) scale(.3); opacity: 0; filter: blur(6px); }
-          50%  { opacity: 1; filter: blur(0); }
-          100% { transform: translate(calc(-50% + var(--bx)), calc(-50% + var(--by))) scale(1); opacity: 1; filter: blur(0); }
+        100% {
+          transform: scale(2.8);
+          opacity: 0;
         }
-        @keyframes labelPullBack {
-          0%   { transform: translate(calc(-50% + var(--bx)), calc(-50% + var(--by))) scale(1); opacity: 1; filter: blur(0); }
-          100% { transform: translate(-50%,-50%) scale(.3); opacity: 0; filter: blur(4px); }
+      }
+
+      /* ═══ Feature labels — BLOW OUT then PULL BACK ═══ */
+      .sp-label {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+        font-weight: 600;
+        font-size: 12px;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        white-space: nowrap;
+        color: rgba(170, 180, 221, .9);
+        z-index: 5;
+        opacity: 0;
+        will-change: transform, opacity;
+        pointer-events: none;
+      }
+
+      /* Connector line from label toward center */
+      .sp-label::before {
+        content: '';
+        position: absolute;
+        width: 30px;
+        height: 1px;
+        top: 50%;
+      }
+
+      /* Left-side labels: connector on right edge pointing right */
+      .sp-label.lbl-left::before {
+        right: -34px;
+        background: linear-gradient(90deg, transparent, rgba(56, 149, 248, .4));
+      }
+
+      /* Right-side labels: connector on left edge pointing left */
+      .sp-label.lbl-right::before {
+        left: -34px;
+        background: linear-gradient(270deg, transparent, rgba(246, 137, 20, .4));
+      }
+
+      /* ── Per-label positions (blow-out destinations) ── */
+      /* Top-left: Question Repository */
+      .sp-label:nth-child(18) {
+        --bx: -220px;
+        --by: -120px;
+        animation: labelBlowOut .4s .5s cubic-bezier(.22, 1, .36, 1) both,
+          labelPullBack .35s 1.4s cubic-bezier(.6, .04, .98, .34) forwards;
+      }
+
+      /* Left: Live Exams */
+      .sp-label:nth-child(19) {
+        --bx: -230px;
+        --by: 0px;
+        animation: labelBlowOut .4s .56s cubic-bezier(.22, 1, .36, 1) both,
+          labelPullBack .35s 1.44s cubic-bezier(.6, .04, .98, .34) forwards;
+      }
+
+      /* Bottom-left: Instant Results */
+      .sp-label:nth-child(20) {
+        --bx: -220px;
+        --by: 120px;
+        animation: labelBlowOut .4s .62s cubic-bezier(.22, 1, .36, 1) both,
+          labelPullBack .35s 1.48s cubic-bezier(.6, .04, .98, .34) forwards;
+      }
+
+      /* Top-right: Student Progress */
+      .sp-label:nth-child(21) {
+        --bx: 220px;
+        --by: -120px;
+        animation: labelBlowOut .4s .53s cubic-bezier(.22, 1, .36, 1) both,
+          labelPullBack .35s 1.42s cubic-bezier(.6, .04, .98, .34) forwards;
+      }
+
+      /* Right: School Insights */
+      .sp-label:nth-child(22) {
+        --bx: 250px;
+        --by: 0px;
+        animation: labelBlowOut .4s .59s cubic-bezier(.22, 1, .36, 1) both,
+          labelPullBack .35s 1.46s cubic-bezier(.6, .04, .98, .34) forwards;
+      }
+
+      /* Bottom-right: Smart Analytics */
+      .sp-label:nth-child(23) {
+        --bx: 220px;
+        --by: 120px;
+        animation: labelBlowOut .4s .65s cubic-bezier(.22, 1, .36, 1) both,
+          labelPullBack .35s 1.5s cubic-bezier(.6, .04, .98, .34) forwards;
+      }
+
+      @keyframes labelBlowOut {
+        0% {
+          transform: translate(-50%, -50%) scale(.3);
+          opacity: 0;
+          filter: blur(6px);
         }
 
-        /* ── Speed lines on impact ────────────────────── */
-        .sp-sline {
-          position: absolute;
-          height: 2px; border-radius: 2px; opacity: 0; z-index: 1;
+        50% {
+          opacity: 1;
+          filter: blur(0);
         }
-        .sp-sline:nth-child(24) { width:200px; top:43%; left:55%;  background:linear-gradient(90deg,rgba(56,149,248,.6),transparent); animation:slineR .5s .42s ease-out forwards; }
-        .sp-sline:nth-child(25) { width:160px; top:50%; left:56%;  background:linear-gradient(90deg,rgba(246,137,20,.5),transparent); animation:slineR .45s .44s ease-out forwards; }
-        .sp-sline:nth-child(26) { width:180px; top:57%; left:55%;  background:linear-gradient(90deg,rgba(56,149,248,.4),transparent); animation:slineR .5s .46s ease-out forwards; }
-        .sp-sline:nth-child(27) { width:200px; top:45%; right:55%; background:linear-gradient(270deg,rgba(56,149,248,.6),transparent); animation:slineL .5s .42s ease-out forwards; }
-        .sp-sline:nth-child(28) { width:150px; top:53%; right:56%; background:linear-gradient(270deg,rgba(246,137,20,.5),transparent); animation:slineL .45s .44s ease-out forwards; }
-        .sp-sline:nth-child(29) { width:170px; top:60%; right:55%; background:linear-gradient(270deg,rgba(56,149,248,.4),transparent); animation:slineL .5s .46s ease-out forwards; }
-        @keyframes slineR { 0%{transform:translateX(0) scaleX(0);opacity:0;} 15%{opacity:.9;} 100%{transform:translateX(35vw) scaleX(1);opacity:0;} }
-        @keyframes slineL { 0%{transform:translateX(0) scaleX(0);opacity:0;} 15%{opacity:.9;} 100%{transform:translateX(-35vw) scaleX(1);opacity:0;} }
 
-        /* ── Electric sparks ──────────────────────────── */
-        .sp-spark {
-          position: absolute; width:3px; height:3px; border-radius:50%; opacity:0; z-index:3;
+        100% {
+          transform: translate(calc(-50% + var(--bx)), calc(-50% + var(--by))) scale(1);
+          opacity: 1;
+          filter: blur(0);
         }
-        .sp-spark:nth-child(30) { background:#3895f8; box-shadow:0 0 8px #3895f8; animation:spk .45s .4s ease-out forwards; --sx:-55px;--sy:-75px; }
-        .sp-spark:nth-child(31) { background:#f68914; box-shadow:0 0 8px #f68914; animation:spk .45s .42s ease-out forwards; --sx:65px;--sy:-50px; }
-        .sp-spark:nth-child(32) { background:#3895f8; box-shadow:0 0 8px #3895f8; animation:spk .45s .44s ease-out forwards; --sx:-75px;--sy:35px; }
-        .sp-spark:nth-child(33) { background:#f68914; box-shadow:0 0 8px #f68914; animation:spk .45s .46s ease-out forwards; --sx:60px;--sy:55px; }
-        .sp-spark:nth-child(34) { background:#3895f8; box-shadow:0 0 8px #3895f8; animation:spk .45s .43s ease-out forwards; --sx:35px;--sy:-85px; }
-        .sp-spark:nth-child(35) { background:#f68914; box-shadow:0 0 8px #f68914; animation:spk .45s .45s ease-out forwards; --sx:-85px;--sy:-15px; }
-        @keyframes spk { 0%{transform:translate(0,0);opacity:1;} 100%{transform:translate(var(--sx),var(--sy));opacity:0;} }
+      }
 
-        /* ── Loading bar ──────────────────────────────── */
-        .sp-bar {
-          position: absolute; bottom: 36px;
-          width: 100px; height: 2px; border-radius: 2px;
-          background: rgba(255,255,255,.05);
-          overflow: hidden; opacity: 0; z-index: 2;
-          animation: fadeIn .2s 1s ease both;
+      @keyframes labelPullBack {
+        0% {
+          transform: translate(calc(-50% + var(--bx)), calc(-50% + var(--by))) scale(1);
+          opacity: 1;
+          filter: blur(0);
         }
-        .sp-bar::after {
-          content:''; position:absolute; inset:0; border-radius:2px;
-          background: linear-gradient(90deg,#024392,#3895f8,#f68914);
-          animation: barSlide 1s 1s ease-in-out infinite;
+
+        100% {
+          transform: translate(-50%, -50%) scale(.3);
+          opacity: 0;
+          filter: blur(4px);
+        }
+      }
+
+      /* ── Speed lines on impact ────────────────────── */
+      .sp-sline {
+        position: absolute;
+        height: 2px;
+        border-radius: 2px;
+        opacity: 0;
+        z-index: 1;
+      }
+
+      .sp-sline:nth-child(24) {
+        width: 200px;
+        top: 43%;
+        left: 55%;
+        background: linear-gradient(90deg, rgba(56, 149, 248, .6), transparent);
+        animation: slineR .5s .42s ease-out forwards;
+      }
+
+      .sp-sline:nth-child(25) {
+        width: 160px;
+        top: 50%;
+        left: 56%;
+        background: linear-gradient(90deg, rgba(246, 137, 20, .5), transparent);
+        animation: slineR .45s .44s ease-out forwards;
+      }
+
+      .sp-sline:nth-child(26) {
+        width: 180px;
+        top: 57%;
+        left: 55%;
+        background: linear-gradient(90deg, rgba(56, 149, 248, .4), transparent);
+        animation: slineR .5s .46s ease-out forwards;
+      }
+
+      .sp-sline:nth-child(27) {
+        width: 200px;
+        top: 45%;
+        right: 55%;
+        background: linear-gradient(270deg, rgba(56, 149, 248, .6), transparent);
+        animation: slineL .5s .42s ease-out forwards;
+      }
+
+      .sp-sline:nth-child(28) {
+        width: 150px;
+        top: 53%;
+        right: 56%;
+        background: linear-gradient(270deg, rgba(246, 137, 20, .5), transparent);
+        animation: slineL .45s .44s ease-out forwards;
+      }
+
+      .sp-sline:nth-child(29) {
+        width: 170px;
+        top: 60%;
+        right: 55%;
+        background: linear-gradient(270deg, rgba(56, 149, 248, .4), transparent);
+        animation: slineL .5s .46s ease-out forwards;
+      }
+
+      @keyframes slineR {
+        0% {
+          transform: translateX(0) scaleX(0);
+          opacity: 0;
+        }
+
+        15% {
+          opacity: .9;
+        }
+
+        100% {
+          transform: translateX(35vw) scaleX(1);
+          opacity: 0;
+        }
+      }
+
+      @keyframes slineL {
+        0% {
+          transform: translateX(0) scaleX(0);
+          opacity: 0;
+        }
+
+        15% {
+          opacity: .9;
+        }
+
+        100% {
+          transform: translateX(-35vw) scaleX(1);
+          opacity: 0;
+        }
+      }
+
+      /* ── Electric sparks ──────────────────────────── */
+      .sp-spark {
+        position: absolute;
+        width: 3px;
+        height: 3px;
+        border-radius: 50%;
+        opacity: 0;
+        z-index: 3;
+      }
+
+      .sp-spark:nth-child(30) {
+        background: #3895f8;
+        box-shadow: 0 0 8px #3895f8;
+        animation: spk .45s .4s ease-out forwards;
+        --sx: -55px;
+        --sy: -75px;
+      }
+
+      .sp-spark:nth-child(31) {
+        background: #f68914;
+        box-shadow: 0 0 8px #f68914;
+        animation: spk .45s .42s ease-out forwards;
+        --sx: 65px;
+        --sy: -50px;
+      }
+
+      .sp-spark:nth-child(32) {
+        background: #3895f8;
+        box-shadow: 0 0 8px #3895f8;
+        animation: spk .45s .44s ease-out forwards;
+        --sx: -75px;
+        --sy: 35px;
+      }
+
+      .sp-spark:nth-child(33) {
+        background: #f68914;
+        box-shadow: 0 0 8px #f68914;
+        animation: spk .45s .46s ease-out forwards;
+        --sx: 60px;
+        --sy: 55px;
+      }
+
+      .sp-spark:nth-child(34) {
+        background: #3895f8;
+        box-shadow: 0 0 8px #3895f8;
+        animation: spk .45s .43s ease-out forwards;
+        --sx: 35px;
+        --sy: -85px;
+      }
+
+      .sp-spark:nth-child(35) {
+        background: #f68914;
+        box-shadow: 0 0 8px #f68914;
+        animation: spk .45s .45s ease-out forwards;
+        --sx: -85px;
+        --sy: -15px;
+      }
+
+      @keyframes spk {
+        0% {
+          transform: translate(0, 0);
+          opacity: 1;
+        }
+
+        100% {
+          transform: translate(var(--sx), var(--sy));
+          opacity: 0;
+        }
+      }
+
+      /* ── Loading bar ──────────────────────────────── */
+      .sp-bar {
+        position: absolute;
+        bottom: 36px;
+        width: 100px;
+        height: 2px;
+        border-radius: 2px;
+        background: rgba(255, 255, 255, .05);
+        overflow: hidden;
+        opacity: 0;
+        z-index: 2;
+        animation: fadeIn .2s 1s ease both;
+      }
+
+      .sp-bar::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: 2px;
+        background: linear-gradient(90deg, #024392, #3895f8, #f68914);
+        animation: barSlide 1s 1s ease-in-out infinite;
+        transform: translateX(-100%);
+      }
+
+      @keyframes barSlide {
+        0% {
           transform: translateX(-100%);
         }
-        @keyframes barSlide { 0%{transform:translateX(-100%);} 50%{transform:translateX(0);} 100%{transform:translateX(100%);} }
-        @keyframes fadeIn { to{opacity:1;} }
 
-        /* ── Responsive: Tablet ───────────────────────── */
-        @media (max-width: 900px) {
-          .sp-center { width: 200px; height: 200px; }
-          .sp-label { font-size: 10px; letter-spacing: 1px; }
-          .sp-label:nth-child(18) { --bx: -170px; --by: -100px; }
-          .sp-label:nth-child(19) { --bx: -180px; --by: 0px; }
-          .sp-label:nth-child(20) { --bx: -170px; --by: 100px; }
-          .sp-label:nth-child(21) { --bx: 160px; --by: -100px; }
-          .sp-label:nth-child(22) { --bx: 160px; --by: 0px; }
-          .sp-label:nth-child(23) { --bx: 160px; --by: 100px; }
-          .sp-ring { inset: -22px; }
+        50% {
+          transform: translateX(0);
         }
 
-        /* ── Responsive: Mobile ───────────────────────── */
-        @media (max-width: 500px) {
-          .sp-center { width: 150px; height: 150px; }
-          .sp-label { font-size: 8px; letter-spacing: .8px; }
-          .sp-label::before { width: 18px; }
-          .sp-label.lbl-left::before { right: -22px; }
-          .sp-label.lbl-right::before { left: -22px; }
-          .sp-label:nth-child(18) { --bx: -115px; --by: -80px; }
-          .sp-label:nth-child(19) { --bx: -125px; --by: 0px; }
-          .sp-label:nth-child(20) { --bx: -115px; --by: 80px; }
-          .sp-label:nth-child(21) { --bx: 110px; --by: -80px; }
-          .sp-label:nth-child(22) { --bx: 110px; --by: 0px; }
-          .sp-label:nth-child(23) { --bx: 110px; --by: 80px; }
-          .sp-ring { inset: -14px; }
-          .sp-tick { height: 5px; }
+        100% {
+          transform: translateX(100%);
+        }
+      }
+
+      @keyframes fadeIn {
+        to {
+          opacity: 1;
+        }
+      }
+
+      /* ── Responsive: Tablet ───────────────────────── */
+      @media (max-width: 900px) {
+        .sp-center {
+          width: 200px;
+          height: 200px;
         }
 
-        /* ── Reduced motion ───────────────────────────── */
-        @media (prefers-reduced-motion: reduce) {
-          #sl-splash *, #sl-splash *::before, #sl-splash *::after { animation-duration: .001ms !important; }
+        .sp-label {
+          font-size: 10px;
+          letter-spacing: 1px;
         }
-      </style>
 
-      <!-- ── Center anchor — logo + ring + labels orbit this ── -->
-      <div class="sp-center">
-        <!-- Motion trail ghosts -->
-        <div class="sp-trail"></div>
-        <div class="sp-trail"></div>
-        <div class="sp-trail"></div>
+        .sp-label:nth-child(18) {
+          --bx: -170px;
+          --by: -100px;
+        }
 
-        <!-- Impact flash -->
-        <div class="sp-impact"></div>
+        .sp-label:nth-child(19) {
+          --bx: -180px;
+          --by: 0px;
+        }
 
-        <!-- Tech ring -->
-        <div class="sp-ring"></div>
+        .sp-label:nth-child(20) {
+          --bx: -170px;
+          --by: 100px;
+        }
 
-        <!-- Tick marks on ring -->
-        <div class="sp-tick"></div><div class="sp-tick"></div><div class="sp-tick"></div>
-        <div class="sp-tick"></div><div class="sp-tick"></div><div class="sp-tick"></div>
-        <div class="sp-tick"></div><div class="sp-tick"></div><div class="sp-tick"></div>
-        <div class="sp-tick"></div><div class="sp-tick"></div><div class="sp-tick"></div>
+        .sp-label:nth-child(21) {
+          --bx: 160px;
+          --by: -100px;
+        }
 
-        <!-- Feature labels — blow out, then pull back -->
-        <div class="sp-label lbl-left">Question Repository</div>
-        <div class="sp-label lbl-left">Live Exams</div>
-        <div class="sp-label lbl-left">Instant Results</div>
-        <div class="sp-label lbl-right">Student Progress</div>
-        <div class="sp-label lbl-right">School Insights</div>
-        <div class="sp-label lbl-right">Smart Analytics</div>
+        .sp-label:nth-child(22) {
+          --bx: 160px;
+          --by: 0px;
+        }
 
-        <!-- Speed lines -->
-        <div class="sp-sline"></div><div class="sp-sline"></div><div class="sp-sline"></div>
-        <div class="sp-sline"></div><div class="sp-sline"></div><div class="sp-sline"></div>
+        .sp-label:nth-child(23) {
+          --bx: 160px;
+          --by: 100px;
+        }
 
-        <!-- Sparks -->
-        <div class="sp-spark"></div><div class="sp-spark"></div><div class="sp-spark"></div>
-        <div class="sp-spark"></div><div class="sp-spark"></div><div class="sp-spark"></div>
+        .sp-ring {
+          inset: -22px;
+        }
+      }
 
-        <!-- Main logo -->
-        <div class="sp-logo">
-          <img src="%PUBLIC_URL%/SL-instant-Logo.png" alt="SL Exams" width="240" height="240" />
-        </div>
+      /* ── Responsive: Mobile ───────────────────────── */
+      @media (max-width: 500px) {
+        .sp-center {
+          width: 150px;
+          height: 150px;
+        }
+
+        .sp-label {
+          font-size: 8px;
+          letter-spacing: .8px;
+        }
+
+        .sp-label::before {
+          width: 18px;
+        }
+
+        .sp-label.lbl-left::before {
+          right: -22px;
+        }
+
+        .sp-label.lbl-right::before {
+          left: -22px;
+        }
+
+        .sp-label:nth-child(18) {
+          --bx: -115px;
+          --by: -80px;
+        }
+
+        .sp-label:nth-child(19) {
+          --bx: -125px;
+          --by: 0px;
+        }
+
+        .sp-label:nth-child(20) {
+          --bx: -115px;
+          --by: 80px;
+        }
+
+        .sp-label:nth-child(21) {
+          --bx: 110px;
+          --by: -80px;
+        }
+
+        .sp-label:nth-child(22) {
+          --bx: 110px;
+          --by: 0px;
+        }
+
+        .sp-label:nth-child(23) {
+          --bx: 110px;
+          --by: 80px;
+        }
+
+        .sp-ring {
+          inset: -14px;
+        }
+
+        .sp-tick {
+          height: 5px;
+        }
+      }
+
+      /* ── Reduced motion ───────────────────────────── */
+      @media (prefers-reduced-motion: reduce) {
+
+        #sl-splash *,
+        #sl-splash *::before,
+        #sl-splash *::after {
+          animation-duration: .001ms !important;
+        }
+      }
+    </style>
+
+    <!-- ── Center anchor — logo + ring + labels orbit this ── -->
+    <div class="sp-center">
+      <!-- Motion trail ghosts -->
+      <div class="sp-trail"></div>
+      <div class="sp-trail"></div>
+      <div class="sp-trail"></div>
+
+      <!-- Impact flash -->
+      <div class="sp-impact"></div>
+
+      <!-- Tech ring -->
+      <div class="sp-ring"></div>
+
+      <!-- Tick marks on ring -->
+      <div class="sp-tick"></div>
+      <div class="sp-tick"></div>
+      <div class="sp-tick"></div>
+      <div class="sp-tick"></div>
+      <div class="sp-tick"></div>
+      <div class="sp-tick"></div>
+      <div class="sp-tick"></div>
+      <div class="sp-tick"></div>
+      <div class="sp-tick"></div>
+      <div class="sp-tick"></div>
+      <div class="sp-tick"></div>
+      <div class="sp-tick"></div>
+
+      <!-- Feature labels — blow out, then pull back -->
+      <div class="sp-label lbl-left">Question Repository</div>
+      <div class="sp-label lbl-left">Live Exams</div>
+      <div class="sp-label lbl-left">Instant Results</div>
+      <div class="sp-label lbl-right">Student Progress</div>
+      <div class="sp-label lbl-right">School Insights</div>
+      <div class="sp-label lbl-right">Smart Analytics</div>
+
+      <!-- Speed lines -->
+      <div class="sp-sline"></div>
+      <div class="sp-sline"></div>
+      <div class="sp-sline"></div>
+      <div class="sp-sline"></div>
+      <div class="sp-sline"></div>
+      <div class="sp-sline"></div>
+
+      <!-- Sparks -->
+      <div class="sp-spark"></div>
+      <div class="sp-spark"></div>
+      <div class="sp-spark"></div>
+      <div class="sp-spark"></div>
+      <div class="sp-spark"></div>
+      <div class="sp-spark"></div>
+
+      <!-- Main logo -->
+      <div class="sp-logo">
+        <img src="%PUBLIC_URL%/Sl-metalic-png.png" alt="SL Exams" width="240" height="240" />
       </div>
-
-      <!-- Loading bar -->
-      <div class="sp-bar"></div>
     </div>
 
-    <div id="root"></div>
-  </body>
+    <!-- Loading bar -->
+    <div class="sp-bar"></div>
+  </div>
+
+  <div id="root"></div>
+</body>
+
 </html>
