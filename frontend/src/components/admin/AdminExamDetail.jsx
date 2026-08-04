@@ -11,7 +11,7 @@ import {
   DialogContent,
   DialogActions,
   TextField,
-  
+
   Alert,
   CircularProgress,
   FormControl,
@@ -437,7 +437,7 @@ export default function AdminExamDetail() {
   if (!exam) return null;
 
 
-    return (
+  return (
     <Box>
       <PageHeader
         onBack={() => navigate(`${basePath}/exams`)}
@@ -588,11 +588,11 @@ export default function AdminExamDetail() {
           </Stack>
 
           {filteredStudents.length > 0 && (
-            <Stack direction="row" spacing={2} mb={3} flexWrap="wrap" useFlexGap sx={{ 
-              p: 1.5, 
-              borderRadius: 2, 
-              bgcolor: 'rgba(255,255,255,0.02)', 
-              border: '1px solid rgba(255,255,255,0.05)' 
+            <Stack direction="row" spacing={2} mb={3} flexWrap="wrap" useFlexGap sx={{
+              p: 1.5,
+              borderRadius: 2,
+              bgcolor: 'rgba(255,255,255,0.02)',
+              border: '1px solid rgba(255,255,255,0.05)'
             }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#6c7cff' }} />
@@ -635,7 +635,7 @@ export default function AdminExamDetail() {
                   let bgcolor = 'rgba(255,255,255,0.02)';
                   let color = '#9aa3ba';
                   let animate = 'none';
-                  
+
                   if (isFlagged(s)) {
                     borderColor = 'rgba(242, 104, 92, 0.4)'; // red for flagged
                     bgcolor = 'rgba(242, 104, 92, 0.14)';
@@ -669,8 +669,8 @@ export default function AdminExamDetail() {
                         animation: animate,
                         transition: 'transform 0.2s, border-color 0.2s',
                         '&:hover': {
-                           transform: 'translateY(-3px)',
-                           borderColor: color
+                          transform: 'translateY(-3px)',
+                          borderColor: color
                         }
                       }}
                     >
@@ -719,19 +719,19 @@ export default function AdminExamDetail() {
 
             </Grid>
             <Grid item xs={12}>
-                <FormControl fullWidth>
-                    <InputLabel>Class (Optional)</InputLabel>
-                    <Select
-                        value={assignClass || ""}
-                        label="Class (Optional)"
-                        onChange={(e) => setAssignClass(e.target.value)}
-                    >
-                        <MenuItem value=""><em>All Classes</em></MenuItem>
-                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(n => (
-                          <MenuItem key={n} value={String(n)}>{n}</MenuItem>
-                        ))}
-                    </Select>
-                </FormControl>
+              <FormControl fullWidth>
+                <InputLabel>Class (Optional)</InputLabel>
+                <Select
+                  value={assignClass || ""}
+                  label="Class (Optional)"
+                  onChange={(e) => setAssignClass(e.target.value)}
+                >
+                  <MenuItem value=""><em>All Classes</em></MenuItem>
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(n => (
+                    <MenuItem key={n} value={String(n)}>{n}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
             </Grid>
             <Grid item xs={12}><TextField label="Single Student ID (Optional)" value={assignStudentId} onChange={(e) => setAssignStudentId(e.target.value)} fullWidth /></Grid>
           </Grid>
@@ -833,8 +833,8 @@ export default function AdminExamDetail() {
                 <Box>
                   <Typography variant="caption" color="text.secondary">Status</Typography>
                   <Typography variant="body1">
-                    <Chip 
-                      label={selectedStudent.status} 
+                    <Chip
+                      label={selectedStudent.status}
                       size="small"
                       color={selectedStudent.status === 'Completed' ? 'success' : selectedStudent.status === 'Started' ? 'primary' : selectedStudent.status === 'Discontinued' ? 'error' : 'default'}
                     />
