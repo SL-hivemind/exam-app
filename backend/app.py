@@ -129,6 +129,9 @@ db.init_app(app)
 bcrypt.init_app(app)
 
 # CORS
+# Origins listed here are the FRONTEND hosts that call this API: the Render
+# static site and the custom domain masking it. The API's own host
+# (sl-exams.onrender.com) is deliberately absent — it never originates requests.
 CORS(
     app,
     resources={r"/*": {"origins": [
@@ -140,7 +143,18 @@ CORS(
     ]}},
     supports_credentials=True,
     allow_headers=["Content-Type","Authorization","auth_token"],
-    methods=["GET","POST","PUT","DELETE","OPTIONS"]
+    methods=["GET","POST","PUT","DELETE","OPTIONS"],
+    # Cache preflights for 2 hours (Chrome's ceiling; Firefox allows 24h and
+    # will clamp this itself).
+    #
+    # This matters more than it looks. The frontend and API are on different
+    # origins, and `auth_token` is not a CORS-safelisted header, so EVERY call
+    # in the exam flow is preflighted. Flask-CORS sends no Access-Control-Max-Age
+    # by default, which leaves browsers caching for about five seconds — far
+    # shorter than the gap between two answer clicks. The practical effect was
+    # an OPTIONS round trip before nearly every request, roughly doubling both
+    # the request count and the latency a student feels.
+    max_age=7200,
 )
 
 # Ensure upload dirs
