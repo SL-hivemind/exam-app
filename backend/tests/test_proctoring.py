@@ -1,0 +1,382 @@
+"""Tests for adaptive proctoring: policy resolution and the event ledger.
+
+The load-bearing guarantees here are the defensive ones — the event cap, the
+seq dedup, and the rule that a client cannot assert a violation it has no
+evidence for. Those are what stop a single bad client from filling the table
+or rewriting its own submission record.
+"""
+from datetime import datetime, timedelta
+
+import pytest
+
+from app import app, db
+from models import (
+    Exam, ExamStudent, ProctorEvent, ProctorProfile, Question, School,
+    Student, StudentExamAttempt, User, MAX_EVENTS_PER_ATTEMPT,
+    resolve_proctor_policy, DEFAULT_PROCTOR_POLICY, SYSTEM_PROCTOR_PROFILES,
+)
+
+
+@pytest.fixture
+def client():
+    app.config['JWT_SECRET_KEY'] = 'test-jwt-secret-key-123456789'
+    app.config['SECRET_KEY'] = 'test-secret-key-123456789'
+
+    with app.app_context():
+        db.create_all()
+
+        admin = User(username='padmin', role='admin', email='padmin@example.com')
+        admin.set_password('adminpass123')
+        db.session.add(admin)
+        db.session.commit()
+
+        school = School(name='Proctor School', code='PRC', created_by=admin.id)
+        db.session.add(school)
+        db.session.commit()
+
+        su = User(username='pstud', role='student', school_id=school.id)
+        su.set_password('studpass123')
+        db.session.add(su)
+        db.session.commit()
+
+        db.session.add(Student(
+            user_id=su.id, student_id='PRC00001', number='1',
+            class_number='10', school_id=school.id,
+        ))
+
+        # System profiles normally arrive via migrate_add_proctoring.py.
+        for key, spec in SYSTEM_PROCTOR_PROFILES.items():
+            import json as _json
+            db.session.add(ProctorProfile(
+                key=key, label=spec['label'], description=spec['description'],
+                school_id=None, is_system=True,
+                settings_json=_json.dumps(spec['settings']),
+            ))
+
+        # Naive datetimes are stored as LOCAL time here — to_utc_naive() in
+        # app.py reinterprets them against the server's zone. A wide window
+        # keeps the fixture correct whatever zone the test machine is in.
+        exam = Exam(
+            title='Proctored Exam', duration_minutes=60,
+            school_id=school.id, created_by=admin.id,
+            access_start=datetime.now() - timedelta(days=2),
+            access_end=datetime.now() + timedelta(days=2),
+        )
+        db.session.add(exam)
+        db.session.commit()
+
+        db.session.add(Question(
+            exam_id=exam.id, text='2+2?', option_a='3', option_b='4',
+            option_c='5', option_d='6', correct_answer='B', marks=1,
+        ))
+        db.session.add(ExamStudent(exam_id=exam.id, student_id=su.id))
+        db.session.commit()
+
+    with app.test_client() as c:
+        yield c
+
+    with app.app_context():
+        db.session.remove()
+        db.drop_all()
+
+
+def admin_headers(client):
+    r = client.post('/login', json={'username': 'padmin', 'password': 'adminpass123'})
+    assert r.status_code == 200
+    return {'Authorization': f"Bearer {r.get_json()['auth_token']}"}
+
+
+def student_headers(client):
+    r = client.post('/login', json={'username': 'pstud', 'password': 'studpass123'})
+    assert r.status_code == 200
+    return {'Authorization': f"Bearer {r.get_json()['auth_token']}"}
+
+
+def only_exam_id():
+    with app.app_context():
+        return Exam.query.filter_by(title='Proctored Exam').first().id
+
+
+def start_attempt(client, headers, exam_id):
+    r = client.post(f'/student/exams/{exam_id}/start', json={}, headers=headers)
+    assert r.status_code == 200, r.get_json()
+    with app.app_context():
+        return StudentExamAttempt.query.filter_by(exam_id=exam_id).first().id
+
+
+def event(seq, type_='tab_hidden', severity=3, **extra):
+    return {'type': type_, 'seq': seq, 'severity': severity, 'ts': 1700000000000, **extra}
+
+
+# ── Policy resolution ──────────────────────────────────────────────────────
+
+def test_policy_defaults_apply_when_no_profile():
+    policy = resolve_proctor_policy(None, None)
+    assert policy == DEFAULT_PROCTOR_POLICY
+    # Camera must be off unless somebody deliberately turns it on.
+    assert policy['cameraRequired'] is False
+
+
+def test_overrides_layer_over_profile_and_unknown_keys_are_dropped():
+    class P:
+        settings = {'requireFullscreen': False, 'disableCopy': False}
+
+    policy = resolve_proctor_policy(P(), {'disableCopy': True, 'nonsense': 'x'})
+    assert policy['requireFullscreen'] is False   # from profile
+    assert policy['disableCopy'] is True          # override wins
+    assert 'nonsense' not in policy
+
+
+def test_open_book_profile_disables_restrictions():
+    class P:
+        settings = SYSTEM_PROCTOR_PROFILES['open_book']['settings']
+
+    policy = resolve_proctor_policy(P(), None)
+    assert policy['detectTabSwitch'] is False
+    assert policy['autoSubmitOnMaxViolations'] is False
+
+
+def test_admin_can_list_profiles_and_attach_one(client):
+    headers = admin_headers(client)
+    exam_id = only_exam_id()
+
+    r = client.get('/admin/proctor-profiles', headers=headers)
+    assert r.status_code == 200
+    body = r.get_json()
+    keys = {p['key'] for p in body['profiles']}
+    assert {'home', 'classroom', 'lab', 'practice', 'open_book'} <= keys
+    assert body['defaults']['cameraRequired'] is False
+
+    open_book = next(p for p in body['profiles'] if p['key'] == 'open_book')
+    r2 = client.put(f'/admin/exams/{exam_id}',
+                    json={'proctor_profile_id': open_book['id']}, headers=headers)
+    assert r2.status_code == 200
+
+    r3 = client.get(f'/admin/exams/{exam_id}/proctor-policy', headers=headers)
+    assert r3.status_code == 200
+    assert r3.get_json()['policy']['detectTabSwitch'] is False
+
+
+def test_unknown_override_keys_are_not_persisted(client):
+    headers = admin_headers(client)
+    exam_id = only_exam_id()
+
+    r = client.put(f'/admin/exams/{exam_id}',
+                   json={'proctor_overrides': {'requireFullscreen': False, 'evil': 1}},
+                   headers=headers)
+    assert r.status_code == 200
+    assert r.get_json()['exam']['proctor_overrides'] == {'requireFullscreen': False}
+
+
+def test_student_receives_resolved_policy(client):
+    headers = student_headers(client)
+    exam_id = only_exam_id()
+    r = client.get(f'/student/exams/{exam_id}/can_start', headers=headers)
+    assert r.status_code == 200
+    assert r.get_json()['proctor_policy']['maxViolations'] == 3
+
+
+# ── Event ingest ───────────────────────────────────────────────────────────
+
+def test_events_ride_along_on_autosave(client):
+    headers = student_headers(client)
+    exam_id = only_exam_id()
+    attempt_id = start_attempt(client, headers, exam_id)
+
+    with app.app_context():
+        qid = Question.query.filter_by(exam_id=exam_id).first().id
+
+    r = client.post(f'/student/exams/{exam_id}/autosave', json={
+        'answers': [{'question_id': qid, 'answer': 'B'}],
+        'events': [event(1), event(2, 'window_blur', 2)],
+    }, headers=headers)
+    assert r.status_code == 200
+    assert r.get_json()['events_stored'] == 2
+
+    with app.app_context():
+        assert ProctorEvent.query.filter_by(attempt_id=attempt_id).count() == 2
+
+
+def test_duplicate_seq_is_ignored(client):
+    """A flush retried after a dropped connection must not double-count."""
+    headers = student_headers(client)
+    exam_id = only_exam_id()
+    attempt_id = start_attempt(client, headers, exam_id)
+
+    payload = {'events': [event(1), event(2)]}
+    r1 = client.post(f'/student/exams/{exam_id}/events', json=payload, headers=headers)
+    assert r1.get_json()['stored'] == 2
+
+    r2 = client.post(f'/student/exams/{exam_id}/events', json=payload, headers=headers)
+    assert r2.get_json()['stored'] == 0
+
+    with app.app_context():
+        assert ProctorEvent.query.filter_by(attempt_id=attempt_id).count() == 2
+
+
+def test_unknown_event_types_are_discarded(client):
+    headers = student_headers(client)
+    exam_id = only_exam_id()
+    attempt_id = start_attempt(client, headers, exam_id)
+
+    r = client.post(f'/student/exams/{exam_id}/events', json={'events': [
+        event(1, 'tab_hidden'),
+        event(2, 'sql_injection_attempt'),
+        event(3, ''),
+        'not-a-dict',
+    ]}, headers=headers)
+    assert r.get_json()['stored'] == 1
+
+    with app.app_context():
+        types = [e.event_type for e in ProctorEvent.query.filter_by(attempt_id=attempt_id).all()]
+        assert types == ['tab_hidden']
+
+
+def test_event_cap_is_enforced(client):
+    """The storage footgun: a client logging samples instead of transitions
+    would otherwise write thousands of rows per attempt."""
+    headers = student_headers(client)
+    exam_id = only_exam_id()
+    attempt_id = start_attempt(client, headers, exam_id)
+
+    burst = [event(i) for i in range(1, MAX_EVENTS_PER_ATTEMPT + 200)]
+    client.post(f'/student/exams/{exam_id}/events', json={'events': burst}, headers=headers)
+    # A second burst must not get past the ceiling either.
+    client.post(f'/student/exams/{exam_id}/events', json={
+        'events': [event(i) for i in range(10000, 10100)]
+    }, headers=headers)
+
+    with app.app_context():
+        total = ProctorEvent.query.filter_by(attempt_id=attempt_id).count()
+    assert total == MAX_EVENTS_PER_ATTEMPT
+
+
+def test_malformed_events_never_block_the_answer_save(client):
+    headers = student_headers(client)
+    exam_id = only_exam_id()
+    start_attempt(client, headers, exam_id)
+    with app.app_context():
+        qid = Question.query.filter_by(exam_id=exam_id).first().id
+
+    r = client.post(f'/student/exams/{exam_id}/autosave', json={
+        'answers': [{'question_id': qid, 'answer': 'B'}],
+        'events': [{'type': 'tab_hidden'}, {'seq': 'abc', 'type': 'tab_hidden'}],
+    }, headers=headers)
+    assert r.status_code == 200
+    assert r.get_json()['count'] == 1     # the answer still saved
+
+
+def test_server_timestamps_the_event_not_the_client(client):
+    """client_ts is recorded but never authoritative."""
+    headers = student_headers(client)
+    exam_id = only_exam_id()
+    attempt_id = start_attempt(client, headers, exam_id)
+
+    client.post(f'/student/exams/{exam_id}/events', json={
+        'events': [event(1, ts=99999999999999999)]     # absurd client clock
+    }, headers=headers)
+
+    with app.app_context():
+        ev = ProctorEvent.query.filter_by(attempt_id=attempt_id).first()
+        assert ev.received_at is not None
+        assert ev.client_ts is None      # out of range, rejected
+
+
+# ── Submission reason integrity ────────────────────────────────────────────
+
+def test_client_cannot_fake_a_violation_submit(client):
+    """reason='tab_switch' with no recorded violations is downgraded."""
+    headers = student_headers(client)
+    exam_id = only_exam_id()
+    start_attempt(client, headers, exam_id)
+
+    r = client.post(f'/student/exams/{exam_id}/submit',
+                    json={'answers': [], 'reason': 'tab_switch'}, headers=headers)
+    assert r.status_code == 200
+
+    with app.app_context():
+        attempt = StudentExamAttempt.query.filter_by(exam_id=exam_id).first()
+        assert attempt.submission_reason == 'manual'
+
+
+def test_violation_submit_is_accepted_when_evidenced(client):
+    headers = student_headers(client)
+    exam_id = only_exam_id()
+    start_attempt(client, headers, exam_id)
+
+    r = client.post(f'/student/exams/{exam_id}/submit', json={
+        'answers': [],
+        'reason': 'tab_switch',
+        'events': [event(1), event(2), event(3)],   # three hard violations
+    }, headers=headers)
+    assert r.status_code == 200
+
+    with app.app_context():
+        attempt = StudentExamAttempt.query.filter_by(exam_id=exam_id).first()
+        assert attempt.submission_reason == 'tab_switch'
+
+
+def test_soft_events_cannot_trigger_a_violation_submit(client):
+    """The HARD/SOFT split: low-severity noise must never enforce."""
+    headers = student_headers(client)
+    exam_id = only_exam_id()
+    start_attempt(client, headers, exam_id)
+
+    r = client.post(f'/student/exams/{exam_id}/submit', json={
+        'answers': [],
+        'reason': 'tab_switch',
+        'events': [
+            event(1, 'copy_blocked', 1), event(2, 'paste_blocked', 1),
+            event(3, 'context_menu_blocked', 0), event(4, 'camera_lost', 3),
+        ],
+    }, headers=headers)
+    assert r.status_code == 200
+
+    with app.app_context():
+        attempt = StudentExamAttempt.query.filter_by(exam_id=exam_id).first()
+        # camera_lost is high severity but NOT a hard enforcement signal.
+        assert attempt.submission_reason == 'manual'
+
+
+def test_arbitrary_reason_strings_are_rejected(client):
+    headers = student_headers(client)
+    exam_id = only_exam_id()
+    start_attempt(client, headers, exam_id)
+
+    client.post(f'/student/exams/{exam_id}/submit',
+                json={'answers': [], 'reason': 'x' * 200}, headers=headers)
+
+    with app.app_context():
+        attempt = StudentExamAttempt.query.filter_by(exam_id=exam_id).first()
+        assert attempt.submission_reason == 'manual'
+
+
+# ── Live monitor ───────────────────────────────────────────────────────────
+
+def test_live_monitor_aggregates_violations(client):
+    s_headers = student_headers(client)
+    exam_id = only_exam_id()
+    start_attempt(client, s_headers, exam_id)
+
+    client.post(f'/student/exams/{exam_id}/events', json={'events': [
+        event(1, 'tab_hidden'), event(2, 'tab_hidden'), event(3, 'window_blur', 2),
+        event(4, 'copy_blocked', 1),      # below the severity floor
+    ]}, headers=s_headers)
+
+    r = client.get(f'/admin/exams/{exam_id}/live', headers=admin_headers(client))
+    assert r.status_code == 200
+    body = r.get_json()
+
+    assert body['summary']['started'] == 1
+    assert body['summary']['flagged'] == 1
+    student = body['students'][0]
+    assert student['event_counts']['tab_hidden'] == 2
+    assert student['hard_violations'] == 3
+    assert 'copy_blocked' not in student['event_counts']
+    assert body['policy']['maxViolations'] == 3
+
+
+def test_live_monitor_requires_admin(client):
+    exam_id = only_exam_id()
+    r = client.get(f'/admin/exams/{exam_id}/live', headers=student_headers(client))
+    assert r.status_code in (401, 403)

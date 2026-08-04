@@ -1,5 +1,6 @@
 # app.py
 import os
+import json
 import logging
 import secrets
 from datetime import datetime, timedelta, timezone
@@ -31,6 +32,7 @@ from models import (
     PasswordResetOTP, StudentRequest, SpecialistScope,
     PublicUser, PublicCourse, CourseContent,
     CourseSubscription, PublicExamAttempt, EmailVerificationOTP,
+    ProctorProfile, ProctorEvent, DEFAULT_PROCTOR_POLICY, HARD_EVENT_TYPES,
 )
 
 from utils.files import (
@@ -173,6 +175,18 @@ def token_from_request():
         token = request.headers.get("auth_token")
     # NOTE: tokens are deliberately NOT accepted via URL query params —
     # URLs end up in server logs, browser history and Referer headers.
+    #
+    # A JSON *body* is a different matter: it appears in none of those places.
+    # navigator.sendBeacon cannot set headers, and it is the only delivery the
+    # browser guarantees once a page starts unloading — which is exactly when
+    # the last integrity events need to get out. Body fallback only, and only
+    # when no header was supplied.
+    if not token and request.is_json:
+        payload = request.get_json(silent=True)
+        if isinstance(payload, dict):
+            candidate = payload.get("auth_token")
+            if isinstance(candidate, str) and candidate:
+                token = candidate.strip()
     return token
 
 def token_required(f):
@@ -1778,7 +1792,30 @@ def admin_exam_detail(current_user, exam_id):
             exam.results_released = bool(data['results_released'])
         if 'include_in_analysis' in data:
             exam.include_in_analysis = bool(data['include_in_analysis'])
-            
+
+        # --- Proctoring policy ---
+        if 'proctor_profile_id' in data:
+            pid = data['proctor_profile_id']
+            if pid in (None, '', 0):
+                exam.proctor_profile_id = None
+            else:
+                profile = ProctorProfile.query.get(int(pid))
+                if not profile:
+                    return jsonify({'message': 'unknown proctoring profile'}), 400
+                # A school may only attach its own profiles or the system ones.
+                if profile.school_id and profile.school_id != exam.school_id:
+                    return jsonify({'message': 'profile belongs to another school'}), 403
+                exam.proctor_profile_id = profile.id
+
+        if 'proctor_overrides' in data:
+            raw = data['proctor_overrides'] or {}
+            if not isinstance(raw, dict):
+                return jsonify({'message': 'proctor_overrides must be an object'}), 400
+            # Drop unknown keys here rather than at read time, so what is
+            # stored is always exactly what takes effect.
+            cleaned = {k: v for k, v in raw.items() if k in DEFAULT_PROCTOR_POLICY}
+            exam.proctor_overrides = json.dumps(cleaned) if cleaned else None
+
         db.session.commit()
         return jsonify({'message':'exam updated','exam': exam.to_dict()}), 200
 
@@ -1788,6 +1825,40 @@ def admin_exam_detail(current_user, exam_id):
     StudentExamAttempt.query.filter_by(exam_id=exam.id).delete(synchronize_session=False)
     db.session.delete(exam); db.session.commit()
     return jsonify({'message':'exam deleted'}), 200
+
+@app.get('/admin/proctor-profiles')
+@role_required('admin', 'school_admin')
+def admin_list_proctor_profiles(current_user):
+    """Monitoring profiles available to this user: the system presets plus
+    anything their own school has defined."""
+    q = ProctorProfile.query.filter(
+        db.or_(
+            ProctorProfile.is_system.is_(True),
+            ProctorProfile.school_id.is_(None),
+            ProctorProfile.school_id == current_user.school_id,
+        )
+    ).order_by(ProctorProfile.is_system.desc(), ProctorProfile.label.asc())
+
+    return jsonify({
+        'profiles': [p.to_dict() for p in q.all()],
+        # The client needs the baseline to render a toggle's inherited state
+        # without hardcoding a second copy of the defaults.
+        'defaults': DEFAULT_PROCTOR_POLICY,
+    }), 200
+
+
+@app.get('/admin/exams/<int:exam_id>/proctor-policy')
+@role_required('admin', 'school_admin')
+def admin_exam_proctor_policy(current_user, exam_id):
+    """The fully resolved policy for one exam — what the browser will enforce."""
+    exam = Exam.query.get_or_404(exam_id)
+    return jsonify({
+        'exam_id': exam.id,
+        'profile': exam.proctor_profile.to_dict() if exam.proctor_profile else None,
+        'overrides': exam.proctor_override_dict,
+        'policy': exam.proctor_policy,
+    }), 200
+
 
 @app.route('/admin/exams/<int:exam_id>/questions', methods=['GET', 'POST', 'OPTIONS'])
 @role_required('admin', 'school_admin')
@@ -2071,6 +2142,109 @@ def get_exam_attempts_list(current_user, exam_id):
         })
 
     return jsonify({"students": result}), 200
+
+
+@app.get('/admin/exams/<int:exam_id>/live')
+@role_required('admin', 'school_admin')
+def get_exam_live_monitor(current_user, exam_id):
+    """Live integrity view for one exam.
+
+    Built to be polled (~10s) by every admin watching an exam, so the cost is
+    fixed: three queries regardless of cohort size, no per-student work, and
+    deliberately no lazy-finalization pass (that belongs on the attempts list,
+    which is opened on demand — running it here would put writes on a polling
+    path). WebSockets were considered and rejected: waitress is a synchronous
+    WSGI server and cannot hold hundreds of persistent connections, while one
+    poll every 10s costs ~0.1 req/s per admin.
+    """
+    exam = Exam.query.get_or_404(exam_id)
+
+    attempts_q = db.session.query(
+        StudentExamAttempt.id,
+        StudentExamAttempt.student_id,
+        StudentExamAttempt.start_time,
+        StudentExamAttempt.submitted_time,
+        StudentExamAttempt.submission_reason,
+        Student.student_id,
+        User.username,
+    ).join(
+        Student, StudentExamAttempt.student_id == Student.user_id
+    ).join(
+        User, Student.user_id == User.id
+    ).filter(StudentExamAttempt.exam_id == exam_id)
+
+    if current_user.role == 'school_admin':
+        attempts_q = attempts_q.filter(Student.school_id == current_user.school_id)
+
+    rows = attempts_q.all()
+    attempt_ids = [r[0] for r in rows]
+
+    # One GROUP BY for the whole cohort instead of a query per student.
+    counts = {}
+    latest = {}
+    if attempt_ids:
+        agg = db.session.query(
+            ProctorEvent.attempt_id,
+            ProctorEvent.event_type,
+            db.func.count(ProctorEvent.id),
+            db.func.max(ProctorEvent.received_at),
+        ).filter(
+            ProctorEvent.attempt_id.in_(attempt_ids),
+            ProctorEvent.severity >= 2,     # info/low are noise on a live wall
+        ).group_by(ProctorEvent.attempt_id, ProctorEvent.event_type).all()
+
+        for att_id, event_type, count, last_seen in agg:
+            counts.setdefault(att_id, {})[event_type] = count
+            if att_id not in latest or (last_seen and last_seen > latest[att_id]):
+                latest[att_id] = last_seen
+
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    students = []
+    for (att_id, student_user_id, start_time, submitted_time,
+         submission_reason, student_code, username) in rows:
+        by_type = counts.get(att_id, {})
+        hard_total = sum(v for k, v in by_type.items() if k in HARD_EVENT_TYPES)
+
+        if submitted_time:
+            status = 'Completed'
+        elif start_time and now > start_time + timedelta(minutes=exam.duration_minutes):
+            # Past their window but never submitted. Shown as its own state
+            # rather than "Started" so an invigilator can act on it.
+            status = 'Overdue'
+        else:
+            status = 'In Progress'
+
+        students.append({
+            'user_id': student_user_id,
+            'student_id': student_code,
+            'username': username,
+            'status': status,
+            'submission_reason': submission_reason,
+            'start_time': start_time.isoformat() if start_time else None,
+            'event_counts': by_type,
+            'hard_violations': hard_total,
+            'last_event_at': latest[att_id].isoformat() if latest.get(att_id) else None,
+        })
+
+    students.sort(key=lambda s: (-s['hard_violations'], s['username'] or ''))
+
+    assigned_total = db.session.query(ExamStudent.id).filter_by(exam_id=exam_id).count()
+
+    return jsonify({
+        'exam_id': exam_id,
+        'server_time': now.isoformat(),
+        'policy': exam.proctor_policy,
+        'summary': {
+            'assigned': assigned_total,
+            'started': len(students),
+            'in_progress': sum(1 for s in students if s['status'] == 'In Progress'),
+            'completed': sum(1 for s in students if s['status'] == 'Completed'),
+            'overdue': sum(1 for s in students if s['status'] == 'Overdue'),
+            'flagged': sum(1 for s in students if s['hard_violations'] > 0),
+        },
+        'students': students,
+    }), 200
+
 
 # 2. RESET ATTEMPT (The "Re-attempt" Button)
 @app.delete('/admin/exams/<int:exam_id>/attempts/<int:user_id>')

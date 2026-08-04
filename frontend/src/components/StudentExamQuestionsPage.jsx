@@ -3,18 +3,30 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box, Typography, Button, Alert, RadioGroup,
   FormControlLabel, Radio, CircularProgress, Dialog, DialogTitle, DialogContent, DialogActions,
-  Drawer, IconButton, useTheme, useMediaQuery, Chip, Fab, Tooltip
+  Drawer, IconButton, useTheme, useMediaQuery, Chip, Fab, Tooltip, Snackbar
 } from '@mui/material';
 import {
   AccessTime as TimerIcon, Apps as AppsIcon, Close as CloseIcon, ArrowBack as ArrowBackIcon,
-  CloudDone as CloudDoneIcon, CloudSync as CloudSyncIcon, CloudOff as CloudOffIcon
+  CloudDone as CloudDoneIcon, CloudSync as CloudSyncIcon, CloudOff as CloudOffIcon,
+  Fullscreen as FullscreenIcon
 } from '@mui/icons-material';
 import api from '../utils/api';
 import useAuth from '../hooks/useAuth';
 import useExamSecurity from '../hooks/useExamSecurity';
+import { EVENT, EVENT_MESSAGE } from '../utils/proctorEvents';
 import MatrixFormatter from '../utils/MatrixFormatter';
 
 const ff = "'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
+
+// Hard-violation budget before the exam submits itself. Overridden by the
+// exam's resolved proctoring policy once it arrives from the server.
+const DEFAULT_MAX_VIOLATIONS = 3;
+
+// Fallback flush interval for a student who is reading rather than clicking.
+// Deliberately long: this is a backstop, not a heartbeat. A per-student poll
+// under ~60s is what saturates the instance at 500 concurrent — the whole
+// pipeline is built to keep events riding on autosave instead.
+const PROCTOR_FLUSH_MS = 120000;
 
 const DARK = {
   bg: 'rgba(7,11,26,0.98)',
@@ -45,7 +57,8 @@ export default function StudentExamQuestionsPage() {
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
-  const [violations, setViolations] = useState(0);
+  const [notice, setNotice] = useState(null);   // transient, non-blocking
+  const [policy, setPolicy] = useState(null);   // resolved server-side
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [saveStatus, setSaveStatus] = useState('idle'); // idle | saving | saved | error
 
@@ -65,27 +78,43 @@ export default function StudentExamQuestionsPage() {
   const handleSubmitRef = useRef();
   const storageKey = useMemo(() => `examAnswers-${user?.id}-${examId}`, [user?.id, examId]);
 
-  useExamSecurity(!loading && !submitted, (type) => {
-    if (type === 'tab_switch') {
-      setViolations(prev => {
-        const next = prev + 1;
-        if (next >= 3) {
-          alert("WARNING: Too many tab switches. Your exam is being auto-submitted.");
-          handleSubmitRef.current('tab_switch');
-        }
-        return next;
-      });
-    }
+  // Events accumulate here and ride out on the next autosave request rather
+  // than each one costing a round trip. At 300 concurrent students a
+  // per-event POST is what saturates the instance — see the load analysis.
+  const pendingEventsRef = useRef([]);
+
+  const handleProctorEvent = useCallback((event) => {
+    pendingEventsRef.current.push(event);
+    const message = EVENT_MESSAGE[event.type];
+    if (message) setNotice({ message, severity: event.severity });
+  }, []);
+
+  const {
+    violations, isFullscreen, fullscreenSupported, enterFullscreen,
+  } = useExamSecurity({
+    active: !loading && !submitted,
+    policy,
+    onEvent: handleProctorEvent,
+    seqKey: `examSeq-${user?.id}-${examId}`,
   });
 
+  const maxViolations = policy?.maxViolations ?? DEFAULT_MAX_VIOLATIONS;
+
+  // Auto-submit on repeated HARD violations only. The hook counts nothing
+  // else — soft/inferred signals can never reach this counter by design.
   useEffect(() => {
-    const enterFullScreen = async () => {
-      try {
-        if (document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen();
-      } catch (e) {}
-    };
-    if (!loading && !submitted) enterFullScreen();
-  }, [loading, submitted]);
+    if (loading || submitted) return;
+    if (policy && policy.autoSubmitOnMaxViolations === false) return;
+    if (violations >= maxViolations) handleSubmitRef.current?.('tab_switch');
+  }, [violations, loading, submitted, policy, maxViolations]);
+
+  // Fullscreen is entered from the Start button on the previous page (a real
+  // user gesture). Firefox and Safari reject a request made from an effect,
+  // which is why the old call here silently did nothing in those browsers.
+  // All we do here is notice if the student leaves it, and offer a way back.
+  const needsFullscreen =
+    !loading && !submitted && fullscreenSupported && !isFullscreen &&
+    policy?.requireFullscreen !== false;
 
   const handleSubmitMcqAnswers = useCallback(async (reason = 'manual') => {
     if (submitted) return;
@@ -95,7 +124,11 @@ export default function StudentExamQuestionsPage() {
       const answers = Object.entries(mcqAnswers).map(([questionId, answer]) => ({
         question_id: parseInt(questionId), answer
       }));
-      await api.post(`/student/exams/${examId}/submit`, { answers, reason }, { headers: { auth_token: authToken } });
+      // Final flush. The violation that triggered an auto-submit is usually
+      // in this batch, and the server checks the claim against these rows.
+      await api.post(`/student/exams/${examId}/submit`,
+        { answers, reason, events: pendingEventsRef.current.splice(0) },
+        { headers: { auth_token: authToken } });
       clearInterval(timerRef.current);
       localStorage.removeItem(storageKey);
       setSubmitted(true);
@@ -118,6 +151,7 @@ export default function StudentExamQuestionsPage() {
         const { assigned, within_window, already_submitted } = canStartRes.data;
         if (!assigned || (!within_window && !already_submitted)) { setError("Exam is not currently available."); setLoading(false); return; }
         if (already_submitted) { navigate(`/exam/${examId}/results`); return; }
+        if (canStartRes.data.proctor_policy) setPolicy(canStartRes.data.proctor_policy);
 
         const questionsRes = await api.get(`/student/exams/${examId}/questions`, { headers: { auth_token: authToken } });
         setExam({ ...canStartRes.data.exam, questions: questionsRes.data.questions });
@@ -154,7 +188,18 @@ export default function StudentExamQuestionsPage() {
     return () => clearInterval(timerRef.current);
   }, [examId, authToken, storageKey, navigate]);
 
+  // Detach the buffered events for sending. Kept separate from the request
+  // so a failed flush can hand them straight back — an event must survive a
+  // dropped connection, otherwise a student on flaky school wifi looks
+  // cleaner than one on a good line.
+  const takeEvents = useCallback(() => pendingEventsRef.current.splice(0), []);
+  const returnEvents = useCallback((events) => {
+    if (events?.length) pendingEventsRef.current.unshift(...events);
+  }, []);
+
   const lastSavedRef = useRef({});
+  const lastFlushRef = useRef(Date.now());
+
   useEffect(() => {
     if (submitted) return;
     const saveTimer = setTimeout(async () => {
@@ -162,22 +207,70 @@ export default function StudentExamQuestionsPage() {
         localStorage.setItem(storageKey, JSON.stringify(mcqAnswers));
         const changedAnswers = Object.entries(mcqAnswers).filter(([qId, ans]) => lastSavedRef.current[qId] !== ans);
         if (changedAnswers.length > 0) {
+          const events = takeEvents();
           try {
             setSaveStatus('saving');
             await api.post(`/student/exams/${examId}/autosave`, {
-              answers: changedAnswers.map(([qId, ans]) => ({ question_id: parseInt(qId), answer: ans }))
+              answers: changedAnswers.map(([qId, ans]) => ({ question_id: parseInt(qId), answer: ans })),
+              // Integrity events ride along on a request the student was
+              // making anyway. This is what keeps monitoring off the
+              // request budget at 300+ concurrent students.
+              events,
             }, { headers: { auth_token: authToken } });
             lastSavedRef.current = { ...mcqAnswers };
+            lastFlushRef.current = Date.now();
             setSaveStatus('saved');
           } catch (err) {
             console.error("Autosave failed:", err);
+            returnEvents(events);
             setSaveStatus('error'); // answers are still kept on this device and sent again on submit
           }
         }
       }
     }, 500);
     return () => clearTimeout(saveTimer);
-  }, [mcqAnswers, storageKey, submitted, examId, authToken]);
+  }, [mcqAnswers, storageKey, submitted, examId, authToken, takeEvents, returnEvents]);
+
+  // Fallback flush. Only fires for a student who is reading rather than
+  // answering — anyone actively clicking has already flushed via autosave.
+  useEffect(() => {
+    if (loading || submitted) return;
+    const id = setInterval(async () => {
+      if (!pendingEventsRef.current.length) return;
+      if (Date.now() - lastFlushRef.current < PROCTOR_FLUSH_MS) return;
+      const events = takeEvents();
+      try {
+        await api.post(`/student/exams/${examId}/events`, { events },
+          { headers: { auth_token: authToken } });
+        lastFlushRef.current = Date.now();
+      } catch {
+        returnEvents(events);
+      }
+    }, PROCTOR_FLUSH_MS);
+    return () => clearInterval(id);
+  }, [loading, submitted, examId, authToken, takeEvents, returnEvents]);
+
+  // Last gasp. The page is going away and a normal request would be killed
+  // mid-flight; sendBeacon is the only thing the browser guarantees to
+  // deliver here. It cannot set custom headers, so the token goes in the body.
+  useEffect(() => {
+    if (loading || submitted) return;
+    const flushOnHide = () => {
+      const events = pendingEventsRef.current;
+      if (!events.length || !navigator.sendBeacon) return;
+      const url = `${api.defaults.baseURL}/student/exams/${examId}/events`;
+      const blob = new Blob(
+        [JSON.stringify({ events, auth_token: authToken })],
+        { type: 'application/json' },
+      );
+      if (navigator.sendBeacon(url, blob)) pendingEventsRef.current = [];
+    };
+    window.addEventListener('pagehide', flushOnHide);
+    return () => {
+      window.removeEventListener('pagehide', flushOnHide);
+      flushOnHide();
+    };
+  }, [loading, submitted, examId, authToken]);
 
   const handleMcqAnswerChange = (mcqId, answer) => {
     if (submitted) return;
@@ -293,7 +386,11 @@ export default function StudentExamQuestionsPage() {
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 2 } }}>
           {violations > 0 && (
-            <Tooltip arrow title="Leaving this tab is recorded. After 3 warnings the exam submits automatically — stay on this page.">
+            <Tooltip arrow title={
+              policy?.autoSubmitOnMaxViolations === false
+                ? 'Leaving this tab or window is recorded for your teacher to review.'
+                : `Leaving this tab or window is recorded. After ${maxViolations} warnings the exam submits automatically — stay on this page.`
+            }>
               <Chip label={`⚠ ${violations} warning${violations > 1 ? 's' : ''}`} size="small"
                 sx={{ fontFamily: ff, fontWeight: 700, bgcolor: 'rgba(239,68,68,0.15)', color: '#fca5a5', fontSize: '0.72rem', display: { xs: 'none', sm: 'flex' } }} />
             </Tooltip>
@@ -502,6 +599,50 @@ export default function StudentExamQuestionsPage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* ── Fullscreen re-entry ──
+          Esc always exits fullscreen and no page can prevent it. Rather than
+          fight the browser, we detect the exit, record it, and offer one
+          click back — which is a real user gesture, so it actually works. */}
+      {needsFullscreen && (
+        <Box sx={{
+          position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
+          zIndex: 1400, display: 'flex', alignItems: 'center', gap: 2,
+          bgcolor: 'rgba(239,68,68,0.14)', border: '1px solid rgba(239,68,68,0.35)',
+          backdropFilter: 'blur(12px)', borderRadius: 3, px: 2.5, py: 1.5,
+          maxWidth: 'calc(100vw - 32px)',
+        }}>
+          <Typography sx={{ fontFamily: ff, fontSize: '0.82rem', color: '#fca5a5', fontWeight: 600 }}>
+            Fullscreen was exited — this is recorded.
+          </Typography>
+          <Button
+            size="small" variant="contained" startIcon={<FullscreenIcon />}
+            onClick={enterFullscreen}
+            sx={{ fontFamily: ff, fontWeight: 700, textTransform: 'none', borderRadius: 2, bgcolor: DARK.red, '&:hover': { bgcolor: '#dc2626' }, flexShrink: 0 }}
+          >
+            Return
+          </Button>
+        </Box>
+      )}
+
+      {/* Transient notices. Replaces the alert() calls, which blocked the
+          event loop — freezing the countdown and needing a click to clear. */}
+      <Snackbar
+        open={!!notice}
+        autoHideDuration={3000}
+        onClose={() => setNotice(null)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        sx={{ mt: 7 }}
+      >
+        <Alert
+          severity={notice?.severity >= 2 ? 'warning' : 'info'}
+          variant="filled"
+          onClose={() => setNotice(null)}
+          sx={{ fontFamily: ff, fontWeight: 600, fontSize: '0.82rem' }}
+        >
+          {notice?.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

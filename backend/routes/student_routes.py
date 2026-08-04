@@ -14,6 +14,10 @@ from models import (
     Student,
     StudentAnswer,
     StudentExamAttempt,
+    ProctorEvent,
+    MAX_EVENTS_PER_ATTEMPT,
+    KNOWN_EVENT_TYPES,
+    HARD_EVENT_TYPES,
     db,
 )
 
@@ -204,6 +208,10 @@ def register_student_routes(
                     'already_submitted': already_submitted,
                     'duration_minutes': exam.duration_minutes,
                     'exam': exam.to_dict(),
+                    # The monitoring policy the browser should enforce. Sent
+                    # here so the readiness screen can tell the student what
+                    # to expect *before* they commit to starting.
+                    'proctor_policy': exam.proctor_policy,
                 }
             ),
             200,
@@ -349,6 +357,109 @@ def register_student_routes(
         return jsonify({'questions': questions_data}), 200
 
     # ---- AUTO-SAVE (click-based, debounced 500ms from frontend) ----
+    def _ingest_events(attempt, raw_events):
+        """Persist integrity events for an attempt. Returns rows written.
+
+        Caller must commit. Deliberately tolerant: a malformed event is
+        skipped, never fatal — losing an answer because a monitoring event
+        was badly shaped would be an absurd trade.
+        """
+        if not raw_events or not isinstance(raw_events, list):
+            return 0
+
+        # Hard ceiling. A client stuck in a loop must not be able to fill the
+        # table; past the cap we stop writing rather than degrade the DB.
+        existing_count = db.session.query(ProctorEvent.id).filter_by(
+            attempt_id=attempt.id
+        ).count()
+        if existing_count >= MAX_EVENTS_PER_ATTEMPT:
+            return 0
+
+        # A flush retried after a dropped connection replays the same events.
+        # seq is the client's idempotency key.
+        existing_seqs = {
+            s for (s,) in db.session.query(ProctorEvent.seq).filter_by(
+                attempt_id=attempt.id
+            ).all()
+        }
+
+        budget = MAX_EVENTS_PER_ATTEMPT - existing_count
+        written = 0
+
+        for raw in raw_events[:budget]:
+            if not isinstance(raw, dict):
+                continue
+            event_type = str(raw.get('type') or '').strip().lower()
+            if event_type not in KNOWN_EVENT_TYPES:
+                continue
+
+            try:
+                seq = int(raw.get('seq'))
+            except (TypeError, ValueError):
+                continue
+            if seq in existing_seqs:
+                continue
+
+            try:
+                severity = max(0, min(3, int(raw.get('severity', 0))))
+            except (TypeError, ValueError):
+                severity = 0
+
+            def _opt_int(value, limit):
+                try:
+                    n = int(value)
+                except (TypeError, ValueError):
+                    return None
+                return n if 0 <= n <= limit else None
+
+            db.session.add(ProctorEvent(
+                attempt_id=attempt.id,
+                seq=seq,
+                event_type=event_type,
+                severity=severity,
+                # Client clock: recorded for ordering, never trusted. The
+                # authoritative timestamp is received_at, set server-side.
+                client_ts=_opt_int(raw.get('ts'), 4102444800000),   # ~year 2100
+                duration_ms=_opt_int(raw.get('durationMs'), 86400000),
+                received_at=datetime.now(timezone.utc).replace(tzinfo=None),
+            ))
+            existing_seqs.add(seq)
+            written += 1
+
+        return written
+
+    @app.post('/student/exams/<int:exam_id>/events')
+    @role_required('student')
+    def student_proctor_events(current_user, exam_id):
+        """Fallback flush for students who are idle (no autosave to ride on)
+        and the sendBeacon target on page hide.
+
+        The common path is NOT this endpoint — events piggyback on autosave.
+        At 300 concurrent students a per-event request is what saturates the
+        instance, so this should stay a low-traffic route.
+        """
+        student = Student.query.filter_by(user_id=current_user.id).first()
+        exam = Exam.query.get_or_404(exam_id)
+
+        attempt = StudentExamAttempt.query.filter_by(
+            exam_id=exam.id, student_id=student.user_id
+        ).first()
+        if not attempt:
+            return jsonify({'message': 'no active attempt'}), 400
+        # Late events on a submitted attempt are accepted silently — a beacon
+        # racing the submit is normal, not an error worth surfacing.
+        if attempt.submitted_time:
+            return jsonify({'message': 'already submitted', 'stored': 0}), 200
+
+        payload = request.get_json(silent=True) or {}
+        try:
+            stored = _ingest_events(attempt, payload.get('events'))
+            db.session.commit()
+            return jsonify({'message': 'ok', 'stored': stored}), 200
+        except SQLAlchemyError:
+            db.session.rollback()
+            return jsonify({'message': 'event save failed'}), 500
+
     @app.post('/student/exams/<int:exam_id>/autosave')
     @role_required('student')
     def student_autosave(current_user, exam_id):
@@ -403,11 +514,31 @@ def register_student_routes(
                         marks_awarded=0,
                     ))
 
+            # Integrity events ride along on the answer save. This is the
+            # whole point of the design: no extra request, no extra round
+            # trip, one commit covering both.
+            stored_events = _ingest_events(attempt, payload.get('events'))
+
             db.session.commit()
-            return jsonify({'message': 'saved', 'count': len(answers)}), 200
+            return jsonify({
+                'message': 'saved',
+                'count': len(answers),
+                'events_stored': stored_events,
+            }), 200
         except SQLAlchemyError:
             db.session.rollback()
             return jsonify({'message': 'save failed'}), 500
+
+    # Reasons a client is allowed to assert. 'abandoned' is server-only — it
+    # means "the student never submitted", which a submitting client cannot
+    # truthfully claim. Anything unrecognised is coerced to 'manual' rather
+    # than trusted: the column is String(50) and this value reaches admin
+    # reports and CSV exports.
+    CLIENT_SUBMIT_REASONS = {'manual', 'timeout', 'tab_switch'}
+
+    def _coerce_submit_reason(raw):
+        reason = str(raw or 'manual').strip().lower()
+        return reason if reason in CLIENT_SUBMIT_REASONS else 'manual'
 
     def _finalize_attempt(attempt, exam, reason='abandoned'):
         """Grade whatever answers exist and mark the attempt as submitted."""
@@ -446,7 +577,7 @@ def register_student_routes(
         exam = Exam.query.get_or_404(exam_id)
         payload = request.get_json(silent=True) or {}
         answers = payload.get('answers', [])
-        reason = payload.get('reason', 'manual')
+        reason = _coerce_submit_reason(payload.get('reason'))
 
         attempt = StudentExamAttempt.query.filter_by(exam_id=exam.id, student_id=student.user_id).first()
         if not attempt:
@@ -456,7 +587,7 @@ def register_student_routes(
 
         now = datetime.now(timezone.utc).replace(tzinfo=None)
         allowed_end = attempt.start_time + timedelta(minutes=exam.duration_minutes)
-        
+
         # If time is over but they didn't manually submit on time, record as timeout.
         if now > allowed_end:
             reason = 'timeout'
@@ -464,6 +595,27 @@ def register_student_routes(
                 # Auto-finalize with whatever auto-saved answers exist
                 _finalize_attempt(attempt, exam)
                 return jsonify({'message': 'time expired, auto-graded from saved answers', 'score': attempt.score}), 200
+
+        try:
+            # Flush any events the client is still holding, BEFORE the reason
+            # is settled — the violation that triggered an auto-submit is
+            # usually in this final batch.
+            _ingest_events(attempt, payload.get('events'))
+            db.session.flush()
+        except SQLAlchemyError:
+            db.session.rollback()   # never let a monitoring event block a submit
+
+        # A client claiming it auto-submitted for violations has to be able to
+        # show them. Without this the field is pure assertion: a student could
+        # POST reason='manual' after ten tab switches, or the reverse.
+        if reason == 'tab_switch':
+            hard_count = db.session.query(ProctorEvent.id).filter(
+                ProctorEvent.attempt_id == attempt.id,
+                ProctorEvent.event_type.in_(HARD_EVENT_TYPES),
+            ).count()
+            policy = exam.proctor_policy
+            if hard_count < int(policy.get('maxViolations') or 3):
+                reason = 'manual'
 
         total_score = 0
         try:

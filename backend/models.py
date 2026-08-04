@@ -4,6 +4,7 @@ from flask_bcrypt import Bcrypt
 from datetime import datetime
 from sqlalchemy import Integer, event
 from sqlalchemy.dialects import mysql
+import json
 import re
 
 db = SQLAlchemy()
@@ -355,6 +356,135 @@ class QuestionReport(db.Model):
     reporter = db.relationship('User', foreign_keys=[reported_by])
     resolver = db.relationship('User', foreign_keys=[resolved_by])
 
+# -------------------- PROCTORING POLICY --------------------
+
+# Canonical defaults. Keys are camelCase because this dict is serialised
+# straight to the browser and consumed by useExamSecurity without remapping —
+# see frontend/src/utils/proctorEvents.js, which must stay in step with this.
+DEFAULT_PROCTOR_POLICY = {
+    # Browser restrictions
+    'disableRightClick': True,
+    'disableCopy': True,
+    'disablePaste': True,
+    'disableShortcuts': True,
+    'warnOnUnload': True,
+
+    # Focus & visibility
+    'detectTabSwitch': True,
+    'detectWindowBlur': True,
+    'blurGraceMs': 1200,
+
+    # Fullscreen
+    'requireFullscreen': True,
+    'fullscreenSoftFail': True,
+
+    # Camera (Phase 3+). Off by default: a camera requirement that nobody
+    # asked for is the fastest way to lock a cohort out of an exam.
+    'cameraRequired': False,
+    'facePresence': False,
+
+    # Enforcement — HARD signals only
+    'maxViolations': 3,
+    'autoSubmitOnMaxViolations': True,
+}
+
+# The five environments from the design. Each is a sparse patch over
+# DEFAULT_PROCTOR_POLICY, not a full copy, so a change to a default
+# propagates instead of being silently shadowed by every profile.
+SYSTEM_PROCTOR_PROFILES = {
+    'home': {
+        'label': 'Home Examination',
+        'description': 'Unsupervised. Full browser lockdown, camera monitoring available.',
+        'settings': {'cameraRequired': True, 'facePresence': True},
+    },
+    'classroom': {
+        'label': 'Classroom Examination',
+        'description': 'Invigilated in person. Browser lockdown only — no camera needed.',
+        'settings': {'cameraRequired': False, 'facePresence': False},
+    },
+    'lab': {
+        'label': 'Computer Lab',
+        'description': 'Supervised lab machines. Lockdown and tab detection, camera optional.',
+        'settings': {'cameraRequired': False, 'facePresence': False},
+    },
+    'practice': {
+        'label': 'Practice Test',
+        'description': 'Low stakes. Minimal restrictions, nothing auto-submits.',
+        'settings': {
+            'disableCopy': False, 'disablePaste': False, 'disableShortcuts': False,
+            'requireFullscreen': False, 'detectWindowBlur': False,
+            'warnOnUnload': False, 'autoSubmitOnMaxViolations': False,
+        },
+    },
+    'open_book': {
+        'label': 'Open Book Examination',
+        'description': 'Reference material permitted by design. Restrictions off deliberately.',
+        'settings': {
+            'disableRightClick': False, 'disableCopy': False, 'disablePaste': False,
+            'disableShortcuts': False, 'requireFullscreen': False,
+            'detectTabSwitch': False, 'detectWindowBlur': False,
+            'autoSubmitOnMaxViolations': False,
+        },
+    },
+}
+
+
+class ProctorProfile(db.Model):
+    """A reusable monitoring policy. System profiles (school_id NULL,
+    is_system True) ship with the platform; schools may add their own."""
+    __tablename__ = 'proctor_profiles'
+    id = db.Column(db.Integer, primary_key=True)
+    key = db.Column(db.String(50), nullable=True)          # set for system profiles
+    label = db.Column(db.String(120), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    school_id = db.Column(db.Integer, db.ForeignKey('schools.id', ondelete='CASCADE'), nullable=True)
+    is_system = db.Column(db.Boolean, nullable=False, default=False, server_default='0')
+    # Sparse patch over DEFAULT_PROCTOR_POLICY. Text + json.dumps rather than a
+    # JSON column, matching how every other settings blob in this schema is
+    # stored (CourseContent.answer_key_json, GamePuzzle.payload_json, ...).
+    settings_json = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        db.UniqueConstraint('key', 'school_id', name='uq_proctor_profile_key_school'),
+    )
+
+    @property
+    def settings(self):
+        if not self.settings_json:
+            return {}
+        try:
+            loaded = json.loads(self.settings_json)
+            return loaded if isinstance(loaded, dict) else {}
+        except (ValueError, TypeError):
+            return {}
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'key': self.key,
+            'label': self.label,
+            'description': self.description,
+            'school_id': self.school_id,
+            'is_system': bool(self.is_system),
+            'settings': self.settings,
+        }
+
+
+def resolve_proctor_policy(profile=None, overrides=None):
+    """Layer the policy: defaults <- profile <- per-exam overrides.
+
+    Unknown keys are dropped. Without that, a typo in an override would sit
+    silently in the DB looking like it was doing something.
+    """
+    policy = dict(DEFAULT_PROCTOR_POLICY)
+    for layer in (profile.settings if profile else {}, overrides or {}):
+        for key, value in (layer or {}).items():
+            if key in DEFAULT_PROCTOR_POLICY:
+                policy[key] = value
+    return policy
+
+
 # -------------------- EXAMS --------------------
 class Exam(db.Model):
     __tablename__ = 'exams'
@@ -373,13 +503,24 @@ class Exam(db.Model):
     # analysis endpoints); results and ranks for the exam itself still show.
     include_in_analysis = db.Column(db.Boolean, nullable=False, default=True, server_default='1')
 
+    # Monitoring policy. NULL profile means platform defaults — every exam that
+    # existed before proctoring shipped keeps behaving exactly as it did.
+    proctor_profile_id = db.Column(db.Integer, db.ForeignKey('proctor_profiles.id', ondelete='SET NULL'), nullable=True)
+    proctor_overrides = db.Column(db.Text, nullable=True)   # JSON patch over the profile
+
     questions = db.relationship('Question', backref='exam', lazy=True, cascade="all, delete-orphan")
     assigned = db.relationship('ExamStudent', backref='exam', lazy=True, cascade="all, delete-orphan")
     attempts = db.relationship('StudentExamAttempt', backref='exam', lazy=True, cascade="all, delete-orphan")
+    proctor_profile = db.relationship('ProctorProfile', foreign_keys=[proctor_profile_id])
 
     def recalc_total_marks(self):
         """Recalculate total_marks as the sum of all question marks."""
         self.total_marks = sum(q.marks or 0 for q in self.questions)
+
+    @property
+    def proctor_policy(self):
+        """The effective policy sent to the browser at exam start."""
+        return resolve_proctor_policy(self.proctor_profile, self.proctor_override_dict)
 
     def to_dict(self):
         return {
@@ -393,8 +534,21 @@ class Exam(db.Model):
             "school_id": self.school_id,
             "results_released": self.results_released,
             "include_in_analysis": self.include_in_analysis is not False,
-            "school_name": self.school.name if self.school else "Global"
+            "school_name": self.school.name if self.school else "Global",
+            "proctor_profile_id": self.proctor_profile_id,
+            "proctor_profile_label": self.proctor_profile.label if self.proctor_profile else None,
+            "proctor_overrides": self.proctor_override_dict,
         }
+
+    @property
+    def proctor_override_dict(self):
+        if not self.proctor_overrides:
+            return {}
+        try:
+            loaded = json.loads(self.proctor_overrides)
+            return loaded if isinstance(loaded, dict) else {}
+        except (ValueError, TypeError):
+            return {}
 
 class Question(db.Model):
     __tablename__ = 'questions'
@@ -473,6 +627,76 @@ class StudentAnswer(db.Model):
         # submit upserts and prevents duplicate rows from racing requests.
         db.UniqueConstraint('attempt_id', 'question_id', name='uq_attempt_question'),
     )
+
+
+class ProctorEvent(db.Model):
+    """An integrity event observed in the browser during an attempt.
+
+    Rows are TRANSITIONS, never samples. The distinction decides whether this
+    table holds thousands of rows or millions: one 60-minute attempt sampled
+    at 1 Hz would write 3,600 rows on its own. MAX_EVENTS_PER_ATTEMPT is the
+    backstop if a client ever gets that wrong.
+    """
+    __tablename__ = 'proctor_events'
+    id = db.Column(db.Integer, primary_key=True)
+    attempt_id = db.Column(db.Integer, db.ForeignKey('student_exam_attempts.id', ondelete='CASCADE'), nullable=False)
+    # Monotonic per attempt, assigned by the client. A gap means events were
+    # lost or the page was tampered with — the gap is itself a signal.
+    seq = db.Column(db.Integer, nullable=False)
+    event_type = db.Column(db.String(50), nullable=False)
+    severity = db.Column(db.SmallInteger, nullable=False, default=0)
+    # Client clock — useful for ordering, never trusted for anything else.
+    client_ts = db.Column(db.BigInteger, nullable=True)
+    received_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    duration_ms = db.Column(db.Integer, nullable=True)
+    meta = db.Column(db.Text, nullable=True)
+
+    attempt = db.relationship(
+        'StudentExamAttempt',
+        backref=db.backref('proctor_events', lazy=True, cascade='all, delete-orphan'),
+    )
+
+    __table_args__ = (
+        # Idempotent ingest: a retried flush after a flaky connection must not
+        # duplicate rows. The client's seq is the dedup key.
+        db.UniqueConstraint('attempt_id', 'seq', name='uq_proctor_event_seq'),
+        # The admin live view filters by attempt and orders by severity.
+        db.Index('ix_proctor_event_attempt_sev', 'attempt_id', 'severity'),
+    )
+
+    def to_dict(self):
+        return {
+            'seq': self.seq,
+            'type': self.event_type,
+            'severity': self.severity,
+            'client_ts': self.client_ts,
+            'received_at': self.received_at.isoformat() if self.received_at else None,
+            'duration_ms': self.duration_ms,
+        }
+
+
+# Hard ceiling per attempt. Beyond this, events are dropped rather than
+# written — a runaway client must never be able to fill the table.
+MAX_EVENTS_PER_ATTEMPT = 500
+
+# Events that may contribute to automatic enforcement. Must mirror
+# HARD_EVENTS in frontend/src/utils/proctorEvents.js.
+HARD_EVENT_TYPES = {'tab_hidden', 'window_blur', 'fullscreen_exited'}
+
+# Accepted event vocabulary. Anything else is discarded at ingest rather than
+# stored: this column is grouped and counted in admin reports, so one typo'd
+# client would otherwise quietly invent a new category.
+# Mirrors EVENT in frontend/src/utils/proctorEvents.js.
+KNOWN_EVENT_TYPES = {
+    'exam_opened', 'exam_submitted',
+    'tab_hidden', 'tab_visible', 'window_blur', 'window_focus',
+    'fullscreen_entered', 'fullscreen_exited', 'fullscreen_unsupported',
+    'copy_blocked', 'paste_blocked', 'cut_blocked',
+    'context_menu_blocked', 'shortcut_blocked',
+    'network_offline', 'network_online',
+    'camera_granted', 'camera_denied', 'camera_lost',
+    'camera_restored', 'camera_unavailable',
+}
 
 # -------------------- OTP FOR PASSWORD RESET --------------------
 
