@@ -54,6 +54,11 @@ import api from "../../utils/api";
 import useAuth from "../../hooks/useAuth";
 import { PageHeader } from "../common";
 
+// Live integrity refresh. Long enough that a hall full of admins costs the
+// server almost nothing, short enough that an invigilator sees a problem
+// while it is still happening.
+const LIVE_POLL_MS = 10000;
+
 export default function AdminExamDetail() {
   const { examId } = useParams();
   const navigate = useNavigate();
@@ -71,6 +76,7 @@ export default function AdminExamDetail() {
   const [studentSearch, setStudentSearch] = useState("");
   const [loadingStudents, setLoadingStudents] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
+  const [liveData, setLiveData] = useState(null);
 
   // --- SAFE RESET STATE ---
   const [resetDialog, setResetDialog] = useState({ open: false, studentId: null, studentUsername: '' });
@@ -153,6 +159,30 @@ export default function AdminExamDetail() {
       setLoadingStudents(false);
     }
   };
+
+  // Live integrity poll. 10s is chosen against the server's real budget:
+  // one admin costs ~0.1 req/s here, and the endpoint answers in a fixed
+  // three queries whatever the cohort size. Only runs while the Students tab
+  // is actually on screen — a background tab polling for nothing is exactly
+  // the sort of ambient load this design exists to avoid.
+  useEffect(() => {
+    if (tabIndex !== 1) return;
+
+    let cancelled = false;
+    const poll = async () => {
+      if (document.hidden) return;
+      try {
+        const res = await api.get(`/admin/exams/${examId}/live`);
+        if (!cancelled) setLiveData(res.data);
+      } catch {
+        /* transient — the next tick retries */
+      }
+    };
+
+    poll();
+    const id = setInterval(poll, LIVE_POLL_MS);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [examId, tabIndex]);
 
   useEffect(() => {
     let cancelled = false;
@@ -376,6 +406,17 @@ export default function AdminExamDetail() {
     (s.student_id || "").toLowerCase().includes(studentSearch.toLowerCase())
   );
 
+  const liveByUser = {};
+  (liveData?.students || []).forEach((s) => { liveByUser[s.user_id] = s; });
+
+  // Previously a student only ever appeared flagged AFTER an auto-submit had
+  // already happened, which is too late to act on. Recorded violations now
+  // surface while the exam is still running.
+  const isFlagged = (s) =>
+    (liveByUser[s.user_id]?.hard_violations || 0) > 0 ||
+    s.submission_reason === 'tab_switch' ||
+    s.status === 'Discontinued';
+
   if (loading) return <Box p={4} display="flex" justifyContent="center"><CircularProgress /></Box>;
   if (error) return <Box p={4}><Alert severity="error">{error}</Alert></Box>;
   if (!exam) return null;
@@ -517,7 +558,7 @@ export default function AdminExamDetail() {
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#f2685c' }} />
                 <Typography variant="body2" color="text.secondary">
-                  <strong>{filteredStudents.filter(s => s.submission_reason === 'tab_switch' || s.status === 'Discontinued').length}</strong> Flagged
+                  <strong>{filteredStudents.filter(isFlagged).length}</strong> Flagged
                 </Typography>
               </Box>
             </Stack>
@@ -542,7 +583,7 @@ export default function AdminExamDetail() {
                   let color = '#9aa3ba';
                   let animate = 'none';
                   
-                  if (s.submission_reason === 'tab_switch' || s.status === 'Discontinued') {
+                  if (isFlagged(s)) {
                     borderColor = 'rgba(242, 104, 92, 0.4)'; // red for flagged
                     bgcolor = 'rgba(242, 104, 92, 0.14)';
                     color = '#f2685c';

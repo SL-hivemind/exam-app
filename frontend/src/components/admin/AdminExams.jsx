@@ -46,6 +46,7 @@ import useAuth from "../../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { PageHeader } from "../common";
+import ProctoringSettings from "./ProctoringSettings";
 
 
 export default function AdminExams() {
@@ -72,6 +73,8 @@ export default function AdminExams() {
 
   const [schoolId, setSchoolId] = useState("");
   const [includeInAnalysis, setIncludeInAnalysis] = useState(true);
+  const [proctorProfileId, setProctorProfileId] = useState(null);
+  const [proctorOverrides, setProctorOverrides] = useState({});
   const [errors, setErrors] = useState({});
 
 
@@ -120,6 +123,8 @@ export default function AdminExams() {
     setAccessEnd(null);
     setSchoolId("");
     setIncludeInAnalysis(true);
+    setProctorProfileId(null);
+    setProctorOverrides({});
     setOpenCreate(true);
   }
 
@@ -170,9 +175,18 @@ export default function AdminExams() {
         access_start: accessStart || null,
         access_end: accessEnd || null,
         include_in_analysis: includeInAnalysis,
+        proctor_profile_id: proctorProfileId,
       };
 
       const res = await api.post("/admin/exams", payload);
+
+      // Overrides are a separate concern from creation and only apply once
+      // the exam exists, so they go in a follow-up PUT.
+      if (res.data?.exam?.id && Object.keys(proctorOverrides).length > 0) {
+        await api.put(`/admin/exams/${res.data.exam.id}`, {
+          proctor_overrides: proctorOverrides,
+        });
+      }
 
       setSnack({
         open: true,
@@ -534,6 +548,14 @@ export default function AdminExams() {
                 </Grid>
               </Grid>
             </Box>
+
+            {/* SECTION: EXAM SECURITY */}
+            <ProctoringSettings
+              profileId={proctorProfileId}
+              overrides={proctorOverrides}
+              onProfileChange={setProctorProfileId}
+              onOverridesChange={setProctorOverrides}
+            />
 
           </Stack>
         </DialogContent>

@@ -8,11 +8,12 @@ import {
 import {
   AccessTime as TimerIcon, Apps as AppsIcon, Close as CloseIcon, ArrowBack as ArrowBackIcon,
   CloudDone as CloudDoneIcon, CloudSync as CloudSyncIcon, CloudOff as CloudOffIcon,
-  Fullscreen as FullscreenIcon
+  Fullscreen as FullscreenIcon, Videocam as VideocamIcon, VideocamOff as VideocamOffIcon
 } from '@mui/icons-material';
 import api from '../utils/api';
 import useAuth from '../hooks/useAuth';
 import useExamSecurity from '../hooks/useExamSecurity';
+import useCameraMonitor from '../hooks/useCameraMonitor';
 import { EVENT, EVENT_MESSAGE } from '../utils/proctorEvents';
 import MatrixFormatter from '../utils/MatrixFormatter';
 
@@ -59,6 +60,7 @@ export default function StudentExamQuestionsPage() {
   const [timeLeft, setTimeLeft] = useState(0);
   const [notice, setNotice] = useState(null);   // transient, non-blocking
   const [policy, setPolicy] = useState(null);   // resolved server-side
+  const [cameraPromptDismissed, setCameraPromptDismissed] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [saveStatus, setSaveStatus] = useState('idle'); // idle | saving | saved | error
 
@@ -90,12 +92,20 @@ export default function StudentExamQuestionsPage() {
   }, []);
 
   const {
-    violations, isFullscreen, fullscreenSupported, enterFullscreen,
+    violations, isFullscreen, fullscreenSupported, enterFullscreen, emit,
   } = useExamSecurity({
     active: !loading && !submitted,
     policy,
     onEvent: handleProctorEvent,
     seqKey: `examSeq-${user?.id}-${examId}`,
+  });
+
+  // Camera events share the security hook's sequence counter so the server
+  // sees one ordered stream per attempt rather than two interleaved ones.
+  const camera = useCameraMonitor({
+    active: !loading && !submitted,
+    enabled: policy?.cameraRequired === true,
+    onEvent: emit,
   });
 
   const maxViolations = policy?.maxViolations ?? DEFAULT_MAX_VIOLATIONS;
@@ -395,6 +405,32 @@ export default function StudentExamQuestionsPage() {
                 sx={{ fontFamily: ff, fontWeight: 700, bgcolor: 'rgba(239,68,68,0.15)', color: '#fca5a5', fontSize: '0.72rem', display: { xs: 'none', sm: 'flex' } }} />
             </Tooltip>
           )}
+          {/* Camera status. Shown only when the policy asks for a camera —
+              and never as a blocker: a student whose camera failed still
+              takes the exam, the absence is simply on the record. */}
+          {policy?.cameraRequired && camera.status !== 'idle' && (
+            <Tooltip arrow title={
+              camera.status === 'active'
+                ? 'Your camera is on. Nothing is recorded or uploaded — only whether it stays connected.'
+                : 'Your camera is not available. You can continue the exam; this is recorded for your teacher.'
+            }>
+              <Chip
+                size="small"
+                icon={camera.status === 'active'
+                  ? <VideocamIcon sx={{ fontSize: 15 }} />
+                  : <VideocamOffIcon sx={{ fontSize: 15 }} />}
+                label={camera.status === 'active' ? 'Camera on' : 'No camera'}
+                sx={{
+                  fontFamily: ff, fontWeight: 700, fontSize: '0.72rem',
+                  display: { xs: 'none', sm: 'flex' },
+                  bgcolor: camera.status === 'active' ? 'rgba(34,197,94,0.12)' : 'rgba(245,158,11,0.15)',
+                  color: camera.status === 'active' ? '#86efac' : '#fcd34d',
+                  '& .MuiChip-icon': { color: 'inherit' },
+                }}
+              />
+            </Tooltip>
+          )}
+
           {/* Auto-save indicator — reassures students their answers are safe */}
           {saveStatus !== 'idle' && (
             <Tooltip arrow title={
@@ -621,6 +657,39 @@ export default function StudentExamQuestionsPage() {
             sx={{ fontFamily: ff, fontWeight: 700, textTransform: 'none', borderRadius: 2, bgcolor: DARK.red, '&:hover': { bgcolor: '#dc2626' }, flexShrink: 0 }}
           >
             Return
+          </Button>
+        </Box>
+      )}
+
+      {/* Camera retry. Safari requires a user gesture for getUserMedia, so
+          the automatic attempt can fail on a technicality — this button is a
+          real click and usually succeeds where the auto-attempt did not.
+          Dismissible, and never blocks the exam. */}
+      {camera.needsAttention && !cameraPromptDismissed && !needsFullscreen && (
+        <Box sx={{
+          position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
+          zIndex: 1400, display: 'flex', alignItems: 'center', gap: 1.5,
+          bgcolor: 'rgba(245,158,11,0.14)', border: '1px solid rgba(245,158,11,0.35)',
+          backdropFilter: 'blur(12px)', borderRadius: 3, px: 2.5, py: 1.5,
+          maxWidth: 'calc(100vw - 32px)', flexWrap: 'wrap', justifyContent: 'center',
+        }}>
+          <Typography sx={{ fontFamily: ff, fontSize: '0.82rem', color: '#fcd34d', fontWeight: 600 }}>
+            {camera.status === 'denied'
+              ? 'Camera access was blocked.'
+              : 'Your camera is unavailable.'} You can keep going — this is recorded.
+          </Typography>
+          <Button
+            size="small" variant="contained" startIcon={<VideocamIcon />}
+            onClick={camera.requestCamera}
+            sx={{ fontFamily: ff, fontWeight: 700, textTransform: 'none', borderRadius: 2, bgcolor: DARK.orange, color: '#111', '&:hover': { bgcolor: '#d97706' } }}
+          >
+            Retry
+          </Button>
+          <Button
+            size="small" onClick={() => setCameraPromptDismissed(true)}
+            sx={{ fontFamily: ff, fontWeight: 600, textTransform: 'none', color: DARK.sub, minWidth: 0 }}
+          >
+            Dismiss
           </Button>
         </Box>
       )}

@@ -30,6 +30,7 @@ export default function StudentExamPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [exam, setExam] = useState(null);
+  const [policy, setPolicy] = useState(null);
   const [starting, setStarting] = useState(false);
 
   const fullscreenAvailable = isFullscreenSupported() && !isIOS();
@@ -53,6 +54,7 @@ export default function StudentExamPage() {
         if (!within_window) throw new Error('This exam is not currently open.');
 
         setExam(res.data.exam);
+        setPolicy(res.data.proctor_policy || null);
       } catch (err) {
         if (cancelled) return;
         setError(err.response?.data?.message || err.message || 'Failed to load exam');
@@ -125,12 +127,22 @@ export default function StudentExamPage() {
                 {[
                   'Every answer is saved automatically as you pick it.',
                   'The timer keeps running if you leave — it does not pause.',
-                  'Leaving the exam tab or window is recorded.',
-                  fullscreenAvailable
-                    ? 'The exam opens in fullscreen. Leaving fullscreen is recorded.'
-                    : 'Your browser does not support fullscreen — the exam will run in a normal window.',
+                  policy?.detectTabSwitch === false
+                    ? null
+                    : 'Leaving the exam tab or window is recorded.',
+                  policy?.requireFullscreen === false
+                    ? null
+                    : fullscreenAvailable
+                      ? 'The exam opens in fullscreen. Leaving fullscreen is recorded.'
+                      : 'Your browser does not support fullscreen — the exam will run in a normal window.',
+                  // Say plainly what the camera does and does not do. This is
+                  // the single most common student worry, and the honest
+                  // answer is also the reassuring one.
+                  policy?.cameraRequired
+                    ? 'Your camera will be switched on to check you are present. No video is recorded, stored or uploaded.'
+                    : null,
                   'If your device or connection fails, log back in and continue where you left off.',
-                ].map((line) => (
+                ].filter(Boolean).map((line) => (
                   <Typography key={line} variant="body2" color="text.secondary" sx={{ pl: 3 }}>
                     • {line}
                   </Typography>

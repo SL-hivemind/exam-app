@@ -168,6 +168,41 @@ def test_unknown_override_keys_are_not_persisted(client):
     assert r.get_json()['exam']['proctor_overrides'] == {'requireFullscreen': False}
 
 
+def test_exam_can_be_created_with_a_profile(client):
+    headers = admin_headers(client)
+    profiles = client.get('/admin/proctor-profiles', headers=headers).get_json()['profiles']
+    home = next(p for p in profiles if p['key'] == 'home')
+
+    r = client.post('/admin/exams', json={
+        'title': 'Home Exam', 'duration_minutes': 30, 'proctor_profile_id': home['id'],
+    }, headers=headers)
+    assert r.status_code == 201
+    exam_id = r.get_json()['exam']['id']
+
+    policy = client.get(f'/admin/exams/{exam_id}/proctor-policy',
+                        headers=headers).get_json()['policy']
+    assert policy['cameraRequired'] is True
+
+
+def test_creating_with_an_unknown_profile_is_rejected(client):
+    r = client.post('/admin/exams', json={
+        'title': 'Bad Exam', 'duration_minutes': 30, 'proctor_profile_id': 99999,
+    }, headers=admin_headers(client))
+    assert r.status_code == 400
+
+
+def test_exam_without_a_profile_keeps_default_behaviour(client):
+    """Pre-existing exams must be untouched by this feature."""
+    headers = admin_headers(client)
+    r = client.post('/admin/exams', json={'title': 'Plain', 'duration_minutes': 30},
+                    headers=headers)
+    exam_id = r.get_json()['exam']['id']
+
+    body = client.get(f'/admin/exams/{exam_id}/proctor-policy', headers=headers).get_json()
+    assert body['profile'] is None
+    assert body['policy'] == DEFAULT_PROCTOR_POLICY
+
+
 def test_student_receives_resolved_policy(client):
     headers = student_headers(client)
     exam_id = only_exam_id()

@@ -1666,12 +1666,27 @@ def admin_exams(current_user):
         except Exception:
             return jsonify({'message':'invalid datetime format (use ISO)'}), 400
 
+        # Monitoring profile. Left NULL when unspecified, which resolves to
+        # the platform defaults — the same behaviour exams had before
+        # proctoring existed.
+        profile_id = data.get('proctor_profile_id')
+        if profile_id in (None, '', 0):
+            profile_id = None
+        else:
+            profile = ProctorProfile.query.get(int(profile_id))
+            if not profile:
+                return jsonify({'message': 'unknown proctoring profile'}), 400
+            if profile.school_id and profile.school_id != school_id_to_use:
+                return jsonify({'message': 'profile belongs to another school'}), 403
+            profile_id = profile.id
+
         exam = Exam(
             title=title, description=description,
             access_start=ast, access_end=aend,
             duration_minutes=duration, total_marks=0,  # auto-recalculated when questions are added
             created_by=current_user.id,
             include_in_analysis=bool(data.get('include_in_analysis', True)),
+            proctor_profile_id=profile_id,
 
             # --- FIX 1: Use the variable defined above (school_id_to_use) ---
             school_id=school_id_to_use
