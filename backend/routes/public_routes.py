@@ -17,6 +17,7 @@ from sqlalchemy.exc import IntegrityError
 from werkzeug.utils import secure_filename
 
 from utils.scope import require_subject_for_children
+from utils.slugs import slugify, unique_slug, looks_like_id
 from taxonomy import grade_answer, is_correct, mock_blueprint
 
 from models import (
@@ -457,12 +458,22 @@ def register_public_routes(app, token_required, role_required, limiter):
             out.append(d)
         return jsonify({'courses': out}), 200
 
-    @app.get('/public/courses/<int:course_id>')
-    def public_course_detail(course_id):
-        """Course detail with content list (file_url hidden for paid content if not subscribed)."""
-        course = PublicCourse.query.get(course_id)
+    @app.get('/public/courses/<course_ref>')
+    def public_course_detail(course_ref):
+        """Course detail with content list (file_url hidden for paid content if not subscribed).
+
+        Accepts either the numeric id or the slug. Both resolve forever: every
+        link already in the wild — bookmarks, WhatsApp shares, anything Google
+        has indexed — uses the id, and breaking those to gain a prettier URL
+        would cost more than the prettier URL is worth.
+        """
+        if looks_like_id(course_ref):
+            course = PublicCourse.query.get(int(course_ref))
+        else:
+            course = PublicCourse.query.filter_by(slug=course_ref).first()
         if not course or course.status != 'published':
             return jsonify({'message': 'Course not found'}), 404
+        course_id = course.id
 
         # Check if requester is subscribed or enrolled
         is_subscribed = False

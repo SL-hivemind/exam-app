@@ -27,6 +27,8 @@ import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { useParams, useNavigate } from 'react-router-dom';
 import { publicApi } from '../../utils/api';
 import useAuth from '../../hooks/useAuth';
+import { Seo } from '../common';
+import { absoluteUrl, courseUrl, ORG_NAME, SITE_URL } from '../../utils/site';
 import { guideFor, COURSE_FAQ } from './examGuides';
 
 const ff = "'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
@@ -238,6 +240,39 @@ export default function PublicCourseDetail() {
 
   return (
     <Box sx={{ fontFamily: ff }}>
+      {/* Per-course metadata. Every course page previously served the same
+          title and description as the homepage, so the whole catalog looked
+          to a crawler like one duplicated page. */}
+      <Seo
+        path={courseUrl(course)}
+        title={`${course.title} — Mock Tests, Practice Questions & PYQs`}
+        description={
+          (course.description || '').trim().slice(0, 155) ||
+          `${course.title}: ${course.question_count || 'hundreds of'} practice questions, ` +
+          `previous year papers and full-length mock tests with instant analysis.` +
+          (course.price === 0 ? ' Free to start.' : '')
+        }
+        image={course.thumbnail_url}
+        jsonLd={{
+          '@context': 'https://schema.org',
+          '@type': 'Course',
+          name: course.title,
+          description: course.description || undefined,
+          url: absoluteUrl(courseUrl(course)),
+          isAccessibleForFree: course.price === 0,
+          provider: {
+            '@type': 'EducationalOrganization',
+            name: ORG_NAME,
+            url: SITE_URL,
+          },
+          hasCourseInstance: {
+            '@type': 'CourseInstance',
+            courseMode: 'online',
+            courseWorkload: 'PT1H',
+          },
+        }}
+      />
+
       {/* ═══════════ HEADER ═══════════ */}
       <Box sx={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', py: { xs: 4, md: 6 }, px: 3 }}>
         <Container maxWidth="lg">

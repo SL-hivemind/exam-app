@@ -20,7 +20,8 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { publicApi } from '../../utils/api';
 import useAuth from '../../hooks/useAuth';
-import { GlassCard } from '../common';
+import { GlassCard, Seo } from '../common';
+import { absoluteUrl, courseUrl } from '../../utils/site';
 
 const ff = "'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
 
@@ -116,6 +117,22 @@ export default function PublicCatalog() {
 
   return (
     <Box sx={{ fontFamily: ff }}>
+      <Seo
+        path="/public"
+        title="Online Test Series & Previous Year Papers — JEE, NEET, SSC, RRB, GATE"
+        description="Free and premium online test series with previous year question papers for JEE Main, NEET, SSC CGL, RRB, Banking and GATE. Chapter-wise practice with instant analysis."
+        jsonLd={{
+          '@context': 'https://schema.org',
+          '@type': 'ItemList',
+          name: 'Online test series and practice papers',
+          itemListElement: (courses || []).slice(0, 30).map((c, i) => ({
+            '@type': 'ListItem',
+            position: i + 1,
+            url: absoluteUrl(courseUrl(c)),
+            name: c.title,
+          })),
+        }}
+      />
 
       {/* ═══════════ HERO ═══════════ */}
       <Box sx={{
@@ -270,7 +287,7 @@ export default function PublicCatalog() {
                 return (
                   <Grid item xs={12} sm={6} md={4} key={course.id} sx={{ display: 'flex' }}>
                     <Box component={motion.div} initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.35, delay: (i % 3) * 0.05 }} sx={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
-                      <GlassCard interactive tilt sheen glow={isFree ? 'success' : 'orange'} onClick={() => navigate(`/public/course/${course.id}`)} sx={{ p: 0, flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                      <GlassCard interactive tilt sheen glow={isFree ? 'success' : 'orange'} onClick={() => navigate(courseUrl(course))} sx={{ p: 0, flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                         {/* Media */}
                         <Box sx={{
                           height: 130, position: 'relative', display: 'flex', alignItems: 'flex-end', p: 2,

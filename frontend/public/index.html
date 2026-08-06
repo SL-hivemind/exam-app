@@ -6,25 +6,42 @@
   <link rel="icon" type="image/png" href="%PUBLIC_URL%/favicon.png" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#070b1d" />
-  <meta name="description"
-    content="SL Exams provides secure online exams, practice tests for JEE/NEET, CBSE, State Boards, and advanced analytics for schools, students, and competitive exam aspirants." />
-  <meta name="keywords" content="online exams, JEE practice tests, NEET mock exams, school examination software, CBSE online tests, competitive exams prep, student analytics, education assessment platform, Saaradaa Learknowations, SL Exams" />
+  <!-- data-default marks a fallback that a page-level <Seo> supersedes.
+       Without the marker these stay in the document alongside the real tags,
+       and because they appear FIRST in the head, Google reads the generic
+       homepage description on every single page. Seo.jsx removes them at
+       runtime and the prerenderer strips them from the snapshot. -->
+  <meta name="description" data-default
+    content="Free online mock tests, previous year question papers and chapter-wise practice for JEE, NEET, CBSE, SSC, RRB, Banking and GATE. Instant scoring and detailed analysis." />
   <meta name="author" content="Saaradaa Learknowations Pvt Ltd" />
-  <link rel="canonical" href="https://www.slexams.com/" />
   <link rel="apple-touch-icon" href="%PUBLIC_URL%/favicon.png" />
   <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
 
-  <!-- Social sharing (WhatsApp / LinkedIn / X) -->
-  <meta property="og:type" content="website" />
-  <meta property="og:title" content="SL Exams | Premier Online Assessment & Practice Platform" />
-  <meta property="og:description"
-    content="Secure online exams for schools, plus JEE/NEET practice tests, mocks, and smart analytics for students." />
-  <meta property="og:url" content="https://www.slexams.com/" />
-  <meta property="og:image" content="%PUBLIC_URL%/SLlogo.png" />
-  <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="SL Exams | Online Assessment Platform" />
-  <meta name="twitter:description" content="Secure online exams for schools, JEE/NEET practice tests, and smart analytics." />
-  
+  <!--
+    Fallback metadata only.
+    Every public route renders its own <title>, description, canonical and OG
+    tags through src/components/common/Seo.jsx, which React 19 hoists into
+    this head and which overrides what is here. There is deliberately NO
+    <link rel="canonical"> in this file: a hardcoded one applied itself to
+    every URL on the site, and it pointed at www.slexams.com — a domain that
+    is not ours. A canonical naming a foreign host tells Google the real page
+    is somewhere else, which suppresses the pages that do exist.
+  -->
+  <meta property="og:type" data-default content="website" />
+  <meta property="og:site_name" content="SL Exams" />
+  <meta property="og:locale" content="en_IN" />
+  <meta property="og:title" data-default content="Free Online Mock Tests & Practice Papers for JEE, NEET, SSC & Banking | SL Exams" />
+  <meta property="og:description" data-default
+    content="Free online mock tests, previous year papers and chapter-wise practice for JEE, NEET, CBSE, SSC, RRB, Banking and GATE." />
+  <meta property="og:url" data-default content="https://exams.theslpl.in/" />
+  <!-- Absolute. Every scraper silently drops a relative og:image, which is
+       why shared links were showing no preview picture. -->
+  <meta property="og:image" data-default content="https://exams.theslpl.in/SLlogo.png" />
+  <meta name="twitter:card" data-default content="summary_large_image" />
+  <meta name="twitter:title" data-default content="Free Online Mock Tests & Practice Papers | SL Exams" />
+  <meta name="twitter:description" data-default content="Mock tests and previous year papers for JEE, NEET, SSC, RRB, Banking and GATE." />
+  <meta name="twitter:image" data-default content="https://exams.theslpl.in/SLlogo.png" />
+
   <!-- Structured Data (JSON-LD) for Google -->
   <script type="application/ld+json">
     {
@@ -32,14 +49,14 @@
       "@type": "EducationalOrganization",
       "name": "Saaradaa Learknowations Pvt Ltd",
       "alternateName": "SL Exams",
-      "url": "https://www.slexams.com/",
-      "logo": "https://www.slexams.com/SLlogo.png",
-      "description": "Secure online exams for schools, plus JEE/NEET practice tests, mocks, and advanced analytics.",
+      "url": "https://exams.theslpl.in/",
+      "logo": "https://exams.theslpl.in/SLlogo.png",
+      "description": "Online mock tests, previous year papers and practice questions for JEE, NEET, CBSE, SSC, RRB, Banking and GATE, plus secure online exams for schools.",
       "sameAs": []
     }
   </script>
 
-  <title>SL EXAMS | Saaradaa Learknowations</title>
+  <title data-default>Free Online Mock Tests & Practice Papers for JEE, NEET, SSC & Banking | SL Exams</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.7/dist/katex.min.css">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet"

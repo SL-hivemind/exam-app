@@ -14,3 +14,5 @@ export { default as SectionHeading } from './SectionHeading';
 export { default as AuroraBackground } from './AuroraBackground';
 export { default as GlassCard } from './GlassCard';
 export { default as InfoTip, HelpCaption, WithHint } from './InfoTip';
+export { default as Seo } from './Seo';
+export { default as NotFound } from './NotFound';

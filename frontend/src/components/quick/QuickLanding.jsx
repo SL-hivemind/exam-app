@@ -10,6 +10,7 @@ import QuizIcon from '@mui/icons-material/Quiz';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { useParams, useNavigate } from 'react-router-dom';
 import { quickApi } from '../../utils/api';
+import { Seo } from '../common';
 
 const ff = "'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
 
@@ -49,6 +50,16 @@ export default function QuickLanding() {
   }, []);
 
   return (
+    <>
+    {/* Only the bare /quick landing is indexable. A /quick/:code URL is an
+        ephemeral invitation to one specific test — indexing those would
+        publish exam codes and leave dead links behind when they expire. */}
+    <Seo
+      path="/quick"
+      title="Take a Quick Test with an Exam Code"
+      description="Enter the code your teacher gave you to start a quick online test. No account needed."
+      noindex={Boolean(urlCode)}
+    />
     <Box sx={{
       minHeight: '100vh',
       background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)',
@@ -172,5 +183,6 @@ export default function QuickLanding() {
         )}
       </Card>
     </Box>
+    </>
   );
 }

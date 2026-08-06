@@ -24,6 +24,8 @@ import {
   Library,
   Monitor,
 } from "lucide-react";
+import { Seo } from "./common";
+import { SITE_NAME, SITE_URL } from "../utils/site";
 
 /* ----------------------------------------------------------------------- */
 /* Data                                                                     */
@@ -478,6 +480,28 @@ export default function Home() {
 
   return (
     <div className="slexam">
+      {/* Search intent first, brand last. The title was
+          "SL EXAMS | Saaradaa Learknowations" — findable only by someone who
+          already knew the company name, which is not who a homepage is for. */}
+      <Seo
+        path="/"
+        title="Free Online Mock Tests & Practice Papers for JEE, NEET, SSC & Banking"
+        description="Practice with free online mock tests, previous year papers and chapter-wise questions for JEE, NEET, CBSE, SSC, RRB, Banking and GATE. Instant scoring and detailed analysis."
+        jsonLd={{
+          '@context': 'https://schema.org',
+          '@type': 'WebSite',
+          name: SITE_NAME,
+          url: SITE_URL,
+          potentialAction: {
+            '@type': 'SearchAction',
+            target: {
+              '@type': 'EntryPoint',
+              urlTemplate: `${SITE_URL}/public?q={search_term_string}`,
+            },
+            'query-input': 'required name=search_term_string',
+          },
+        }}
+      />
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 

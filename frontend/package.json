@@ -41,9 +41,16 @@
   },
   "scripts": {
     "start": "react-scripts start",
+    "prebuild": "node scripts/generate-sitemap.js",
     "build": "react-scripts build",
+    "postbuild": "node scripts/prerender.js",
+    "sitemap": "node scripts/generate-sitemap.js",
+    "prerender": "node scripts/prerender.js",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
+  },
+  "devDependencies": {
+    "puppeteer": "^24.43.1"
   },
   "eslintConfig": {
     "rules": {

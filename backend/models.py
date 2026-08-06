@@ -547,6 +547,11 @@ class PublicCourse(db.Model):
     __tablename__ = 'public_courses'
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(250), nullable=False)
+    # Keyword-bearing URL segment: /public/course/jee-main-2026-mock-tests
+    # rather than /public/course/3. Nullable so the migration can add the
+    # column before the backfill runs, and so a course created by an older
+    # code path still saves; the detail route resolves either form.
+    slug = db.Column(db.String(280), unique=True, index=True, nullable=True)
     description = db.Column(db.Text, nullable=True)
     thumbnail_url = db.Column(db.String(500), nullable=True)
     price = db.Column(db.Float, default=0.0)  # 0 = Free course
@@ -563,15 +568,49 @@ class PublicCourse(db.Model):
         return {
             'id': self.id,
             'title': self.title,
+            'slug': self.slug,
             'description': self.description,
             'thumbnail_url': self.thumbnail_url,
             'price': self.price,
             'status': self.status,
             'target_tags': self.target_tags,
             'created_at': self.created_at.isoformat() if self.created_at else None,
+            # Was on the model with onupdate and simply never exposed. The
+            # sitemap needs it for <lastmod>: without a real one, the choice is
+            # between omitting it and inventing it, and an invented lastmod
+            # teaches crawlers to distrust the whole file.
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
             'content_count': len(self.contents) if self.contents else 0,
             'subscriber_count': len(self.subscriptions) if self.subscriptions else 0,
         }
+
+@event.listens_for(PublicCourse, 'before_insert')
+def _assign_course_slug(mapper, connection, target):
+    """Give every new course a slug, whatever created it.
+
+    A listener rather than a line in each route: courses are created from the
+    public admin API, the portal admin API, and several seeders, and a slug
+    that only some of those paths set would leave holes in the sitemap that
+    nobody notices until a page fails to rank.
+
+    Slugs are assigned once and never rewritten on title change — see
+    utils/slugs for why.
+    """
+    from utils.slugs import slugify, unique_slug
+
+    if target.slug:
+        return
+
+    base = slugify(target.title)
+    table = PublicCourse.__table__
+
+    def taken(candidate):
+        return connection.execute(
+            db.select(table.c.id).where(table.c.slug == candidate).limit(1)
+        ).first() is not None
+
+    target.slug = unique_slug(base, taken)
+
 
 # -------------------- COURSE CONTENT --------------------
 class CourseContent(db.Model):

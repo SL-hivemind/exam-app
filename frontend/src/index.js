@@ -4,8 +4,9 @@ import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import { AuthProvider } from "./context/AuthContext";
 
-const root = ReactDOM.createRoot(document.getElementById("root"));
-root.render(
+const container = document.getElementById("root");
+
+const tree = (
   <React.StrictMode>
     <BrowserRouter>
       <AuthProvider>
@@ -14,6 +15,16 @@ root.render(
     </BrowserRouter>
   </React.StrictMode>
 );
+
+// Public routes are prerendered to static HTML at build time (see
+// scripts/prerender.js), so crawlers — and slow connections — get real content
+// in the first response instead of an empty #root. Adopt that markup rather
+// than throwing it away and painting the same thing again.
+if (document.documentElement.dataset.prerendered && container.hasChildNodes()) {
+  ReactDOM.hydrateRoot(container, tree);
+} else {
+  ReactDOM.createRoot(container).render(tree);
+}
 
 // ── Dismiss the HTML splash once React has painted ──────────────
 requestAnimationFrame(() => {

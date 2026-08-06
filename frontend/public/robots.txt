@@ -1,15 +1,36 @@
 # https://www.robotstxt.org/robotstxt.html
+
 User-agent: *
+
+# Signed-in application areas.
 Disallow: /admin/
 Disallow: /student/
 Disallow: /school/
 Disallow: /specialist/
 Disallow: /exam/
 Disallow: /exams/
+
+# Both forms. `/primary/` alone does not match the actual route, which is
+# `/primary` with no trailing slash — it was never being blocked.
+Disallow: /primary
 Disallow: /primary/
+
+# Quick-exam codes are short-lived invitations to one specific test. Indexing
+# them would publish the codes and leave dead links behind when they expire.
+# The bare /quick landing page stays crawlable.
+Disallow: /quick/
+
+# These sit under the /public/ prefix but are not public content:
+# four are behind a login, and the viewer is a full-screen exam runner.
+Disallow: /public/dashboard
+Disallow: /public/practice
+Disallow: /public/mock
+Disallow: /public/profile
+Disallow: /public/viewer/
+
 Allow: /public/
-Allow: /quick/
 Allow: /thinklets
+Allow: /quick
 Allow: /
 
-Sitemap: https://www.slexams.com/sitemap.xml
+Sitemap: https://exams.theslpl.in/sitemap.xml

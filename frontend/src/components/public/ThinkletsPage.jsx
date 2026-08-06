@@ -15,6 +15,7 @@ import { ARTICLES, BOOKS, TOPICS } from "../../data/thinklets";
 import ArticleReader from "./ArticleReader";
 import RiddleSection from "./RiddleSection";
 import PublicGamesSection from "../games/PublicGamesSection";
+import { Seo } from "../common";
 
 /**
  * Thinklets — read, solve, play.
@@ -186,6 +187,12 @@ export default function ThinkletsPage() {
   };
 
   return (
+    <>
+    <Seo
+      path="/thinklets"
+      title="Daily Practice Puzzles & Brain Teasers for Classes 6–10"
+      description="A fresh set of logic puzzles, maths riddles and reasoning questions every day for students in classes 6 to 10. Free, no sign-up needed to try."
+    />
     <Box
       sx={{
         minHeight: "100vh",
@@ -428,5 +435,6 @@ export default function ThinkletsPage() {
 
       <ArticleReader article={reading} open={Boolean(reading)} onClose={() => setReading(null)} />
     </Box>
+    </>
   );
 }

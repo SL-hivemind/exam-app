@@ -8,6 +8,7 @@ import PublicOnlyRoute from "./PublicOnlyRoute";
 // Eager: entry surfaces that must paint instantly.
 import Home from "../components/Home";
 import Login from "../components/Login";
+import { NotFound } from "../components/common";
 
 // Everything else is code-split so each portal (admin / school / student /
 // public / quick) downloads only its own chunk — critical on school networks.
@@ -281,7 +282,11 @@ export default function AppRoutes() {
 
         {/* --- FALLBACKS --- */}
         <Route path="/" element={<Home />} />
-        <Route path="*" element={<Home />} />
+        {/* A real 404. This used to render <Home /> with a 200, which made
+            every mistyped or stale URL an indexable duplicate of the front
+            page — and the navbar was generating them, linking to /register,
+            which is not a route. */}
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </Suspense>
   );
