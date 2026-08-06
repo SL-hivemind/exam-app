@@ -12,6 +12,7 @@ import VideocamIcon from '@mui/icons-material/Videocam';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import api from '../utils/api';
 import useAuth from '../hooks/useAuth';
+import useFaceMonitor from '../hooks/useFaceMonitor';
 import { requestFullscreen, isFullscreenSupported, isIOS } from '../utils/fullscreen';
 import { probeCameraPermission, cameraApiUnavailable } from '../utils/camera';
 import examSession from '../utils/examSession';
@@ -62,6 +63,41 @@ export default function StudentExamPage() {
   const apiMissing = cameraApiUnavailable();
   const cameraRequired = policy?.cameraRequired === true;
   const cameraReady = cameraStatus === 'active';
+
+  // Calibration happens HERE, not on the exam page.
+  //
+  // Two reasons, both of which were costing students marks. It used to run as
+  // a blocking modal after the clock had already started, so 3.5s+ of the
+  // exam went on it. And it ran with no self-view: "sit normally" is not an
+  // instruction anyone can follow without a mirror, and a bad calibration is
+  // upstream of every false flag for the rest of the paper.
+  const face = useFaceMonitor({
+    active: cameraReady,
+    enabled: cameraReady && policy?.facePresence === true,
+    stream: examSession.stream,
+    policy,
+    previewRef: videoRef,
+    onEvent: (type, extra) => examSession.ledger.emit(type, { ...extra, stage: 'preflight' }),
+  });
+
+  useEffect(() => {
+    if (face.region?.ok) examSession.region = face.region;
+  }, [face.region]);
+
+  const calibrating = cameraReady && policy?.facePresence === true &&
+    (face.status === 'loading' || face.status === 'calibrating');
+  const calibrated = face.status === 'monitoring';
+
+  // Actionable, not just "that didn't work". A student told "hold still" when
+  // the real problem is that they are sitting too far away cannot fix it.
+  const CALIBRATION_HELP = {
+    too_far: 'Move a little closer to the camera.',
+    too_close: 'Move back slightly — you are very close to the camera.',
+    off_centre: 'Move so your face is in the middle of the picture.',
+    not_facing: 'Look straight at the screen, then try again.',
+    face_not_steady: 'Sit still and look at the screen for a few seconds.',
+    too_few_samples: 'We could not see your face clearly. Check the lighting.',
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -328,19 +364,73 @@ export default function StudentExamPage() {
                   </Divider>
 
                   {cameraReady ? (
-                    <Box
-                      component="video"
-                      ref={videoRef}
-                      muted
-                      playsInline
-                      sx={{
-                        width: 240, height: 180, borderRadius: 2, objectFit: 'cover',
-                        // Mirrored: an un-mirrored self-view reads as wrong and
-                        // makes people correct their position the wrong way.
-                        transform: 'scaleX(-1)',
-                        border: '2px solid', borderColor: 'success.main',
-                      }}
-                    />
+                    <>
+                      <Box sx={{ position: 'relative', width: 240, height: 180, mx: 'auto' }}>
+                        <Box
+                          component="video"
+                          ref={videoRef}
+                          muted
+                          playsInline
+                          sx={{
+                            width: 240, height: 180, borderRadius: 2, objectFit: 'cover',
+                            // Mirrored: an un-mirrored self-view reads as wrong
+                            // and makes people correct their position the
+                            // wrong way round.
+                            transform: 'scaleX(-1)',
+                            border: '2px solid',
+                            borderColor: calibrated ? 'success.main'
+                              : face.calibrationError ? 'warning.main' : 'divider',
+                          }}
+                        />
+                        {/* The framing guide. Without something to aim at,
+                            "sit normally" produces whatever the student
+                            happens to be doing, including leaning over their
+                            notes. */}
+                        {policy?.facePresence === true && (
+                          <Box
+                            component="svg"
+                            viewBox="0 0 240 180"
+                            sx={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
+                          >
+                            <ellipse
+                              cx="120" cy="88" rx="52" ry="66"
+                              fill="none" strokeWidth="2.5" strokeDasharray="7 6"
+                              stroke={calibrated ? '#22c55e' : 'rgba(255,255,255,0.55)'}
+                            />
+                          </Box>
+                        )}
+                      </Box>
+
+                      {calibrating && (
+                        <Stack direction="row" spacing={1} alignItems="center" justifyContent="center" sx={{ mt: 1.5 }}>
+                          <CircularProgress
+                            size={18}
+                            variant={face.calibrationProgress ? 'determinate' : 'indeterminate'}
+                            value={Math.round(face.calibrationProgress * 100)}
+                          />
+                          <Typography variant="caption" color="text.secondary">
+                            Line your face up with the oval and look at the screen…
+                          </Typography>
+                        </Stack>
+                      )}
+
+                      {face.calibrationError && (
+                        <Alert severity="info" sx={{ mt: 1.5, textAlign: 'left' }}>
+                          {CALIBRATION_HELP[face.calibrationError] || 'Let’s try that again.'}
+                          <Box sx={{ mt: 1 }}>
+                            <Button size="small" variant="outlined" onClick={face.recalibrate}>
+                              Try again
+                            </Button>
+                          </Box>
+                        </Alert>
+                      )}
+
+                      {calibrated && (
+                        <Typography variant="caption" color="success.main" sx={{ display: 'block', mt: 1 }}>
+                          Camera set up. Nothing is recorded or uploaded.
+                        </Typography>
+                      )}
+                    </>
                   ) : problem ? (
                     <Alert severity={problem.severity} sx={{ textAlign: 'left' }}>
                       <AlertTitle>{problem.title}</AlertTitle>

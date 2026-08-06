@@ -28,7 +28,15 @@ async function init() {
   });
 }
 
-/** Reduce a detection list to the single largest face, normalised 0..1. */
+/**
+ * Reduce a detection list to the single largest face, normalised 0..1.
+ *
+ * NOTE ON UNITS, because they differ and getting it wrong is silent:
+ * `boundingBox` comes back in PIXELS and has to be divided by the frame size,
+ * but `keypoints` are already NormalizedKeypoint in 0..1 and must NOT be.
+ * Dividing them twice would leave every derived pose value wrong by a factor
+ * of the frame size, and the safe region would simply stop flagging anything.
+ */
 function summarise(result, width, height) {
   const detections = result?.detections || [];
   if (!detections.length) return null;
@@ -41,18 +49,39 @@ function summarise(result, width, height) {
     const area = (box.width * box.height) / (width * height);
     if (area > bestArea) {
       bestArea = area;
-      best = { box, score: d.categories?.[0]?.score ?? 0 };
+      best = {
+        box,
+        score: d.categories?.[0]?.score ?? 0,
+        keypoints: d.keypoints || [],
+      };
     }
   }
   if (!best) return null;
 
+  // BlazeFace short-range emits six: right eye, left eye, nose tip, mouth
+  // centre, right ear tragion, left ear tragion. Flattened, because a plain
+  // number array structured-clones far more cheaply than six objects at 2 Hz.
+  //
+  // These were previously computed by the model and discarded here. They are
+  // what makes attention scoring independent of how far away the student
+  // sits: an interocular distance shrinks with distance exactly as head
+  // movement does, so measuring one against the other cancels the distance.
+  let kp = null;
+  if (best.keypoints.length >= 3) {
+    kp = [];
+    for (const point of best.keypoints) kp.push(point.x, point.y);
+  }
+
   return {
     cx: (best.box.originX + best.box.width / 2) / width,
     cy: (best.box.originY + best.box.height / 2) / height,
+    w: best.box.width / width,
+    h: best.box.height / height,
     area: bestArea,
     score: best.score,
     // More than one face in frame is worth knowing about on its own.
     faces: detections.length,
+    kp,
   };
 }
 

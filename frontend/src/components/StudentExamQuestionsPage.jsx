@@ -148,6 +148,11 @@ export default function StudentExamQuestionsPage() {
              camera.status === 'active' &&
              !faceSkipped,
     stream: camera.stream,
+    policy,
+    // Calibrated on the readiness gate, where the student could see
+    // themselves. Rebuilding it here would spend exam time redoing work, and
+    // would redo it worse — there is no mirror on this page.
+    initialRegion: examSession.region,
     onEvent: emit,
   });
 
