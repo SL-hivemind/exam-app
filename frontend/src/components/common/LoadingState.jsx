@@ -38,7 +38,7 @@ export default function LoadingState({ message = 'Loading…', fullHeight = fals
         }}
       >
         <img
-          src="/Sl-metalic-png.png"
+          src="/logo-mark.png"
           alt=""
           width={72}
           height={72}

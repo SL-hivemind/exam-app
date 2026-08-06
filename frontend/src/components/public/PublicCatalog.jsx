@@ -108,7 +108,7 @@ export default function PublicCatalog() {
       </Typography>
       <Typography sx={{
         fontFamily: ff, fontWeight: 800, fontSize: { xs: '1.7rem', md: '2.2rem' }, lineHeight: 1.2,
-        background: 'linear-gradient(120deg,#ffffff,#c7d2fe 78%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+        color: '#ffffff',
       }}>
         {title}
       </Typography>
@@ -147,9 +147,8 @@ export default function PublicCatalog() {
         },
         '@media (prefers-reduced-motion: reduce)': { '& *': { animation: 'none !important' } },
       }}>
-        {/* Drifting aurora orbs */}
-        <Box sx={{ position: 'absolute', top: -140, left: '-6%', width: 420, height: 420, borderRadius: '50%', pointerEvents: 'none', background: 'radial-gradient(circle, rgba(47,107,255,0.22), transparent 68%)', filter: 'blur(50px)', animation: 'catDrift 12s ease-in-out infinite' }} />
-        <Box sx={{ position: 'absolute', bottom: -160, right: '-4%', width: 460, height: 460, borderRadius: '50%', pointerEvents: 'none', background: 'radial-gradient(circle, rgba(246,137,20,0.20), transparent 68%)', filter: 'blur(50px)', animation: 'catDrift 15s ease-in-out infinite reverse' }} />
+        {/* The two drifting aurora orbs that used to sit here are gone —
+            they were the only moving colour on an otherwise flat page. */}
 
         <Box sx={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
           {FLOATING.map((e, i) => (
@@ -175,13 +174,10 @@ export default function PublicCatalog() {
             />
             <Typography sx={{ fontFamily: ff, fontWeight: 800, fontSize: { xs: '2.1rem', md: '3.3rem' }, lineHeight: 1.12, letterSpacing: '-0.025em', color: '#f5f8ff', mb: 2 }}>
               Crack your exam with{' '}
-              <Box component="span" sx={{
-                background: 'linear-gradient(120deg,#6f9bff,#f68914,#6f9bff)',
-                backgroundSize: '220% 100%',
-                WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-                animation: 'catGrad 7s ease infinite',
-                '@keyframes catGrad': { '0%,100%': { backgroundPosition: '0% 50%' }, '50%': { backgroundPosition: '100% 50%' } },
-              }}>
+              {/* Was an animated three-stop gradient sweeping across the
+                  headline. Flat brand blue, in line with the rest of the
+                  public side. */}
+              <Box component="span" sx={{ color: '#6f9bff' }}>
                 extensive question banks
               </Box>
             </Typography>
@@ -261,10 +257,10 @@ export default function PublicCatalog() {
             {[{ k: 'all', l: 'All' }, { k: 'free', l: 'Free' }, { k: 'premium', l: 'Premium' }].map(f => (
               <Chip key={f.k} label={f.l} clickable onClick={() => setFilter(f.k)}
                 sx={{ fontFamily: ff, fontWeight: 700, px: 1.5, py: 2, borderRadius: '10px',
-                  background: filter === f.k ? 'linear-gradient(135deg,#2f6bff,#f68914)' : 'rgba(255,255,255,0.05)',
+                  background: filter === f.k ? '#2f6bff' : 'rgba(255,255,255,0.05)',
                   color: filter === f.k ? '#fff' : '#aeb9e0', border: filter === f.k ? 'none' : '1px solid rgba(255,255,255,0.12)',
                   boxShadow: filter === f.k ? '0 6px 18px rgba(246,137,20,0.30)' : 'none',
-                  '&:hover': { background: filter === f.k ? 'linear-gradient(135deg,#2f6bff,#f68914)' : 'rgba(255,255,255,0.10)' } }} />
+                  '&:hover': { background: filter === f.k ? '#2f6bff' : 'rgba(255,255,255,0.10)' } }} />
             ))}
           </Stack>
 
@@ -291,7 +287,7 @@ export default function PublicCatalog() {
                         {/* Media */}
                         <Box sx={{
                           height: 130, position: 'relative', display: 'flex', alignItems: 'flex-end', p: 2,
-                          background: course.thumbnail_url ? `url(${course.thumbnail_url}) center/cover` : 'linear-gradient(135deg, rgba(47,107,255,0.4), rgba(246,137,20,0.35))',
+                          background: course.thumbnail_url ? `url(${course.thumbnail_url}) center/cover` : 'rgba(47,107,255,0.4)',
                         }}>
                           <Box sx={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, transparent, rgba(7,11,29,0.55))' }} />
                           <Chip
@@ -342,7 +338,7 @@ export default function PublicCatalog() {
               <Box key={i} sx={{ width: { xs: '100%', sm: 320, md: 260 }, display: 'flex' }}>
                 <GlassCard interactive tilt sheen glow={f.color} sx={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 240 }}>
                   <Box sx={{ width: 50, height: 50, borderRadius: '14px', mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff',
-                    background: f.color === 'orange' ? 'linear-gradient(135deg,#f68914,#ff7a00)' : f.color === 'success' ? 'linear-gradient(135deg,#10b981,#34d399)' : f.color === 'indigo' ? 'linear-gradient(135deg,#5b6cff,#818cf8)' : 'linear-gradient(135deg,#2f6bff,#60a5fa)',
+                    background: f.color === 'orange' ? '#f68914' : f.color === 'success' ? '#10b981' : f.color === 'indigo' ? '#5b6cff' : '#2f6bff',
                     boxShadow: '0 8px 22px rgba(47,107,255,0.3)' }}>
                     {f.icon}
                   </Box>
@@ -363,7 +359,7 @@ export default function PublicCatalog() {
             {STEPS.map((s, i) => (
               <Box key={i} sx={{ width: { xs: '100%', sm: 320, md: 260 }, display: 'flex' }}>
                 <GlassCard sx={{ textAlign: 'center', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 250 }}>
-                  <Box sx={{ position: 'relative', width: 60, height: 60, mx: 'auto', mb: 2, borderRadius: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', background: 'linear-gradient(135deg,#2f6bff,#f68914)', boxShadow: '0 8px 22px rgba(246,137,20,0.35)' }}>
+                  <Box sx={{ position: 'relative', width: 60, height: 60, mx: 'auto', mb: 2, borderRadius: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', background: '#2f6bff', boxShadow: '0 8px 22px rgba(246,137,20,0.35)' }}>
                     {s.icon}
                     <Box sx={{ position: 'absolute', top: -8, right: -8, width: 24, height: 24, borderRadius: '50%', bgcolor: 'rgba(9,14,42,0.95)', border: '1px solid rgba(255,255,255,0.15)', color: '#ffb054', fontSize: '0.72rem', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{i + 1}</Box>
                   </Box>
@@ -406,7 +402,7 @@ export default function PublicCatalog() {
             <Grid item xs={12} md={6} sx={{ display: 'flex' }}>
               <GlassCard glow="orange" sx={{ flex: 1, display: 'flex', flexDirection: 'column', border: '1px solid rgba(246,137,20,0.45)' }}>
                 <Box sx={{ position: 'absolute', top: 14, right: 14 }}>
-                  <Chip label="RECOMMENDED" size="small" sx={{ fontFamily: ff, fontWeight: 800, fontSize: '0.62rem', letterSpacing: 1, color: '#1a1206', background: 'linear-gradient(135deg,#f68914,#ffb054)' }} />
+                  <Chip label="RECOMMENDED" size="small" sx={{ fontFamily: ff, fontWeight: 800, fontSize: '0.62rem', letterSpacing: 1, color: '#1a1206', background: '#f68914' }} />
                 </Box>
                 <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 2 }}>
                   <Box sx={{ width: 40, height: 40, borderRadius: '12px', bgcolor: 'rgba(246,137,20,0.16)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -435,10 +431,10 @@ export default function PublicCatalog() {
         <Container maxWidth="md">
           <Box sx={{
             position: 'relative', overflow: 'hidden', borderRadius: '26px', textAlign: 'center', p: { xs: 4, md: 6 },
-            background: 'linear-gradient(120deg, rgba(47,107,255,0.28), rgba(246,137,20,0.24))',
+            background: 'rgba(47,107,255,0.28)',
             border: '1px solid rgba(255,255,255,0.12)', backdropFilter: 'blur(16px)',
           }}>
-            <Box sx={{ position: 'absolute', top: -60, right: -40, width: 240, height: 240, borderRadius: '50%', background: 'radial-gradient(circle, rgba(246,137,20,0.4), transparent 65%)', filter: 'blur(24px)' }} />
+            {/* A blurred orange orb sat in this corner. Flat panel now. */}
             <Typography sx={{ fontFamily: ff, fontWeight: 800, fontSize: { xs: '1.6rem', md: '2.2rem' }, color: '#f5f8ff', mb: 1.5, position: 'relative' }}>
               Ready to start preparing?
             </Typography>

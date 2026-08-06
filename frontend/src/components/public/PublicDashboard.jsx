@@ -142,7 +142,7 @@ export default function PublicDashboard() {
       <Box sx={{ p: 2.5, display: 'flex', alignItems: 'center', gap: 1.2, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
         <Box sx={{
           width: 30, height: 30, borderRadius: '8px',
-          background: 'linear-gradient(135deg, #2563eb, #f68914)',
+          background: '#2563eb',
           display: 'flex', alignItems: 'center', justifyContent: 'center'
         }}>
           <SchoolIcon sx={{ color: '#fff', fontSize: 16 }} />
@@ -285,7 +285,7 @@ export default function PublicDashboard() {
           initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
           sx={{
             position: 'relative', overflow: 'hidden', borderRadius: '22px', mb: 3.5, p: { xs: 3, md: 3.5 },
-            background: 'linear-gradient(120deg, rgba(47,107,255,0.20), rgba(246,137,20,0.16))',
+            background: 'rgba(47,107,255,0.20)',
             border: '1px solid rgba(255,255,255,0.10)', backdropFilter: 'blur(16px)',
           }}
         >
@@ -333,7 +333,7 @@ export default function PublicDashboard() {
         {/* ── Quick Prep Hub ── */}
         <Box sx={{ mb: 4 }}>
           <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 2 }}>
-            <Box sx={{ width: 4, height: 20, borderRadius: 2, background: 'linear-gradient(#2f6bff,#f68914)' }} />
+            <Box sx={{ width: 4, height: 20, borderRadius: 2, background: '#2f6bff' }} />
             <Typography sx={{ fontFamily: ff, fontWeight: 700, color: '#f5f8ff' }}>Quick Prep Hub</Typography>
             <Box sx={{ flex: 1, height: '1px', bgcolor: 'rgba(255,255,255,0.08)' }} />
           </Stack>
@@ -348,7 +348,7 @@ export default function PublicDashboard() {
         <Grid container spacing={3}>
           <Grid item xs={12} md={7}>
             <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 2 }}>
-              <Box sx={{ width: 4, height: 20, borderRadius: 2, background: 'linear-gradient(#2f6bff,#f68914)' }} />
+              <Box sx={{ width: 4, height: 20, borderRadius: 2, background: '#2f6bff' }} />
               <Typography sx={{ fontFamily: ff, fontWeight: 700, color: '#f5f8ff' }}>My Courses</Typography>
             </Stack>
             {dashboardCourses.length === 0 ? (
@@ -387,7 +387,7 @@ export default function PublicDashboard() {
                             </Box>
                           </Box>
                           <LinearProgress variant="determinate" value={progressPct}
-                            sx={{ height: 5, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.08)', '& .MuiLinearProgress-bar': { background: progressPct >= 100 ? '#34d399' : 'linear-gradient(90deg,#2f6bff,#f68914)', borderRadius: 2 } }} />
+                            sx={{ height: 5, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.08)', '& .MuiLinearProgress-bar': { background: progressPct >= 100 ? '#34d399' : '#2f6bff', borderRadius: 2 } }} />
                           <Typography sx={{ fontFamily: ff, fontSize: '0.72rem', color: '#aeb9e0', mt: 0.8 }}>
                             {doneExams} of {totalExams} exams completed
                           </Typography>
@@ -402,7 +402,7 @@ export default function PublicDashboard() {
 
           <Grid item xs={12} md={5}>
             <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 2 }}>
-              <Box sx={{ width: 4, height: 20, borderRadius: 2, background: 'linear-gradient(#2f6bff,#f68914)' }} />
+              <Box sx={{ width: 4, height: 20, borderRadius: 2, background: '#2f6bff' }} />
               <Typography sx={{ fontFamily: ff, fontWeight: 700, color: '#f5f8ff' }}>Recent Results</Typography>
             </Stack>
             <Card sx={{ overflow: 'hidden' }}>
@@ -467,7 +467,7 @@ export default function PublicDashboard() {
             </Box>
             {dc.subscription.status !== 'active' && dc.course.price > 0 && (
               <Button onClick={() => handlePayment(dc.course.id, dc.course.title)} disabled={actionBusy} variant="contained" size="small"
-                sx={{ fontFamily: ff, fontWeight: 700, textTransform: 'none', borderRadius: '10px', background: 'linear-gradient(135deg, #2563eb, #3b82f6)', boxShadow: '0 4px 14px rgba(59,130,246,0.3)' }}>
+                sx={{ fontFamily: ff, fontWeight: 700, textTransform: 'none', borderRadius: '10px', background: '#2563eb', boxShadow: '0 4px 14px rgba(59,130,246,0.3)' }}>
                 {actionBusy ? <CircularProgress size={18} sx={{ color: '#fff' }} /> : `Unlock — ₹${dc.course.price}`}
               </Button>
             )}

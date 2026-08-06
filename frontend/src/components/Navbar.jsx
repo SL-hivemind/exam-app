@@ -99,12 +99,12 @@ export default function Navbar(props) {
       <Box sx={{ borderTop: '1px solid rgba(255,255,255,0.06)', p: 2.5 }}>
         {isAuthenticated ? (
           <Stack spacing={1.5}>
-            <Button fullWidth variant="contained" onClick={handleDashboardClick} sx={{ fontFamily: oswald, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', borderRadius: '10px', py: 1.2, background: 'linear-gradient(135deg, #f68914, #ffb054)', color: '#1a1206', boxShadow: '0 4px 14px rgba(246,137,20,0.30)' }}>Dashboard</Button>
+            <Button fullWidth variant="contained" onClick={handleDashboardClick} sx={{ fontFamily: oswald, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', borderRadius: '10px', py: 1.2, background: '#f68914', color: '#1a1206', boxShadow: '0 4px 14px rgba(246,137,20,0.30)' }}>Dashboard</Button>
             <Button fullWidth variant="outlined" onClick={handleLogout} sx={{ fontFamily: oswald, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', borderRadius: '10px', py: 1.2, borderColor: '#fecaca', color: '#ef4444', '&:hover': { bgcolor: 'rgba(239,68,68,0.04)', borderColor: '#ef4444' } }}>Logout</Button>
           </Stack>
         ) : (
           <Stack spacing={1.5}>
-            <Button fullWidth variant="contained" onClick={() => { navigate("/login"); setMobileOpen(false); }} sx={{ fontFamily: oswald, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', borderRadius: '10px', py: 1.2, background: 'linear-gradient(135deg, #f68914, #ffb054)', color: '#1a1206', boxShadow: '0 4px 14px rgba(246,137,20,0.30)' }}>Login</Button>
+            <Button fullWidth variant="contained" onClick={() => { navigate("/login"); setMobileOpen(false); }} sx={{ fontFamily: oswald, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', borderRadius: '10px', py: 1.2, background: '#f68914', color: '#1a1206', boxShadow: '0 4px 14px rgba(246,137,20,0.30)' }}>Login</Button>
             <Button fullWidth variant="outlined" onClick={() => { navigate("/public/register"); setMobileOpen(false); }} sx={{ fontFamily: oswald, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', borderRadius: '10px', py: 1.2, borderColor: 'rgba(255,255,255,0.15)', color: '#c7d2fe' }}>Get Started</Button>
           </Stack>
         )}
@@ -155,7 +155,7 @@ export default function Navbar(props) {
                     <Button onClick={() => navigate("/login")} sx={{ fontFamily: oswald, fontWeight: 500, fontSize: '0.9rem', letterSpacing: '0.05em', textTransform: 'uppercase', borderRadius: '8px', color: 'inherit', px: 2, '&:hover': { bgcolor: 'rgba(255,255,255,0.06)' } }}>
                       Login
                     </Button>
-                    <Button variant="contained" onClick={() => navigate("/public/register")} sx={{ fontFamily: oswald, fontWeight: 600, fontSize: '0.9rem', letterSpacing: '0.05em', textTransform: 'uppercase', borderRadius: '10px', px: 3, background: 'linear-gradient(135deg, #f68914, #ffb054)', color: '#1a1206', boxShadow: '0 2px 10px rgba(246,137,20,0.30)', '&:hover': { boxShadow: '0 4px 16px rgba(246,137,20,0.45)', transform: 'translateY(-1px)' }, transition: 'all 0.2s ease' }}>
+                    <Button variant="contained" onClick={() => navigate("/public/register")} sx={{ fontFamily: oswald, fontWeight: 600, fontSize: '0.9rem', letterSpacing: '0.05em', textTransform: 'uppercase', borderRadius: '10px', px: 3, background: '#f68914', color: '#1a1206', boxShadow: '0 2px 10px rgba(246,137,20,0.30)', '&:hover': { boxShadow: '0 4px 16px rgba(246,137,20,0.45)', transform: 'translateY(-1px)' }, transition: 'all 0.2s ease' }}>
                       Get Started
                     </Button>
                   </>

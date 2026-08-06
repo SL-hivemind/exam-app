@@ -10,10 +10,31 @@ import InstagramIcon from '@mui/icons-material/Instagram';
 import PinterestIcon from '@mui/icons-material/Pinterest';
 import YouTubeIcon from '@mui/icons-material/YouTube';
 import LinkedInIcon from '@mui/icons-material/LinkedIn';
+import PlaceIcon from '@mui/icons-material/Place';
 
 // Brand font (matches the app theme) — previously Oswald, which clashed.
 const oswald = "'Plus Jakarta Sans', 'Inter', sans-serif";
 const inter = "'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
+
+// 17°21'55.9"N 78°33'38.2"E, in decimal.
+const OFFICE = { lat: 17.365528, lng: 78.560611 };
+const MAP_EMBED = `https://maps.google.com/maps?q=${OFFICE.lat},${OFFICE.lng}&z=15&output=embed`;
+const MAP_LINK = `https://www.google.com/maps/search/?api=1&query=${OFFICE.lat},${OFFICE.lng}`;
+
+// One size for both marks, and one for every column heading — the two logos
+// were 56px and 100px side by side, and the columns each set their own.
+const LOGO = 56;
+
+const headingSx = {
+  fontFamily: oswald, fontWeight: 600, fontSize: '1.05rem',
+  letterSpacing: '0.06em', color: 'white', mb: 2.5, height: 26,
+  display: 'flex', alignItems: 'center',
+};
+
+const linkSx = {
+  fontFamily: inter, fontSize: '0.9rem', transition: 'color 0.2s',
+  '&:hover': { color: '#fff' },
+};
 
 export default function Footer() {
   const [openAbout, setOpenAbout] = useState(false);
@@ -36,20 +57,31 @@ export default function Footer() {
 
             {/* Column 1: Brand and Mission */}
             <Grid item xs={12} md={4}>
-              <Box display="flex" alignItems="center" mb={2} sx={{ gap: 1.25 }}>
-                <Box component="img" src="/sl-logo-master.svg" alt="Saaradaa Learknowations" sx={{ width: 56, height: 56, objectFit: 'contain', borderRadius: '22%' }} />
-                {/* The mark only. The full asset bakes in "SL EXAMS", which
-                    was rendering immediately left of the SL EXAMS wordmark. */}
-                <Box component="img" src="/logo-mark.png" alt="SL Exams" sx={{ width: 100, height: 100, objectFit: 'contain' }} />
+              {/* Both marks at the same size. They were 56px and 100px, which
+                  read as one logo and one mistake. The SL EXAMS asset is the
+                  cropped mark — the full one bakes in its own "SL EXAMS",
+                  which sat immediately left of the wordmark. */}
+              <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 2.5 }}>
+                <Box
+                  component="img"
+                  src="/sl-logo-master.svg"
+                  alt="Saaradaa Learknowations"
+                  sx={{ width: LOGO, height: LOGO, objectFit: 'contain', borderRadius: '22%', flexShrink: 0 }}
+                />
+                <Box
+                  component="img"
+                  src="/logo-mark.png"
+                  alt="SL Exams"
+                  sx={{ width: LOGO, height: LOGO, objectFit: 'contain', flexShrink: 0 }}
+                />
                 <Typography sx={{
-                  fontFamily: oswald, fontWeight: 700, fontSize: '1.5rem', letterSpacing: '0.06em',
-                  background: 'linear-gradient(120deg,#ffffff,#ffce9e)',
-                  WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+                  fontFamily: oswald, fontWeight: 700, fontSize: '1.4rem',
+                  letterSpacing: '0.06em', color: '#fff',
                 }}>
                   SL EXAMS
                 </Typography>
-              </Box>
-              <Typography variant="body2" sx={{ lineHeight: 1.8, maxWidth: 300, fontFamily: inter }}>
+              </Stack>
+              <Typography variant="body2" sx={{ lineHeight: 1.8, maxWidth: 340, fontFamily: inter }}>
                 A unit of Saaradaa Learknowations. We are dedicated to revolutionizing education through secure assessments, high-quality publications, and comprehensive school support services.
               </Typography>
 
@@ -64,50 +96,105 @@ export default function Footer() {
 
             {/* Column 2: Quick Links */}
             <Grid item xs={6} md={2}>
-              <Typography sx={{ fontFamily: oswald, fontWeight: 600, fontSize: '1.1rem', letterSpacing: '0.06em', color: 'white', mb: 2 }}>
-                PLATFORM
-              </Typography>
-              <Stack spacing={1.5}>
-                <Link href="#" color="inherit" underline="hover" sx={{ fontFamily: inter, fontSize: '0.9rem', transition: 'color 0.2s', '&:hover': { color: '#fff' } }} onClick={(e) => { e.preventDefault(); document.getElementById('lifecycle')?.scrollIntoView({ behavior: 'smooth' }) }}>Product Lifecycle</Link>
-                <Link href="/public" color="inherit" underline="hover" sx={{ fontFamily: inter, fontSize: '0.9rem', transition: 'color 0.2s', '&:hover': { color: '#fff' } }}>Public Exams</Link>
-                <Link href="/login" color="inherit" underline="hover" sx={{ fontFamily: inter, fontSize: '0.9rem', transition: 'color 0.2s', '&:hover': { color: '#fff' } }}>Student Login</Link>
-                <Link href="/register" color="inherit" underline="hover" sx={{ fontFamily: inter, fontSize: '0.9rem', transition: 'color 0.2s', '&:hover': { color: '#fff' } }}>Register School</Link>
+              <Typography sx={headingSx}>PLATFORM</Typography>
+              <Stack spacing={1.5} alignItems="flex-start">
+                <Link href="#" color="inherit" underline="hover" sx={linkSx} onClick={(e) => { e.preventDefault(); document.getElementById('lifecycle')?.scrollIntoView({ behavior: 'smooth' }) }}>Product Lifecycle</Link>
+                <Link href="/public" color="inherit" underline="hover" sx={linkSx}>Public Exams</Link>
+                <Link href="/login" color="inherit" underline="hover" sx={linkSx}>Student Login</Link>
+                {/* Was /register, which is not a route — it rendered the
+                    homepage on a 200, and now renders the 404 page. Schools
+                    sign up by talking to us, so it points where that happens. */}
+                <Link href="mailto:directorops@e2eindia.org?subject=School%20registration" color="inherit" underline="hover" sx={linkSx}>Register School</Link>
               </Stack>
             </Grid>
 
             {/* Column 3: Resources */}
-            <Grid item xs={6} md={3}>
-              <Typography sx={{ fontFamily: oswald, fontWeight: 600, fontSize: '1.1rem', letterSpacing: '0.06em', color: 'white', mb: 2 }}>
-                RESOURCES
-              </Typography>
-              <Stack spacing={1.5}>
-                <Link href="https://e2eindia.org" target="_blank" color="inherit" underline="hover" sx={{ fontFamily: inter, fontSize: '0.9rem', transition: 'color 0.2s', '&:hover': { color: '#f68914' } }}>E2E India</Link>
-                <Link href="https://journal.e2eindia.org/" target="_blank" color="inherit" underline="hover" sx={{ fontFamily: inter, fontSize: '0.9rem', transition: 'color 0.2s', '&:hover': { color: '#fff' } }}>Scientific Journals</Link>
-                <Link component="button" variant="body2" onClick={() => setOpenAbout(true)} color="inherit" underline="hover" sx={{ textAlign: 'left', fontFamily: inter, fontSize: '0.9rem', transition: 'color 0.2s', '&:hover': { color: '#fff' } }}>
+            <Grid item xs={6} md={2}>
+              <Typography sx={headingSx}>RESOURCES</Typography>
+              <Stack spacing={1.5} alignItems="flex-start">
+                <Link href="https://e2eindia.org" target="_blank" rel="noopener" color="inherit" underline="hover" sx={linkSx}>E2E India</Link>
+                <Link href="https://journal.e2eindia.org/" target="_blank" rel="noopener" color="inherit" underline="hover" sx={linkSx}>Scientific Journals</Link>
+                <Link component="button" onClick={() => setOpenAbout(true)} color="inherit" underline="hover" sx={{ ...linkSx, textAlign: 'left', p: 0, border: 0, background: 'none', cursor: 'pointer' }}>
                   About Us
                 </Link>
-                <Link href="mailto:Saradapublications18@gmail.com" color="inherit" underline="hover" sx={{ fontFamily: inter, fontSize: '0.9rem', transition: 'color 0.2s', '&:hover': { color: '#fff' } }}>
+                <Link href="mailto:Saradapublications18@gmail.com" color="inherit" underline="hover" sx={linkSx}>
                   Report an Issue
                 </Link>
               </Stack>
             </Grid>
 
-            {/* Column 4: Contact */}
-            <Grid item xs={12} md={3}>
-              <Typography sx={{ fontFamily: oswald, fontWeight: 600, fontSize: '1.1rem', letterSpacing: '0.06em', color: 'white', mb: 2 }}>
-                CONTACT US
-              </Typography>
-              <Typography variant="body2" paragraph sx={{ fontFamily: inter }}>
-                Hyderabad, Telangana, India
-              </Typography>
-              <Typography variant="body2" paragraph sx={{ fontFamily: inter }}>
-                <strong>Email:</strong>{' '}
-                directorops@e2eindia.org<br />
-                <strong>Phone:</strong> 040 45632683
-              </Typography>
-              <Button variant="gradient" size="small" href="mailto:directorops@e2eindia.org" sx={{ fontFamily: oswald, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', fontSize: '0.85rem' }}>
-                Send Message
-              </Button>
+            {/* Column 4: Contact + where we are */}
+            <Grid item xs={12} md={4}>
+              <Typography sx={headingSx}>CONTACT US</Typography>
+
+              <Stack spacing={1.25} sx={{ mb: 2.5 }}>
+                <Typography variant="body2" sx={{ fontFamily: inter }}>
+                  Hyderabad, Telangana, India
+                </Typography>
+                <Typography variant="body2" sx={{ fontFamily: inter }}>
+                  <Box component="strong" sx={{ color: '#fff' }}>Email:</Box>{' '}
+                  <Link href="mailto:directorops@e2eindia.org" color="inherit" underline="hover">
+                    directorops@e2eindia.org
+                  </Link>
+                </Typography>
+                <Typography variant="body2" sx={{ fontFamily: inter }}>
+                  <Box component="strong" sx={{ color: '#fff' }}>Phone:</Box>{' '}
+                  <Link href="tel:+914045632683" color="inherit" underline="hover">
+                    040 45632683
+                  </Link>
+                </Typography>
+              </Stack>
+
+              {/* Lazy so a map iframe on every page does not cost the page
+                  load — the footer is below the fold everywhere. */}
+              <Box
+                sx={{
+                  borderRadius: 2, overflow: 'hidden', mb: 1.5,
+                  border: '1px solid rgba(255,255,255,0.10)',
+                  lineHeight: 0,
+                }}
+              >
+                <Box
+                  component="iframe"
+                  title="SL Exams office location"
+                  src={MAP_EMBED}
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  sx={{ width: '100%', height: 180, border: 0, display: 'block' }}
+                />
+              </Box>
+
+              <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" useFlexGap>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  href={MAP_LINK}
+                  target="_blank"
+                  rel="noopener"
+                  startIcon={<PlaceIcon />}
+                  sx={{
+                    fontFamily: oswald, fontWeight: 600, letterSpacing: '0.04em',
+                    textTransform: 'uppercase', fontSize: '0.78rem',
+                    color: '#fff', borderColor: 'rgba(255,255,255,0.22)',
+                    '&:hover': { borderColor: '#fff', bgcolor: 'rgba(255,255,255,0.06)' },
+                  }}
+                >
+                  Directions
+                </Button>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  href="mailto:directorops@e2eindia.org"
+                  sx={{
+                    fontFamily: oswald, fontWeight: 600, letterSpacing: '0.04em',
+                    textTransform: 'uppercase', fontSize: '0.78rem',
+                    color: '#fff', borderColor: 'rgba(255,255,255,0.22)',
+                    '&:hover': { borderColor: '#fff', bgcolor: 'rgba(255,255,255,0.06)' },
+                  }}
+                >
+                  Send Message
+                </Button>
+              </Stack>
             </Grid>
 
           </Grid>

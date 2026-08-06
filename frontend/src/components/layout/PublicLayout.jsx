@@ -171,7 +171,7 @@ export default function PublicLayout() {
                         fontFamily: ff, fontWeight: 700, fontSize: '0.85rem',
                         textTransform: 'none', color: '#fff', borderRadius: '10px',
                         px: 2.5,
-                        background: 'linear-gradient(135deg, #2563eb, #3b82f6)',
+                        background: '#2563eb',
                         boxShadow: '0 4px 14px rgba(37,99,235,0.3)',
                         '&:hover': {
                           boxShadow: '0 6px 20px rgba(37,99,235,0.4)',
@@ -291,7 +291,7 @@ export default function PublicLayout() {
                 sx={{
                   fontFamily: ff, fontWeight: 700, textTransform: 'none',
                   color: '#fff', borderRadius: '10px', py: 1,
-                  background: 'linear-gradient(135deg, #2563eb, #3b82f6)',
+                  background: '#2563eb',
                   boxShadow: '0 4px 14px rgba(37,99,235,0.3)',
                 }}
               >

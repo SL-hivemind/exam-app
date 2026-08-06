@@ -17,6 +17,10 @@ export const tokens = {
   orange: '#f68914',
   orangeLight: '#ffb054',
   accent: '#f68914',
+  // Hover shade for the flat fills below. Buttons used to be two-stop
+  // gradients; the public side is monotone now, so a single darker step
+  // carries the hover state instead of a shifting gradient.
+  accentStrong: '#dd7708',
   accentGradient: 'linear-gradient(135deg, #f68914 0%, #ffb054 100%)',
   orangeGradient: 'linear-gradient(135deg, #f68914 0%, #ff7a00 100%)',
 
@@ -138,18 +142,21 @@ const theme = createTheme({
       defaultProps: { disableElevation: true },
       styleOverrides: {
         root: { borderRadius: 12, fontWeight: 700, paddingInline: 18, paddingBlock: 8 },
+        // Flat brand fills. These were two-stop gradients with a coloured
+        // glow, which read as decoration competing with the content.
         containedPrimary: {
-          background: tokens.accentGradient,
-          boxShadow: tokens.glowPrimary,
+          backgroundColor: tokens.accent,
+          boxShadow: 'none',
           color: '#1a1206',
-          '&:hover': { background: tokens.accentGradient, boxShadow: '0 10px 32px rgba(246,137,20,0.55)' },
-          transition: 'all 0.2s ease',
+          '&:hover': { backgroundColor: tokens.accentStrong, boxShadow: 'none' },
+          transition: 'background-color 0.2s ease',
         },
         containedSecondary: {
-          background: tokens.orangeGradient,
-          boxShadow: tokens.glowOrange,
+          backgroundColor: tokens.accent,
+          boxShadow: 'none',
           color: '#1a1206',
-          '&:hover': { background: tokens.orangeGradient, boxShadow: '0 10px 32px rgba(246,137,20,0.6)' },
+          '&:hover': { backgroundColor: tokens.accentStrong, boxShadow: 'none' },
+          transition: 'background-color 0.2s ease',
         },
         outlined: {
           borderColor: tokens.glassBorder,
@@ -161,13 +168,15 @@ const theme = createTheme({
       },
       variants: [
         {
+          // Kept under the old name so no call site has to change, but it is
+          // a flat brand fill now — the public side is monotone.
           props: { variant: 'gradient' },
           style: {
             color: '#fff',
-            background: tokens.accentGradient,
-            boxShadow: tokens.glowAccent,
-            '&:hover': { boxShadow: '0 12px 34px rgba(246,137,20,0.55)' },
-            transition: 'all 0.2s ease',
+            backgroundColor: tokens.accent,
+            boxShadow: 'none',
+            '&:hover': { backgroundColor: tokens.accentStrong },
+            transition: 'background-color 0.2s ease',
           },
         },
       ],

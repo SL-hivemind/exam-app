@@ -88,7 +88,7 @@ export default function PublicProfilePage() {
         <Stack direction="row" alignItems="center" spacing={1.5}>
           <Box sx={{
             width: 46, height: 46, borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: 'linear-gradient(135deg,#2563eb,#f68914)', color: '#fff',
+            background: '#2563eb', color: '#fff',
           }}>
             <PersonIcon />
           </Box>
@@ -102,7 +102,7 @@ export default function PublicProfilePage() {
           label={plan?.is_premium ? 'Premium plan' : plan?.enrolled ? 'Free plan' : 'No course yet'}
           sx={{
             fontFamily: ff, fontWeight: 800,
-            background: plan?.is_premium ? 'linear-gradient(135deg,#f68914,#ffb054)' : 'rgba(255,255,255,0.08)',
+            background: plan?.is_premium ? '#f68914' : 'rgba(255,255,255,0.08)',
             color: plan?.is_premium ? '#1a1206' : '#aeb9e0',
             border: plan?.is_premium ? 'none' : '1px solid rgba(255,255,255,0.14)',
             '& .MuiChip-icon': { color: 'inherit' },

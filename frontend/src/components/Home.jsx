@@ -505,12 +505,6 @@ export default function Home() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
-        @property --angle {
-          syntax: '<angle>';
-          inherits: false;
-          initial-value: 0deg;
-        }
-
         .slexam {
           --bg: transparent;
           --bg-alt: rgba(13, 18, 32, 0.4);
@@ -545,11 +539,16 @@ export default function Home() {
         .reveal-in { opacity: 1; transform: none; }
 
         .grad-text {
-          background-image: linear-gradient(95deg, var(--amber) 10%, var(--amber-soft) 45%, var(--indigo) 100%);
+          background-image: var(--amber);
           -webkit-background-clip: text; background-clip: text; color: transparent;
         }
 
-        /* ---------------- Glow border (rotating gradient ring) ---------------- */
+        /* ---------------- Card edge ----------------
+           Was a conic-gradient ring rotating around the border, whose amber
+           and indigo stops read as two bright rays sweeping each card — on
+           the hero mock windows they ran permanently. Replaced with a static
+           hairline: the cards still separate from the background, without
+           anything moving. Class names kept so the markup is untouched. */
         .glow-border { position: relative; }
         .glow-border::before {
           content: "";
@@ -557,19 +556,17 @@ export default function Home() {
           inset: 0;
           border-radius: inherit;
           padding: 1px;
-          background: conic-gradient(from var(--angle, 0deg), transparent 0%, var(--amber) 12%, transparent 26%, transparent 74%, var(--indigo) 88%, transparent 100%);
-          -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+          background: rgba(255,255,255,0.10);
+          -webkit-mask: #000 content-box, #000;
           -webkit-mask-composite: xor;
           mask-composite: exclude;
           opacity: 0;
-          transition: opacity .4s ease;
-          animation: rotateAngle 4s linear infinite;
+          transition: opacity .3s ease;
           pointer-events: none;
           z-index: 2;
         }
         .glow-border:hover::before { opacity: 1; }
-        .glow-border-always::before { opacity: 0.85; }
-        @keyframes rotateAngle { to { --angle: 360deg; } }
+        .glow-border-always::before { opacity: 0.7; }
 
         /* ---------------- Reveal loader ---------------- */
         .mount-curtain { position: fixed; inset: 0; z-index: 200; background: #0a0e1a; display: flex; align-items: center; justify-content: center; transition: opacity .6s cubic-bezier(.16,.84,.44,1), visibility .6s; }
@@ -579,7 +576,7 @@ export default function Home() {
 
         /* ---------------- Buttons ---------------- */
         .btn { display: inline-flex; align-items: center; gap: 9px; padding: 14px 26px; border-radius: 11px; font-weight: 600; font-size: 15px; cursor: pointer; border: 1px solid transparent; transition: transform .25s ease, box-shadow .25s ease, background .25s ease, border-color .25s ease; white-space: nowrap; }
-        .btn-primary { background: linear-gradient(135deg, var(--amber), #ffb648); color: #1a1305; box-shadow: 0 10px 26px -10px rgba(245,166,35,0.6); }
+        .btn-primary { background: var(--amber); color: #1a1305; box-shadow: 0 10px 26px -10px rgba(245,166,35,0.6); }
         .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 16px 32px -10px rgba(245,166,35,0.7); }
         .btn-ghost { background: rgba(255,255,255,0.03); border-color: var(--border); color: var(--text); }
         .btn-ghost:hover { background: rgba(255,255,255,0.08); transform: translateY(-2px); border-color: rgba(255,255,255,0.18); }
@@ -628,7 +625,7 @@ export default function Home() {
         /* cursor-glow removed — 3D orbit is now mouse-interactive */
         .tilt-card { transition: transform .15s ease-out; transform-style: preserve-3d; }
         .hero-mock { position: relative; z-index: 2; width: 100%; max-width: 540px; }
-        .mock-window { background: linear-gradient(180deg, var(--surface-2), var(--surface)); border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 40px 80px -30px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.02) inset; overflow: hidden; }
+        .mock-window { background: var(--surface-2); border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 40px 80px -30px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.02) inset; overflow: hidden; }
         .mock-topbar { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--border-soft); background: rgba(255,255,255,0.02); }
         .mock-dots { display: flex; gap: 6px; }
         .mock-dots span { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.15); }
@@ -690,7 +687,7 @@ export default function Home() {
         .hero-card-slide.active { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; z-index: 2; }
         .hero-card-indicators { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 20px; position: relative; z-index: 3; }
         .hero-card-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.12); cursor: pointer; transition: all .3s ease; border: none; padding: 0; }
-        .hero-card-dot.active { width: 28px; border-radius: 4px; background: linear-gradient(135deg, var(--amber), var(--indigo)); }
+        .hero-card-dot.active { width: 28px; border-radius: 4px; background: var(--amber); }
         .hero-card-label { font-size: 11px; color: var(--text-faint); margin-top: 8px; text-align: center; font-family: 'JetBrains Mono', monospace; letter-spacing: 0.05em; transition: opacity .3s ease; position: relative; z-index: 3; }
 
         .floating-badge { position: absolute; display: flex; align-items: center; gap: 6px; padding: 8px 13px; border-radius: 10px; background: rgba(18,24,42,0.9); border: 1px solid var(--border); font-size: 12px; font-weight: 500; color: var(--text); backdrop-filter: blur(6px); z-index: 3; animation: floatY 4.5s ease-in-out infinite; box-shadow: 0 12px 24px -12px rgba(0,0,0,0.6); }
@@ -718,7 +715,7 @@ export default function Home() {
         .lifecycle-body { display: grid; grid-template-columns: 56px 1fr; gap: 20px; }
         .lifecycle-rail { position: relative; display: flex; flex-direction: column; align-items: center; }
         .rail-track { position: absolute; top: 6px; bottom: 6px; width: 2px; background: var(--border); border-radius: 2px; }
-        .rail-fill { position: absolute; top: 0; left: 0; width: 100%; background: linear-gradient(180deg, var(--amber), var(--indigo)); border-radius: 2px; transition: height .5s cubic-bezier(.16,.84,.44,1); }
+        .rail-fill { position: absolute; top: 0; left: 0; width: 100%; background: var(--amber); border-radius: 2px; transition: height .5s cubic-bezier(.16,.84,.44,1); }
         .rail-dots { position: relative; width: 100%; height: 100%; }
         .rail-dot { position: absolute; left: 50%; transform: translate(-50%, -50%); width: 34px; height: 34px; border-radius: 50%; background: var(--bg); border: 2px solid var(--border); display: flex; align-items: center; justify-content: center; transition: border-color .4s ease, background .4s ease, box-shadow .4s ease; z-index: 1; }
         .rail-num { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-faint); transition: color .4s ease; }
@@ -753,7 +750,7 @@ export default function Home() {
         .spotlight-list li { display: flex; align-items: flex-start; gap: 12px; font-size: 14.5px; color: var(--text-dim); }
         .spotlight-list svg { color: var(--mint); flex-shrink: 0; margin-top: 2px; }
 
-        .cc-panel { background: linear-gradient(180deg, var(--surface-2), var(--surface)); border: 1px solid var(--border); border-radius: 16px; padding: 20px; box-shadow: 0 40px 80px -30px rgba(0,0,0,0.7); }
+        .cc-panel { background: var(--surface-2); border: 1px solid var(--border); border-radius: 16px; padding: 20px; box-shadow: 0 40px 80px -30px rgba(0,0,0,0.7); }
         .cc-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
         .cc-live { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--red); font-family: 'JetBrains Mono', monospace; letter-spacing: 0.06em; }
         .cc-live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--red); box-shadow: 0 0 8px var(--red); animation: pulseDot 1.4s ease-in-out infinite; }
@@ -781,7 +778,7 @@ export default function Home() {
         @media (max-width: 640px) { .impact-grid { grid-template-columns: 1fr; } }
 
         /* ---------------- Explore SL (beyond exams) ---------------- */
-        .explore-card { position: relative; overflow: hidden; border-radius: 20px; border: 1px solid var(--border); background: linear-gradient(135deg, rgba(245,166,35,0.07), rgba(108,124,255,0.07)), var(--surface); padding: 46px; display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 40px; align-items: center; }
+        .explore-card { position: relative; overflow: hidden; border-radius: 20px; border: 1px solid var(--border); background: rgba(245,166,35,0.07), var(--surface); padding: 46px; display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 40px; align-items: center; }
         .explore-orb { position: absolute; width: 340px; height: 340px; border-radius: 50%; filter: blur(60px); opacity: .35; pointer-events: none; }
         .explore-orb-1 { background: radial-gradient(circle, rgba(245,166,35,0.5), transparent 70%); top: -120px; right: -80px; animation: exploreDrift 11s ease-in-out infinite; }
         .explore-orb-2 { background: radial-gradient(circle, rgba(108,124,255,0.45), transparent 70%); bottom: -140px; left: -60px; animation: exploreDrift 13s ease-in-out infinite reverse; }
@@ -791,11 +788,11 @@ export default function Home() {
         .explore-chip:hover { border-color: rgba(245,166,35,0.45); color: var(--text); transform: translateY(-2px); }
         .explore-visual { position: relative; display: flex; align-items: center; justify-content: center; }
         .explore-logo-ring { position: relative; width: 210px; height: 210px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
-        .explore-logo-ring::before { content: ''; position: absolute; inset: 0; border-radius: 50%; padding: 2px; background: conic-gradient(from 0deg, var(--amber), var(--indigo), transparent 65%, var(--amber)); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; animation: exploreSpin 7s linear infinite; }
+        .explore-logo-ring::before { content: ''; position: absolute; inset: 0; border-radius: 50%; padding: 2px; background: conic-gradient(from 0deg, var(--amber), var(--indigo), transparent 65%, var(--amber)); -webkit-mask: #000 content-box, #000; -webkit-mask-composite: xor; mask-composite: exclude; animation: exploreSpin 7s linear infinite; }
         @keyframes exploreSpin { to { transform: rotate(360deg); } }
         .explore-logo-ring img { width: 120px; height: 120px; border-radius: 26%; box-shadow: 0 18px 44px rgba(0,0,0,0.5); }
         .explore-cta-row { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
-        .btn-explore { display: inline-flex; align-items: center; gap: 9px; padding: 13px 26px; border-radius: 12px; font-weight: 600; font-size: 15px; color: #1a1305; background: linear-gradient(135deg, var(--amber), #ffc25e); border: none; cursor: pointer; text-decoration: none; box-shadow: 0 10px 26px rgba(245,166,35,0.35); transition: transform .2s ease, box-shadow .2s ease; }
+        .btn-explore { display: inline-flex; align-items: center; gap: 9px; padding: 13px 26px; border-radius: 12px; font-weight: 600; font-size: 15px; color: #1a1305; background: var(--amber); border: none; cursor: pointer; text-decoration: none; box-shadow: 0 10px 26px rgba(245,166,35,0.35); transition: transform .2s ease, box-shadow .2s ease; }
         .btn-explore:hover { transform: translateY(-2px); box-shadow: 0 14px 34px rgba(245,166,35,0.5); }
         .btn-explore svg { transition: transform .2s ease; }
         .btn-explore:hover svg { transform: translateX(4px); }
@@ -832,7 +829,7 @@ export default function Home() {
       `}</style>
 
       <div className={`mount-curtain ${loaded ? "curtain-hide" : ""}`} aria-hidden="true">
-        <img src="/Sl-metalic-png.png" alt="Loading..." className="curtain-logo" />
+        <img src="/logo-mark.png" alt="Loading..." className="curtain-logo" />
       </div>
 
       {/* ---------------- Hero ---------------- */}

@@ -62,7 +62,7 @@ export default function QuickLanding() {
     />
     <Box sx={{
       minHeight: '100vh',
-      background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)',
+      background: '#0f172a',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       p: 2,
     }}>
@@ -75,7 +75,7 @@ export default function QuickLanding() {
         <Box sx={{ textAlign: 'center', mb: 4 }}>
           <Box sx={{
             width: 64, height: 64, borderRadius: '18px', mx: 'auto', mb: 2,
-            background: 'linear-gradient(135deg, #2563eb, #f68914)',
+            background: '#2563eb',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
             <QuizIcon sx={{ fontSize: 32, color: '#fff' }} />
@@ -113,7 +113,7 @@ export default function QuickLanding() {
               sx={{
                 fontFamily: ff, fontWeight: 700, fontSize: '1rem', textTransform: 'none',
                 borderRadius: '14px', py: 1.5,
-                background: 'linear-gradient(135deg, #2563eb, #3b82f6)',
+                background: '#2563eb',
                 boxShadow: '0 8px 24px rgba(37,99,235,0.3)',
               }}
             >
@@ -126,7 +126,7 @@ export default function QuickLanding() {
             {/* Exam Info Card */}
             <Box sx={{
               p: 2.5, mb: 3, borderRadius: '16px',
-              background: 'linear-gradient(135deg, rgba(37,99,235,0.06), rgba(124,58,237,0.06))',
+              background: 'rgba(37,99,235,0.06)',
               border: '1px solid rgba(37,99,235,0.12)',
             }}>
               <Typography sx={{ fontFamily: ff, fontWeight: 800, fontSize: '1.1rem', color: '#eaf0ff', mb: 1.5 }}>
@@ -166,7 +166,7 @@ export default function QuickLanding() {
               sx={{
                 fontFamily: ff, fontWeight: 700, fontSize: '1rem', textTransform: 'none',
                 borderRadius: '14px', py: 1.5,
-                background: 'linear-gradient(135deg, #16a34a, #22c55e)',
+                background: '#16a34a',
                 boxShadow: '0 8px 24px rgba(34,197,94,0.3)',
               }}
             >

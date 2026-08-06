@@ -8,14 +8,18 @@ import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
  *
  * <GlassCard interactive tilt glow="indigo" onClick={...}>...</GlassCard>
  */
+// Neutral depth, not coloured haze. These were coloured halos that bloomed
+// around a card on hover and read as a blob sitting behind it; every caller
+// still passes its old `glow` name, they simply all resolve to shadow now.
+const NEUTRAL_GLOW = '0 20px 50px rgba(2,6,23,0.55)';
 const GLOWS = {
-  orange: '0 20px 50px rgba(246,137,20,0.34)',
-  amber: '0 20px 50px rgba(246,137,20,0.34)',
-  indigo: '0 20px 50px rgba(246,137,20,0.34)',
-  blue: '0 20px 50px rgba(246,137,20,0.34)',
-  purple: '0 20px 50px rgba(246,137,20,0.34)',
-  success: '0 20px 50px rgba(52,211,153,0.26)',
-  warning: '0 20px 50px rgba(251,191,36,0.26)',
+  orange: NEUTRAL_GLOW,
+  amber: NEUTRAL_GLOW,
+  indigo: NEUTRAL_GLOW,
+  blue: NEUTRAL_GLOW,
+  purple: NEUTRAL_GLOW,
+  success: NEUTRAL_GLOW,
+  warning: NEUTRAL_GLOW,
   none: '0 24px 60px rgba(2,6,23,0.6)',
 };
 
@@ -76,7 +80,7 @@ export default function GlassCard({
           inset: 0,
           borderRadius: 'inherit',
           padding: '1px',
-          background: 'linear-gradient(140deg, rgba(148,163,255,0.45), rgba(255,255,255,0) 40%)',
+          background: 'rgba(255,255,255,0.14)',
           WebkitMask: 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)',
           WebkitMaskComposite: 'xor',
           maskComposite: 'exclude',

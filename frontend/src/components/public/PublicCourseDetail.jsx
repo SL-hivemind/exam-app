@@ -274,7 +274,7 @@ export default function PublicCourseDetail() {
       />
 
       {/* ═══════════ HEADER ═══════════ */}
-      <Box sx={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', py: { xs: 4, md: 6 }, px: 3 }}>
+      <Box sx={{ background: '#0f172a', py: { xs: 4, md: 6 }, px: 3 }}>
         <Container maxWidth="lg">
           <Button
             startIcon={<ArrowBackIcon />}
@@ -384,7 +384,7 @@ export default function PublicCourseDetail() {
                       sx={{
                         fontFamily: ff, fontWeight: 700, textTransform: 'none', py: 1.5,
                         borderRadius: '12px', color: '#fff',
-                        background: 'linear-gradient(135deg, #16a34a, #22c55e)',
+                        background: '#16a34a',
                         boxShadow: '0 4px 14px rgba(22,163,74,0.3)',
                         '&:hover': { boxShadow: '0 8px 24px rgba(22,163,74,0.4)' },
                       }}>
@@ -404,7 +404,7 @@ export default function PublicCourseDetail() {
                     sx={{
                       fontFamily: ff, fontWeight: 700, textTransform: 'none', py: 1.5,
                       borderRadius: '12px', color: '#fff',
-                      background: 'linear-gradient(135deg, #2563eb, #3b82f6)',
+                      background: '#2563eb',
                       boxShadow: '0 4px 14px rgba(59,130,246,0.3)',
                       '&:hover': { boxShadow: '0 8px 24px rgba(59,130,246,0.4)' },
                     }}>
@@ -415,7 +415,7 @@ export default function PublicCourseDetail() {
                     sx={{
                       fontFamily: ff, fontWeight: 700, textTransform: 'none', py: 1.5,
                       borderRadius: '12px', color: '#fff',
-                      background: 'linear-gradient(135deg, #2563eb, #3b82f6)',
+                      background: '#2563eb',
                       boxShadow: '0 4px 14px rgba(59,130,246,0.3)',
                       '&:hover': { boxShadow: '0 8px 24px rgba(59,130,246,0.4)' },
                     }}>
@@ -573,7 +573,7 @@ export default function PublicCourseDetail() {
                   <Box sx={{
                     width: 42, height: 42, borderRadius: '12px', mb: 1.75,
                     display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff',
-                    background: 'linear-gradient(135deg,#2f6bff,#f68914)',
+                    background: '#2f6bff',
                   }}>
                     {b.icon}
                   </Box>
@@ -625,7 +625,7 @@ export default function PublicCourseDetail() {
                       value={questionCount ? Math.round((s.question_count / questionCount) * 100) : 0}
                       sx={{
                         height: 5, borderRadius: 3, bgcolor: 'rgba(255,255,255,0.07)',
-                        '& .MuiLinearProgress-bar': { borderRadius: 3, background: 'linear-gradient(90deg,#2f6bff,#f68914)' },
+                        '& .MuiLinearProgress-bar': { borderRadius: 3, background: '#2f6bff' },
                       }}
                     />
                   </Box>
@@ -695,7 +695,7 @@ export default function PublicCourseDetail() {
                     sx={{
                       fontFamily: ff, fontWeight: 700, textTransform: 'none', px: 3, py: 1.25,
                       borderRadius: '12px', color: '#fff',
-                      background: 'linear-gradient(135deg,#2f6bff,#f68914)',
+                      background: '#2f6bff',
                       '&:hover': { boxShadow: '0 8px 24px rgba(246,137,20,0.35)' },
                     }}>
                     {!hasAccess ? 'Enroll free to start'
@@ -850,7 +850,7 @@ export default function PublicCourseDetail() {
           <Box sx={{
             position: 'relative', overflow: 'hidden', borderRadius: '22px',
             textAlign: 'center', p: { xs: 3.5, md: 5 },
-            background: 'linear-gradient(120deg, rgba(47,107,255,0.26), rgba(246,137,20,0.22))',
+            background: 'rgba(47,107,255,0.26)',
             border: '1px solid rgba(255,255,255,0.12)',
           }}>
             <Typography sx={{ fontFamily: ff, fontWeight: 800, fontSize: { xs: '1.4rem', md: '1.8rem' }, color: '#f5f8ff', mb: 1.25 }}>
@@ -866,7 +866,7 @@ export default function PublicCourseDetail() {
               sx={{
                 fontFamily: ff, fontWeight: 700, textTransform: 'none', px: 4, py: 1.4,
                 borderRadius: '12px', color: '#fff', fontSize: '1rem',
-                background: 'linear-gradient(135deg,#2f6bff,#f68914)',
+                background: '#2f6bff',
                 '&:hover': { boxShadow: '0 10px 28px rgba(246,137,20,0.4)' },
               }}>
               {busy ? <CircularProgress size={22} sx={{ color: '#fff' }} />
@@ -894,7 +894,7 @@ export default function PublicCourseDetail() {
           <Button onClick={() => navigate('/public/login')} variant="contained"
             sx={{
               fontFamily: ff, fontWeight: 700, textTransform: 'none', borderRadius: '10px',
-              background: 'linear-gradient(135deg, #2563eb, #3b82f6)',
+              background: '#2563eb',
             }}>
             Sign In
           </Button>

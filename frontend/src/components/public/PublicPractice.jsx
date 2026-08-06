@@ -273,7 +273,7 @@ export default function PublicPractice() {
           <Chip
             label={isPremium ? '⭐ Premium' : 'Free plan'}
             sx={{ fontFamily: ff, fontWeight: 800, fontSize: '0.72rem',
-              background: isPremium ? 'linear-gradient(135deg,#f68914,#ffb054)' : 'rgba(255,255,255,0.08)',
+              background: isPremium ? '#f68914' : 'rgba(255,255,255,0.08)',
               color: isPremium ? '#1a1206' : '#aeb9e0', border: isPremium ? 'none' : '1px solid rgba(255,255,255,0.14)' }}
           />
         </Stack>
@@ -296,9 +296,9 @@ export default function PublicPractice() {
                 onClick={() => locked ? setError(lockMsg) : setForm(f => ({ ...f, scope: o.k }))}
                 sx={{ p: 2.25, opacity: locked ? 0.65 : 1,
                   border: form.scope === o.k ? '1px solid rgba(246,137,20,0.55)' : undefined,
-                  background: form.scope === o.k ? 'linear-gradient(135deg, rgba(47,107,255,0.16), rgba(246,137,20,0.14))' : undefined }}>
+                  background: form.scope === o.k ? 'rgba(47,107,255,0.16)' : undefined }}>
                 <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-                  <Box sx={{ width: 42, height: 42, borderRadius: '12px', mb: 1.25, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', background: 'linear-gradient(135deg,#2f6bff,#f68914)' }}>{o.icon}</Box>
+                  <Box sx={{ width: 42, height: 42, borderRadius: '12px', mb: 1.25, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', background: '#2f6bff' }}>{o.icon}</Box>
                   {locked && <Chip label="🔒 Premium" size="small" sx={{ fontFamily: ff, fontWeight: 700, fontSize: '0.62rem', bgcolor: 'rgba(246,137,20,0.14)', color: '#ffce9e', border: '1px solid rgba(246,137,20,0.3)' }} />}
                 </Stack>
                 <Typography sx={{ fontFamily: ff, fontWeight: 700, color: '#f5f8ff' }}>{o.label}</Typography>
@@ -334,7 +334,7 @@ export default function PublicPractice() {
           {[10, 15, 20, 30].map(n => (
             <Chip key={n} label={n} clickable onClick={() => setForm(f => ({ ...f, count: n }))}
               sx={{ fontFamily: ff, fontWeight: 700, px: 1.5, py: 2.2, borderRadius: '10px',
-                background: form.count === n ? 'linear-gradient(135deg,#2f6bff,#f68914)' : 'rgba(255,255,255,0.05)',
+                background: form.count === n ? '#2f6bff' : 'rgba(255,255,255,0.05)',
                 color: form.count === n ? '#fff' : '#aeb9e0', border: form.count === n ? 'none' : '1px solid rgba(255,255,255,0.12)' }} />
           ))}
         </Stack>
@@ -350,7 +350,7 @@ export default function PublicPractice() {
               icon={m.k === 'adaptive' && !locked ? <BoltIcon sx={{ fontSize: 16 }} /> : undefined}
               sx={{ fontFamily: ff, fontWeight: 700, px: 1.5, py: 2.2, borderRadius: '10px',
                 opacity: locked ? 0.6 : 1,
-                background: form.mode === m.k ? 'linear-gradient(135deg,#2f6bff,#f68914)' : 'rgba(255,255,255,0.05)',
+                background: form.mode === m.k ? '#2f6bff' : 'rgba(255,255,255,0.05)',
                 color: form.mode === m.k ? '#fff' : '#aeb9e0', border: form.mode === m.k ? 'none' : '1px solid rgba(255,255,255,0.12)',
                 '& .MuiChip-icon': { color: form.mode === m.k ? '#fff' : '#ffb054' } }} />
           );})}
@@ -373,7 +373,7 @@ export default function PublicPractice() {
               onClick={() => locked ? setError(lockMsg) : setForm(f => ({ ...f, format: fm.k }))}
               sx={{ fontFamily: ff, fontWeight: 700, px: 1.5, py: 2.2, borderRadius: '10px',
                 opacity: locked ? 0.6 : 1,
-                background: form.format === fm.k ? 'linear-gradient(135deg,#2f6bff,#f68914)' : 'rgba(255,255,255,0.05)',
+                background: form.format === fm.k ? '#2f6bff' : 'rgba(255,255,255,0.05)',
                 color: form.format === fm.k ? '#fff' : '#aeb9e0', border: form.format === fm.k ? 'none' : '1px solid rgba(255,255,255,0.12)' }} />
           );})}
         </Stack>
@@ -411,7 +411,7 @@ export default function PublicPractice() {
           <Chip icon={<CheckCircleIcon sx={{ fontSize: 16 }} />} label={`${score} correct`} sx={{ fontFamily: ff, fontWeight: 700, bgcolor: 'rgba(52,211,153,0.14)', color: '#6ee7b7', '& .MuiChip-icon': { color: '#34d399' } }} />
         </Stack>
         <LinearProgress variant="determinate" value={progress}
-          sx={{ height: 8, borderRadius: 4, mb: 3, bgcolor: 'rgba(255,255,255,0.08)', '& .MuiLinearProgress-bar': { background: 'linear-gradient(90deg,#2f6bff,#f68914)', borderRadius: 4 } }} />
+          sx={{ height: 8, borderRadius: 4, mb: 3, bgcolor: 'rgba(255,255,255,0.08)', '& .MuiLinearProgress-bar': { background: '#2f6bff', borderRadius: 4 } }} />
 
         <AnimatePresence mode="wait">
           <Box key={q.id} component={motion.div} initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -24 }} transition={{ duration: 0.25 }}>
@@ -479,7 +479,7 @@ export default function PublicPractice() {
     return (
       <Container maxWidth="md" sx={{ py: { xs: 3, md: 5 } }}>
         <GlassCard glow={good ? 'success' : 'orange'} sx={{ textAlign: 'center', mb: 3 }}>
-          <Box sx={{ width: 76, height: 76, mx: 'auto', mb: 2, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', background: good ? 'linear-gradient(135deg,#10b981,#34d399)' : 'linear-gradient(135deg,#f68914,#ff7a00)' }}>
+          <Box sx={{ width: 76, height: 76, mx: 'auto', mb: 2, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', background: good ? '#10b981' : '#f68914' }}>
             <TrendingUpIcon sx={{ fontSize: 38 }} />
           </Box>
           <Typography sx={{ fontFamily: ff, fontWeight: 800, fontSize: '2.2rem', color: '#f5f8ff' }}>{result.score}/{total}</Typography>
