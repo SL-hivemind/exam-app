@@ -22,7 +22,7 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 
-const { STATIC_ROUTES, fetchCourses, coursePath } = require('./publicRoutes');
+const { STATIC_ROUTES, fetchCourses, coursePath, API_URL } = require('./publicRoutes');
 
 const BUILD_DIR = path.join(__dirname, '..', 'build');
 // 3000 on purpose. Course pages fetch from the API while rendering, and the
@@ -144,10 +144,35 @@ async function main() {
     console.warn('[seo] API unreachable — prerendering static routes only.');
   }
 
+  // Static routes are REQUIRED: they render from the bundle alone, so a
+  // failure there means the build itself is broken and must not ship.
+  //
+  // Course pages are best-effort. They depend on a live API call completing
+  // inside the build container, and that can fail for reasons that have
+  // nothing to do with this build — a cold API instance, a slow network, a
+  // transient 5xx. A course page that is not prerendered simply behaves the
+  // way the whole site did before prerendering existed: it renders client
+  // side. Failing the deploy over that is out of proportion to the harm.
   const routes = [
-    ...STATIC_ROUTES.filter((r) => r.prerender).map((r) => r.path),
-    ...(courses || []).map(coursePath),
+    ...STATIC_ROUTES.filter((r) => r.prerender).map((r) => ({ path: r.path, required: true })),
+    ...(courses || []).map((c) => ({ path: coursePath(c), required: false })),
   ];
+
+  console.log(`[seo] API for page data: ${API_URL}`);
+
+  // Wake the API before the browser needs it. Render spins idle services
+  // down, and the first request can take the better part of a minute — paid
+  // by whichever course page happens to render first, which then looks like
+  // a prerender bug rather than a cold start.
+  if (routes.some((r) => !r.required)) {
+    const started = Date.now();
+    try {
+      const res = await fetch(`${API_URL}/public/courses`);
+      console.log(`[seo] API warm-up: HTTP ${res.status} in ${Date.now() - started}ms`);
+    } catch (err) {
+      console.warn(`[seo] API warm-up failed after ${Date.now() - started}ms: ${err.message}`);
+    }
+  }
 
   // Captured before anything is written over it.
   const shellHtml = fs.readFileSync(rootIndex, 'utf8');
@@ -159,18 +184,75 @@ async function main() {
   });
 
   let written = 0;
+  const skipped = [];
   try {
-    for (const route of routes) {
-      const page = await browser.newPage();
-      // A crawler's viewport, so anything gated on a media query renders the
-      // way a crawler would see it.
-      await page.setViewport({ width: 1280, height: 900 });
+    for (const { path: route, required } of routes) {
+      // One retry. A cold API instance frequently answers the second time.
+      const attempts = 2;
+      let lastError = null;
 
-      try {
-        await page.goto(`http://127.0.0.1:${PORT}${route}`, {
-          waitUntil: 'networkidle0',
-          timeout: 45000,
-        });
+      for (let attempt = 1; attempt <= attempts; attempt += 1) {
+        try {
+          await renderRoute(browser, route, attempt);
+          written += 1;
+          lastError = null;
+          break;
+        } catch (err) {
+          lastError = err;
+          if (attempt < attempts) {
+            console.warn(`[seo] ${route} attempt ${attempt} failed (${err.message}) — retrying`);
+          }
+        }
+      }
+
+      if (lastError) {
+        if (required) {
+          throw new Error(`required route ${route} could not be prerendered: ${lastError.message}`);
+        }
+        console.warn(`[seo] SKIPPED ${route}: ${lastError.message}`);
+        console.warn('[seo]   it will render client-side, as it did before prerendering.');
+        skipped.push(route);
+      }
+    }
+  } finally {
+    await browser.close();
+    server.close();
+  }
+
+  if (skipped.length) {
+    console.warn(`[seo] ${skipped.length} course page(s) not prerendered: ${skipped.join(', ')}`);
+  }
+  console.log(`[seo] prerendered ${written}/${routes.length} public routes`);
+}
+
+/** Render one route and write its snapshot. Throws on failure. */
+async function renderRoute(browser, route, attempt) {
+  const page = await browser.newPage();
+  // A crawler's viewport, so anything gated on a media query renders the way
+  // a crawler would see it.
+  await page.setViewport({ width: 1280, height: 900 });
+
+  // Collected so a failure says WHY rather than just "timed out". A course
+  // page that never finishes has almost always had its API call refused,
+  // blocked by CORS, or answered with a 5xx.
+  const consoleErrors = [];
+  const failedRequests = [];
+  page.on('console', (m) => {
+    if (m.type() === 'error') consoleErrors.push(m.text().slice(0, 200));
+  });
+  page.on('requestfailed', (r) => {
+    failedRequests.push(`${r.failure()?.errorText || 'failed'} ${r.url().slice(0, 120)}`);
+  });
+  page.on('response', (r) => {
+    if (r.status() >= 400) failedRequests.push(`HTTP ${r.status()} ${r.url().slice(0, 120)}`);
+  });
+
+  try {
+    {
+      await page.goto(`http://127.0.0.1:${PORT}${route}`, {
+        waitUntil: 'networkidle0',
+        timeout: 60000,
+      });
 
         // Wait for THIS route's own metadata, not merely for React to mount.
         //
@@ -193,7 +275,7 @@ async function main() {
               return false;
             }
           },
-          { timeout: 25000 },
+          { timeout: 35000 },
           route,
         );
 
@@ -211,23 +293,33 @@ async function main() {
           return `<!DOCTYPE html>\n${document.documentElement.outerHTML}`;
         });
 
-        const outDir = route === '/' ? BUILD_DIR : path.join(BUILD_DIR, route);
-        fs.mkdirSync(outDir, { recursive: true });
-        fs.writeFileSync(path.join(outDir, 'index.html'), html);
+      const outDir = route === '/' ? BUILD_DIR : path.join(BUILD_DIR, route);
+      fs.mkdirSync(outDir, { recursive: true });
+      fs.writeFileSync(path.join(outDir, 'index.html'), html);
 
-        const title = await page.title();
-        console.log(`[seo] ${route}  →  ${title.slice(0, 70)}`);
-        written += 1;
-      } finally {
-        await page.close();
-      }
+      const title = await page.title();
+      console.log(`[seo] ${route}  →  ${title.slice(0, 70)}`);
     }
+  } catch (err) {
+    // Say why. "Waiting failed: 25000ms exceeded" on its own sends whoever
+    // reads the build log hunting through this script instead of at the
+    // request that actually failed.
+    if (failedRequests.length) {
+      console.warn(`[seo]   failed requests on ${route}:`);
+      [...new Set(failedRequests)].slice(0, 5).forEach((r) => console.warn(`[seo]     ${r}`));
+    }
+    if (consoleErrors.length) {
+      console.warn(`[seo]   console errors on ${route}:`);
+      [...new Set(consoleErrors)].slice(0, 3).forEach((e) => console.warn(`[seo]     ${e}`));
+    }
+    if (!failedRequests.length && !consoleErrors.length && attempt >= 2) {
+      console.warn(`[seo]   no failed requests — the page rendered but never produced`);
+      console.warn(`[seo]   a <link rel="canonical"> for ${route}.`);
+    }
+    throw err;
   } finally {
-    await browser.close();
-    server.close();
+    await page.close();
   }
-
-  console.log(`[seo] prerendered ${written}/${routes.length} public routes`);
 }
 
 main().catch((err) => {
