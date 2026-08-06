@@ -96,7 +96,7 @@ export default function StudentExamQuestionsPage() {
   const {
     violations, isFullscreen, fullscreenSupported, enterFullscreen, emit,
   } = useExamSecurity({
-    active: !loading && !submitted,
+    armed: !loading && !submitted,
     policy,
     onEvent: handleProctorEvent,
     seqKey: `examSeq-${user?.id}-${examId}`,

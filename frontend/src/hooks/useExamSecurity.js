@@ -18,20 +18,27 @@ import {
  *
  * Emits structured events rather than firing callbacks with bare strings, so
  * the same stream can drive the on-screen warning, the violation counter, and
- * (from Phase 2) the server-side ledger without any of them re-deriving state.
+ * the server-side ledger without any of them re-deriving state.
+ *
+ * Recording and counting are separate. Every event is always recorded; only
+ * some of them are counted. A camera permission prompt makes Chrome drop
+ * fullscreen and steal focus, and charging that to the student cost two of
+ * their three violations before they had answered a question. Suppression
+ * windows exist for exactly that class of self-inflicted event.
  *
  * @param {object}   opts
- * @param {boolean}  opts.active     monitoring runs only while true
+ * @param {boolean}  opts.armed      listeners attach, and HARD events count
  * @param {object}   opts.policy     partial policy, merged over DEFAULT_POLICY
  * @param {function} opts.onEvent    called with each {type, severity, ts, seq, ...}
- * @param {string}   opts.seqKey     localStorage key so the sequence survives a refresh
+ * @param {string}   opts.seqKey     sessionStorage key so the sequence survives a refresh
  *
  * @returns {{
  *   violations: number, isFullscreen: boolean, fullscreenSupported: boolean,
- *   enterFullscreen: function, emit: function
+ *   enterFullscreen: function, emit: function,
+ *   suppress: function, disarm: function
  * }}
  */
-export default function useExamSecurity({ active, policy: policyOverrides, onEvent, seqKey } = {}) {
+export default function useExamSecurity({ armed, policy: policyOverrides, onEvent, seqKey } = {}) {
   const policy = { ...DEFAULT_POLICY, ...(policyOverrides || {}) };
 
   const [violations, setViolations] = useState(0);
@@ -48,6 +55,48 @@ export default function useExamSecurity({ active, policy: policyOverrides, onEve
   useEffect(() => { onEventRef.current = onEvent; });
   useEffect(() => { policyRef.current = policy; });
 
+  // ── The counting gate ──────────────────────────────────────────────────
+  //
+  // Refs, not state: a suppression window has to take effect in the same tick
+  // it is opened. `suppress()` is called immediately before the thing it is
+  // protecting against (a getUserMedia call, a submit), and a queued state
+  // update would land after the event it was meant to cover.
+  const gateRef = useRef({ armed: false, armedAt: 0, holds: new Map(), nextId: 1 });
+
+  useEffect(() => {
+    const gate = gateRef.current;
+    if (armed && !gate.armed) {
+      gate.armed = true;
+      gate.armedAt = Date.now();
+    } else if (!armed) {
+      gate.armed = false;
+      gate.holds.clear();
+    }
+  }, [armed]);
+
+  const gateState = useCallback((now) => {
+    const gate = gateRef.current;
+    if (!gate.armed) return { counts: false, reason: 'disarmed' };
+    for (const hold of gate.holds.values()) {
+      if (hold.until > now) return { counts: false, reason: hold.reason };
+    }
+    const warmupMs = policyRef.current.armWarmupMs ?? 1500;
+    if (now - gate.armedAt < warmupMs) return { counts: false, reason: 'warmup' };
+    return { counts: true, reason: null };
+  }, []);
+
+  /**
+   * Open a window during which HARD events are recorded but not counted.
+   * Returns an idempotent release; the `ms` cap is a backstop for a release
+   * that never runs (a rejected promise, an unmounted component).
+   */
+  const suppress = useCallback((reason, ms = 8000) => {
+    const gate = gateRef.current;
+    const id = gate.nextId++;
+    gate.holds.set(id, { reason, until: Date.now() + ms });
+    return () => { gate.holds.delete(id); };
+  }, []);
+
   // Monotonic per-attempt sequence. Persisted so a refresh cannot silently
   // restart it at 0 — the server uses gaps in this number as its own signal.
   const seqRef = useRef(0);
@@ -57,45 +106,99 @@ export default function useExamSecurity({ active, policy: policyOverrides, onEve
     if (!Number.isNaN(stored)) seqRef.current = stored;
   }, [seqKey]);
 
+  // The focus/visibility state machine. In a ref rather than effect-local
+  // closures: any re-run of that effect used to drop an open away-span on the
+  // floor, so a tab switch in progress when the policy changed was never
+  // closed and its duration was lost.
+  const focusRef = useRef({ awayStart: null, blurTimer: null, blurStart: null });
+
+  // Repeat suppression. Safari fires both `fullscreenchange` and
+  // `webkitfullscreenchange` for one transition, and onFullscreenChange
+  // registers the handler on every vendor name.
+  const lastEmitRef = useRef(new Map());
+
   const emit = useCallback((type, extra = {}) => {
+    const now = Date.now();
+
+    const dedupMs = policyRef.current.dedupMs ?? 250;
+    const previous = lastEmitRef.current.get(type);
+    if (previous !== undefined && now - previous < dedupMs) return null;
+    lastEmitRef.current.set(type, now);
+
     const seq = ++seqRef.current;
     if (seqKey) {
       try { sessionStorage.setItem(seqKey, String(seq)); } catch { /* private mode */ }
     }
+
+    const gate = gateState(now);
+    const isHard = HARD_EVENTS.has(type);
+    const gated = isHard && !gate.counts;
+
     const event = {
       type,
       severity: severityOf(type),
-      ts: Date.now(),
+      ts: now,
       seq,
       ...extra,
+      // Recorded either way. The flag is what stops the server counting it
+      // toward an auto-submit — both sides have to agree, or an honest
+      // auto-submit fails its own evidence check.
+      ...(gated && { suppressed: true, suppressReason: gate.reason }),
     };
+
     // Only deterministic browser facts move the violation counter. Soft
-    // signals (Phase 4 face detection) are review flags and must never land
-    // here — see the HARD/SOFT split in utils/proctorEvents.js.
-    if (HARD_EVENTS.has(type)) {
+    // signals (face detection) are review flags and must never land here —
+    // see the HARD/SOFT split in utils/proctorEvents.js.
+    if (isHard && gate.counts) {
       setViolations((v) => v + 1);
     }
     onEventRef.current?.(event);
     return event;
-  }, [seqKey]);
+  }, [seqKey, gateState]);
+
+  /**
+   * Stop counting, synchronously, and close any open span.
+   *
+   * Must be the first statement of the submit handler. `setSubmitted(true)` is
+   * async state, so a fullscreen event fired in the same tick would still see
+   * the exam as running and charge a violation on the way out.
+   */
+  const disarm = useCallback(() => {
+    gateRef.current.armed = false;
+    const focus = focusRef.current;
+    if (focus.blurTimer) { clearTimeout(focus.blurTimer); focus.blurTimer = null; }
+    if (focus.blurStart !== null) {
+      emit(EVENT.WINDOW_FOCUS, { durationMs: Date.now() - focus.blurStart });
+      focus.blurStart = null;
+    }
+    if (focus.awayStart !== null) {
+      emit(EVENT.TAB_VISIBLE, { durationMs: Date.now() - focus.awayStart });
+      focus.awayStart = null;
+    }
+  }, [emit]);
 
   const enterFullscreen = useCallback(async () => {
     if (!fullscreenSupported) {
       emit(EVENT.FULLSCREEN_UNSUPPORTED, { reason: isIOS() ? 'ios' : 'no_api' });
       return false;
     }
-    return requestFullscreen();
-  }, [emit, fullscreenSupported]);
+    // Re-entering fires an exit→enter pair on some browsers. The student is
+    // doing what we asked them to; do not charge them for the transition.
+    const release = suppress('fullscreen_reentry', 3000);
+    try {
+      return await requestFullscreen();
+    } finally {
+      setTimeout(release, 1000);
+    }
+  }, [emit, suppress, fullscreenSupported]);
 
   // ── Focus / visibility state machine ───────────────────────────────────
   useEffect(() => {
-    if (!active) return;
+    if (!armed) return;
 
     // A real tab switch fires blur AND visibilitychange together. Tracking
     // which span is already open keeps that from counting twice.
-    let awayStart = null;      // set while the tab is hidden
-    let blurTimer = null;      // grace timer for a plain window blur
-    let blurStart = null;      // set once a blur has been *confirmed*
+    const focus = focusRef.current;
 
     const handleVisibilityChange = () => {
       const p = policyRef.current;
@@ -104,12 +207,12 @@ export default function useExamSecurity({ active, policy: policyOverrides, onEve
       if (document.hidden) {
         // Hidden supersedes blur: cancel any pending grace timer so the same
         // switch cannot be reported as both a blur and a tab switch.
-        if (blurTimer) { clearTimeout(blurTimer); blurTimer = null; }
-        awayStart = Date.now();
+        if (focus.blurTimer) { clearTimeout(focus.blurTimer); focus.blurTimer = null; }
+        focus.awayStart = Date.now();
         emit(EVENT.TAB_HIDDEN);
-      } else if (awayStart !== null) {
-        emit(EVENT.TAB_VISIBLE, { durationMs: Date.now() - awayStart });
-        awayStart = null;
+      } else if (focus.awayStart !== null) {
+        emit(EVENT.TAB_VISIBLE, { durationMs: Date.now() - focus.awayStart });
+        focus.awayStart = null;
       }
     };
 
@@ -118,23 +221,23 @@ export default function useExamSecurity({ active, policy: policyOverrides, onEve
       if (!p.detectWindowBlur) return;
       // If the page is already hidden this blur belongs to a tab switch that
       // visibilitychange is handling.
-      if (document.hidden || blurTimer || blurStart !== null) return;
+      if (document.hidden || focus.blurTimer || focus.blurStart !== null) return;
 
       // Grace period: an accidental focus flicker is not misconduct. Only a
       // blur that persists gets reported.
-      blurTimer = setTimeout(() => {
-        blurTimer = null;
+      focus.blurTimer = setTimeout(() => {
+        focus.blurTimer = null;
         if (document.hidden) return;   // became a tab switch after all
-        blurStart = Date.now();
+        focus.blurStart = Date.now();
         emit(EVENT.WINDOW_BLUR);
       }, p.blurGraceMs);
     };
 
     const handleFocus = () => {
-      if (blurTimer) { clearTimeout(blurTimer); blurTimer = null; }
-      if (blurStart !== null) {
-        emit(EVENT.WINDOW_FOCUS, { durationMs: Date.now() - blurStart });
-        blurStart = null;
+      if (focus.blurTimer) { clearTimeout(focus.blurTimer); focus.blurTimer = null; }
+      if (focus.blurStart !== null) {
+        emit(EVENT.WINDOW_FOCUS, { durationMs: Date.now() - focus.blurStart });
+        focus.blurStart = null;
       }
     };
 
@@ -143,38 +246,43 @@ export default function useExamSecurity({ active, policy: policyOverrides, onEve
     window.addEventListener('focus', handleFocus);
 
     return () => {
-      if (blurTimer) clearTimeout(blurTimer);
+      if (focus.blurTimer) { clearTimeout(focus.blurTimer); focus.blurTimer = null; }
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('blur', handleBlur);
       window.removeEventListener('focus', handleFocus);
     };
-  }, [active, emit]);
+  }, [armed, emit]);
 
   // ── Fullscreen tracking ────────────────────────────────────────────────
   // The previous implementation requested fullscreen and then never looked
   // again, so pressing Esc silently ended enforcement.
+  const fsRef = useRef(checkFullscreen());
   useEffect(() => {
-    if (!active) return;
+    if (!armed) return;
 
     const handler = () => {
       const now = checkFullscreen();
-      setIsFullscreen((was) => {
-        if (was === now) return was;
-        if (!policyRef.current.requireFullscreen) return now;
-        // Exiting fullscreen to switch tabs also hides the page; let the
-        // visibility handler own that one rather than double-reporting.
-        if (!now && !document.hidden) emit(EVENT.FULLSCREEN_EXITED);
-        else if (now) emit(EVENT.FULLSCREEN_ENTERED);
-        return now;
-      });
+      // Assigned synchronously, before any emit. The guard used to live inside
+      // a setState updater, which React may invoke twice in StrictMode and
+      // which does not run at all until the update is processed — so two
+      // vendor events for one transition both got through.
+      if (fsRef.current === now) return;
+      fsRef.current = now;
+      setIsFullscreen(now);
+
+      if (!policyRef.current.requireFullscreen) return;
+      // Exiting fullscreen to switch tabs also hides the page; let the
+      // visibility handler own that one rather than double-reporting.
+      if (!now && !document.hidden) emit(EVENT.FULLSCREEN_EXITED);
+      else if (now) emit(EVENT.FULLSCREEN_ENTERED);
     };
 
     return onFullscreenChange(handler);
-  }, [active, emit]);
+  }, [armed, emit]);
 
   // ── Blocked interactions ───────────────────────────────────────────────
   useEffect(() => {
-    if (!active) return;
+    if (!armed) return;
 
     const handleContextMenu = (e) => {
       if (!policyRef.current.disableRightClick) return;
@@ -240,11 +348,11 @@ export default function useExamSecurity({ active, policy: policyOverrides, onEve
       document.removeEventListener('keydown', handleKeyDown, true);
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, [active, emit]);
+  }, [armed, emit]);
 
   // ── Network ────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!active) return;
+    if (!armed) return;
     const goOffline = () => emit(EVENT.NETWORK_OFFLINE);
     const goOnline = () => emit(EVENT.NETWORK_ONLINE);
     window.addEventListener('offline', goOffline);
@@ -253,7 +361,10 @@ export default function useExamSecurity({ active, policy: policyOverrides, onEve
       window.removeEventListener('offline', goOffline);
       window.removeEventListener('online', goOnline);
     };
-  }, [active, emit]);
+  }, [armed, emit]);
 
-  return { violations, isFullscreen, fullscreenSupported, enterFullscreen, emit };
+  return {
+    violations, isFullscreen, fullscreenSupported,
+    enterFullscreen, emit, suppress, disarm,
+  };
 }
