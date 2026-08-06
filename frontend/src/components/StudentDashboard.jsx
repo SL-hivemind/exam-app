@@ -139,8 +139,10 @@ export default function StudentDashboard() {
       if (!canStart.data.within_window) return setNotice('That exam is not open right now.');
       if (canStart.data.already_submitted) return setNotice('You have already submitted this exam.');
 
-      await api.post(`/student/exams/${examId}/start`, {}, { headers: { auth_token: authToken } });
-      navigate(`/exams/${examId}/questions`);
+      // Straight to the readiness gate, which owns /start. Starting the clock
+      // here meant it was already running while the student read a camera
+      // permission prompt they had not been warned about.
+      navigate(`/exams/${examId}/start`);
     } catch (err) {
       setNotice(err.response?.data?.message || 'Could not open that exam.');
     } finally {

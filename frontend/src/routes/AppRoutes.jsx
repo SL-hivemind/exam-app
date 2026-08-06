@@ -24,6 +24,7 @@ const AdminExamDetail = lazy(() => import("../components/admin/AdminExamDetail")
 const StudentRequests = lazy(() => import("../components/admin/StudentRequests"));
 const RepoQuestionsPage = lazy(() => import("../components/repository/RepoQuestionsPage"));
 const RepoQuestionEditPage = lazy(() => import("../components/repository/RepoQuestionEditPage"));
+const StudentExamPage = lazy(() => import("../components/StudentExamPage"));
 const StudentExamQuestionsPage = lazy(() => import("../components/StudentExamQuestionsPage"));
 const StudentResultsPage = lazy(() => import("../components/StudentResultsPage"));
 const BulkEditQuestions = lazy(() => import("../components/repository/BulkEditQuestions"));
@@ -224,6 +225,15 @@ export default function AppRoutes() {
         } />
 
         {/* --- 5. STUDENT ACTIVE EXAM & RESULTS --- */}
+        {/* The readiness gate. Owns the camera and fullscreen gestures, and
+            POSTs /start — so the exam clock begins after permissions are
+            settled rather than while the student is still reading a prompt. */}
+        <Route path="/exams/:examId/start" element={
+          <ProtectedRoute roles={["student"]}>
+            <StudentExamPage />
+          </ProtectedRoute>
+        } />
+
         <Route path="/exams/:examId/questions" element={
           <ProtectedRoute roles={["student"]}>
             <StudentExamQuestionsPage />

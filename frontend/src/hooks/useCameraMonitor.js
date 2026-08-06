@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { EVENT } from '../utils/proctorEvents';
+import { acquireCameraStream, releaseStream } from '../utils/camera';
 
 /**
  * Camera presence monitoring — no ML, no recording, no frames leave the device.
@@ -23,8 +24,16 @@ import { EVENT } from '../utils/proctorEvents';
  *      camera track whenever the tab is backgrounded. Reporting that as a
  *      camera failure would double-flag every single tab switch, so camera
  *      transitions are ignored while the page is hidden.
+ *
+ * This hook does NOT acquire the camera on its own. It used to, from an
+ * effect, which put the permission prompt on screen at the same instant every
+ * violation listener went live — the prompt made Chrome drop fullscreen and
+ * steal focus, and the student was charged for both. Acquisition now belongs
+ * to the pre-flight gate, on a real click, before anything is armed. Pass the
+ * resulting stream in as `initialStream`, or call `requestCamera()` from a
+ * genuine user gesture (the in-exam retry button).
  */
-export default function useCameraMonitor({ active, enabled, onEvent } = {}) {
+export default function useCameraMonitor({ active, enabled, onEvent, initialStream } = {}) {
   // idle | requesting | active | denied | unavailable | lost
   const [status, setStatus] = useState('idle');
   // Held as state as well as a ref: consumers (face monitoring) need to react
@@ -37,13 +46,14 @@ export default function useCameraMonitor({ active, enabled, onEvent } = {}) {
 
   const emit = useCallback((type, extra) => onEventRef.current?.(type, extra), []);
 
+  // The gate owns the stream it acquired, so stopping it here would kill the
+  // camera the exam is meant to be watching. Only a stream this hook obtained
+  // itself, via the retry button, is ours to stop.
+  const ownsStreamRef = useRef(false);
+
   const stop = useCallback(() => {
-    streamRef.current?.getTracks().forEach((t) => {
-      t.onended = null;
-      t.onmute = null;
-      t.onunmute = null;
-      t.stop();
-    });
+    if (ownsStreamRef.current) releaseStream(streamRef.current);
+    ownsStreamRef.current = false;
     streamRef.current = null;
     setStream(null);
   }, []);
@@ -70,54 +80,50 @@ export default function useCameraMonitor({ active, enabled, onEvent } = {}) {
     });
   }, [emit]);
 
-  const requestCamera = useCallback(async () => {
-    if (!navigator.mediaDevices?.getUserMedia) {
-      // Also the case on an insecure origin — getUserMedia requires HTTPS
-      // (or localhost), so a plain-HTTP LAN address lands here.
-      setStatus('unavailable');
-      emit(EVENT.CAMERA_UNAVAILABLE, {
-        reason: window.isSecureContext ? 'no_api' : 'insecure_context',
-      });
-      return false;
-    }
+  /** Take over a stream the pre-flight gate already acquired. */
+  const adopt = useCallback((incoming) => {
+    if (!incoming || streamRef.current === incoming) return;
+    const track = incoming.getVideoTracks()[0];
+    if (!track || track.readyState === 'ended') return;
+    streamRef.current = incoming;
+    ownsStreamRef.current = false;      // the gate owns it; do not stop it
+    setStream(incoming);
+    attachTrackHandlers(incoming);
+    setStatus('active');
+  }, [attachTrackHandlers]);
 
+  /**
+   * Ask for the camera. MUST be called from a real user gesture — this is the
+   * in-exam retry button, not a startup path. The caller is expected to open a
+   * suppression window around it, because the prompt itself drops fullscreen.
+   */
+  const requestCamera = useCallback(async () => {
     setStatus('requesting');
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        // Modest constraints: this only needs to know a camera is producing
-        // frames, and low resolution keeps the cost down on cheap Androids.
-        video: { width: { ideal: 320 }, height: { ideal: 240 }, frameRate: { ideal: 10 } },
-        audio: false,
-      });
-      streamRef.current = stream;
-      setStream(stream);
-      attachTrackHandlers(stream);
+    const outcome = await acquireCameraStream();
+
+    if (outcome.status === 'active') {
+      streamRef.current = outcome.stream;
+      ownsStreamRef.current = true;
+      setStream(outcome.stream);
+      attachTrackHandlers(outcome.stream);
       setStatus('active');
       emit(EVENT.CAMERA_GRANTED);
       return true;
-    } catch (err) {
-      const name = err?.name || 'Error';
-      if (name === 'NotAllowedError' || name === 'SecurityError') {
-        setStatus('denied');
-        emit(EVENT.CAMERA_DENIED, { reason: name });
-      } else {
-        // NotFoundError (no camera), NotReadableError (in use by another
-        // app), OverconstrainedError. None of these are the student's fault.
-        setStatus('unavailable');
-        emit(EVENT.CAMERA_UNAVAILABLE, { reason: name });
-      }
-      return false;
     }
+
+    // 'dismissed' is still a denial as far as monitoring is concerned; the
+    // distinction only changes what the retry copy says.
+    setStatus(outcome.status === 'dismissed' ? 'denied' : outcome.status);
+    emit(outcome.event, { reason: outcome.reason });
+    return false;
   }, [attachTrackHandlers, emit]);
 
-  // Initial acquisition. Safari wants a user gesture for getUserMedia; when
-  // this attempt is rejected the UI surfaces a button that calls
-  // requestCamera() from a real click, which Safari does accept.
+  // Adopt whatever the gate handed over. No acquisition happens here — that
+  // would put a permission prompt on screen with every listener already live.
   useEffect(() => {
-    if (!active || !enabled) return;
-    if (status !== 'idle') return;
-    requestCamera();
-  }, [active, enabled, status, requestCamera]);
+    if (!active || !enabled || !initialStream) return;
+    adopt(initialStream);
+  }, [active, enabled, initialStream, adopt]);
 
   // Release the device the moment monitoring stops, so the camera light goes
   // out at submit rather than lingering until the tab closes.
@@ -177,6 +183,7 @@ export default function useCameraMonitor({ active, enabled, onEvent } = {}) {
     status,
     stream,
     requestCamera,
+    adopt,
     // Never blocks the exam — the caller uses this only to decide whether to
     // show a "retry camera" prompt, never to gate entry.
     needsAttention: enabled && (status === 'denied' || status === 'lost' || status === 'unavailable'),

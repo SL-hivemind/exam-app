@@ -1,30 +1,46 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  Box, Alert, CircularProgress, Paper, Typography, Button, Container, Stack, Divider
+  Box, Alert, AlertTitle, CircularProgress, Paper, Typography, Button,
+  Container, Stack, Divider, Chip,
 } from '@mui/material';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import VideocamIcon from '@mui/icons-material/Videocam';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import api from '../utils/api';
 import useAuth from '../hooks/useAuth';
 import { requestFullscreen, isFullscreenSupported, isIOS } from '../utils/fullscreen';
+import { probeCameraPermission, cameraApiUnavailable } from '../utils/camera';
+import examSession from '../utils/examSession';
+import { EVENT } from '../utils/proctorEvents';
 
 /**
  * Pre-exam readiness gate.
  *
- * This page exists to own the user gesture. Fullscreen can only be requested
- * from a real click — Firefox and Safari reject a call made from an effect —
- * so the exam is entered from a button here rather than auto-started.
+ * This page exists to own the user gestures, and to be the one place in the
+ * flow where nothing is being monitored yet.
  *
- * It deliberately does NOT call /start. The questions page already does, and
- * doing it twice cost every student an extra request at the exact moment a
- * whole cohort starts at once.
+ * The ordering it enforces is the whole point. Previously the exam page
+ * attached every violation listener and then fired getUserMedia from an
+ * effect: Chrome dropped fullscreen to render the permission bubble and stole
+ * focus behind it, so clicking "Allow" cost the student two of their three
+ * violations. Here the camera prompt resolves while still windowed and
+ * unmonitored, and fullscreen happens afterwards on a separate click.
+ *
+ * Two clicks, not one, because `await getUserMedia()` blocks on human reading
+ * time and transient user activation expires after ~5s — a requestFullscreen()
+ * on the far side of that await is rejected, silently, which is the bug this
+ * replaces.
+ *
+ * It also owns POST /start, so the exam clock begins after permission
+ * negotiation rather than before it.
  */
 export default function StudentExamPage() {
   const { examId } = useParams();
-  const { authToken } = useAuth();
+  const { authToken, user } = useAuth();
   const navigate = useNavigate();
 
   const [error, setError] = useState('');
@@ -33,7 +49,19 @@ export default function StudentExamPage() {
   const [policy, setPolicy] = useState(null);
   const [starting, setStarting] = useState(false);
 
+  // Mirrors examSession so the UI re-renders; the session stays the source of
+  // truth because the stream has to outlive this component.
+  const [cameraStatus, setCameraStatus] = useState('idle');
+  const [cameraReason, setCameraReason] = useState(null);
+  const [asking, setAsking] = useState(false);
+  const [permissionState, setPermissionState] = useState('unknown');
+
+  const videoRef = useRef(null);
+
   const fullscreenAvailable = isFullscreenSupported() && !isIOS();
+  const apiMissing = cameraApiUnavailable();
+  const cameraRequired = policy?.cameraRequired === true;
+  const cameraReady = cameraStatus === 'active';
 
   useEffect(() => {
     let cancelled = false;
@@ -53,8 +81,11 @@ export default function StudentExamPage() {
         }
         if (!within_window) throw new Error('This exam is not currently open.');
 
+        examSession.begin({ userId: user?.id, examId });
         setExam(res.data.exam);
         setPolicy(res.data.proctor_policy || null);
+        setCameraStatus(examSession.cameraStatus);
+        setPermissionState(await probeCameraPermission());
       } catch (err) {
         if (cancelled) return;
         setError(err.response?.data?.message || err.message || 'Failed to load exam');
@@ -65,23 +96,158 @@ export default function StudentExamPage() {
 
     check();
     return () => { cancelled = true; };
-  }, [examId, authToken, navigate]);
+  }, [examId, authToken, navigate, user?.id]);
 
-  // Must stay a direct click handler — moving this into an effect is exactly
-  // the bug that made fullscreen silently fail outside Chrome.
-  const handleStart = useCallback(async () => {
-    setStarting(true);
-    if (fullscreenAvailable) {
-      // A refusal is not fatal. The exam runs either way and the absence is
-      // recorded; locking a student out over a browser quirk is worse than
-      // the integrity gap it would close.
-      await requestFullscreen();
+  // Show the student themselves. Local rendering only — the frame never leaves
+  // the element, which is what keeps "nothing is recorded or uploaded" true.
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el || !examSession.stream) return;
+    el.srcObject = examSession.stream;
+    el.play?.().catch(() => { /* autoplay policy; the preview is optional */ });
+  }, [cameraStatus]);
+
+  // Release the camera on the way out — unless we handed it to the exam.
+  useEffect(() => () => {
+    if (!examSession.handoff) examSession.release();
+  }, []);
+
+  const handleCamera = useCallback(async () => {
+    setAsking(true);
+    try {
+      const outcome = await examSession.acquireCamera();
+      setCameraStatus(outcome.status);
+      setCameraReason(outcome.reason);
+      setPermissionState(await probeCameraPermission());
+    } finally {
+      setAsking(false);
     }
-    navigate(`/exams/${examId}/questions`);
-  }, [examId, navigate, fullscreenAvailable]);
+  }, []);
+
+  const handleSkipCamera = useCallback(() => {
+    examSession.continueWithoutCamera();
+    setCameraStatus(examSession.cameraStatus);
+  }, []);
+
+  /**
+   * The terminal gesture.
+   *
+   * NOT async, deliberately. requestFullscreen() has to be invoked before any
+   * await or the browser no longer considers this a user gesture and rejects
+   * it without an error. Making this function async and awaiting first is
+   * exactly the bug this page exists to fix.
+   */
+  const handleStartSync = useCallback(() => {
+    examSession.handoff = true;
+
+    let fsPromise = null;
+    if (policy?.requireFullscreen !== false) {
+      if (fullscreenAvailable) {
+        fsPromise = requestFullscreen();
+      } else {
+        examSession.ledger.emit(EVENT.FULLSCREEN_UNSUPPORTED, {
+          reason: isIOS() ? 'ios' : 'no_api',
+        });
+      }
+    }
+
+    setStarting(true);
+    void finishStart(fsPromise);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [policy, fullscreenAvailable, examId, authToken, navigate]);
+
+  const finishStart = async (fsPromise) => {
+    if (fsPromise) {
+      const entered = await fsPromise;
+      examSession.fullscreenEntered = entered;
+      if (!entered) {
+        // A refusal is recorded as unsupported, never as an exit. Exits are
+        // HARD and would charge a violation for something the browser did.
+        examSession.ledger.emit(EVENT.FULLSCREEN_UNSUPPORTED, {
+          reason: 'request_rejected',
+        });
+      }
+    }
+
+    try {
+      const res = await api.post(
+        `/student/exams/${examId}/start`,
+        { preflight: examSession.preflightSummary() },
+        { headers: { auth_token: authToken } },
+      );
+      examSession.attempt = {
+        id: res.data.attempt_id,
+        expiresAt: res.data.expires_at,
+        savedAnswers: res.data.saved_answers || {},
+      };
+      // replace: so Back from the exam goes to the dashboard rather than
+      // through this gate again, which would re-prompt for the camera.
+      navigate(`/exams/${examId}/questions`, { replace: true });
+    } catch (err) {
+      examSession.handoff = false;
+      setStarting(false);
+      setError(err.response?.data?.message || 'Could not start the exam. Please try again.');
+    }
+  };
+
+  const cameraCopy = () => {
+    if (apiMissing) {
+      return {
+        severity: 'warning',
+        title: 'Camera cannot be used on this address',
+        body: window.isSecureContext
+          ? 'This browser does not provide camera access.'
+          : 'Cameras only work over a secure (https) connection. Open the exam from the https address and try again.',
+        retry: false,
+      };
+    }
+    if (cameraStatus === 'denied' && cameraReason === 'blocked') {
+      return {
+        severity: 'warning',
+        title: 'Camera is blocked for this site',
+        body: 'Click the camera icon in your browser’s address bar, allow access, then press Try again.',
+        retry: true,
+      };
+    }
+    if (cameraStatus === 'denied' || cameraReason === 'dismissed') {
+      return {
+        severity: 'info',
+        title: 'You didn’t answer the camera prompt',
+        body: 'Press Try again and choose Allow when your browser asks.',
+        retry: true,
+      };
+    }
+    if (cameraReason === 'NotFoundError') {
+      return {
+        severity: 'warning',
+        title: 'No camera found on this device',
+        body: 'You can still sit the exam. Your teacher will see that it ran without a camera.',
+        retry: true,
+      };
+    }
+    if (cameraReason === 'NotReadableError') {
+      return {
+        severity: 'warning',
+        title: 'Another app is using the camera',
+        body: 'Close Zoom, Teams or Meet, then press Try again.',
+        retry: true,
+      };
+    }
+    if (cameraStatus === 'unavailable') {
+      return {
+        severity: 'warning',
+        title: 'Camera could not be started',
+        body: 'You can still sit the exam. Your teacher will see that it ran without a camera.',
+        retry: true,
+      };
+    }
+    return null;
+  };
+
+  const problem = cameraCopy();
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', py: 4 }}>
       <Container maxWidth="sm">
         <Paper elevation={4} sx={{ p: 4, textAlign: 'center', borderRadius: 3 }}>
 
@@ -126,7 +292,7 @@ export default function StudentExamPage() {
                 </Typography>
                 {[
                   'Every answer is saved automatically as you pick it.',
-                  'The timer keeps running if you leave — it does not pause.',
+                  'The timer starts when you press Start, and does not pause.',
                   policy?.detectTabSwitch === false
                     ? null
                     : 'Leaving the exam tab or window is recorded.',
@@ -138,8 +304,8 @@ export default function StudentExamPage() {
                   // Say plainly what the camera does and does not do. This is
                   // the single most common student worry, and the honest
                   // answer is also the reassuring one.
-                  policy?.cameraRequired
-                    ? 'Your camera will be switched on to check you are present. No video is recorded, stored or uploaded.'
+                  cameraRequired
+                    ? 'Your camera checks you are present. No video is recorded, stored or uploaded.'
                     : null,
                   'If your device or connection fails, log back in and continue where you left off.',
                 ].filter(Boolean).map((line) => (
@@ -149,23 +315,104 @@ export default function StudentExamPage() {
                 ))}
               </Stack>
 
+              {/* ── Step 1: camera, while still windowed and unmonitored ── */}
+              {cameraRequired && (
+                <Box sx={{ mb: 3 }}>
+                  <Divider sx={{ mb: 2 }}>
+                    <Chip
+                      size="small"
+                      icon={cameraReady ? <CheckCircleIcon /> : <VideocamIcon />}
+                      color={cameraReady ? 'success' : 'default'}
+                      label={cameraReady ? 'Camera ready' : 'Step 1 — camera'}
+                    />
+                  </Divider>
+
+                  {cameraReady ? (
+                    <Box
+                      component="video"
+                      ref={videoRef}
+                      muted
+                      playsInline
+                      sx={{
+                        width: 240, height: 180, borderRadius: 2, objectFit: 'cover',
+                        // Mirrored: an un-mirrored self-view reads as wrong and
+                        // makes people correct their position the wrong way.
+                        transform: 'scaleX(-1)',
+                        border: '2px solid', borderColor: 'success.main',
+                      }}
+                    />
+                  ) : problem ? (
+                    <Alert severity={problem.severity} sx={{ textAlign: 'left' }}>
+                      <AlertTitle>{problem.title}</AlertTitle>
+                      {problem.body}
+                      {problem.retry && (
+                        <Box sx={{ mt: 1.5 }}>
+                          <Button size="small" variant="outlined" onClick={handleCamera} disabled={asking}>
+                            {asking ? 'Asking…' : 'Try again'}
+                          </Button>
+                        </Box>
+                      )}
+                    </Alert>
+                  ) : (
+                    <>
+                      <Button
+                        variant="outlined"
+                        size="large"
+                        fullWidth
+                        startIcon={<VideocamIcon />}
+                        onClick={handleCamera}
+                        disabled={asking || apiMissing}
+                        sx={{ textTransform: 'none', borderRadius: 2 }}
+                      >
+                        {asking ? 'Waiting for your answer…' : 'Turn on camera'}
+                      </Button>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                        {permissionState === 'denied'
+                          ? 'Your browser has this site blocked — you will need to unblock it first.'
+                          : 'Your browser will ask for permission. Choose Allow.'}
+                      </Typography>
+                    </>
+                  )}
+                </Box>
+              )}
+
+              {/* ── Step 2: the terminal gesture ── */}
               <Button
                 variant="contained"
                 size="large"
                 fullWidth
                 startIcon={<PlayArrowIcon />}
-                onClick={handleStart}
-                disabled={starting}
+                onClick={handleStartSync}
+                disabled={starting || (cameraRequired && cameraStatus === 'idle')}
                 sx={{ fontWeight: 700, textTransform: 'none', borderRadius: 2, py: 1.25 }}
               >
                 {starting ? 'Opening…' : 'Start Exam'}
               </Button>
 
+              {/* Warn and allow: a camera problem never blocks the exam. The
+                  attempt is flagged so a teacher can see it ran unproctored. */}
+              {cameraRequired && cameraStatus === 'idle' && (
+                <Button
+                  variant="text"
+                  size="small"
+                  onClick={handleSkipCamera}
+                  sx={{ mt: 1.5, textTransform: 'none' }}
+                >
+                  Continue without camera
+                </Button>
+              )}
+
+              {cameraRequired && !cameraReady && cameraStatus !== 'idle' && (
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5 }}>
+                  This exam will be marked as taken without a camera.
+                </Typography>
+              )}
+
               <Button
                 variant="text"
                 size="small"
                 onClick={() => navigate('/student')}
-                sx={{ mt: 1.5, textTransform: 'none' }}
+                sx={{ mt: 1.5, textTransform: 'none', display: 'block', mx: 'auto' }}
               >
                 Not now — back to dashboard
               </Button>

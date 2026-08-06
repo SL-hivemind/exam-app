@@ -16,6 +16,8 @@ import useExamSecurity from '../hooks/useExamSecurity';
 import useCameraMonitor from '../hooks/useCameraMonitor';
 import useFaceMonitor from '../hooks/useFaceMonitor';
 import { EVENT, EVENT_MESSAGE } from '../utils/proctorEvents';
+import { exitFullscreen } from '../utils/fullscreen';
+import examSession from '../utils/examSession';
 import MatrixFormatter from '../utils/MatrixFormatter';
 
 const ff = "'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
@@ -65,6 +67,12 @@ export default function StudentExamQuestionsPage() {
   const [faceSkipped, setFaceSkipped] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [saveStatus, setSaveStatus] = useState('idle'); // idle | saving | saved | error
+  // Set when the page is reached without going through the readiness gate — a
+  // refresh, a resumed session, or a deep link. Monitoring must not arm until
+  // the student has clicked something, because entering fullscreen needs a
+  // real gesture and arming without it produced a violation notice for a
+  // state the student never caused.
+  const [needsResumeGesture, setNeedsResumeGesture] = useState(false);
 
   const [currentPage, setCurrentPage] = useState(1);
   const questionsPerPage = 1;
@@ -93,10 +101,26 @@ export default function StudentExamQuestionsPage() {
     if (message) setNotice({ message, severity: event.severity });
   }, []);
 
+  // One phase, not three separate `!loading && !submitted` expressions.
+  // Those were subtly wrong in different ways — monitoring ran behind the
+  // error card and behind the calibration modal, and armed before the page
+  // was in the state the policy required.
+  //   loading | resume_gate | running | submitting | submitted | error
+  const phase =
+    loading ? 'loading'
+      : error ? 'error'
+        : submitted ? 'submitted'
+          : needsResumeGesture ? 'resume_gate'
+            : submitLoading ? 'submitting'
+              : 'running';
+
+  const armed = phase === 'running';
+
   const {
     violations, isFullscreen, fullscreenSupported, enterFullscreen, emit,
+    suppress, disarm,
   } = useExamSecurity({
-    armed: !loading && !submitted,
+    armed,
     policy,
     onEvent: handleProctorEvent,
     seqKey: `examSeq-${user?.id}-${examId}`,
@@ -104,9 +128,13 @@ export default function StudentExamQuestionsPage() {
 
   // Camera events share the security hook's sequence counter so the server
   // sees one ordered stream per attempt rather than two interleaved ones.
+  // The stream itself comes from the readiness gate, already granted — this
+  // hook no longer prompts, which is what stopped the prompt landing on top
+  // of a fullscreen exam with every listener live.
   const camera = useCameraMonitor({
-    active: !loading && !submitted,
+    active: armed,
     enabled: policy?.cameraRequired === true,
+    initialStream: examSession.stream,
     onEvent: emit,
   });
 
@@ -114,7 +142,7 @@ export default function StudentExamQuestionsPage() {
   // of model and WASM is only ever fetched for exams that actually asked for
   // it — a classroom or practice exam never pays that cost.
   const face = useFaceMonitor({
-    active: !loading && !submitted,
+    active: armed,
     enabled: policy?.cameraRequired === true &&
              policy?.facePresence === true &&
              camera.status === 'active' &&
@@ -122,6 +150,19 @@ export default function StudentExamQuestionsPage() {
     stream: camera.stream,
     onEvent: emit,
   });
+
+  // Retrying the camera mid-exam puts a permission prompt back on screen, and
+  // Chrome drops fullscreen and steals focus to render it. Hold the counter
+  // open across the whole exchange — the student is doing what we asked.
+  const handleCameraRetry = useCallback(async () => {
+    const release = suppress('camera_prompt', 20000);
+    try {
+      await camera.requestCamera();
+    } finally {
+      // A beat after the prompt closes: the fullscreen restore lands late.
+      setTimeout(release, 1500);
+    }
+  }, [suppress, camera]);
 
   // Skipping is recorded rather than prevented. A student who cannot get
   // calibration to work must still be able to sit the exam; the teacher sees
@@ -135,21 +176,35 @@ export default function StudentExamQuestionsPage() {
   // Auto-submit on repeated HARD violations only. The hook counts nothing
   // else — soft/inferred signals can never reach this counter by design.
   useEffect(() => {
-    if (loading || submitted) return;
+    if (phase !== 'running') return;
     if (policy && policy.autoSubmitOnMaxViolations === false) return;
     if (violations >= maxViolations) handleSubmitRef.current?.('tab_switch');
-  }, [violations, loading, submitted, policy, maxViolations]);
+  }, [violations, phase, policy, maxViolations]);
 
-  // Fullscreen is entered from the Start button on the previous page (a real
+  // Fullscreen is entered from the Start button on the readiness gate (a real
   // user gesture). Firefox and Safari reject a request made from an effect,
   // which is why the old call here silently did nothing in those browsers.
   // All we do here is notice if the student leaves it, and offer a way back.
+  //
+  // Gated on having actually been in fullscreen. Without that the banner —
+  // which reads "this is recorded" — appeared the instant the page loaded,
+  // for an event that had never been emitted, before the student did anything.
+  const wasFullscreenRef = useRef(false);
+  useEffect(() => { if (isFullscreen) wasFullscreenRef.current = true; }, [isFullscreen]);
+
   const needsFullscreen =
-    !loading && !submitted && fullscreenSupported && !isFullscreen &&
-    policy?.requireFullscreen !== false;
+    phase === 'running' && fullscreenSupported && !isFullscreen &&
+    wasFullscreenRef.current && policy?.requireFullscreen !== false;
 
   const handleSubmitMcqAnswers = useCallback(async (reason = 'manual') => {
     if (submitted) return;
+
+    // First, and synchronously. setSubmitted is async state, so a
+    // fullscreenchange fired in this same tick would still see the exam as
+    // running and charge a violation on the way out the door.
+    disarm();
+    suppress('submitting', 15000);
+
     setSubmitLoading(true);
     setError('');
     try {
@@ -164,13 +219,16 @@ export default function StudentExamQuestionsPage() {
       clearInterval(timerRef.current);
       localStorage.removeItem(storageKey);
       setSubmitted(true);
-      if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
+      // The guarded helper, not document.exitFullscreen — the raw call is a
+      // silent no-op in Safari, which only exposes the webkit-prefixed name.
+      exitFullscreen();
+      examSession.end();
       navigate(`/exam/${examId}/results`, { replace: true });
     } catch (err) {
       setError(err.response?.data?.message || 'Submission failed. Please try again.');
       setSubmitLoading(false);
     }
-  }, [examId, authToken, storageKey, mcqAnswers, submitted, navigate]);
+  }, [examId, authToken, storageKey, mcqAnswers, submitted, navigate, disarm, suppress]);
 
   useEffect(() => { handleSubmitRef.current = handleSubmitMcqAnswers; }, [handleSubmitMcqAnswers]);
 
@@ -191,12 +249,36 @@ export default function StudentExamQuestionsPage() {
         const savedAnswersStr = localStorage.getItem(storageKey);
         let mergedAnswers = savedAnswersStr ? JSON.parse(savedAnswersStr) : {};
 
-        const attemptRes = await api.post(`/student/exams/${examId}/start`, {}, { headers: { auth_token: authToken } });
-        if (attemptRes.data.saved_answers) mergedAnswers = { ...attemptRes.data.saved_answers, ...mergedAnswers };
+        // The gate already called /start and handed the attempt over. Repeating
+        // it here cost every student a redundant request at the exact moment a
+        // whole cohort starts at once.
+        const handedOver = examSession.matches({ userId: user?.id, examId }) && examSession.attempt;
+        let attemptData;
+        if (handedOver) {
+          attemptData = {
+            saved_answers: examSession.attempt.savedAnswers,
+            expires_at: examSession.attempt.expiresAt,
+          };
+          // Camera and fullscreen events raised on the gate have no attempt to
+          // be POSTed against. They ride out on the first autosave, with their
+          // sequence numbers already correct.
+          pendingEventsRef.current.push(...examSession.ledger.take());
+        } else {
+          // Direct entry: a refresh, a resumed session, or a deep link. Nothing
+          // has been negotiated, so the student has to click before monitoring
+          // arms — fullscreen needs a gesture and cannot be taken from here.
+          const attemptRes = await api.post(`/student/exams/${examId}/start`, {},
+            { headers: { auth_token: authToken } });
+          attemptData = attemptRes.data;
+          const wantsFullscreen = (canStartRes.data.proctor_policy?.requireFullscreen) !== false;
+          if (wantsFullscreen) setNeedsResumeGesture(true);
+        }
+
+        if (attemptData.saved_answers) mergedAnswers = { ...attemptData.saved_answers, ...mergedAnswers };
         if (Object.keys(mergedAnswers).length > 0) setMcqAnswers(mergedAnswers);
 
         // Fix: ensure UTC parsing of expires_at
-        const expiresAtStr = attemptRes.data.expires_at;
+        const expiresAtStr = attemptData.expires_at;
         const expiresAt = new Date(expiresAtStr?.endsWith('Z') ? expiresAtStr : `${expiresAtStr}Z`);
         let remainingSeconds = Math.max(0, Math.floor((expiresAt - Date.now()) / 1000));
         if (isNaN(remainingSeconds)) remainingSeconds = (canStartRes.data.exam.duration_minutes || 60) * 60;
@@ -218,7 +300,7 @@ export default function StudentExamQuestionsPage() {
     };
     fetchExamDetails();
     return () => clearInterval(timerRef.current);
-  }, [examId, authToken, storageKey, navigate]);
+  }, [examId, authToken, storageKey, navigate, user?.id]);
 
   // Detach the buffered events for sending. Kept separate from the request
   // so a failed flush can hand them straight back — an event must survive a
@@ -327,6 +409,40 @@ export default function StudentExamQuestionsPage() {
       <Box sx={{ maxWidth: 480, textAlign: 'center' }}>
         <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
         <Button onClick={() => navigate('/student')} sx={{ color: DARK.blueLight }}>Back to Dashboard</Button>
+      </Box>
+    </Box>
+  );
+
+  // Reached without going through the readiness gate. Rather than arming
+  // monitoring behind a red banner the student did not earn, ask for the one
+  // gesture the browser needs and arm only after it.
+  if (phase === 'resume_gate') return (
+    <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: DARK.bg, p: 3 }}>
+      <Box sx={{ maxWidth: 440, textAlign: 'center' }}>
+        <FullscreenIcon sx={{ fontSize: 52, color: DARK.blueLight, mb: 2 }} />
+        <Typography sx={{ fontFamily: ff, fontSize: '1.25rem', fontWeight: 800, color: DARK.text, mb: 1 }}>
+          Ready to continue
+        </Typography>
+        <Typography sx={{ fontFamily: ff, fontSize: '0.9rem', color: DARK.sub, mb: 3 }}>
+          Your answers are saved and your time is unchanged. The exam reopens in
+          fullscreen — your browser only allows that from a button press.
+        </Typography>
+        <Button
+          variant="contained" size="large" startIcon={<FullscreenIcon />}
+          onClick={async () => {
+            await enterFullscreen();
+            setNeedsResumeGesture(false);
+          }}
+          sx={{ fontFamily: ff, fontWeight: 700, textTransform: 'none', borderRadius: 2, px: 4, py: 1.25, bgcolor: DARK.blue }}
+        >
+          Resume exam
+        </Button>
+        <Button
+          onClick={() => navigate('/student')}
+          sx={{ fontFamily: ff, display: 'block', mx: 'auto', mt: 2, textTransform: 'none', color: DARK.muted }}
+        >
+          Back to dashboard
+        </Button>
       </Box>
     </Box>
   );
@@ -756,7 +872,7 @@ export default function StudentExamQuestionsPage() {
           </Typography>
           <Button
             size="small" variant="contained" startIcon={<VideocamIcon />}
-            onClick={camera.requestCamera}
+            onClick={handleCameraRetry}
             sx={{ fontFamily: ff, fontWeight: 700, textTransform: 'none', borderRadius: 2, bgcolor: DARK.orange, color: '#111', '&:hover': { bgcolor: '#d97706' } }}
           >
             Retry
