@@ -64,7 +64,11 @@ export default function PublicLayout() {
                 textDecoration: 'none', mr: 4,
               }}
             >
-              <Box component="img" src="/Sl-metalic-png.png" alt="SL Logo" sx={{ height: 34, width: 34, borderRadius: '22%' }} />
+              {/* logo-mark.png, not Sl-metalic-png.png: that source is 1674x940
+                  and this box has no objectFit, so it was being squashed into a
+                  square — and it carries its own "SL EXAMS" text, right beside
+                  the wordmark below. */}
+              <Box component="img" src="/logo-mark.png" alt="SL Logo" sx={{ height: 34, width: 34, objectFit: 'contain', borderRadius: '22%' }} />
               <Typography sx={{
                 fontFamily: ff, fontWeight: 800, fontSize: '1rem',
                 color: '#fff', letterSpacing: '-0.02em',

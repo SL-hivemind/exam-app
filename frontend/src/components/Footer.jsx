@@ -38,7 +38,9 @@ export default function Footer() {
             <Grid item xs={12} md={4}>
               <Box display="flex" alignItems="center" mb={2} sx={{ gap: 1.25 }}>
                 <Box component="img" src="/sl-logo-master.svg" alt="Saaradaa Learknowations" sx={{ width: 56, height: 56, objectFit: 'contain', borderRadius: '22%' }} />
-                <Box component="img" src="/Sl-metalic-png.png" alt="SL Exams" sx={{ width: 100, height: 100, objectFit: 'contain' }} />
+                {/* The mark only. The full asset bakes in "SL EXAMS", which
+                    was rendering immediately left of the SL EXAMS wordmark. */}
+                <Box component="img" src="/logo-mark.png" alt="SL Exams" sx={{ width: 100, height: 100, objectFit: 'contain' }} />
                 <Typography sx={{
                   fontFamily: oswald, fontWeight: 700, fontSize: '1.5rem', letterSpacing: '0.06em',
                   background: 'linear-gradient(120deg,#ffffff,#ffce9e)',

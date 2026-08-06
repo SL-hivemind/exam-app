@@ -3,7 +3,13 @@
 
 <head>
   <meta charset="utf-8" />
-  <link rel="icon" type="image/png" href="%PUBLIC_URL%/favicon.png" />
+  <!-- The bolt mark alone. The old favicon.png was the full logo including the
+       "EXAMS" wordmark inside ~30% padding, so at 16px the mark itself was a
+       few pixels across and the text was an illegible smudge. These are cropped
+       to the mark and fill the tile. -->
+  <link rel="icon" href="%PUBLIC_URL%/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/png" sizes="32x32" href="%PUBLIC_URL%/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="%PUBLIC_URL%/favicon-192.png" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#070b1d" />
   <!-- data-default marks a fallback that a page-level <Seo> supersedes.
@@ -14,7 +20,8 @@
   <meta name="description" data-default
     content="Free online mock tests, previous year question papers and chapter-wise practice for JEE, NEET, CBSE, SSC, RRB, Banking and GATE. Instant scoring and detailed analysis." />
   <meta name="author" content="Saaradaa Learknowations Pvt Ltd" />
-  <link rel="apple-touch-icon" href="%PUBLIC_URL%/favicon.png" />
+  <!-- Opaque on purpose: iOS composites a transparent touch icon against black. -->
+  <link rel="apple-touch-icon" href="%PUBLIC_URL%/apple-touch-icon.png" />
   <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
 
   <!--

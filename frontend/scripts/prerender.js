@@ -14,9 +14,11 @@
  * Not react-snap: unmaintained since ~2020, pins an old Puppeteer, and its
  * ReactDOM.hydrate assumption predates React 18.
  *
- * FAILS THE BUILD on error, unlike the sitemap step. A half-prerendered
- * deploy serves broken pages to real people; a stale sitemap does not.
- * Set PRERENDER=false to skip (useful for a quick local build).
+ * Static routes are required and fail the build; course pages are best-effort
+ * and only warn, because they depend on a live API call succeeding inside the
+ * build container. See the route table below.
+ *
+ * Set PRERENDER=false to skip entirely (useful for a quick local build).
  */
 const fs = require('fs');
 const path = require('path');
@@ -193,7 +195,7 @@ async function main() {
 
       for (let attempt = 1; attempt <= attempts; attempt += 1) {
         try {
-          await renderRoute(browser, route, attempt);
+          await renderRoute(browser, route, attempt, shellHtml);
           written += 1;
           lastError = null;
           break;
@@ -225,8 +227,31 @@ async function main() {
   console.log(`[seo] prerendered ${written}/${routes.length} public routes`);
 }
 
+const SPLASH_START = '<div id="sl-splash"';
+const ROOT_MARKER = '<div id="root"';
+
+/**
+ * Re-insert the splash overlay, taken verbatim from the pristine shell.
+ *
+ * The overlay is static markup that React never touches, so copying it across
+ * is safe; it just has to be back in the document before #root.
+ */
+function restoreSplash(html, shellHtml) {
+  if (html.includes(SPLASH_START)) return html;
+
+  const from = shellHtml.indexOf(SPLASH_START);
+  const to = shellHtml.indexOf(ROOT_MARKER, from);
+  if (from === -1 || to === -1) return html;   // shell changed shape; leave it
+
+  const block = shellHtml.slice(from, to);
+  const target = html.indexOf(ROOT_MARKER);
+  if (target === -1) return html;
+
+  return html.slice(0, target) + block + html.slice(target);
+}
+
 /** Render one route and write its snapshot. Throws on failure. */
-async function renderRoute(browser, route, attempt) {
+async function renderRoute(browser, route, attempt, shellHtml) {
   const page = await browser.newPage();
   // A crawler's viewport, so anything gated on a media query renders the way
   // a crawler would see it.
@@ -279,10 +304,11 @@ async function renderRoute(browser, route, attempt) {
           route,
         );
 
-        const html = await page.evaluate(() => {
-          // The loading overlay is the first thing in the source and would
-          // otherwise be the first thing a crawler reads.
-          document.getElementById('sl-splash')?.remove();
+        let html = await page.evaluate(() => {
+          // The splash intro is NOT removed here — it is restored below, from
+          // the pristine shell. By the time this snapshot is taken the page
+          // has been open for several seconds, so index.js has already faded
+          // the overlay out and deleted it from the DOM.
           // Belt and braces. Seo.jsx clears these on mount, but a route that
           // renders no <Seo> would otherwise ship a snapshot with the generic
           // fallback metadata still ahead of nothing at all.
@@ -292,6 +318,13 @@ async function renderRoute(browser, route, attempt) {
           document.documentElement.setAttribute('data-prerendered', 'true');
           return `<!DOCTYPE html>\n${document.documentElement.outerHTML}`;
         });
+
+      // Put the brand intro back. Snapshotting after the overlay has already
+      // dismissed itself would ship pages that skip the animation entirely,
+      // which is a visible regression for every visitor and buys nothing.
+      // It sits outside #root, so it cannot affect hydration; index.js
+      // dismisses it exactly as it does on a non-prerendered page.
+      html = restoreSplash(html, shellHtml);
 
       const outDir = route === '/' ? BUILD_DIR : path.join(BUILD_DIR, route);
       fs.mkdirSync(outDir, { recursive: true });
