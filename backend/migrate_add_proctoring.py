@@ -5,6 +5,13 @@ Adds:
   * exams.proctor_profile_id  — FK, NULL = platform defaults
   * exams.proctor_overrides   — JSON patch over the profile
   * proctor_events            — one row per integrity TRANSITION per attempt
+  * proctor_events.suppressed — recorded but not counted (warmup / permission
+                                prompt). Filtered out of the auto-submit
+                                recount and the live-monitor aggregate.
+  * student_exam_attempts.proctoring_state
+                              — what the browser could offer at start, so an
+                                unproctored attempt is visible without
+                                scanning the event table
 
 db.create_all() never alters existing tables, so the exam columns are added
 here explicitly. Existing exams keep proctor_profile_id NULL and therefore
@@ -79,6 +86,7 @@ def main():
                         received_at DATETIME    NOT NULL,
                         duration_ms INT         NULL,
                         meta        TEXT        NULL,
+                        suppressed  TINYINT(1)  NOT NULL DEFAULT 0,
                         CONSTRAINT uq_proctor_event_seq UNIQUE (attempt_id, seq),
                         CONSTRAINT fk_proctor_event_attempt
                             FOREIGN KEY (attempt_id)
@@ -89,6 +97,28 @@ def main():
                 print("Created table proctor_events")
             else:
                 print("proctor_events already exists")
+
+            # ── proctor_events.suppressed ──
+            # Separate from the CREATE above so installs that already ran an
+            # earlier version of this script pick the column up too.
+            if not column_exists(conn, "proctor_events", "suppressed"):
+                conn.execute(text(
+                    "ALTER TABLE proctor_events "
+                    "ADD COLUMN suppressed TINYINT(1) NOT NULL DEFAULT 0"
+                ))
+                print("Added suppressed to proctor_events")
+            else:
+                print("suppressed already exists on proctor_events")
+
+            # ── student_exam_attempts.proctoring_state ──
+            if not column_exists(conn, "student_exam_attempts", "proctoring_state"):
+                conn.execute(text(
+                    "ALTER TABLE student_exam_attempts "
+                    "ADD COLUMN proctoring_state TEXT NULL"
+                ))
+                print("Added proctoring_state to student_exam_attempts")
+            else:
+                print("proctoring_state already exists on student_exam_attempts")
 
             # ── exams columns ──
             if not column_exists(conn, "exams", "proctor_profile_id"):

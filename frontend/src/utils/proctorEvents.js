@@ -61,6 +61,13 @@ export const EVENT = {
   FACE_OUT_OF_REGION: 'face_out_of_region',
   FACE_RETURNED: 'face_returned',
   FACE_MONITOR_UNAVAILABLE: 'face_monitor_unavailable',
+  // The detector already counts faces per frame; before this it was computed
+  // and thrown away. The `face_` prefix is load-bearing — the server-side test
+  // that proves soft events can never enforce derives its set from it.
+  FACE_MULTIPLE: 'face_multiple',
+  // The student materially changed seating distance. Recorded so a reviewer can
+  // see it; it must never widen tolerance, which was the old exploit.
+  FACE_DISTANCE_CHANGED: 'face_distance_changed',
 };
 
 // Events that may contribute to automatic enforcement. Everything not in this
@@ -108,6 +115,8 @@ export const SEVERITY_BY_EVENT = {
   [EVENT.FACE_OUT_OF_REGION]: SEVERITY.LOW,
   [EVENT.FACE_RETURNED]: SEVERITY.INFO,
   [EVENT.FACE_MONITOR_UNAVAILABLE]: SEVERITY.INFO,
+  [EVENT.FACE_MULTIPLE]: SEVERITY.MEDIUM,
+  [EVENT.FACE_DISTANCE_CHANGED]: SEVERITY.LOW,
 };
 
 // Student-facing copy. Kept here so the exam UI never invents its own wording
@@ -127,6 +136,7 @@ export const EVENT_MESSAGE = {
   // student may well have done nothing wrong.
   [EVENT.FACE_ABSENT]: 'We can no longer see you on camera.',
   [EVENT.FACE_OUT_OF_REGION]: 'Please face your screen.',
+  [EVENT.FACE_MULTIPLE]: 'More than one person is visible on camera.',
 };
 
 // The default policy — every capability independently switchable. Phase 1
@@ -156,6 +166,26 @@ export const DEFAULT_POLICY = {
   // Enforcement — HARD signals only
   maxViolations: 3,
   autoSubmitOnMaxViolations: true,
+
+  // Arming. Monitoring attaches its listeners before the page has settled, and
+  // a permission prompt or a late fullscreen transition would otherwise be
+  // charged to the student. During the warmup a HARD event is still recorded,
+  // just not counted — see `suppressed` on the event ledger.
+  armWarmupMs: 1500,
+  // Safari fires both `fullscreenchange` and `webkitfullscreenchange` for one
+  // transition. Collapse repeats of the same type inside this window.
+  dedupMs: 250,
+
+  // Face attention thresholds. Previously hard-coded inside the tracker, so an
+  // exam could not tune them; a lab with fixed seating wants different numbers
+  // from a student at home.
+  faceAbsenceMs: 5000,
+  faceAwayMs: 4000,
+  faceRecoverMs: 1500,
+  faceMultipleMs: 3000,
+  // null = derive the pitch tolerance from calibration. A number overrides it.
+  // Ships null-and-disabled until the thresholds are measured on real devices.
+  facePitchTolerance: null,
 };
 
 export function severityOf(type) {

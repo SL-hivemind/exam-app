@@ -2204,6 +2204,7 @@ def get_exam_live_monitor(current_user, exam_id):
         StudentExamAttempt.start_time,
         StudentExamAttempt.submitted_time,
         StudentExamAttempt.submission_reason,
+        StudentExamAttempt.proctoring_state,
         Student.student_id,
         User.username,
     ).join(
@@ -2230,6 +2231,10 @@ def get_exam_live_monitor(current_user, exam_id):
         ).filter(
             ProctorEvent.attempt_id.in_(attempt_ids),
             ProctorEvent.severity >= 2,     # info/low are noise on a live wall
+            # Recorded but never counted against the student — arming warmup or
+            # a camera permission prompt. Showing them here would fill an
+            # invigilator's wall with events nobody is meant to act on.
+            ProctorEvent.suppressed.is_(False),
         ).group_by(ProctorEvent.attempt_id, ProctorEvent.event_type).all()
 
         for att_id, event_type, count, last_seen in agg:
@@ -2240,9 +2245,21 @@ def get_exam_live_monitor(current_user, exam_id):
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     students = []
     for (att_id, student_user_id, start_time, submitted_time,
-         submission_reason, student_code, username) in rows:
+         submission_reason, proctoring_state, student_code, username) in rows:
         by_type = counts.get(att_id, {})
         hard_total = sum(v for k, v in by_type.items() if k in HARD_EVENT_TYPES)
+
+        # What the browser could actually offer at start. Recorded by the
+        # pre-flight gate; absent for attempts that predate it, which is why
+        # `proctored` defaults to True rather than flagging every old row.
+        preflight = {}
+        if proctoring_state:
+            try:
+                loaded = json.loads(proctoring_state)
+                if isinstance(loaded, dict):
+                    preflight = loaded
+            except (ValueError, TypeError):
+                preflight = {}
 
         if submitted_time:
             status = 'Completed'
@@ -2263,6 +2280,8 @@ def get_exam_live_monitor(current_user, exam_id):
             'event_counts': by_type,
             'hard_violations': hard_total,
             'last_event_at': latest[att_id].isoformat() if latest.get(att_id) else None,
+            'proctored': preflight.get('proctored', True),
+            'unproctored_reason': preflight.get('unproctoredReason'),
         })
 
     students.sort(key=lambda s: (-s['hard_violations'], s['username'] or ''))
@@ -2280,6 +2299,7 @@ def get_exam_live_monitor(current_user, exam_id):
             'completed': sum(1 for s in students if s['status'] == 'Completed'),
             'overdue': sum(1 for s in students if s['status'] == 'Overdue'),
             'flagged': sum(1 for s in students if s['hard_violations'] > 0),
+            'unproctored': sum(1 for s in students if not s['proctored']),
         },
         'students': students,
     }), 200

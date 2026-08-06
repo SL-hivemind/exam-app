@@ -1,6 +1,7 @@
 """Student exam flow routes extracted from app.py."""
 
 import hashlib
+import json
 from datetime import datetime, timedelta, timezone
 
 from flask import jsonify, request
@@ -19,8 +20,73 @@ from models import (
     MAX_EVENTS_PER_ATTEMPT,
     KNOWN_EVENT_TYPES,
     HARD_EVENT_TYPES,
+    META_KEYS,
+    MAX_META_CHARS,
     db,
 )
+
+
+# What a client may assert about its own pre-flight. Whitelisted and coerced
+# for the same reason event meta is: it is student-controlled and it renders in
+# an admin view. It is advisory — the camera_* event rows corroborate it.
+_PREFLIGHT_FIELDS = {
+    'camera': str,
+    'fullscreen': bool,
+    'faceCalibrated': bool,
+    'proctored': bool,
+    'unproctoredReason': str,
+    'deviceType': str,
+}
+
+
+def _apply_preflight(attempt, raw):
+    """Record what the browser could offer when the exam started.
+
+    `proctored` is sticky-false: an attempt that ran unproctored for any
+    segment is not a proctored attempt, so a later resume cannot upgrade it.
+    """
+    if not isinstance(raw, dict):
+        return
+
+    clean = {}
+    for key, kind in _PREFLIGHT_FIELDS.items():
+        if key not in raw or raw[key] is None:
+            continue
+        value = raw[key]
+        clean[key] = bool(value) if kind is bool else str(value)[:60]
+
+    if not clean:
+        return
+
+    previous = {}
+    if attempt.proctoring_state:
+        try:
+            loaded = json.loads(attempt.proctoring_state)
+            if isinstance(loaded, dict):
+                previous = loaded
+        except (ValueError, TypeError):
+            previous = {}
+
+    merged = {**previous, **clean}
+    if previous.get('proctored') is False:
+        merged['proctored'] = False
+        merged['unproctoredReason'] = previous.get('unproctoredReason')
+
+    attempt.proctoring_state = json.dumps(merged)[:1000]
+
+
+def _commit_preflight(attempt):
+    """Persist a pre-flight update without ever failing the start.
+
+    Same discipline as event ingest: monitoring metadata must not be able to
+    stop a student getting into their exam.
+    """
+    if attempt not in db.session.dirty:
+        return
+    try:
+        db.session.commit()
+    except SQLAlchemyError:
+        db.session.rollback()
 
 
 def register_student_routes(
@@ -263,8 +329,13 @@ def register_student_routes(
         if attempt and attempt.submitted_time:
             return jsonify({'message': 'already submitted'}), 400
 
+        # Optional. Sent by the pre-flight gate; older clients POST an empty
+        # body and simply carry no proctoring_state.
+        preflight = (request.get_json(silent=True) or {}).get('preflight')
+
         if not attempt:
             attempt = StudentExamAttempt(exam_id=exam.id, student_id=student.user_id, start_time=now)
+            _apply_preflight(attempt, preflight)
             allowed_end = attempt.start_time + timedelta(minutes=exam.duration_minutes)
             if exam.access_end:
                 access_end_utc = to_utc_naive(exam.access_end)
@@ -282,6 +353,8 @@ def register_student_routes(
                 ).first()
                 if attempt is None:
                     return jsonify({'message': 'could not start exam, please retry'}), 500
+                _apply_preflight(attempt, preflight)
+                _commit_preflight(attempt)
                 allowed_end = attempt.start_time + timedelta(minutes=exam.duration_minutes)
                 if exam.access_end:
                     allowed_end = min(allowed_end, to_utc_naive(exam.access_end))
@@ -297,11 +370,17 @@ def register_student_routes(
                 200,
             )
 
+        # Resuming an existing attempt. Record this session's pre-flight too —
+        # a student who granted the camera first time and refused on resume has
+        # not taken a fully proctored exam, and `proctored` is sticky-false.
+        _apply_preflight(attempt, preflight)
+        _commit_preflight(attempt)
+
         allowed_end = attempt.start_time + timedelta(minutes=exam.duration_minutes)
         if exam.access_end:
             access_end_utc = to_utc_naive(exam.access_end)
             allowed_end = min(allowed_end, access_end_utc)
-            
+
         saved_answers = {}
         for sa in StudentAnswer.query.filter_by(attempt_id=attempt.id).all():
             saved_answers[str(sa.question_id)] = sa.answer
@@ -437,6 +516,18 @@ def register_student_routes(
                     return None
                 return n if 0 <= n <= limit else None
 
+            # Diagnostic context, whitelisted. Without this a face_out_of_region
+            # row says a student looked away but not which way or how far, which
+            # is not enough for anyone to review it fairly. Never store `raw`
+            # wholesale — it is student-controlled and ends up in an admin view.
+            meta_obj = {k: raw[k] for k in META_KEYS if k in raw}
+            meta = None
+            if meta_obj:
+                try:
+                    meta = json.dumps(meta_obj)[:MAX_META_CHARS]
+                except (TypeError, ValueError):
+                    meta = None
+
             db.session.add(ProctorEvent(
                 attempt_id=attempt.id,
                 seq=seq,
@@ -446,6 +537,11 @@ def register_student_routes(
                 # authoritative timestamp is received_at, set server-side.
                 client_ts=_opt_int(raw.get('ts'), 4102444800000),   # ~year 2100
                 duration_ms=_opt_int(raw.get('durationMs'), 86400000),
+                # The client tells us it chose not to count this one (warmup, or
+                # a permission prompt was on screen). Recorded either way; the
+                # flag only decides whether it can justify an auto-submit.
+                suppressed=bool(raw.get('suppressed')),
+                meta=meta,
                 received_at=datetime.now(timezone.utc).replace(tzinfo=None),
             ))
             existing_seqs.add(seq)
@@ -640,6 +736,11 @@ def register_student_routes(
             hard_count = db.session.query(ProctorEvent.id).filter(
                 ProctorEvent.attempt_id == attempt.id,
                 ProctorEvent.event_type.in_(HARD_EVENT_TYPES),
+                # Suppressed events are recorded but were never counted by the
+                # client either — a permission prompt or the arming warmup.
+                # Counting them here would let the two sides disagree, and the
+                # disagreement always resolves against the student.
+                ProctorEvent.suppressed.is_(False),
             ).count()
             policy = exam.proctor_policy
             if hard_count < int(policy.get('maxViolations') or 3):

@@ -5,6 +5,7 @@ seq dedup, and the rule that a client cannot assert a violation it has no
 evidence for. Those are what stop a single bad client from filling the table
 or rewriting its own submission record.
 """
+import json
 from datetime import datetime, timedelta
 
 import pytest
@@ -12,7 +13,7 @@ import pytest
 from app import app, db
 from models import (
     Exam, ExamStudent, ProctorEvent, ProctorProfile, Question, School,
-    Student, StudentExamAttempt, User, MAX_EVENTS_PER_ATTEMPT,
+    Student, StudentExamAttempt, User, MAX_EVENTS_PER_ATTEMPT, MAX_META_CHARS,
     resolve_proctor_policy, DEFAULT_PROCTOR_POLICY, SYSTEM_PROCTOR_PROFILES,
 )
 
@@ -455,3 +456,222 @@ def test_live_monitor_requires_admin(client):
     exam_id = only_exam_id()
     r = client.get(f'/admin/exams/{exam_id}/live', headers=student_headers(client))
     assert r.status_code in (401, 403)
+
+
+# ── Suppressed events ──────────────────────────────────────────────────────
+#
+# A camera permission prompt makes Chrome drop fullscreen and steal focus,
+# which used to charge the student two violations for clicking "Allow". The
+# client now records those events but marks them suppressed. Both sides must
+# agree on that, or the disagreement resolves against the student.
+
+def test_suppressed_hard_events_do_not_satisfy_a_violation_claim(client):
+    headers = student_headers(client)
+    exam_id = only_exam_id()
+    start_attempt(client, headers, exam_id)
+
+    r = client.post(f'/student/exams/{exam_id}/submit', json={
+        'answers': [],
+        'reason': 'tab_switch',
+        # Three hard events, all raised while a permission prompt was up.
+        'events': [
+            event(1, suppressed=True, suppressReason='camera_prompt'),
+            event(2, suppressed=True, suppressReason='camera_prompt'),
+            event(3, suppressed=True, suppressReason='warmup'),
+        ],
+    }, headers=headers)
+    assert r.status_code == 200
+
+    with app.app_context():
+        attempt = StudentExamAttempt.query.filter_by(exam_id=exam_id).first()
+        # Stored for the record...
+        assert ProctorEvent.query.filter_by(attempt_id=attempt.id).count() == 3
+        # ...but they cannot end the exam.
+        assert attempt.submission_reason == 'manual'
+
+
+def test_unsuppressed_events_still_enforce_alongside_suppressed_ones(client):
+    """The suppression must not become a blanket off-switch."""
+    headers = student_headers(client)
+    exam_id = only_exam_id()
+    start_attempt(client, headers, exam_id)
+
+    client.post(f'/student/exams/{exam_id}/submit', json={
+        'answers': [],
+        'reason': 'tab_switch',
+        'events': [
+            event(1, suppressed=True),   # permission prompt — not counted
+            event(2), event(3), event(4),  # three real tab switches
+        ],
+    }, headers=headers)
+
+    with app.app_context():
+        attempt = StudentExamAttempt.query.filter_by(exam_id=exam_id).first()
+        assert attempt.submission_reason == 'tab_switch'
+
+
+def test_suppressed_events_are_hidden_from_the_live_monitor(client):
+    s_headers = student_headers(client)
+    exam_id = only_exam_id()
+    start_attempt(client, s_headers, exam_id)
+
+    client.post(f'/student/exams/{exam_id}/events', json={'events': [
+        event(1, 'tab_hidden'),
+        event(2, 'tab_hidden', suppressed=True),
+        event(3, 'fullscreen_exited', 2, suppressed=True),
+    ]}, headers=s_headers)
+
+    body = client.get(f'/admin/exams/{exam_id}/live',
+                      headers=admin_headers(client)).get_json()
+    student = body['students'][0]
+    assert student['event_counts']['tab_hidden'] == 1
+    assert 'fullscreen_exited' not in student['event_counts']
+    assert student['hard_violations'] == 1
+
+
+# ── Event metadata ─────────────────────────────────────────────────────────
+
+def test_whitelisted_meta_is_stored_and_everything_else_dropped(client):
+    """Without meta, `face_out_of_region` records that a student looked away
+    but not which way or how far — not enough for anyone to review fairly."""
+    headers = student_headers(client)
+    exam_id = only_exam_id()
+    attempt_id = start_attempt(client, headers, exam_id)
+
+    client.post(f'/student/exams/{exam_id}/events', json={'events': [
+        event(1, 'face_out_of_region', 1,
+              reason='pitch', direction='down', deviceType='laptop',
+              # Not on the whitelist — must not be persisted.
+              evil='<script>alert(1)</script>', answers=['A', 'B']),
+    ]}, headers=headers)
+
+    with app.app_context():
+        row = ProctorEvent.query.filter_by(attempt_id=attempt_id, seq=1).first()
+        meta = json.loads(row.meta)
+        assert meta == {'reason': 'pitch', 'direction': 'down',
+                        'deviceType': 'laptop'}
+        assert 'evil' not in row.meta
+        assert row.to_dict()['meta']['direction'] == 'down'
+
+
+def test_meta_is_length_capped(client):
+    headers = student_headers(client)
+    exam_id = only_exam_id()
+    attempt_id = start_attempt(client, headers, exam_id)
+
+    client.post(f'/student/exams/{exam_id}/events', json={'events': [
+        event(1, 'camera_denied', 2, reason='x' * 5000),
+    ]}, headers=headers)
+
+    with app.app_context():
+        row = ProctorEvent.query.filter_by(attempt_id=attempt_id, seq=1).first()
+        assert len(row.meta) <= MAX_META_CHARS
+        # Truncated mid-JSON, so to_dict() must degrade rather than raise.
+        assert row.to_dict()['meta'] is None
+
+
+def test_events_without_meta_keys_store_null(client):
+    headers = student_headers(client)
+    exam_id = only_exam_id()
+    attempt_id = start_attempt(client, headers, exam_id)
+
+    client.post(f'/student/exams/{exam_id}/events',
+                json={'events': [event(1)]}, headers=headers)
+
+    with app.app_context():
+        row = ProctorEvent.query.filter_by(attempt_id=attempt_id, seq=1).first()
+        assert row.meta is None
+        assert row.suppressed is False
+
+
+# ── New soft event types ───────────────────────────────────────────────────
+
+def test_new_face_events_are_stored_but_never_enforce(client):
+    headers = student_headers(client)
+    exam_id = only_exam_id()
+    attempt_id = start_attempt(client, headers, exam_id)
+
+    r = client.post(f'/student/exams/{exam_id}/events', json={'events': [
+        event(1, 'face_multiple', 2, faces=2),
+        event(2, 'face_distance_changed', 1, reason='too_far'),
+        event(3, 'face_multiple', 2, faces=3),
+    ]}, headers=headers)
+    assert r.get_json()['stored'] == 3
+
+    client.post(f'/student/exams/{exam_id}/submit',
+                json={'answers': [], 'reason': 'tab_switch'}, headers=headers)
+
+    with app.app_context():
+        assert ProctorEvent.query.filter_by(attempt_id=attempt_id).count() == 3
+        attempt = StudentExamAttempt.query.filter_by(exam_id=exam_id).first()
+        assert attempt.submission_reason == 'manual'
+
+
+# ── Pre-flight state ───────────────────────────────────────────────────────
+
+def test_start_accepts_and_persists_a_preflight_summary(client):
+    headers = student_headers(client)
+    exam_id = only_exam_id()
+
+    r = client.post(f'/student/exams/{exam_id}/start', json={'preflight': {
+        'camera': 'denied', 'fullscreen': True, 'proctored': False,
+        'unproctoredReason': 'camera_denied', 'deviceType': 'laptop',
+        'ignored': 'nope',
+    }}, headers=headers)
+    assert r.status_code == 200
+
+    with app.app_context():
+        attempt = StudentExamAttempt.query.filter_by(exam_id=exam_id).first()
+        state = json.loads(attempt.proctoring_state)
+        assert state['proctored'] is False
+        assert state['unproctoredReason'] == 'camera_denied'
+        assert 'ignored' not in state
+
+
+def test_start_without_a_preflight_still_works(client):
+    """Every existing client posts an empty body — the field is additive."""
+    headers = student_headers(client)
+    exam_id = only_exam_id()
+
+    r = client.post(f'/student/exams/{exam_id}/start', json={}, headers=headers)
+    assert r.status_code == 200
+
+    with app.app_context():
+        attempt = StudentExamAttempt.query.filter_by(exam_id=exam_id).first()
+        assert attempt.proctoring_state is None
+
+
+def test_an_unproctored_attempt_cannot_be_upgraded_on_resume(client):
+    """`proctored` is sticky-false: an attempt that ran unproctored for any
+    segment is not a proctored attempt, whatever a later resume claims."""
+    headers = student_headers(client)
+    exam_id = only_exam_id()
+
+    client.post(f'/student/exams/{exam_id}/start', json={'preflight': {
+        'camera': 'denied', 'proctored': False, 'unproctoredReason': 'camera_denied',
+    }}, headers=headers)
+    # Resume, this time with the camera granted.
+    client.post(f'/student/exams/{exam_id}/start', json={'preflight': {
+        'camera': 'granted', 'proctored': True,
+    }}, headers=headers)
+
+    with app.app_context():
+        attempt = StudentExamAttempt.query.filter_by(exam_id=exam_id).first()
+        state = json.loads(attempt.proctoring_state)
+        assert state['proctored'] is False
+        assert state['unproctoredReason'] == 'camera_denied'
+        assert state['camera'] == 'granted'      # the latest fact is still kept
+
+
+def test_live_monitor_reports_unproctored_attempts(client):
+    headers = student_headers(client)
+    exam_id = only_exam_id()
+    client.post(f'/student/exams/{exam_id}/start', json={'preflight': {
+        'camera': 'denied', 'proctored': False, 'unproctoredReason': 'camera_denied',
+    }}, headers=headers)
+
+    body = client.get(f'/admin/exams/{exam_id}/live',
+                      headers=admin_headers(client)).get_json()
+    assert body['summary']['unproctored'] == 1
+    assert body['students'][0]['proctored'] is False
+    assert body['students'][0]['unproctored_reason'] == 'camera_denied'

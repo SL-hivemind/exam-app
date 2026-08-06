@@ -386,6 +386,25 @@ DEFAULT_PROCTOR_POLICY = {
     # Enforcement — HARD signals only
     'maxViolations': 3,
     'autoSubmitOnMaxViolations': True,
+
+    # Arming. Listeners attach before the page has settled; a permission prompt
+    # or a late fullscreen transition must not be charged to the student. HARD
+    # events inside the warmup are still recorded, just flagged `suppressed`.
+    'armWarmupMs': 1500,
+    # Safari fires both `fullscreenchange` and `webkitfullscreenchange` for a
+    # single transition. Collapse repeats of one type inside this window.
+    'dedupMs': 250,
+
+    # Face attention thresholds. These lived inside the tracker as constants,
+    # so an exam could not tune them — a supervised lab wants different numbers
+    # from a student sitting at home.
+    'faceAbsenceMs': 5000,
+    'faceAwayMs': 4000,
+    'faceRecoverMs': 1500,
+    'faceMultipleMs': 3000,
+    # None = derive from calibration. Ships disabled until the pitch thresholds
+    # have been measured on real hardware rather than derived from geometry.
+    'facePitchTolerance': None,
 }
 
 # The five environments from the design. Each is a sparse patch over
@@ -607,6 +626,12 @@ class StudentExamAttempt(db.Model):
     submitted_time = db.Column(db.DateTime, nullable=True)
     score = db.Column(db.Integer, nullable=True)
     submission_reason = db.Column(db.String(50), nullable=True, default='manual')
+    # What the browser could actually offer when the exam started: camera
+    # granted or refused, fullscreen entered or unavailable. Client-asserted and
+    # therefore advisory — but it is corroborated by the camera_* event rows,
+    # and it lets the admin list flag an unproctored attempt without scanning
+    # the event table. JSON in Text, matching every other settings blob here.
+    proctoring_state = db.Column(db.Text, nullable=True)
     __table_args__ = (
         db.UniqueConstraint('exam_id', 'student_id', name='uq_exam_attempt'),
         # Peer-score/percentile queries filter on (exam_id, submitted_time).
@@ -650,6 +675,11 @@ class ProctorEvent(db.Model):
     received_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     duration_ms = db.Column(db.Integer, nullable=True)
     meta = db.Column(db.Text, nullable=True)
+    # True when the client recorded this event but did not count it: the exam
+    # was still warming up, or a camera permission prompt was on screen. A
+    # column rather than a key inside `meta` because both the auto-submit
+    # recount and the live-monitor aggregate filter on it.
+    suppressed = db.Column(db.Boolean, nullable=False, default=False, server_default='0')
 
     attempt = db.relationship(
         'StudentExamAttempt',
@@ -665,6 +695,12 @@ class ProctorEvent(db.Model):
     )
 
     def to_dict(self):
+        meta = None
+        if self.meta:
+            try:
+                meta = json.loads(self.meta)
+            except (ValueError, TypeError):
+                meta = None
         return {
             'seq': self.seq,
             'type': self.event_type,
@@ -672,6 +708,8 @@ class ProctorEvent(db.Model):
             'client_ts': self.client_ts,
             'received_at': self.received_at.isoformat() if self.received_at else None,
             'duration_ms': self.duration_ms,
+            'suppressed': bool(self.suppressed),
+            'meta': meta,
         }
 
 
@@ -701,7 +739,20 @@ KNOWN_EVENT_TYPES = {
     # counted toward an auto-submit.
     'face_calibrated', 'face_recalibrated', 'face_absent',
     'face_out_of_region', 'face_returned', 'face_monitor_unavailable',
+    'face_multiple', 'face_distance_changed',
 }
+
+# Fields a client may attach to an event and have persisted into `meta`.
+# A whitelist, not a passthrough: this is student-controlled input that ends up
+# rendered in an admin report, and the column is not a dumping ground for
+# whatever a future client happens to send.
+META_KEYS = {
+    'reason', 'key', 'deviceType', 'samples', 'from', 'faces',
+    'stage', 'suppressReason', 'proctored', 'unproctoredReason',
+    'direction', 'cx', 'cy', 'ipd',
+}
+# Hard cap on the serialised blob, applied after the whitelist.
+MAX_META_CHARS = 512
 
 # -------------------- OTP FOR PASSWORD RESET --------------------
 
