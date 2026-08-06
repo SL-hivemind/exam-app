@@ -50,6 +50,7 @@ import {
 import api from "../../utils/api";
 import useAuth from "../../hooks/useAuth";
 import InfoTip from "../common/InfoTip";
+import { ComposedTrendChart, SubjectRadarChart } from "../common/charts";
 
 const ff = "'Inter', sans-serif";
 const PALETTE = {
@@ -146,6 +147,17 @@ export default function SchoolAnalyticsPage() {
 
   const classChartData = useMemo(() => (data?.class_breakdown || []).slice(0, 8), [data]);
   const subjectChartData = useMemo(() => (data?.subject_breakdown || []).slice(0, 8), [data]);
+
+  // The baseline every subject is read against. Without it the radar drew a
+  // shape with nothing to compare it to, so "is 62% in Physics a dent?" was
+  // still a judgement call.
+  const schoolAverage = useMemo(() => {
+    const subjects = data?.subject_breakdown || [];
+    if (!subjects.length) return 0;
+    return Math.round(
+      subjects.reduce((sum, s) => sum + (s.percentage || 0), 0) / subjects.length,
+    );
+  }, [data]);
 
   if (loading && !data) {
     return (
@@ -255,21 +267,17 @@ export default function SchoolAnalyticsPage() {
           
           {/* Top Half: Macro Trends */}
           <WidgetCard title="Macro Trends (30 Days)" info="The school's average exam score per day over the last 30 days. A rising line means recent exams are going better." sx={{ flex: { lg: 1 }, minHeight: 0, height: { xs: 340, lg: 'auto' } }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={timeline} margin={{ top: 5, right: 0, left: -25, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={PALETTE.orange} stopOpacity={0.3} />
-                    <stop offset="95%" stopColor={PALETTE.orange} stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" vertical={false} />
-                <XAxis dataKey="label" stroke="#64748b" tick={{ fill: "#64748b", fontSize: 10, fontFamily: ff }} axisLine={false} tickLine={false} />
-                <YAxis domain={[0, 100]} stroke="#64748b" tick={{ fill: "#64748b", fontSize: 10, fontFamily: ff }} axisLine={false} tickLine={false} />
-                <Tooltip content={<CustomTooltip />} />
-                <Area type="monotone" dataKey="percentage" name="Avg Score" stroke={PALETTE.orange} strokeWidth={2} fillOpacity={1} fill="url(#colorScore)" activeDot={{ r: 4, strokeWidth: 0, fill: "#fff" }} />
-              </AreaChart>
-            </ResponsiveContainer>
+            {/* Same component the student page uses, so one metric looks the
+                same wherever it appears. Bars per day plus a running average:
+                the plain area chart could not distinguish a school that was
+                improving from one that was flat. */}
+            <ComposedTrendChart
+              data={timeline.map((t) => ({ label: t.label, value: t.percentage }))}
+              barName="Avg score"
+              lineName="Running average"
+              colorByScore
+              height={250}
+            />
           </WidgetCard>
 
           {/* Bottom Half: Ledger */}
@@ -340,15 +348,20 @@ export default function SchoolAnalyticsPage() {
           {/* Radar Chart */}
           <WidgetCard title="Subject Mastery" info="Average accuracy per subject across the whole school. A dent in the shape shows the subject that needs attention." sx={{ flex: { lg: 1 }, minHeight: 0, height: { xs: 340, lg: 'auto' } }}>
             {subjectChartData.length > 2 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <RadarChart cx="50%" cy="50%" outerRadius="65%" data={subjectChartData}>
-                  <PolarGrid stroke="rgba(255,255,255,0.05)" />
-                  <PolarAngleAxis dataKey="subject" tick={{ fill: "#94a3b8", fontSize: 9, fontFamily: ff }} />
-                  <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Radar name="Accuracy" dataKey="percentage" stroke={PALETTE.purple} strokeWidth={1.5} fill={PALETTE.purple} fillOpacity={0.4} />
-                </RadarChart>
-              </ResponsiveContainer>
+              /* Every subject's accuracy against the school average on the
+                 same axes, so a dent is measured rather than eyeballed. */
+              <SubjectRadarChart
+                data={subjectChartData.map((s) => ({
+                  axis: s.subject,
+                  accuracy: s.percentage || 0,
+                  average: schoolAverage,
+                }))}
+                series={[
+                  { key: 'accuracy', label: 'Accuracy' },
+                  { key: 'average', label: 'School average' },
+                ]}
+                height={230}
+              />
             ) : (
               <Box display="flex" alignItems="center" justifyContent="center" height="100%">
                 <Typography sx={{ color: "#475569", fontFamily: ff, fontSize: "0.75rem" }}>Insufficient data.</Typography>

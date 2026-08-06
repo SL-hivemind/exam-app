@@ -68,6 +68,7 @@ import {
 import api from "../utils/api";
 import useAuth from "../hooks/useAuth";
 import InfoTip from "./common/InfoTip";
+import { ComposedTrendChart, RingChart, SubjectRadarChart } from "./common/charts";
 
 const ff = "'Inter', sans-serif";
 const PALETTE = {
@@ -524,25 +525,18 @@ export default function StudentAnalysisPage() {
                   title="Performance Velocity"
                   subtitle="Score progression across recent examinations"
                 />
-                <ResponsiveContainer width="100%" height="82%">
-                  <AreaChart data={filteredTimeline} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.4} />
-                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                    <XAxis dataKey="label" stroke="#64748b" tick={{ fill: "#64748b", fontSize: 12, fontFamily: ff }} axisLine={false} tickLine={false} />
-                    <YAxis domain={[0, 100]} stroke="#64748b" tick={{ fill: "#64748b", fontSize: 12, fontFamily: ff }} axisLine={false} tickLine={false} />
-                    <Tooltip content={<ChartTooltip />} />
-                    <Area
-                      type="monotone" dataKey="percentage" name="Score" stroke="#3b82f6" strokeWidth={3}
-                      fillOpacity={1} fill="url(#colorScore)" activeDot={{ r: 6, strokeWidth: 0, fill: "#60a5fa" }}
-                      isAnimationActive animationDuration={1300} animationEasing="ease-out"
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
+                {/* Bars for each attempt, plus a running average. The area
+                    chart it replaces showed the same scores but nothing to
+                    read them against, so a run of 60s looked identical
+                    whether the student was improving or sliding. */}
+                <ComposedTrendChart
+                  data={filteredTimeline.map((t) => ({ label: t.label, value: t.percentage }))}
+                  barName="Score"
+                  lineName="Running average"
+                  average={filteredAvgPct}
+                  colorByScore
+                  height={280}
+                />
               </Paper>
             </RevealBox>
         </Box>
@@ -554,39 +548,29 @@ export default function StudentAnalysisPage() {
                 <MiniHeader
                   icon={<DonutLargeIcon sx={{ color: "#34d399", fontSize: 20 }} />}
                   iconBg="rgba(52,211,153,0.12)"
-                  title="Marks Distribution"
-                  subtitle="Earned vs. remaining across all attempts"
+                  title="Subject Mastery"
+                  subtitle="How far through each subject, with marks earned overall"
                 />
                 {pieTotal > 0 ? (
-                  <Box sx={{ flexGrow: 1, position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={marksPieData} dataKey="value" nameKey="name" innerRadius="62%" outerRadius="88%"
-                          paddingAngle={3} startAngle={90} endAngle={-270}
-                          isAnimationActive animationDuration={1300} animationEasing="ease-out"
-                        >
-                          {marksPieData.map((entry, i) => (
-                            <Cell key={`slice-${i}`} fill={entry.color} stroke="none" />
-                          ))}
-                        </Pie>
-                        <Tooltip
-                          formatter={(value, name) => [`${value} marks`, name]}
-                          contentStyle={{ background: "rgba(15,23,42,0.92)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, fontFamily: ff }}
-                          itemStyle={{ fontFamily: ff }}
-                        />
-                        <Legend
-                          verticalAlign="bottom" height={36}
-                          formatter={(value) => <span style={{ color: "#94a3b8", fontFamily: ff, fontSize: 12 }}>{value}</span>}
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
-                    <Box sx={{ position: "absolute", top: "44%", left: "50%", transform: "translate(-50%, -50%)", textAlign: "center", pointerEvents: "none" }}>
-                      <Typography variant="h4" fontWeight={800} sx={{ fontFamily: ff, color: "#f8fafc" }}>
-                        <AnimatedNumber value={piePct} decimals={0} />%
-                      </Typography>
-                      <Typography variant="caption" sx={{ color: "#64748b", fontFamily: ff }}>earned</Typography>
-                    </Box>
+                  <Box sx={{ flexGrow: 1, minHeight: 0 }}>
+                    {/* Rings rather than a two-slice pie. "Earned vs remaining"
+                        is progress toward a ceiling, and a ring shows the gap
+                        left; a pie of two slices makes the reader compare two
+                        angles to learn one number. Each subject gets its own
+                        ring, so the weakest one is visible immediately. */}
+                    <RingChart
+                      data={[
+                        { label: 'Marks earned', value: piePct, maxValue: 100 },
+                        ...subjectChartData.slice(0, 4).map((s) => ({
+                          label: s.subject,
+                          value: s.percentage || 0,
+                          maxValue: 100,
+                        })),
+                      ]}
+                      byScore
+                      centerLabel="Overall earned"
+                      height={250}
+                    />
                   </Box>
                 ) : (
                   <Box sx={{ flexGrow: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -609,22 +593,23 @@ export default function StudentAnalysisPage() {
                   title="Subject Proficiency"
                   subtitle="Multidimensional skill map"
                 />
-                <Box sx={{ flexGrow: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  {subjectChartData.length > 2 ? (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <RadarChart cx="50%" cy="50%" outerRadius="70%" data={subjectChartData}>
-                        <PolarGrid stroke="rgba(255,255,255,0.1)" />
-                        <PolarAngleAxis dataKey="subject" tick={{ fill: "#94a3b8", fontSize: 11, fontFamily: ff }} />
-                        <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fill: "#475569", fontSize: 10 }} axisLine={false} />
-                        <Tooltip content={<ChartTooltip />} />
-                        <Radar name="Accuracy" dataKey="percentage" stroke="#8b5cf6" strokeWidth={2} fill="#8b5cf6" fillOpacity={0.4} isAnimationActive animationDuration={1300} animationEasing="ease-out" />
-                      </RadarChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <Typography sx={{ color: "#475569", fontFamily: ff, fontSize: "0.9rem", textAlign: "center" }}>
-                      Not enough subjects for radar mapping.<br />Keep practicing!
-                    </Typography>
-                  )}
+                <Box sx={{ flexGrow: 1, minHeight: 0 }}>
+                  {/* Accuracy against the student's own average on the same
+                      axes. The single-series radar it replaces drew a shape
+                      with nothing to compare it to, so "is 62% in Physics
+                      good?" was still unanswerable from the chart. */}
+                  <SubjectRadarChart
+                    data={subjectChartData.map((s) => ({
+                      axis: s.subject,
+                      accuracy: s.percentage || 0,
+                      average: filteredAvgPct,
+                    }))}
+                    series={[
+                      { key: 'accuracy', label: 'Accuracy' },
+                      { key: 'average', label: 'Your average' },
+                    ]}
+                    height={250}
+                  />
                 </Box>
               </Paper>
             </RevealBox>
