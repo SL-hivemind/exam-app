@@ -33,6 +33,23 @@ import { guideFor, COURSE_FAQ } from './examGuides';
 
 const ff = "'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
 
+/* Google truncates around 160 characters. */
+const SEO_DESC_MAX = 158;
+
+function seoDescription(course) {
+  const own = (course.description || '').trim().replace(/\s+/g, ' ');
+  const tail = `${course.title} online practice: mock tests, previous year question papers `
+    + `and chapter-wise questions with instant results.`
+    + (course.price === 0 ? ' Free to start.' : '');
+
+  if (!own) return tail.slice(0, SEO_DESC_MAX);
+  if (own.length >= SEO_DESC_MAX) return own.slice(0, SEO_DESC_MAX);
+
+  const room = SEO_DESC_MAX - own.length - 1;
+  const extra = `${course.title} mock tests, previous year papers and chapter-wise practice.`;
+  return room > 40 ? `${own} ${extra.slice(0, room)}` : own;
+}
+
 const CARD_SX = {
   bgcolor: 'rgba(255,255,255,0.04)',
   border: '1px solid rgba(255,255,255,0.10)',
@@ -246,12 +263,11 @@ export default function PublicCourseDetail() {
       <Seo
         path={courseUrl(course)}
         title={`${course.title} — Mock Tests, Practice Questions & PYQs`}
-        description={
-          (course.description || '').trim().slice(0, 155) ||
-          `${course.title}: ${course.question_count || 'hundreds of'} practice questions, ` +
-          `previous year papers and full-length mock tests with instant analysis.` +
-          (course.price === 0 ? ' Free to start.' : '')
-        }
+        /* Lead with the course's own description — it is specific and unique,
+           which is what a snippet needs — then spend whatever room is left on
+           the words people actually type. A description that is only keywords
+           reads as spam; one with none never surfaces. */
+        description={seoDescription(course)}
         image={course.thumbnail_url}
         jsonLd={{
           '@context': 'https://schema.org',

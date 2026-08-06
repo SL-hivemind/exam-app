@@ -21,6 +21,13 @@ const OFFICE = { lat: 17.365528, lng: 78.560611 };
 const MAP_EMBED = `https://maps.google.com/maps?q=${OFFICE.lat},${OFFICE.lng}&z=15&output=embed`;
 const MAP_LINK = `https://www.google.com/maps/search/?api=1&query=${OFFICE.lat},${OFFICE.lng}`;
 
+const EMAIL = 'saaradaalearknowations@saaradaa.com';
+const PHONES = [
+  { tel: '+919030170077', label: '90301 70077' },
+  { tel: '+919030390077', label: '90303 90077' },
+  { tel: '+914045632683', label: '040 45632683' },
+];
+
 // One size for both marks, and one for every column heading — the two logos
 // were 56px and 100px side by side, and the columns each set their own.
 const LOGO = 56;
@@ -104,7 +111,7 @@ export default function Footer() {
                 {/* Was /register, which is not a route — it rendered the
                     homepage on a 200, and now renders the 404 page. Schools
                     sign up by talking to us, so it points where that happens. */}
-                <Link href="mailto:directorops@e2eindia.org?subject=School%20registration" color="inherit" underline="hover" sx={linkSx}>Register School</Link>
+                <Link href={`mailto:${EMAIL}?subject=School%20registration`} color="inherit" underline="hover" sx={linkSx}>Register School</Link>
               </Stack>
             </Grid>
 
@@ -117,7 +124,7 @@ export default function Footer() {
                 <Link component="button" onClick={() => setOpenAbout(true)} color="inherit" underline="hover" sx={{ ...linkSx, textAlign: 'left', p: 0, border: 0, background: 'none', cursor: 'pointer' }}>
                   About Us
                 </Link>
-                <Link href="mailto:Saradapublications18@gmail.com" color="inherit" underline="hover" sx={linkSx}>
+                <Link href={`mailto:${EMAIL}?subject=Report%20an%20issue`} color="inherit" underline="hover" sx={linkSx}>
                   Report an Issue
                 </Link>
               </Stack>
@@ -133,15 +140,20 @@ export default function Footer() {
                 </Typography>
                 <Typography variant="body2" sx={{ fontFamily: inter }}>
                   <Box component="strong" sx={{ color: '#fff' }}>Email:</Box>{' '}
-                  <Link href="mailto:directorops@e2eindia.org" color="inherit" underline="hover">
-                    directorops@e2eindia.org
+                  <Link href={`mailto:${EMAIL}`} color="inherit" underline="hover">
+                    {EMAIL}
                   </Link>
                 </Typography>
                 <Typography variant="body2" sx={{ fontFamily: inter }}>
                   <Box component="strong" sx={{ color: '#fff' }}>Phone:</Box>{' '}
-                  <Link href="tel:+914045632683" color="inherit" underline="hover">
-                    040 45632683
-                  </Link>
+                  {PHONES.map((p, i) => (
+                    <React.Fragment key={p.tel}>
+                      {i > 0 && ' · '}
+                      <Link href={`tel:${p.tel}`} color="inherit" underline="hover">
+                        {p.label}
+                      </Link>
+                    </React.Fragment>
+                  ))}
                 </Typography>
               </Stack>
 
@@ -184,7 +196,7 @@ export default function Footer() {
                 <Button
                   variant="outlined"
                   size="small"
-                  href="mailto:directorops@e2eindia.org"
+                  href={`mailto:${EMAIL}`}
                   sx={{
                     fontFamily: oswald, fontWeight: 600, letterSpacing: '0.04em',
                     textTransform: 'uppercase', fontSize: '0.78rem',

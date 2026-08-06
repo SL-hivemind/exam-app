@@ -485,8 +485,11 @@ export default function Home() {
           already knew the company name, which is not who a homepage is for. */}
       <Seo
         path="/"
-        title="Free Online Mock Tests & Practice Papers for JEE, NEET, SSC & Banking"
-        description="Practice with free online mock tests, previous year papers and chapter-wise questions for JEE, NEET, CBSE, SSC, RRB, Banking and GATE. Instant scoring and detailed analysis."
+        /* The homepage serves two audiences — schools buying an exam system
+           and students looking for practice — and was only speaking to the
+           second. Both sets of words are here now. */
+        title="Online Exam Software for Schools & Free Chapter Practice Tests"
+        description="Conduct secure online exams and school assessments — unit tests, slip tests and board exam practice — or practise free subject and chapter-wise questions and mock tests for JEE, NEET, CBSE, SSC, RRB, Police and Banking. Instant results and analytics."
         jsonLd={{
           '@context': 'https://schema.org',
           '@type': 'WebSite',
@@ -779,17 +782,19 @@ export default function Home() {
 
         /* ---------------- Explore SL (beyond exams) ---------------- */
         .explore-card { position: relative; overflow: hidden; border-radius: 20px; border: 1px solid var(--border); background: rgba(245,166,35,0.07), var(--surface); padding: 46px; display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 40px; align-items: center; }
-        .explore-orb { position: absolute; width: 340px; height: 340px; border-radius: 50%; filter: blur(60px); opacity: .35; pointer-events: none; }
-        .explore-orb-1 { background: radial-gradient(circle, rgba(245,166,35,0.5), transparent 70%); top: -120px; right: -80px; animation: exploreDrift 11s ease-in-out infinite; }
-        .explore-orb-2 { background: radial-gradient(circle, rgba(108,124,255,0.45), transparent 70%); bottom: -140px; left: -60px; animation: exploreDrift 13s ease-in-out infinite reverse; }
+        /* The two drifting blurred orbs that sat in this card are gone —
+           same treatment as the rest of the public side. The elements are
+           left in the markup but draw nothing. */
+        .explore-orb { display: none; }
         @keyframes exploreDrift { 0%,100% { transform: translate(0,0); } 50% { transform: translate(-24px, 18px); } }
         .explore-chips { display: flex; flex-wrap: wrap; gap: 10px; margin: 22px 0 30px; }
         .explore-chip { font-size: 13px; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--border); background: rgba(255,255,255,0.04); color: var(--text-dim); transition: all .25s ease; }
         .explore-chip:hover { border-color: rgba(245,166,35,0.45); color: var(--text); transform: translateY(-2px); }
         .explore-visual { position: relative; display: flex; align-items: center; justify-content: center; }
         .explore-logo-ring { position: relative; width: 210px; height: 210px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
-        .explore-logo-ring::before { content: ''; position: absolute; inset: 0; border-radius: 50%; padding: 2px; background: conic-gradient(from 0deg, var(--amber), var(--indigo), transparent 65%, var(--amber)); -webkit-mask: #000 content-box, #000; -webkit-mask-composite: xor; mask-composite: exclude; animation: exploreSpin 7s linear infinite; }
-        @keyframes exploreSpin { to { transform: rotate(360deg); } }
+        /* Was an amber-to-indigo conic ring spinning around the Saaradaa
+           logo. Plain static ring — the logo is the thing worth looking at. */
+        .explore-logo-ring::before { content: ''; position: absolute; inset: 0; border-radius: 50%; padding: 2px; background: rgba(255,255,255,0.12); -webkit-mask: #000 content-box, #000; -webkit-mask-composite: xor; mask-composite: exclude; }
         .explore-logo-ring img { width: 120px; height: 120px; border-radius: 26%; box-shadow: 0 18px 44px rgba(0,0,0,0.5); }
         .explore-cta-row { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
         .btn-explore { display: inline-flex; align-items: center; gap: 9px; padding: 13px 26px; border-radius: 12px; font-weight: 600; font-size: 15px; color: #1a1305; background: var(--amber); border: none; cursor: pointer; text-decoration: none; box-shadow: 0 10px 26px rgba(245,166,35,0.35); transition: transform .2s ease, box-shadow .2s ease; }
@@ -1061,16 +1066,26 @@ export default function Home() {
       {/* ---------------- Marquee ---------------- */}
       <div className="marquee-section">
         <Marquee
+          /* Visible body text, and the terms people actually search. A
+             keywords meta tag has been ignored for years; a scrolling line of
+             real copy on the page is not. */
           items={[
+            "ONLINE EXAMS",
+            "SCHOOL ASSESSMENTS",
+            "SUBJECT TESTS",
+            "CHAPTER PRACTICE",
             "BOARD EXAMS",
             "SLIP TESTS",
+            "UNIT TESTS",
             "JEE PRACTICE",
             "NEET PRACTICE",
             "SSC CGL",
             "BANKING",
             "RAILWAYS",
+            "POLICE CONSTABLE",
             "GATE",
             "EXAM REPORTS",
+            "QUESTION BANK",
           ]}
         />
       </div>
