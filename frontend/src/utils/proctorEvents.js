@@ -139,6 +139,45 @@ export const EVENT_MESSAGE = {
   [EVENT.FACE_MULTIPLE]: 'More than one person is visible on camera.',
 };
 
+// Admin-facing names. Separate from EVENT_MESSAGE, which is written to be read
+// by a student mid-exam — a teacher reviewing a timeline wants the label, not
+// the reassurance.
+export const EVENT_LABEL = {
+  [EVENT.EXAM_OPENED]: 'Exam opened',
+  [EVENT.EXAM_SUBMITTED]: 'Submitted',
+  [EVENT.TAB_HIDDEN]: 'Left the tab',
+  [EVENT.TAB_VISIBLE]: 'Returned to the tab',
+  [EVENT.WINDOW_BLUR]: 'Window lost focus',
+  [EVENT.WINDOW_FOCUS]: 'Window regained focus',
+  [EVENT.FULLSCREEN_EXITED]: 'Left fullscreen',
+  [EVENT.FULLSCREEN_ENTERED]: 'Entered fullscreen',
+  [EVENT.FULLSCREEN_UNSUPPORTED]: 'Fullscreen unavailable',
+  [EVENT.COPY_BLOCKED]: 'Copy blocked',
+  [EVENT.PASTE_BLOCKED]: 'Paste blocked',
+  [EVENT.CUT_BLOCKED]: 'Cut blocked',
+  [EVENT.CONTEXT_MENU_BLOCKED]: 'Right-click blocked',
+  [EVENT.SHORTCUT_BLOCKED]: 'Shortcut blocked',
+  [EVENT.NETWORK_OFFLINE]: 'Went offline',
+  [EVENT.NETWORK_ONLINE]: 'Back online',
+  [EVENT.CAMERA_GRANTED]: 'Camera allowed',
+  [EVENT.CAMERA_DENIED]: 'Camera refused',
+  [EVENT.CAMERA_LOST]: 'Camera stopped',
+  [EVENT.CAMERA_RESTORED]: 'Camera restored',
+  [EVENT.CAMERA_UNAVAILABLE]: 'No camera available',
+  [EVENT.FACE_CALIBRATED]: 'Camera set up',
+  [EVENT.FACE_RECALIBRATED]: 'Camera set up again',
+  [EVENT.FACE_ABSENT]: 'Face not visible',
+  [EVENT.FACE_OUT_OF_REGION]: 'Looked away',
+  [EVENT.FACE_RETURNED]: 'Facing the screen again',
+  [EVENT.FACE_MONITOR_UNAVAILABLE]: 'Face check unavailable',
+  [EVENT.FACE_MULTIPLE]: 'More than one person',
+  [EVENT.FACE_DISTANCE_CHANGED]: 'Moved from the camera',
+};
+
+export function labelOf(type) {
+  return EVENT_LABEL[type] || String(type || '').replace(/_/g, ' ');
+}
+
 // The default policy — every capability independently switchable. Phase 1
 // replaces this at runtime with the exam's resolved ProctorProfile; until then
 // it reproduces the behaviour that shipped before this work.

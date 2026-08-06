@@ -48,11 +48,21 @@ import {
   Unpublished as UnpublishIcon,
   RestartAlt as RestartIcon,
   Search as SearchIcon,
-  WarningAmber as WarningIcon // Imported for the danger dialog
+  WarningAmber as WarningIcon, // Imported for the danger dialog
+  Groups as GroupsIcon,
+  PlayCircleOutline as InProgressIcon,
+  TaskAlt as CompletedIcon,
+  HourglassBottom as OverdueIcon,
+  Flag as FlagIcon,
+  VideocamOff as UnproctoredIcon,
+  Timeline as TimelineIcon,
 } from "@mui/icons-material";
+import { LinearProgress, Drawer, IconButton } from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
 import api from "../../utils/api";
 import useAuth from "../../hooks/useAuth";
-import { PageHeader } from "../common";
+import { PageHeader, StatCard, StatusChip, DataTableShell } from "../common";
+import { labelOf, HARD_EVENTS } from "../../utils/proctorEvents";
 import ProctoringSettings from "./ProctoringSettings";
 
 // Live integrity refresh. Long enough that a hall full of admins costs the
@@ -79,6 +89,11 @@ export default function AdminExamDetail() {
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [liveData, setLiveData] = useState(null);
   const [livePolicy, setLivePolicy] = useState(null);
+  // Per-student event timeline, loaded on demand. There was no way to see this
+  // at all before — an admin could see that a student had three violations but
+  // not what they were, when, or how long they lasted.
+  const [timeline, setTimeline] = useState(null);
+  const [timelineLoading, setTimelineLoading] = useState(false);
 
   // --- SAFE RESET STATE ---
   const [resetDialog, setResetDialog] = useState({ open: false, studentId: null, studentUsername: '' });
@@ -432,6 +447,72 @@ export default function AdminExamDetail() {
     s.submission_reason === 'tab_switch' ||
     s.status === 'Discontinued';
 
+  // /live knows about Overdue — started, past their window, never submitted —
+  // and the attempts list does not. Those students used to render as an
+  // ordinary blue "Started", which is exactly the case an invigilator needs
+  // to act on.
+  const statusOf = (s) => liveByUser[s.user_id]?.status || s.status;
+
+  const STATUS_KEY = {
+    Completed: 'completed',
+    'In Progress': 'in_progress',
+    Started: 'in_progress',
+    Overdue: 'expired',
+    Discontinued: 'error',
+    'Not Started': 'default',
+  };
+
+  const summary = liveData?.summary;
+  const totalMarks = exam?.total_marks || 0;
+
+  const openTimeline = async (student) => {
+    setSelectedStudent(student);
+    setTimeline(null);
+    setTimelineLoading(true);
+    try {
+      const res = await api.get(`/admin/exams/${examId}/attempts/${student.user_id}/events`);
+      setTimeline(res.data);
+    } catch (err) {
+      // A student who never started has no attempt and therefore no timeline.
+      setTimeline({ events: [], error: err.response?.data?.message || 'No activity recorded.' });
+    } finally {
+      setTimelineLoading(false);
+    }
+  };
+
+  const fmtTime = (iso) => {
+    if (!iso) return '—';
+    const d = new Date(iso.endsWith('Z') ? iso : `${iso}Z`);
+    return isNaN(d) ? '—' : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const fmtAgo = (iso) => {
+    if (!iso) return '—';
+    const d = new Date(iso.endsWith('Z') ? iso : `${iso}Z`);
+    if (isNaN(d)) return '—';
+    const secs = Math.max(0, Math.floor((Date.now() - d.getTime()) / 1000));
+    if (secs < 60) return 'just now';
+    if (secs < 3600) return `${Math.floor(secs / 60)}m ago`;
+    return `${Math.floor(secs / 3600)}h ago`;
+  };
+
+  const fmtDuration = (ms) => {
+    if (!ms && ms !== 0) return null;
+    const secs = Math.round(ms / 1000);
+    if (secs < 60) return `${secs}s`;
+    return `${Math.floor(secs / 60)}m ${secs % 60}s`;
+  };
+
+  /** The per-type breakdown behind a violation count, in severity order. */
+  const breakdownOf = (s) => {
+    const counts = liveByUser[s.user_id]?.event_counts || {};
+    return Object.entries(counts)
+      .sort((a, b) => (HARD_EVENTS.has(b[0]) ? 1 : 0) - (HARD_EVENTS.has(a[0]) ? 1 : 0))
+      .map(([type, n]) => ({ type, n, hard: HARD_EVENTS.has(type) }));
+  };
+
+  const SEVERITY_DOT = ['#6b7db3', '#93c5fd', '#fcd34d', '#fda4af'];
+
   if (loading) return <Box p={4} display="flex" justifyContent="center"><CircularProgress /></Box>;
   if (error) return <Box p={4}><Alert severity="error">{error}</Alert></Box>;
   if (!exam) return null;
@@ -526,6 +607,26 @@ export default function AdminExamDetail() {
                         label={`${Object.keys(exam.proctor_overrides).length} customised`} />
                     )}
                   </Stack>
+                  {/* The numbers behind the switches. "Auto-submit is on" is
+                      only half an answer — after how many, and with how much
+                      grace, is what decides whether a policy is reasonable. */}
+                  <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
+                    {livePolicy?.autoSubmitOnMaxViolations !== false && (
+                      <Typography variant="caption" color="text.secondary">
+                        Auto-submits after <strong>{livePolicy?.maxViolations ?? 3}</strong> violations
+                      </Typography>
+                    )}
+                    {livePolicy?.detectWindowBlur && (
+                      <Typography variant="caption" color="text.secondary">
+                        <strong>{((livePolicy?.blurGraceMs ?? 1200) / 1000).toFixed(1)}s</strong> focus grace
+                      </Typography>
+                    )}
+                    {livePolicy?.requireFullscreen && livePolicy?.fullscreenSoftFail && (
+                      <Typography variant="caption" color="text.secondary">
+                        Degrades where fullscreen is unsupported
+                      </Typography>
+                    )}
+                  </Stack>
                 </Grid>
               </Grid>
             </Paper>
@@ -587,105 +688,226 @@ export default function AdminExamDetail() {
             />
           </Stack>
 
-          {filteredStudents.length > 0 && (
-            <Stack direction="row" spacing={2} mb={3} flexWrap="wrap" useFlexGap sx={{
-              p: 1.5,
-              borderRadius: 2,
-              bgcolor: 'rgba(255,255,255,0.02)',
-              border: '1px solid rgba(255,255,255,0.05)'
+          {/* The server already computes all of this — assigned, started,
+              in progress, completed, overdue, flagged — and it was being
+              thrown away in favour of a weaker three-way count derived on the
+              client, which had no idea what "overdue" was. */}
+          {summary && (
+            <Box sx={{
+              display: 'grid', gap: 1.5, mb: 3,
+              gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)', lg: 'repeat(6, 1fr)' },
             }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#6c7cff' }} />
-                <Typography variant="body2" color="text.secondary">
-                  <strong>{filteredStudents.filter(s => s.status === 'Started').length}</strong> Taking Exam
-                </Typography>
-              </Box>
-              <Divider orientation="vertical" flexItem sx={{ borderColor: 'rgba(255,255,255,0.1)' }} />
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#4ade80' }} />
-                <Typography variant="body2" color="text.secondary">
-                  <strong>{filteredStudents.filter(s => s.status === 'Completed').length}</strong> Completed
-                </Typography>
-              </Box>
-              <Divider orientation="vertical" flexItem sx={{ borderColor: 'rgba(255,255,255,0.1)' }} />
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#f2685c' }} />
-                <Typography variant="body2" color="text.secondary">
-                  <strong>{filteredStudents.filter(isFlagged).length}</strong> Flagged
-                </Typography>
-              </Box>
-            </Stack>
+              <StatCard icon={<GroupsIcon />} value={summary.assigned} label="Assigned" />
+              <StatCard icon={<InProgressIcon />} value={summary.in_progress} label="In progress" color="primary" />
+              <StatCard icon={<CompletedIcon />} value={summary.completed} label="Completed" color="success" />
+              <StatCard icon={<OverdueIcon />} value={summary.overdue} label="Overdue" color="warning" />
+              <StatCard icon={<FlagIcon />} value={summary.flagged} label="Flagged" color="warning" />
+              <StatCard icon={<UnproctoredIcon />} value={summary.unproctored ?? 0} label="No camera" />
+            </Box>
           )}
 
-          <Box>
-            <style>{`
-              @keyframes flagPulse {
-                0%, 100% { box-shadow: 0 0 0 rgba(242,104,92,0); }
-                50% { box-shadow: 0 0 12px rgba(242,104,92,0.5); }
-              }
-            `}</style>
-            {loadingStudents ? (
-              <Box display="flex" justifyContent="center" py={4}><CircularProgress /></Box>
-            ) : filteredStudents.length === 0 ? (
-              <Typography color="text.secondary" textAlign="center" py={3}>No students found.</Typography>
-            ) : (
-              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: 2 }}>
-                {filteredStudents.map((s) => {
-                  let borderColor = 'rgba(255,255,255,0.10)';
-                  let bgcolor = 'rgba(255,255,255,0.02)';
-                  let color = '#9aa3ba';
-                  let animate = 'none';
+          {liveData?.server_time && (
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
+              Live figures refreshed {fmtAgo(liveData.server_time)} · updates every 10s
+            </Typography>
+          )}
 
-                  if (isFlagged(s)) {
-                    borderColor = 'rgba(242, 104, 92, 0.4)'; // red for flagged
-                    bgcolor = 'rgba(242, 104, 92, 0.14)';
-                    color = '#f2685c';
-                    animate = 'flagPulse 1.6s ease-in-out infinite';
-                  } else if (s.status === 'Completed') {
-                    borderColor = 'rgba(74, 222, 128, 0.3)'; // green
-                    bgcolor = 'rgba(74, 222, 128, 0.08)';
-                    color = '#4ade80';
-                  } else if (s.status === 'Started') {
-                    borderColor = 'rgba(108, 124, 255, 0.2)'; // blue/indigo
-                    bgcolor = 'rgba(108, 124, 255, 0.08)';
-                    color = '#6c7cff';
-                  }
+          {/* Was a grid of 110px squares showing a bare score and a truncated
+              name — two facts per student, with everything else a click away.
+              The /live payload already carried the violation breakdown, the
+              last-activity time and the overdue state; none of it was shown. */}
+          <style>{`
+            @keyframes flagPulse {
+              0%, 100% { box-shadow: 0 0 0 rgba(251,113,133,0); }
+              50% { box-shadow: 0 0 12px rgba(251,113,133,0.45); }
+            }
+          `}</style>
 
-                  return (
-                    <Box
-                      key={s.user_id}
-                      onClick={() => setSelectedStudent(s)}
-                      sx={{
-                        aspectRatio: '1',
-                        borderRadius: 2,
-                        border: `1px solid ${borderColor}`,
-                        bgcolor,
-                        color,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        cursor: 'pointer',
-                        animation: animate,
-                        transition: 'transform 0.2s, border-color 0.2s',
-                        '&:hover': {
-                          transform: 'translateY(-3px)',
-                          borderColor: color
-                        }
-                      }}
+          <DataTableShell
+            loading={loadingStudents}
+            emptyTitle="No students found"
+            emptyMessage={studentSearch ? 'Nothing matches that search.' : 'Nobody is assigned to this exam yet.'}
+            rows={filteredStudents}
+            columns={[
+              { key: 'student', label: 'Student' },
+              { key: 'status', label: 'Status' },
+              { key: 'score', label: 'Score', width: 160 },
+              { key: 'started', label: 'Started', width: 110 },
+              { key: 'integrity', label: 'Integrity' },
+              { key: 'seen', label: 'Last activity', width: 120 },
+              { key: 'actions', label: '', align: 'right', width: 120 },
+            ]}
+            renderRow={(s) => {
+              const live = liveByUser[s.user_id] || {};
+              const flagged = isFlagged(s);
+              return (
+                <TableRow
+                  key={s.user_id}
+                  hover
+                  sx={flagged ? { animation: 'flagPulse 1.6s ease-in-out infinite' } : undefined}
+                >
+                  <TableCell>
+                    <Typography variant="subtitle2" fontWeight={700} sx={{ color: '#cfe0ff' }}>
+                      {s.username}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {s.student_id || '—'}
+                    </Typography>
+                  </TableCell>
+
+                  <TableCell>
+                    <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap" useFlexGap>
+                      <StatusChip status={STATUS_KEY[statusOf(s)] || 'default'} label={statusOf(s)} />
+                      {live.proctored === false && (
+                        <Tooltip title={`Taken without a camera (${live.unproctored_reason || 'unknown'})`}>
+                          <span><StatusChip status="warning" label="No camera" /></span>
+                        </Tooltip>
+                      )}
+                      {s.submission_reason === 'tab_switch' && (
+                        <StatusChip status="error" label="Auto-submitted" />
+                      )}
+                    </Stack>
+                  </TableCell>
+
+                  <TableCell>
+                    {s.score === null || s.score === undefined ? (
+                      <Typography variant="body2" color="text.secondary">—</Typography>
+                    ) : (
+                      <>
+                        <Typography variant="body2" fontWeight={700}>
+                          {s.score}{totalMarks ? ` / ${totalMarks}` : ''}
+                          {totalMarks ? (
+                            <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 0.75 }}>
+                              {Math.round((s.score / totalMarks) * 100)}%
+                            </Typography>
+                          ) : null}
+                        </Typography>
+                        {totalMarks > 0 && (
+                          <LinearProgress
+                            variant="determinate"
+                            value={Math.min(100, (s.score / totalMarks) * 100)}
+                            sx={{ mt: 0.5, height: 4, borderRadius: 2 }}
+                          />
+                        )}
+                      </>
+                    )}
+                  </TableCell>
+
+                  <TableCell>
+                    <Typography variant="body2">{fmtTime(s.start_time)}</Typography>
+                  </TableCell>
+
+                  <TableCell>
+                    {/* The "why", inline. A count on its own tells a teacher
+                        that something happened but not what, and the answer
+                        was already on the wire. */}
+                    {breakdownOf(s).length === 0 ? (
+                      <Typography variant="caption" color="text.secondary">Clean</Typography>
+                    ) : (
+                      <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+                        {breakdownOf(s).map(({ type, n, hard }) => (
+                          <Chip
+                            key={type}
+                            size="small"
+                            label={`${labelOf(type)} ×${n}`}
+                            sx={{
+                              height: 22,
+                              fontSize: '0.68rem',
+                              color: hard ? '#fda4af' : '#fcd34d',
+                              bgcolor: hard ? 'rgba(251,113,133,0.12)' : 'rgba(251,191,36,0.10)',
+                              border: '1px solid',
+                              borderColor: hard ? 'rgba(251,113,133,0.28)' : 'rgba(251,191,36,0.24)',
+                            }}
+                          />
+                        ))}
+                      </Stack>
+                    )}
+                  </TableCell>
+
+                  <TableCell>
+                    <Typography variant="caption" color="text.secondary">
+                      {fmtAgo(live.last_event_at)}
+                    </Typography>
+                  </TableCell>
+
+                  <TableCell align="right">
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      startIcon={<TimelineIcon />}
+                      onClick={() => openTimeline(s)}
+                      sx={{ textTransform: 'none' }}
                     >
-                      <Typography variant="h5" fontWeight={700} sx={{ fontFamily: "'JetBrains Mono', monospace", lineHeight: 1 }}>
-                        {s.score !== null ? s.score : '-'}
+                      Details
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              );
+            }}
+            renderMobileCard={(s) => {
+              const live = liveByUser[s.user_id] || {};
+              return (
+                <Card key={s.user_id} sx={{ borderRadius: 3, boxShadow: 'none', border: '1px solid rgba(255,255,255,0.10)' }}>
+                  <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
+                    <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+                      <Box sx={{ minWidth: 0 }}>
+                        <Typography variant="subtitle1" fontWeight={700} sx={{ color: '#cfe0ff' }} noWrap>
+                          {s.username}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {s.student_id || '—'} · started {fmtTime(s.start_time)}
+                        </Typography>
+                      </Box>
+                      <StatusChip status={STATUS_KEY[statusOf(s)] || 'default'} label={statusOf(s)} />
+                    </Stack>
+
+                    {s.score !== null && s.score !== undefined && (
+                      <Box sx={{ mt: 1.5 }}>
+                        <Typography variant="body2" fontWeight={700}>
+                          {s.score}{totalMarks ? ` / ${totalMarks}` : ''}
+                        </Typography>
+                        {totalMarks > 0 && (
+                          <LinearProgress
+                            variant="determinate"
+                            value={Math.min(100, (s.score / totalMarks) * 100)}
+                            sx={{ mt: 0.5, height: 4, borderRadius: 2 }}
+                          />
+                        )}
+                      </Box>
+                    )}
+
+                    {breakdownOf(s).length > 0 && (
+                      <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mt: 1.5 }}>
+                        {breakdownOf(s).map(({ type, n, hard }) => (
+                          <Chip
+                            key={type}
+                            size="small"
+                            label={`${labelOf(type)} ×${n}`}
+                            sx={{
+                              height: 22, fontSize: '0.68rem',
+                              color: hard ? '#fda4af' : '#fcd34d',
+                              bgcolor: hard ? 'rgba(251,113,133,0.12)' : 'rgba(251,191,36,0.10)',
+                            }}
+                          />
+                        ))}
+                      </Stack>
+                    )}
+
+                    <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 2 }}>
+                      <Typography variant="caption" color="text.secondary">
+                        {live.last_event_at ? `Active ${fmtAgo(live.last_event_at)}` : ''}
                       </Typography>
-                      <Typography variant="caption" sx={{ mt: 1, px: 1, textAlign: 'center', whiteSpace: 'nowrap', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {s.username}
-                      </Typography>
-                    </Box>
-                  );
-                })}
-              </Box>
-            )}
-          </Box>        </Paper>
+                      <Button size="small" variant="outlined" startIcon={<TimelineIcon />}
+                        onClick={() => openTimeline(s)} sx={{ textTransform: 'none' }}>
+                        Details
+                      </Button>
+                    </Stack>
+                  </CardContent>
+                </Card>
+              );
+            }}
+          />
+        </Paper>
       )}
 
       {/* --- DIALOGS --- */}
@@ -815,61 +1037,136 @@ export default function AdminExamDetail() {
         <DialogActions sx={{ p: 2 }}><Button onClick={() => setEditOpen(false)}>Cancel</Button><Button onClick={handleEditSave} variant="contained" disabled={editBusy}>Save</Button></DialogActions>
       </Dialog>
 
-      {/* 3. STUDENT DETAIL DIALOG */}
-      <Dialog open={!!selectedStudent} onClose={() => setSelectedStudent(null)} maxWidth="xs" fullWidth>
+      {/* 3. STUDENT TIMELINE DRAWER
+          Replaces a dialog that restated six fields already visible in the
+          row. What was missing — and what a reviewer actually needs to decide
+          whether a flag is real — is the sequence: what happened, when, and
+          for how long. */}
+      <Drawer
+        anchor="right"
+        open={!!selectedStudent}
+        onClose={() => { setSelectedStudent(null); setTimeline(null); }}
+        PaperProps={{ sx: { width: { xs: '100%', sm: 460 }, p: 0 } }}
+      >
         {selectedStudent && (
-          <>
-            <DialogTitle>Student Details</DialogTitle>
-            <DialogContent dividers>
-              <Stack spacing={2}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+            <Stack direction="row" justifyContent="space-between" alignItems="flex-start"
+              sx={{ p: 2.5, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+              <Box sx={{ minWidth: 0 }}>
+                <Typography variant="h6" fontWeight={800} sx={{ color: '#cfe0ff' }} noWrap>
+                  {selectedStudent.username}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {selectedStudent.student_id || '—'}
+                </Typography>
+              </Box>
+              <IconButton size="small" onClick={() => { setSelectedStudent(null); setTimeline(null); }}>
+                <CloseIcon fontSize="small" />
+              </IconButton>
+            </Stack>
+
+            <Box sx={{ p: 2.5, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+              <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mb: 2 }}>
+                <StatusChip status={STATUS_KEY[statusOf(selectedStudent)] || 'default'} label={statusOf(selectedStudent)} />
+                {timeline?.attempt?.proctored === false && (
+                  <StatusChip status="warning" label={`No camera — ${timeline.attempt.unproctored_reason || 'unknown'}`} />
+                )}
+                {selectedStudent.submission_reason && selectedStudent.submission_reason !== 'manual' && (
+                  <StatusChip status="info" label={`Ended: ${selectedStudent.submission_reason}`} />
+                )}
+              </Stack>
+
+              <Stack direction="row" spacing={3}>
                 <Box>
-                  <Typography variant="caption" color="text.secondary">Name</Typography>
-                  <Typography variant="body1" fontWeight={600}>{selectedStudent.username}</Typography>
-                </Box>
-                <Box>
-                  <Typography variant="caption" color="text.secondary">Student ID</Typography>
-                  <Typography variant="body1">{selectedStudent.student_id}</Typography>
-                </Box>
-                <Box>
-                  <Typography variant="caption" color="text.secondary">Status</Typography>
-                  <Typography variant="body1">
-                    <Chip
-                      label={selectedStudent.status}
-                      size="small"
-                      color={selectedStudent.status === 'Completed' ? 'success' : selectedStudent.status === 'Started' ? 'primary' : selectedStudent.status === 'Discontinued' ? 'error' : 'default'}
-                    />
+                  <Typography variant="caption" color="text.secondary">Score</Typography>
+                  <Typography variant="body1" fontWeight={700}>
+                    {selectedStudent.score !== null && selectedStudent.score !== undefined
+                      ? `${selectedStudent.score}${totalMarks ? ` / ${totalMarks}` : ''}`
+                      : '—'}
                   </Typography>
                 </Box>
                 <Box>
-                  <Typography variant="caption" color="text.secondary">Submission Reason</Typography>
-                  <Typography variant="body1">{selectedStudent.submission_reason || '-'}</Typography>
-                </Box>
-                <Box>
-                  <Typography variant="caption" color="text.secondary">Score</Typography>
-                  <Typography variant="body1" fontWeight={600}>{selectedStudent.score !== null ? selectedStudent.score : '-'}</Typography>
-                </Box>
-                <Box>
-                  <Typography variant="caption" color="text.secondary">Started At</Typography>
-                  <Typography variant="body1">{selectedStudent.start_time ? new Date(selectedStudent.start_time).toLocaleString() : '-'}</Typography>
+                  <Typography variant="caption" color="text.secondary">Started</Typography>
+                  <Typography variant="body1">
+                    {selectedStudent.start_time ? new Date(selectedStudent.start_time).toLocaleString() : '—'}
+                  </Typography>
                 </Box>
               </Stack>
-            </DialogContent>
-            <DialogActions sx={{ p: 2, justifyContent: 'space-between' }}>
-              <Button onClick={() => setSelectedStudent(null)} color="inherit">Close</Button>
-              {(selectedStudent.status === 'Completed' || selectedStudent.status === 'Started' || selectedStudent.status === 'Discontinued') && (
-                <Button color="error" variant="outlined" startIcon={<RestartIcon />} onClick={() => {
+            </Box>
+
+            <Box sx={{ flex: 1, overflowY: 'auto', p: 2.5 }}>
+              <Typography variant="overline" fontWeight={700} color="text.secondary" sx={{ letterSpacing: '0.1em' }}>
+                Activity
+              </Typography>
+
+              {timelineLoading && (
+                <Box display="flex" justifyContent="center" py={4}><CircularProgress size={24} /></Box>
+              )}
+
+              {!timelineLoading && timeline?.events?.length === 0 && (
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+                  {timeline.error || 'Nothing recorded for this attempt.'}
+                </Typography>
+              )}
+
+              {!timelineLoading && timeline?.events?.length > 0 && (
+                <Stack spacing={0} sx={{ mt: 1.5 }}>
+                  {timeline.events.map((e) => (
+                    <Stack key={e.seq} direction="row" spacing={1.5} alignItems="flex-start" sx={{ py: 1 }}>
+                      <Typography variant="caption" color="text.secondary"
+                        sx={{ minWidth: 52, pt: 0.25, fontVariantNumeric: 'tabular-nums' }}>
+                        {fmtTime(e.received_at)}
+                      </Typography>
+                      <Box sx={{
+                        width: 9, height: 9, borderRadius: '50%', mt: 0.7, flexShrink: 0,
+                        bgcolor: SEVERITY_DOT[e.severity] || SEVERITY_DOT[0],
+                        opacity: e.suppressed ? 0.35 : 1,
+                      }} />
+                      <Box sx={{ minWidth: 0 }}>
+                        <Typography variant="body2" sx={{ opacity: e.suppressed ? 0.55 : 1 }}>
+                          {labelOf(e.type)}
+                          {e.duration_ms != null && (
+                            <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 0.75 }}>
+                              {fmtDuration(e.duration_ms)}
+                            </Typography>
+                          )}
+                        </Typography>
+                        {e.meta?.reason && (
+                          <Typography variant="caption" color="text.secondary">
+                            {String(e.meta.reason).replace(/_/g, ' ')}
+                          </Typography>
+                        )}
+                        {/* Shown, dimmed, and explained. Hiding these would
+                            leave a gap in the sequence that looks like data
+                            loss; presenting them as violations would be a lie. */}
+                        {e.suppressed && (
+                          <Typography variant="caption" sx={{ display: 'block', color: '#6b7db3' }}>
+                            not counted — {String(e.suppressReason || e.meta?.suppressReason || 'setup').replace(/_/g, ' ')}
+                          </Typography>
+                        )}
+                      </Box>
+                    </Stack>
+                  ))}
+                </Stack>
+              )}
+            </Box>
+
+            <Box sx={{ p: 2, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+              {['Completed', 'Started', 'In Progress', 'Overdue', 'Discontinued'].includes(statusOf(selectedStudent)) && (
+                <Button fullWidth color="error" variant="outlined" startIcon={<RestartIcon />} onClick={() => {
                   const s = selectedStudent;
                   setSelectedStudent(null);
+                  setTimeline(null);
                   setResetDialog({ open: true, studentId: s.user_id, studentUsername: s.username });
                   setConfirmText("");
                 }}>
                   Reset Attempt
                 </Button>
               )}
-            </DialogActions>
-          </>
+            </Box>
+          </Box>
         )}
-      </Dialog>
+      </Drawer>
 
       {/* 4. SAFE RESET CONFIRMATION DIALOG */}
       <Dialog

@@ -663,6 +663,56 @@ def test_an_unproctored_attempt_cannot_be_upgraded_on_resume(client):
         assert state['camera'] == 'granted'      # the latest fact is still kept
 
 
+def test_attempt_timeline_returns_every_severity(client):
+    """The live wall filters to severity >= 2 because low events are noise
+    across thirty students. Looking at ONE student, they are context."""
+    s_headers = student_headers(client)
+    exam_id = only_exam_id()
+    start_attempt(client, s_headers, exam_id)
+
+    client.post(f'/student/exams/{exam_id}/events', json={'events': [
+        event(1, 'tab_hidden'),
+        event(2, 'copy_blocked', 1),
+        event(3, 'network_offline', 1),
+        event(4, 'face_out_of_region', 1, reason='pitch_down'),
+    ]}, headers=s_headers)
+
+    with app.app_context():
+        user_id = Student.query.first().user_id
+
+    r = client.get(f'/admin/exams/{exam_id}/attempts/{user_id}/events',
+                   headers=admin_headers(client))
+    assert r.status_code == 200, r.get_json()
+    body = r.get_json()
+
+    types = [e['type'] for e in body['events']]
+    assert types == ['tab_hidden', 'copy_blocked', 'network_offline', 'face_out_of_region']
+    # The context that makes a soft flag reviewable at all.
+    assert body['events'][3]['meta']['reason'] == 'pitch_down'
+    assert body['attempt']['user_id'] == user_id
+    assert body['policy']['maxViolations'] == 3
+
+
+def test_attempt_timeline_requires_admin(client):
+    exam_id = only_exam_id()
+    s_headers = student_headers(client)
+    start_attempt(client, s_headers, exam_id)
+    with app.app_context():
+        user_id = Student.query.first().user_id
+
+    r = client.get(f'/admin/exams/{exam_id}/attempts/{user_id}/events', headers=s_headers)
+    assert r.status_code in (401, 403)
+
+
+def test_attempt_timeline_404s_when_the_student_never_started(client):
+    exam_id = only_exam_id()
+    with app.app_context():
+        user_id = Student.query.first().user_id
+    r = client.get(f'/admin/exams/{exam_id}/attempts/{user_id}/events',
+                   headers=admin_headers(client))
+    assert r.status_code == 404
+
+
 def test_live_monitor_reports_unproctored_attempts(client):
     headers = student_headers(client)
     exam_id = only_exam_id()

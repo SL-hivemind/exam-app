@@ -33,6 +33,7 @@ from models import (
     PublicUser, PublicCourse, CourseContent,
     CourseSubscription, PublicExamAttempt, EmailVerificationOTP,
     ProctorProfile, ProctorEvent, DEFAULT_PROCTOR_POLICY, HARD_EVENT_TYPES,
+    MAX_EVENTS_PER_ATTEMPT,
 )
 
 from utils.files import (
@@ -2181,6 +2182,68 @@ def get_exam_attempts_list(current_user, exam_id):
         })
 
     return jsonify({"students": result}), 200
+
+
+@app.get('/admin/exams/<int:exam_id>/attempts/<int:user_id>/events')
+@role_required('admin', 'school_admin')
+def get_attempt_proctor_events(current_user, exam_id, user_id):
+    """The event timeline for one student's attempt.
+
+    Until now there was no way to see this at all: ProctorEvent.to_dict() was
+    written and never called, and the only read path was the live wall's
+    severity >= 2 aggregate. A teacher could see that a student had three
+    violations but not what they were, when, or how long they lasted — which
+    is not enough to act on fairly.
+
+    Returns EVERY severity, unlike /live. The low ones (copy_blocked,
+    shortcut_blocked, network_offline) are noise on a wall of thirty students
+    but they are context when you are looking at one, and network_offline in
+    particular often explains the rest of the row.
+    """
+    exam = Exam.query.get_or_404(exam_id)
+
+    student = Student.query.filter_by(user_id=user_id).first_or_404()
+    if current_user.role == 'school_admin' and student.school_id != current_user.school_id:
+        return jsonify({'message': 'not your student'}), 403
+
+    attempt = StudentExamAttempt.query.filter_by(
+        exam_id=exam_id, student_id=user_id
+    ).first()
+    if not attempt:
+        return jsonify({'message': 'no attempt for this student'}), 404
+
+    events = ProctorEvent.query.filter_by(
+        attempt_id=attempt.id
+    ).order_by(ProctorEvent.seq.asc()).limit(MAX_EVENTS_PER_ATTEMPT).all()
+
+    preflight = {}
+    if attempt.proctoring_state:
+        try:
+            loaded = json.loads(attempt.proctoring_state)
+            if isinstance(loaded, dict):
+                preflight = loaded
+        except (ValueError, TypeError):
+            preflight = {}
+
+    user = User.query.get(user_id)
+
+    return jsonify({
+        'exam_id': exam_id,
+        'policy': exam.proctor_policy,
+        'attempt': {
+            'id': attempt.id,
+            'user_id': user_id,
+            'student_id': student.student_id,
+            'username': user.username if user else None,
+            'start_time': attempt.start_time.isoformat() if attempt.start_time else None,
+            'submitted_time': attempt.submitted_time.isoformat() if attempt.submitted_time else None,
+            'score': attempt.score,
+            'submission_reason': attempt.submission_reason,
+            'proctored': preflight.get('proctored', True),
+            'unproctored_reason': preflight.get('unproctoredReason'),
+        },
+        'events': [e.to_dict() for e in events],
+    }), 200
 
 
 @app.get('/admin/exams/<int:exam_id>/live')
