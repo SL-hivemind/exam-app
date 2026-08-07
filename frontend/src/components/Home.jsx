@@ -1,5 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from "react";
-import * as THREE from "three";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Database,
@@ -21,8 +20,6 @@ import {
   RotateCcw,
   Sparkles,
   BarChart3,
-  Library,
-  Monitor,
 } from "lucide-react";
 import { Seo } from "./common";
 import { SITE_NAME, SITE_URL } from "../utils/site";
@@ -116,6 +113,61 @@ const IMPACT_STATS = [
   { icon: Timer, value: 60, suffix: " sec", label: "to generate a full exam" },
   { icon: Leaf, value: 100, suffix: "%", label: "paperless, from day one" },
   { icon: FileBarChart, value: 1, suffix: "-click", label: "to download every exam report" },
+];
+
+/* The four scenarios the scenario section renders. Stills are authored
+   separately and dropped into /images/scenes/ — every slot carries explicit
+   1200x900 dimensions so the row does not move when they land, and so a
+   <video poster preload="none"> can replace the <img> without touching CSS. */
+const SCENARIOS = [
+  {
+    id: "sick-day",
+    img: "/images/scenes/sick-student-home.webp",
+    alt: "A student sitting up in bed at home, taking a timed exam on a phone",
+    kicker: "Tuesday, 9:40 a.m.",
+    story:
+      "Meera woke up with a fever. She still sat the unit test — from her bed, on her mother's phone, on the same clock as everyone in the hall.",
+    capability: "Take it from anywhere",
+    capabilityDesc:
+      "Locked browser, shuffled options, live monitoring. Attendance still reads 100%.",
+    icon: Smartphone,
+  },
+  {
+    id: "teacher-on-leave",
+    img: "/images/scenes/teacher-remote-check.webp",
+    alt: "A teacher at a kitchen table watching live exam answers arrive on a laptop",
+    kicker: "Thursday, her free period",
+    story:
+      "Mrs. Rao was on leave, and her Class 9 had just finished Chapter 4. She pushed a ten-question check from home and watched the answers land, live.",
+    capability: "A chapter check in under a minute",
+    capabilityDesc:
+      "Filter the bank by chapter, publish, and open the command centre from wherever you are.",
+    icon: ClipboardList,
+  },
+  {
+    id: "no-more-print-nights",
+    img: "/images/scenes/no-more-print-night.webp",
+    alt: "A dark, empty staff room at night with a switched-off photocopier",
+    kicker: "The night before",
+    story:
+      "No draft. No proof-read at eleven. No box of four hundred sheets — and no correction to Question 12 read out in every room.",
+    capability: "Fix a typo mid-exam",
+    capabilityDesc:
+      "Correct it once on the dashboard; it lands on every screen in under a second. No reprint.",
+    icon: Edit3,
+  },
+  {
+    id: "time-with-students",
+    img: "/images/scenes/time-with-students.webp",
+    alt: "A teacher sitting with two students, going through a topic-wise breakdown on a tablet",
+    kicker: "Friday afternoon",
+    story:
+      "The papers graded themselves at the last submit. So the hour that used to go to a red pen went to the six students who got kinematics wrong.",
+    capability: "Analysis, not a single number",
+    capabilityDesc:
+      "Topic-by-topic accuracy per student and per class, ready before anyone leaves the room.",
+    icon: BarChart3,
+  },
 ];
 
 const ROSTER = [
@@ -233,8 +285,6 @@ function SpotlightCard({ children, className = "" }) {
   );
 }
 
-/* CursorGlow removed — replaced by mouse-interactive ThreeOrbit */
-
 function Marquee({ items, duration = 26 }) {
   return (
     <div className="marquee-wrap">
@@ -266,169 +316,143 @@ function ImpactStat({ stat }) {
   );
 }
 
-/* Rotating wireframe accent behind the hero mockup — mouse-interactive */
-function ThreeOrbit({ className, containerRef }) {
-  const mountRef = useRef(null);
+/* The exam loop, drawn: build -> conduct -> grade -> analyse.
+   Replaced a three.js icosahedron + two tori. Home is imported eagerly in
+   AppRoutes, so that decoration put the whole of three into main.js and every
+   route on the site paid for it. Coordinates are hardcoded on purpose —
+   Math.cos yields 220.00000000000003 in the prerendered snapshot.
+   r = 150 in a 440 box; circumference = 942.478. */
+/* `beat` is which of the four strikes stops here — NOT this list's order. The
+   arc's path begins a quarter turn before Build, so it reaches Conduct first.
+   Driving the blink off the array index lit a node the arc had not arrived at.
+   These values are measured, not derived: seeking every orbit animation to the
+   same cycle time and mapping the arc's midpoint to node coordinates gives
+   Conduct at 6% of the cycle, Grade at 31%, Analyse at 56%, Build at 81%. */
+const ORBIT_NODES = [
+  { key: "build", label: "Build", sub: "in under a minute", cx: 220, cy: 70, beat: 3 },
+  { key: "conduct", label: "Conduct", sub: "on any phone", cx: 370, cy: 220, beat: 0 },
+  { key: "grade", label: "Grade", sub: "before the bell", cx: 220, cy: 370, beat: 1 },
+  { key: "analyse", label: "Analyse", sub: "not just a number", cx: 70, cy: 220, beat: 2 },
+];
 
-  useEffect(() => {
-    const mount = mountRef.current;
-    if (!mount) return;
+/* 72 ticks, 5deg apart, drawn as real lines. They were a repeating-conic-
+   gradient masked into a ring — at r=130 each 0.55deg wedge renders under 2px
+   wide, so anti-aliasing gave every mark a different weight and the ring looked
+   ragged. Deg 0 is top; y grows downward, so increasing deg runs clockwise. */
+const ORBIT_TICKS = Array.from({ length: 72 }, (_, i) => {
+  const rad = (i * 5 - 90) * (Math.PI / 180);
+  return {
+    x1: +(220 + 127 * Math.cos(rad)).toFixed(2),
+    y1: +(220 + 127 * Math.sin(rad)).toFixed(2),
+    x2: +(220 + 134 * Math.cos(rad)).toFixed(2),
+    y2: +(220 + 134 * Math.sin(rad)).toFixed(2),
+  };
+});
 
-    let width = mount.clientWidth || 400;
-    let height = mount.clientHeight || 400;
+function LifecycleOrbit() {
+  return (
+    <div className="orbit">
+      <div className="orbit-ring">
+        <svg
+          className="orbit-svg"
+          viewBox="0 0 440 440"
+          role="img"
+          aria-labelledby="orbitTitle orbitDesc"
+          focusable="false"
+        >
+          <title id="orbitTitle">The SL Exams cycle</title>
+          <desc id="orbitDesc">
+            Build, conduct, grade and analyse — one loop that closes the same day.
+          </desc>
 
-    const scene = new THREE.Scene();
-    const aspect = width / height;
-    const camera = new THREE.PerspectiveCamera(45, aspect, 0.1, 100);
+          <defs>
+            <linearGradient id="orbitStroke" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stopColor="#f5a623" stopOpacity="0.85" />
+              <stop offset="55%" stopColor="#6c7cff" stopOpacity="0.5" />
+              <stop offset="100%" stopColor="#4ade80" stopOpacity="0.6" />
+            </linearGradient>
+            <radialGradient id="orbitCore" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="#f5a623" stopOpacity="0.18" />
+              <stop offset="65%" stopColor="#f5a623" stopOpacity="0.03" />
+              <stop offset="100%" stopColor="#f5a623" stopOpacity="0" />
+            </radialGradient>
+          </defs>
 
-    // Calculate distance to fit the 3.3 radius torus (uses 8.2 to fill ~97% of canvas)
-    camera.position.z = Math.max(8.2, 8.2 / aspect);
+          <circle className="orbit-core" cx="220" cy="220" r="122" fill="url(#orbitCore)" />
 
-    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-    renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-    mount.appendChild(renderer.domElement);
+          <g className="orbit-ticks">
+            {ORBIT_TICKS.map((t, i) => (
+              <line key={i} x1={t.x1} y1={t.y1} x2={t.x2} y2={t.y2} />
+            ))}
+          </g>
+          <circle className="orbit-track" cx="220" cy="220" r="150" />
 
-    const geo1 = new THREE.IcosahedronGeometry(2.5, 1);
-    const mat1 = new THREE.MeshBasicMaterial({
-      color: 0xf5a623,
-      wireframe: true,
-      transparent: true,
-      opacity: 0.5,
-    });
-    const mesh1 = new THREE.Mesh(geo1, mat1);
-    scene.add(mesh1);
+          {/* rotate -90 so the comet departs from Build (top), not 3 o'clock.
+              Everything that "spins" here animates stroke-dashoffset rather
+              than rotating a node — rotating an SVG child needs
+              transform-box: fill-box, which floors us at Safari 15.4. */}
+          <g transform="rotate(-90 220 220)">
+            <circle className="orbit-inner-a" cx="220" cy="220" r="116" />
+            <circle className="orbit-inner-b" cx="220" cy="220" r="86" />
+            <circle className="orbit-runner" cx="220" cy="220" r="150" />
+          </g>
 
-    const geo2 = new THREE.TorusGeometry(2.85, 0.012, 8, 100);
-    const mat2 = new THREE.MeshBasicMaterial({
-      color: 0x6c7cff,
-      transparent: true,
-      opacity: 0.45,
-    });
-    const mesh2 = new THREE.Mesh(geo2, mat2);
-    mesh2.rotation.x = Math.PI / 2.6;
-    scene.add(mesh2);
+          {ORBIT_NODES.map((n) => (
+            <g key={n.key} className="orbit-node" style={{ "--i": n.beat }}>
+              <circle className="orbit-node-halo" cx={n.cx} cy={n.cy} r="12" />
+              <circle className="orbit-node-dot" cx={n.cx} cy={n.cy} r="5.5" />
+            </g>
+          ))}
+        </svg>
 
-    const geo3 = new THREE.TorusGeometry(3.3, 0.008, 8, 100);
-    const mat3 = new THREE.MeshBasicMaterial({
-      color: 0x4ade80,
-      transparent: true,
-      opacity: 0.3,
-    });
-    const mesh3 = new THREE.Mesh(geo3, mat3);
-    mesh3.rotation.x = Math.PI / 1.8;
-    mesh3.rotation.y = Math.PI / 5;
-    scene.add(mesh3);
+        {/* The browser-tab mark. An HTML <img>, not an SVG <image>, so it gets
+            real width/height attributes — what the CLS audit and the preload
+            matcher both read. Above the fold, so deliberately NOT lazy. */}
+        <img
+          className="orbit-mark"
+          src="/favicon-192.png"
+          width="96"
+          height="96"
+          alt=""
+          aria-hidden="true"
+          decoding="async"
+          fetchPriority="high"
+        />
+      </div>
 
-    /* --- Mouse-driven spin ------------------------------------------------ */
-    const mouse = { x: 0, y: 0 };          // target  (-1…1)
-    const smoothMouse = { x: 0, y: 0 };    // lerped  (-1…1)
-    let isHovering = false;
-
-    const container = containerRef?.current || mount;
-
-    const onMouseMove = (e) => {
-      const rect = container.getBoundingClientRect();
-      mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;   // -1 → 1
-      mouse.y = ((e.clientY - rect.top) / rect.height) * 2 - 1;   // -1 → 1
-    };
-    const onMouseEnter = () => { isHovering = true; };
-    const onMouseLeave = () => {
-      isHovering = false;
-      mouse.x = 0;
-      mouse.y = 0;
-    };
-
-    container.addEventListener("mousemove", onMouseMove);
-    container.addEventListener("mouseenter", onMouseEnter);
-    container.addEventListener("mouseleave", onMouseLeave);
-
-    /* --- Animation loop --------------------------------------------------- */
-    let raf;
-    const reduceMotion =
-      window.matchMedia &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-    const LERP = 0.06;           // smoothing factor
-    const MOUSE_STRENGTH = 0.012; // how strongly mouse affects spin speed
-    const AUTO_SPEED = 1;         // multiplier for idle auto-rotation
-
-    const animate = () => {
-      // Smoothly interpolate towards the mouse target
-      smoothMouse.x += (mouse.x - smoothMouse.x) * LERP;
-      smoothMouse.y += (mouse.y - smoothMouse.y) * LERP;
-
-      if (!reduceMotion) {
-        // Base auto-rotation (always running)
-        mesh1.rotation.x += 0.0022 * AUTO_SPEED;
-        mesh1.rotation.y += 0.0032 * AUTO_SPEED;
-        mesh2.rotation.z += 0.0016 * AUTO_SPEED;
-        mesh3.rotation.z -= 0.001 * AUTO_SPEED;
-
-        // Mouse-driven extra spin layered on top
-        const mx = smoothMouse.x * MOUSE_STRENGTH;
-        const my = smoothMouse.y * MOUSE_STRENGTH;
-
-        mesh1.rotation.y += mx * 2.5;
-        mesh1.rotation.x += my * 2.5;
-
-        mesh2.rotation.z += mx * 1.2;
-        mesh2.rotation.x += my * 0.8;
-
-        mesh3.rotation.z -= mx * 0.9;
-        mesh3.rotation.y += my * 0.6;
-      }
-
-      renderer.render(scene, camera);
-      raf = requestAnimationFrame(animate);
-    };
-    animate();
-
-    const handleResize = () => {
-      if (!mount) return;
-      width = mount.clientWidth || width;
-      height = mount.clientHeight || height;
-      const aspect = width / height;
-      camera.aspect = aspect;
-      camera.position.z = Math.max(8.2, 8.2 / aspect);
-      camera.updateProjectionMatrix();
-      renderer.setSize(width, height);
-    };
-    window.addEventListener("resize", handleResize);
-
-    return () => {
-      cancelAnimationFrame(raf);
-      window.removeEventListener("resize", handleResize);
-      container.removeEventListener("mousemove", onMouseMove);
-      container.removeEventListener("mouseenter", onMouseEnter);
-      container.removeEventListener("mouseleave", onMouseLeave);
-      try {
-        mount.removeChild(renderer.domElement);
-      } catch (e) { }
-      geo1.dispose();
-      mat1.dispose();
-      geo2.dispose();
-      mat2.dispose();
-      geo3.dispose();
-      mat3.dispose();
-      renderer.dispose();
-    };
-  }, [containerRef]);
-
-  return <div ref={mountRef} className={className} />;
+      {/* HTML, not <text>: inherits the page fonts without SVG scaling quirks,
+          and the same DOM reflows into a legend row below 1000px. */}
+      <div className="orbit-labels">
+        {ORBIT_NODES.map((n) => (
+          <span key={n.key} className={`orbit-label orbit-label-${n.key}`}>
+            <span className="orbit-label-name">{n.label}</span>
+            <span className="orbit-label-sub mono">{n.sub}</span>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 /* ----------------------------------------------------------------------- */
 /* Main component                                                           */
 /* ----------------------------------------------------------------------- */
 
-const HERO_CARD_COUNT = 4;
+const HERO_WORDS = ["Everything's", "instant.", "Why", "not", "exams?"];
+
+/* Capability chips around the orbit, one per quadrant, read clockwise from the
+   top left so each sits beside the stage it belongs to: chapter-wise building,
+   auto-save during the paper, proctoring while it runs, grading at the end. */
+const HERO_BADGES = [
+  { key: "tl", icon: Database, label: "Chapter-wise", tone: "amber" },
+  { key: "tr", icon: CheckCircle2, label: "Auto-saved", tone: "mint" },
+  { key: "br", icon: ShieldCheck, label: "Proctoring on", tone: "indigo" },
+  { key: "bl", icon: Sparkles, label: "Auto-graded", tone: "amber" },
+];
 
 export default function Home() {
   const navigate = useNavigate();
   const [activeStage, setActiveStage] = useState(0);
-  const [activeHeroCard, setActiveHeroCard] = useState(0);
-  const heroCardInterval = useRef(null);
   const [loaded, setLoaded] = useState(
     () =>
       typeof window !== "undefined" &&
@@ -436,25 +460,6 @@ export default function Home() {
       window.matchMedia("(prefers-reduced-motion: reduce)").matches
   );
   const stageRefs = useRef([]);
-  const heroVisualRef = useRef(null);
-
-  // Auto-rotate hero cards
-  const startHeroRotation = useCallback(() => {
-    clearInterval(heroCardInterval.current);
-    heroCardInterval.current = setInterval(() => {
-      setActiveHeroCard((prev) => (prev + 1) % HERO_CARD_COUNT);
-    }, 4000);
-  }, []);
-
-  useEffect(() => {
-    startHeroRotation();
-    return () => clearInterval(heroCardInterval.current);
-  }, [startHeroRotation]);
-
-  const handleHeroCardClick = useCallback((idx) => {
-    setActiveHeroCard(idx);
-    startHeroRotation();
-  }, [startHeroRotation]);
 
   useEffect(() => {
     const t = setTimeout(() => setLoaded(true), 500);
@@ -475,8 +480,6 @@ export default function Home() {
     stageRefs.current.forEach((el) => el && obs.observe(el));
     return () => obs.disconnect();
   }, []);
-
-  const headline = ["Everything's", "instant.", "Why", "not", "exams?"];
 
   return (
     <div className="slexam">
@@ -505,6 +508,11 @@ export default function Home() {
           },
         }}
       />
+      {/* The orbit's centre mark is the hero's only image and sits above the
+          fold. React 19 hoists this into <head>, and because / is prerendered
+          it lands in the static HTML — every other route is served the pristine
+          shell by prerender.js, so it does not bleed onto them. */}
+      <link rel="preload" as="image" href="/favicon-192.png" fetchPriority="high" />
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
@@ -541,9 +549,19 @@ export default function Home() {
         .reveal { opacity: 0; transform: translateY(26px); transition: opacity .8s cubic-bezier(.16,.84,.44,1), transform .8s cubic-bezier(.16,.84,.44,1); }
         .reveal-in { opacity: 1; transform: none; }
 
+        /* background-image: var(--amber) was invalid — --amber is a colour, not
+           a gradient — so it computed to none while color:transparent still
+           applied, and both consumers rendered as rgba(0,0,0,0). Verified live:
+           the hero subhead was blank space on the deployed site. The fallback
+           colour now paints on its own, and only goes transparent where
+           background-clip:text is actually supported. */
         .grad-text {
-          background-image: var(--amber);
-          -webkit-background-clip: text; background-clip: text; color: transparent;
+          color: var(--amber-soft);
+          background-image: linear-gradient(96deg, var(--amber-soft) 0%, var(--amber) 46%, #ffe6b3 100%);
+          -webkit-background-clip: text; background-clip: text;
+        }
+        @supports ((-webkit-background-clip: text) or (background-clip: text)) {
+          .grad-text { -webkit-text-fill-color: transparent; color: transparent; }
         }
 
         /* ---------------- Card edge ----------------
@@ -588,7 +606,7 @@ export default function Home() {
         .slexam a:focus-visible, .slexam button:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; border-radius: 6px; }
 
         /* ---------------- Hero ---------------- */
-        .hero { position: relative; padding: 80px 0 24px; overflow: hidden; min-height: calc(100vh - 60px); display: flex; flex-direction: column; justify-content: center; }
+        .hero { position: relative; padding: 48px 0 40px; overflow: hidden; min-height: calc(100vh - 60px); display: flex; flex-direction: column; justify-content: center; }
         .perspective-grid {
           position: absolute;
           left: 50%;
@@ -613,90 +631,171 @@ export default function Home() {
         .eyebrow-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--mint); box-shadow: 0 0 8px var(--mint); animation: pulseDot 1.8s ease-in-out infinite; }
         @keyframes pulseDot { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
 
-        .hero-title { font-family: 'Space Grotesk', sans-serif; font-size: clamp(32px, 4vw, 52px); line-height: 1.1; font-weight: 700; letter-spacing: -0.02em; margin: 0 0 18px; }
+        /* Capped at 52px the hero filled only 60% of its own min-height —
+           198px of dead space above the content and 142px below. */
+        .hero-title { font-family: 'Space Grotesk', sans-serif; font-size: clamp(34px, 4.8vw, 68px); line-height: 1.08; font-weight: 700; letter-spacing: -0.025em; margin: 0 0 22px; }
         .hero-title-word { display: inline-block; opacity: 0; transform: translateY(30px); animation: wordUp .7s cubic-bezier(.16,.84,.44,1) forwards; margin-right: 0.24em; }
         @keyframes wordUp { to { opacity: 1; transform: translateY(0); } }
-        .hero-title-line2 { display: block; margin-top: 4px; font-size: clamp(18px, 2.2vw, 24px); }
+        /* No longer .grad-text — this is the line that was rendering invisible,
+           so it gets a plain colour rather than anything clip-dependent. */
+        .hero-title-line2 { display: block; margin-top: 16px; font-size: clamp(17px, 1.7vw, 25px); font-weight: 500; line-height: 1.5; color: var(--text-dim); max-width: 34ch; }
 
         .hero-ctas { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 30px; }
-        .hero-stats { display: flex; gap: 34px; flex-wrap: wrap; }
-        .hero-stat-value { font-family: 'Space Grotesk', sans-serif; font-size: 22px; font-weight: 700; color: var(--text); }
-        .hero-stat-label { font-size: 12.5px; color: var(--text-faint); margin-top: 2px; }
+        /* The school action is the primary button; /public and /thinklets are
+           navigation on this page, not competing calls to action. */
+        .hero-link { display: inline-flex; align-items: center; gap: 7px; font-size: 14px; color: var(--text-dim); background: none; border: none; padding: 6px 2px; cursor: pointer; border-bottom: 1px solid transparent; transition: color .2s ease, border-color .2s ease; }
+        .hero-link:hover { color: var(--text); border-bottom-color: rgba(245,166,35,0.5); }
+        .hero-stats { display: flex; gap: 48px; flex-wrap: wrap; }
+        .hero-stat-value { font-family: 'Space Grotesk', sans-serif; font-size: 32px; font-weight: 700; color: var(--text); line-height: 1.1; }
+        .hero-stat-label { font-size: 13.5px; color: var(--text-faint); margin-top: 4px; }
 
-        .hero-visual { position: relative; height: 500px; display: flex; align-items: center; justify-content: center; }
-        .hero-three { position: absolute; inset: -80px; z-index: 0; pointer-events: none; }
-        /* cursor-glow removed — 3D orbit is now mouse-interactive */
+        .hero-visual { position: relative; height: 600px; display: flex; align-items: center; justify-content: center; }
         .tilt-card { transition: transform .15s ease-out; transform-style: preserve-3d; }
-        .hero-mock { position: relative; z-index: 2; width: 100%; max-width: 540px; }
-        .mock-window { background: var(--surface-2); border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 40px 80px -30px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.02) inset; overflow: hidden; }
-        .mock-topbar { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--border-soft); background: rgba(255,255,255,0.02); }
-        .mock-dots { display: flex; gap: 6px; }
-        .mock-dots span { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.15); }
-        .mock-timer { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--amber-soft); background: rgba(245,166,35,0.1); padding: 4px 10px; border-radius: 6px; }
-        .mock-body { display: grid; grid-template-columns: 1.4fr 1fr; gap: 0; }
-        .mock-qpanel { padding: 18px 16px; border-right: 1px solid var(--border-soft); }
-        .mock-qlabel { font-size: 10.5px; color: var(--text-faint); letter-spacing: 0.06em; margin: 0 0 10px; }
-        .mock-qtext { font-size: 13px; color: var(--text); line-height: 1.5; margin: 0 0 14px; }
-        .mock-options { display: flex; flex-direction: column; gap: 7px; }
-        .mock-opt { display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-radius: 7px; border: 1px solid var(--border-soft); font-size: 11.5px; color: var(--text-dim); }
-        .mock-opt span { width: 16px; height: 16px; border-radius: 5px; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 9px; flex-shrink: 0; }
-        .mock-opt-active { border-color: var(--mint); background: rgba(74,222,128,0.08); color: var(--text); }
-        .mock-opt-active span { background: var(--mint); border-color: var(--mint); color: #06210f; }
-        .mock-side { padding: 18px 14px; }
-        .mock-side-label { font-size: 10.5px; color: var(--text-faint); letter-spacing: 0.06em; margin: 0 0 10px; }
-        .mock-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px; }
-        .mock-cell { aspect-ratio: 1; border-radius: 5px; border: 1px solid var(--border-soft); display: flex; align-items: center; justify-content: center; font-size: 8.5px; color: var(--text-faint); }
-        .mock-cell.filled { background: rgba(108,124,255,0.14); border-color: rgba(108,124,255,0.3); color: var(--indigo); }
-        .mock-cell.current { background: var(--amber); border-color: var(--amber); color: #1a1305; font-weight: 700; }
 
-        /* --- Analysis card styles --- */
-        .mock-analysis-body { padding: 18px 16px; }
-        .mock-stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
-        .mock-stat-box { text-align: center; padding: 10px 6px; border-radius: 8px; border: 1px solid var(--border-soft); background: rgba(255,255,255,0.02); }
-        .mock-stat-val { font-family: 'Space Grotesk', sans-serif; font-size: 18px; font-weight: 700; }
-        .mock-stat-lbl { font-size: 9.5px; color: var(--text-faint); margin-top: 2px; }
-        .mock-bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-        .mock-bar-label { font-size: 11px; color: var(--text-dim); width: 68px; flex-shrink: 0; }
-        .mock-bar-track { flex: 1; height: 6px; border-radius: 3px; background: rgba(255,255,255,0.06); overflow: hidden; }
-        .mock-bar-fill { height: 100%; border-radius: 3px; transition: width .6s ease; }
-        .mock-bar-pct { font-size: 10px; font-weight: 600; width: 32px; text-align: right; flex-shrink: 0; }
+        /* ---------------- Hero orbit ----------------
+           Was a three.js icosahedron plus two tori. That pulled the whole of
+           three (~2MB of source, ~170KB gzip) into main.js — and because Home
+           is imported eagerly in AppRoutes, every route on the site downloaded
+           it, for a decoration on one. This draws what the product actually is:
+           build -> conduct -> grade -> analyse, one loop that closes. */
+        /* .hero-orbit-wrap carries the width. .orbit itself must not size
+           itself off its own content — as a flex item of a centring flex
+           parent that is shrink-to-fit, so a percentage width on .orbit-ring
+           would resolve against nothing and collapse the whole ring. */
+        .hero-orbit-wrap { position: relative; width: 100%; max-width: 580px; }
+        .orbit { position: relative; display: flex; flex-direction: column; align-items: center; z-index: 1; width: 100%; }
+        .orbit-ring { position: relative; width: 100%; aspect-ratio: 1; }
+        .orbit-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 
-        /* --- Repo card styles --- */
-        .mock-repo-body { padding: 18px 16px; }
-        .mock-repo-search { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--border-soft); background: rgba(255,255,255,0.02); margin-bottom: 12px; font-size: 11px; color: var(--text-faint); }
-        .mock-repo-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border-soft); }
-        .mock-repo-item:last-child { border-bottom: none; }
-        .mock-repo-num { width: 22px; height: 22px; border-radius: 6px; background: rgba(108,124,255,0.1); border: 1px solid rgba(108,124,255,0.25); display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; color: var(--indigo); flex-shrink: 0; margin-top: 1px; }
-        .mock-repo-text { font-size: 11.5px; color: var(--text); line-height: 1.4; }
-        .mock-repo-meta { font-size: 9.5px; color: var(--text-faint); margin-top: 3px; display: flex; gap: 8px; }
-        .mock-repo-tag { font-size: 9px; padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border-soft); color: var(--text-faint); }
+        .orbit-track { fill: none; stroke: rgba(255,255,255,0.09); stroke-width: 1; }
 
-        /* --- Command center card styles --- */
-        .mock-cc-body { padding: 18px 16px; }
-        .mock-cc-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px; margin-bottom: 12px; }
-        .mock-cc-seat { aspect-ratio: 1; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: 600; }
-        .mock-cc-seat.normal { background: rgba(108,124,255,0.1); border: 1px solid rgba(108,124,255,0.25); color: var(--indigo); }
-        .mock-cc-seat.flagged { background: rgba(242,104,92,0.12); border: 1px solid rgba(242,104,92,0.35); color: var(--red); animation: flagPulse 1.6s ease-in-out infinite; }
-        .mock-cc-seat.done { background: rgba(74,222,128,0.1); border: 1px solid rgba(74,222,128,0.25); color: var(--mint); }
-        .mock-cc-alert-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 8px; background: rgba(242,104,92,0.08); border: 1px solid rgba(242,104,92,0.2); margin-bottom: 8px; font-size: 11px; color: #ffb3ac; }
-        .mock-cc-stat-bar { display: flex; gap: 8px; }
-        .mock-cc-stat { flex: 1; text-align: center; padding: 8px 4px; border-radius: 7px; border: 1px solid var(--border-soft); background: rgba(255,255,255,0.02); }
-        .mock-cc-stat-val { font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 700; }
-        .mock-cc-stat-lbl { font-size: 8.5px; color: var(--text-faint); margin-top: 2px; }
+        /* The headline promises instant, so the ring must not glide. It jumps a
+           quarter lap in 0.48s, holds for a beat, then jumps again — four
+           strikes per 8s cycle, landing exactly on the four nodes. Every other
+           animation here is phase-locked to those four moments.
+           Quarter lap = 942.478 / 4 = 235.62. */
+        .orbit-runner {
+          fill: none; stroke: url(#orbitStroke); stroke-width: 3.25; stroke-linecap: round;
+          stroke-dasharray: 210 732.478;            /* 2*pi*150 = 942.478 */
+          animation: orbitStrike 8s linear infinite;
+          filter: drop-shadow(0 0 9px rgba(245,166,35,0.42));
+        }
+        /* One lap in 8s at constant speed — so it passes a node every 2s, which
+           is exactly the blink cadence. The start offset is phased so the arc's
+           MIDPOINT (not its leading edge) coincides with a node at each blink:
+           midpoint = -offset + 105, half the 210 arc. Starting at -74.07 puts
+           the midpoint on Conduct at 6% of the cycle, Grade at 31%, Analyse at
+           56%, Build at 81% — the four beats the nodes already fire on.
+           The travel is exactly one circumference, so the loop is seamless. */
+        @keyframes orbitStrike {
+          from { stroke-dashoffset: -74.07; }
+          to   { stroke-dashoffset: -1016.548; }   /* -74.07 - 942.478 */
+        }
 
-        /* --- Hero card shuffle animation --- */
-        .hero-cards-container { position: relative; width: 100%; max-width: 520px; min-height: 340px; }
-        .hero-card-slide { position: absolute; inset: 0; opacity: 0; transform: translateY(30px) scale(0.96); transition: opacity .5s cubic-bezier(.16,.84,.44,1), transform .5s cubic-bezier(.16,.84,.44,1); pointer-events: none; }
-        .hero-card-slide.active { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; z-index: 2; }
-        .hero-card-indicators { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 20px; position: relative; z-index: 3; }
-        .hero-card-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.12); cursor: pointer; transition: all .3s ease; border: none; padding: 0; }
-        .hero-card-dot.active { width: 28px; border-radius: 4px; background: var(--amber); }
-        .hero-card-label { font-size: 11px; color: var(--text-faint); margin-top: 8px; text-align: center; font-family: 'JetBrains Mono', monospace; letter-spacing: 0.05em; transition: opacity .3s ease; position: relative; z-index: 3; }
+        /* Two inner rings turning steadily, in opposite directions. Deliberately
+           NOT on the strike beat — the mechanism runs continuously underneath
+           while the result lands instantly on the outer ring.
+           Both dash patterns have a 24-unit period, and each animation travels a
+           whole multiple of 24 (720 and 528 — the nearest multiples to their
+           circumferences, 728.849 and 540.354) so the pattern is identical at
+           both ends of the loop and there is no jump on restart. The old 2-unit
+           dashes rendered as ragged specks; nothing under 8 units survives here. */
+        .orbit-inner-a {
+          fill: none; stroke: rgba(108,124,255,0.30); stroke-width: 1; stroke-dasharray: 10 14;
+          animation: dashA 26s linear infinite;
+        }
+        @keyframes dashA { to { stroke-dashoffset: 720; } }
+        .orbit-inner-b {
+          fill: none; stroke: rgba(74,222,128,0.22); stroke-width: 1; stroke-dasharray: 8 16;
+          animation: dashB 34s linear infinite;
+        }
+        @keyframes dashB { to { stroke-dashoffset: -528; } }
 
-        .floating-badge { position: absolute; display: flex; align-items: center; gap: 6px; padding: 8px 13px; border-radius: 10px; background: rgba(18,24,42,0.9); border: 1px solid var(--border); font-size: 12px; font-weight: 500; color: var(--text); backdrop-filter: blur(6px); z-index: 3; animation: floatY 4.5s ease-in-out infinite; box-shadow: 0 12px 24px -12px rgba(0,0,0,0.6); }
-        .badge-1 { top: -18px; right: -10px; color: var(--mint); animation-delay: 0s; }
-        .badge-2 { bottom: 30px; left: -34px; color: var(--indigo); animation-delay: 1.1s; }
-        .badge-3 { bottom: -16px; right: 20px; animation-delay: 0.5s; }
+        /* The core flares on each strike, not on a lazy sine. */
+        .orbit-core { animation: coreFlare 8s ease-out infinite; }
+        @keyframes coreFlare {
+          0%, 3%, 22%, 28%, 47%, 53%, 72%, 78%, 97%, 100% { opacity: 0.55; }
+          6%, 31%, 56%, 81% { opacity: 1; }
+        }
+
+        /* Each node fires the instant the strike lands on it — delay is one
+           quarter cycle per node. Only fill, stroke, opacity and stroke-width
+           animate, never the r geometry property, which older Safari will not
+           tween. */
+        .orbit-node-dot {
+          fill: var(--surface-2); stroke: rgba(255,255,255,0.30); stroke-width: 1.25;
+          animation: nodeLit 8s ease-out infinite;
+          animation-delay: calc(var(--i) * 2s);
+        }
+        @keyframes nodeLit {
+          0%, 4% { fill: var(--surface-2); stroke: rgba(255,255,255,0.30); stroke-width: 1.25; }
+          7% { fill: var(--amber); stroke: var(--amber-soft); stroke-width: 2.4; }
+          24%, 100% { fill: var(--surface-2); stroke: rgba(255,255,255,0.30); stroke-width: 1.25; }
+        }
+        .orbit-node-halo {
+          fill: none; stroke: var(--amber); stroke-width: 1.5; opacity: 0;
+          animation: nodePing 8s ease-out infinite;
+          animation-delay: calc(var(--i) * 2s);
+        }
+        @keyframes nodePing {
+          0%, 4% { opacity: 0; stroke-width: 1.5; }
+          6% { opacity: 1; stroke-width: 4; }
+          22%, 100% { opacity: 0; stroke-width: 1.5; }
+        }
+
+        /* The ring no longer turns. A rotating tick ring reads as a clock hand
+           and had nothing to do with the strike — it was moving on its own
+           transform while the flare lived on the bolt, so the two never
+           related. Now it flares on exactly the same keyframe stops as
+           .orbit-mark and .orbit-core: one glow, three elements. */
+        .orbit-ticks line { stroke: rgba(255,255,255,0.5); stroke-width: 1; }
+        .orbit-ticks { animation: tickFlare 8s ease-out infinite; }
+        @keyframes tickFlare {
+          0%, 3%, 22%, 28%, 47%, 53%, 72%, 78%, 97%, 100% { opacity: 0.42; }
+          6%, 31%, 56%, 81% { opacity: 1; }
+        }
+
+        /* It is a lightning bolt on a page whose headline is "instant" — so it
+           strikes rather than breathes, flaring on each of the four hits. */
+        /* Sized as a share of the ring, not fixed px: the ring shrinks at two
+           breakpoints and a fixed mark ate all its clearance (0px at 390px
+           wide). 31% flares to 33.5% at the strike's 1.08 scale, against the
+           innermost dashed ring at 39.1% (r=86 of the 440 viewBox) — so the gap
+           is the same fraction at every size. */
+        .orbit-mark { position: absolute; left: 50%; top: 50%; width: 31%; height: 31%; object-fit: contain; animation: markStrike 8s ease-out infinite; }
+        @keyframes markStrike {
+          0%, 3%, 22%, 28%, 47%, 53%, 72%, 78%, 97%, 100% {
+            transform: translate(-50%, -50%) scale(1);
+            filter: drop-shadow(0 14px 34px rgba(0,0,0,0.55)) brightness(1);
+          }
+          6%, 31%, 56%, 81% {
+            transform: translate(-50%, -50%) scale(1.08);
+            filter: drop-shadow(0 14px 34px rgba(0,0,0,0.55))
+                    drop-shadow(0 0 26px rgba(245,166,35,0.6)) brightness(1.35);
+          }
+        }
+
+        .orbit-labels { position: absolute; inset: 0; pointer-events: none; }
+        .orbit-label { position: absolute; display: flex; flex-direction: column; gap: 2px; white-space: nowrap; }
+        .orbit-label-name { font-family: 'Space Grotesk', sans-serif; font-size: 14px; font-weight: 600; color: var(--text); }
+        .orbit-label-sub { font-size: 10.5px; letter-spacing: 0.06em; color: var(--text-faint); }
+        .orbit-label-build { left: 50%; top: 2%; transform: translateX(-50%); align-items: center; }
+        .orbit-label-grade { left: 50%; top: 89%; transform: translateX(-50%); align-items: center; }
+        .orbit-label-conduct { left: 89%; top: 50%; transform: translateY(-50%); align-items: flex-start; }
+        .orbit-label-analyse { right: 89%; top: 50%; transform: translateY(-50%); align-items: flex-end; text-align: right; }
+        .hero-badges { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
+        .floating-badge { position: absolute; display: flex; align-items: center; gap: 6px; padding: 8px 13px; border-radius: 10px; background: rgba(18,24,42,0.9); border: 1px solid var(--border); font-size: 12px; font-weight: 500; color: var(--text); backdrop-filter: blur(6px); animation: floatY 4.5s ease-in-out infinite; box-shadow: 0 12px 24px -12px rgba(0,0,0,0.6); white-space: nowrap; }
+        .badge-mint { color: var(--mint); }
+        .badge-indigo { color: var(--indigo); }
+        .badge-amber { color: var(--amber-soft); }
+        /* The four corners INSIDE the 440 box. The cardinal points belong to the
+           node labels, and the circle (r=150, centre 220) never reaches these
+           squares — so the chips clear both the ring and every label, at any
+           column width, without overflowing into the copy on the left. */
+        .badge-tl { top: 7%; left: 0; }
+        .badge-tr { top: 7%; right: 0; }
+        .badge-br { bottom: 7%; right: 0; }
+        .badge-bl { bottom: 7%; left: 0; }
         @keyframes floatY { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
 
         /* ---------------- Marquee ---------------- */
@@ -744,6 +843,49 @@ export default function Home() {
           .lifecycle-body { grid-template-columns: 1fr; }
           .lifecycle-rail { display: none; }
           .stage-grid { grid-template-columns: 1fr; }
+        }
+
+        /* ---------------- Scenarios ---------------- */
+        .scenario-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
+        .scenario-cell { display: flex; }
+        .scenario-card { display: flex; flex-direction: column; width: 100%; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); overflow: hidden; transition: border-color .3s ease, box-shadow .3s ease; }
+        .scenario-card:hover { border-color: rgba(245,166,35,0.32); box-shadow: 0 22px 48px -26px rgba(0,0,0,0.8); }
+
+        /* The frame, not the picture. aspect-ratio here plus width/height on the
+           <img> means the row never moves, whether the still has shipped or not
+           — and a <video poster preload="none"> drops into the same slot. */
+        .scenario-media {
+          position: relative; margin: 0; aspect-ratio: 4 / 3; overflow: hidden;
+          border-bottom: 1px solid var(--border-soft);
+          background:
+            radial-gradient(120% 90% at 22% 0%, rgba(108,124,255,0.10), transparent 62%),
+            linear-gradient(158deg, var(--surface-2), var(--surface));
+        }
+        .scenario-media::after {
+          content: ""; position: absolute; inset: 0; pointer-events: none;
+          background-image:
+            linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px);
+          background-size: 28px 28px;
+          -webkit-mask-image: radial-gradient(72% 72% at 50% 44%, #000, transparent);
+                  mask-image: radial-gradient(72% 72% at 50% 44%, #000, transparent);
+        }
+        .scenario-img, .scenario-media video { position: relative; z-index: 1; display: block; width: 100%; height: 100%; object-fit: cover; }
+        .scenario-kicker { position: absolute; z-index: 2; left: 12px; bottom: 12px; font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--amber-soft); background: rgba(10,14,26,0.72); border: 1px solid var(--border-soft); padding: 4px 9px; border-radius: 999px; backdrop-filter: blur(4px); }
+
+        .scenario-body { display: flex; flex-direction: column; gap: 16px; padding: 20px 18px; flex: 1; }
+        .scenario-story { margin: 0; font-size: 14.5px; line-height: 1.6; color: var(--text); }
+        .scenario-cap { display: flex; align-items: flex-start; gap: 10px; margin-top: auto; padding-top: 14px; border-top: 1px solid var(--border-soft); }
+        .scenario-cap-icon { flex-shrink: 0; width: 28px; height: 28px; border-radius: 8px; background: rgba(245,166,35,0.10); border: 1px solid rgba(245,166,35,0.20); display: flex; align-items: center; justify-content: center; color: var(--amber-soft); }
+        .scenario-cap-text { display: flex; flex-direction: column; gap: 3px; }
+        .scenario-cap-text strong { font-size: 13px; font-weight: 600; color: var(--text); }
+        .scenario-cap-desc { font-size: 12.5px; line-height: 1.5; color: var(--text-dim); }
+
+        @media (max-width: 1180px) { .scenario-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (max-width: 860px) {
+          .scenario-grid { gap: 14px; }
+          .scenario-body { padding: 16px 14px; gap: 13px; }
+          .scenario-story { font-size: 14px; }
         }
 
         /* ---------------- Command center spotlight ---------------- */
@@ -818,17 +960,47 @@ export default function Home() {
         .cta-actions { display: flex; align-items: center; justify-content: center; gap: 16px; flex-wrap: wrap; }
         .cta-note { margin-top: 20px; font-size: 12.5px; color: var(--text-faint); }
 
+        /* 720-1000px is the squeeze band: .hero-inner is still two columns but
+           each is only ~390-470px wide, so the orbit's side labels would run
+           into the other column and get clipped by .hero { overflow: hidden }.
+           Same DOM, reflowed into a legend row underneath instead. */
+        @media (max-width: 1000px) {
+          .hero-orbit-wrap { max-width: 400px; }
+          .orbit-labels { position: static; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 18px; margin-top: 16px; }
+          .orbit-label { position: static; transform: none; flex-direction: row; align-items: baseline; gap: 6px; }
+          .orbit-label-analyse { text-align: left; }
+          /* Below the two-column layout the corners are gone, but the points
+             are worth keeping — they become a wrapped chip row under the
+             legend rather than being hidden. */
+          .hero-badges { position: static; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 16px; }
+          .floating-badge { position: static; animation: none; font-size: 11.5px; padding: 6px 11px; }
+        }
+
         @media (max-width: 720px) {
           .hero-inner { grid-template-columns: 1fr; }
           .hero { padding: 100px 0 40px; min-height: auto; }
-          /* Mobile: text/CTAs first, visual below (was order:-1 = visual on top) */
-          .hero-visual { height: 340px; margin-top: 8px; }
+          /* Mobile: text/CTAs first, visual below (was order:-1 = visual on top).
+             height:auto, not 340px — the box now holds a ring AND a legend row. */
+          .hero-visual { height: auto; margin-top: 14px; }
+          .hero-orbit-wrap { max-width: min(360px, 82vw); }
           .section { padding: 80px 0; }
           .spotlight-inner, .hero-inner { grid-template-columns: 1fr; }
           .cta-card { padding: 50px 24px; }
+          .scenario-grid { grid-template-columns: 1fr; }
+          /* A full-width 4:3 card is a whole screen. The wrapper governs layout
+             and object-fit:cover crops, so this costs nothing — but it means the
+             subject must sit inside the master's central 16:9 band. */
+          .scenario-media { aspect-ratio: 16 / 9; }
         }
 
         @media (prefers-reduced-motion: reduce) {
+          /* Turn the frozen state into a better composition rather than a
+             parked comet: the runner becomes a complete ring, every node lights. */
+          .orbit-runner { stroke-dasharray: none; stroke-dashoffset: 0; opacity: 0.55; }
+          .orbit-inner-a, .orbit-inner-b { opacity: 0.55; }
+          .orbit-node-halo { opacity: 0.35; }
+          .orbit-core { opacity: 0.85; }
+          .orbit-ticks { opacity: 0.42; }
           .slexam * { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
         }
       `}</style>
@@ -843,222 +1015,64 @@ export default function Home() {
         <div className="container hero-inner">
           <div>
             <span className="eyebrow">
-              <span className="eyebrow-dot" /> Instant Exams. Instant Results.
+              <span className="eyebrow-dot" /> Online exams for schools
             </span>
             <h1 className="hero-title">
-              {headline.map((w, i) => (
+              {HERO_WORDS.map((w, i) => (
                 <span
-                  key={w}
+                  /* key={w} would collide on a repeated word */
+                  key={w + i}
                   className="hero-title-word"
                   style={{ animationDelay: `${0.15 + i * 0.08}s` }}
                 >
                   {w}
                 </span>
               ))}
-              <span className="hero-title-line2 grad-text">From question bank to report card, in seconds.</span>
+              <span className="hero-title-line2">
+                Set a paper in under a minute. It grades itself the moment the last student submits.
+              </span>
             </h1>
             <div className="hero-ctas">
               <button className="btn btn-primary" onClick={() => navigate("/login")}>
                 Login / Dashboard <ArrowRight size={17} />
               </button>
-              <button className="btn btn-ghost" onClick={() => navigate("/public")}>
-                <PlayCircle size={17} /> Explore Public Exams
+              <button className="hero-link" onClick={() => navigate("/public")}>
+                <PlayCircle size={15} /> Explore public exams
               </button>
-              <button className="btn btn-ghost" onClick={() => navigate("/thinklets")} style={{ marginLeft: '10px' }}>
-                <Sparkles size={17} /> View Thinklets
+              <button className="hero-link" onClick={() => navigate("/thinklets")}>
+                <Sparkles size={15} /> View Thinklets
               </button>
             </div>
             <div className="hero-stats">
               <div>
                 <div className="hero-stat-value mono">&lt;60s</div>
-                <div className="hero-stat-label">To build an exam</div>
+                <div className="hero-stat-label">To set a full paper</div>
               </div>
               <div>
-                <div className="hero-stat-value mono">100%</div>
-                <div className="hero-stat-label">Paperless</div>
+                <div className="hero-stat-value mono">0</div>
+                <div className="hero-stat-label">Nights spent correcting</div>
               </div>
             </div>
           </div>
 
-          <div className="hero-visual" ref={heroVisualRef}>
-            <ThreeOrbit className="hero-three" containerRef={heroVisualRef} />
-            <TiltCard className="hero-mock">
-              <div className="hero-cards-container">
-
-                {/* ── Card 0: Exam Interface (original) ── */}
-                <div className={`hero-card-slide ${activeHeroCard === 0 ? "active" : ""}`}>
-                  <div className="mock-window glow-border glow-border-always">
-                    <div className="mock-topbar">
-                      <div className="mock-dots"><span /> <span /> <span /></div>
-                      <span className="mock-timer mono"><Timer size={12} /> 42:15</span>
+          <div className="hero-visual">
+            <div className="hero-orbit-wrap">
+              <LifecycleOrbit />
+              <div className="hero-badges">
+                {HERO_BADGES.map((b, i) => {
+                  const Icon = b.icon;
+                  return (
+                    <div
+                      key={b.key}
+                      className={`floating-badge badge-${b.key} badge-${b.tone}`}
+                      style={{ animationDelay: `${i * 0.55}s` }}
+                    >
+                      <Icon size={14} /> {b.label}
                     </div>
-                    <div className="mock-body">
-                      <div className="mock-qpanel">
-                        <p className="mock-qlabel mono">QUESTION 7 / 30</p>
-                        <p className="mock-qtext">Which of these best explains photosynthesis's role in an ecosystem?</p>
-                        <div className="mock-options">
-                          {["A", "B", "C", "D"].map((o, i) => (
-                            <div key={o} className={`mock-opt ${i === 1 ? "mock-opt-active" : ""}`}>
-                              <span>{o}</span>
-                              {i === 1 ? "Converts light energy into chemical energy" : ["Breaks down cellular waste", "Regulates body temperature", "Transports oxygen in blood"][i > 1 ? i - 1 : i]}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="mock-side">
-                        <p className="mock-side-label mono">ANSWER SHEET</p>
-                        <div className="mock-grid">
-                          {Array.from({ length: 30 }).map((_, i) => (
-                            <span key={i} className={`mock-cell ${i < 12 ? "filled" : ""} ${i === 6 ? "current" : ""}`}>{i + 1}</span>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* ── Card 1: Score Analysis ── */}
-                <div className={`hero-card-slide ${activeHeroCard === 1 ? "active" : ""}`}>
-                  <div className="mock-window glow-border glow-border-always">
-                    <div className="mock-topbar">
-                      <div className="mock-dots"><span /> <span /> <span /></div>
-                      <span className="mock-timer mono" style={{ background: 'rgba(74,222,128,0.1)', color: '#86efac' }}><BarChart3 size={12} /> REPORT</span>
-                    </div>
-                    <div className="mock-analysis-body">
-                      <p className="mock-qlabel mono">EXAM ANALYSIS — NEET MOCK 3</p>
-                      <div className="mock-stat-row">
-                        <div className="mock-stat-box">
-                          <div className="mock-stat-val" style={{ color: 'var(--mint)' }}>156</div>
-                          <div className="mock-stat-lbl">SCORE</div>
-                        </div>
-                        <div className="mock-stat-box">
-                          <div className="mock-stat-val" style={{ color: 'var(--indigo)' }}>87%</div>
-                          <div className="mock-stat-lbl">ACCURACY</div>
-                        </div>
-                        <div className="mock-stat-box">
-                          <div className="mock-stat-val" style={{ color: 'var(--amber-soft)' }}>#42</div>
-                          <div className="mock-stat-lbl">RANK</div>
-                        </div>
-                      </div>
-                      {[
-                        { label: 'Physics', pct: 92, color: 'var(--mint)' },
-                        { label: 'Chemistry', pct: 78, color: 'var(--indigo)' },
-                        { label: 'Botany', pct: 85, color: 'var(--amber-soft)' },
-                        { label: 'Zoology', pct: 71, color: 'var(--red)' },
-                      ].map((s) => (
-                        <div key={s.label} className="mock-bar-row">
-                          <span className="mock-bar-label">{s.label}</span>
-                          <div className="mock-bar-track">
-                            <div className="mock-bar-fill" style={{ width: `${s.pct}%`, background: s.color }} />
-                          </div>
-                          <span className="mock-bar-pct" style={{ color: s.color }}>{s.pct}%</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* ── Card 2: Question Repository ── */}
-                <div className={`hero-card-slide ${activeHeroCard === 2 ? "active" : ""}`}>
-                  <div className="mock-window glow-border glow-border-always">
-                    <div className="mock-topbar">
-                      <div className="mock-dots"><span /> <span /> <span /></div>
-                      <span className="mock-timer mono" style={{ background: 'rgba(108,124,255,0.1)', color: '#a5b4fc' }}><Library size={12} /> REPOSITORY</span>
-                    </div>
-                    <div className="mock-repo-body">
-                      <div className="mock-repo-search">
-                        <Database size={11} /> Search 10,000+ questions by subject, chapter, topic…
-                      </div>
-                      {[
-                        { num: 'Q1', text: 'A ball is thrown vertically upward with velocity 20 m/s. Find the maximum height reached.', sub: 'Physics', ch: 'Kinematics', diff: 'Medium' },
-                        { num: 'Q2', text: 'Which reagent is used for Baeyer\'s test to detect unsaturation?', sub: 'Chemistry', ch: 'Organic', diff: 'Easy' },
-                        { num: 'Q3', text: 'The process of photophosphorylation occurs in which part of the chloroplast?', sub: 'Botany', ch: 'Photosynthesis', diff: 'Hard' },
-                      ].map((q, i) => (
-                        <div key={i} className="mock-repo-item">
-                          <div className="mock-repo-num">{q.num}</div>
-                          <div>
-                            <div className="mock-repo-text">{q.text}</div>
-                            <div className="mock-repo-meta">
-                              <span className="mock-repo-tag">{q.sub}</span>
-                              <span className="mock-repo-tag">{q.ch}</span>
-                              <span className="mock-repo-tag">{q.diff}</span>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* ── Card 3: Live Command Center ── */}
-                <div className={`hero-card-slide ${activeHeroCard === 3 ? "active" : ""}`}>
-                  <div className="mock-window glow-border glow-border-always">
-                    <div className="mock-topbar">
-                      <div className="mock-dots"><span /> <span /> <span /></div>
-                      <span className="mock-timer mono" style={{ background: 'rgba(242,104,92,0.1)', color: '#fca5a5' }}>
-                        <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#f2685c', display: 'inline-block', boxShadow: '0 0 8px #f2685c', animation: 'pulseDot 1.4s ease-in-out infinite' }} /> LIVE
-                      </span>
-                    </div>
-                    <div className="mock-cc-body">
-                      <p className="mock-qlabel mono">LIVE MONITORING — SECTION A</p>
-                      <div className="mock-cc-grid">
-                        {['normal', 'normal', 'normal', 'flagged', 'normal', 'normal',
-                          'normal', 'done', 'normal', 'normal', 'normal', 'flagged',
-                          'normal', 'normal', 'done', 'normal', 'normal', 'normal'].map((s, i) => (
-                            <div key={i} className={`mock-cc-seat ${s}`}>
-                              {String(i + 1).padStart(2, '0')}
-                            </div>
-                          ))}
-                      </div>
-                      <div className="mock-cc-alert-row">
-                        <AlertTriangle size={13} />
-                        <span>Seat 04 — Tab switch detected (2×)</span>
-                      </div>
-                      <div className="mock-cc-stat-bar">
-                        <div className="mock-cc-stat">
-                          <div className="mock-cc-stat-val" style={{ color: 'var(--mint)' }}>14</div>
-                          <div className="mock-cc-stat-lbl">Active</div>
-                        </div>
-                        <div className="mock-cc-stat">
-                          <div className="mock-cc-stat-val" style={{ color: 'var(--indigo)' }}>2</div>
-                          <div className="mock-cc-stat-lbl">Submitted</div>
-                        </div>
-                        <div className="mock-cc-stat">
-                          <div className="mock-cc-stat-val" style={{ color: 'var(--red)' }}>2</div>
-                          <div className="mock-cc-stat-lbl">Flagged</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
+                  );
+                })}
               </div>
-
-              {/* Card indicators */}
-              <div className="hero-card-indicators">
-                {[0, 1, 2, 3].map((idx) => (
-                  <button
-                    key={idx}
-                    className={`hero-card-dot ${activeHeroCard === idx ? "active" : ""}`}
-                    onClick={() => handleHeroCardClick(idx)}
-                    aria-label={`Show card ${idx + 1}`}
-                  />
-                ))}
-              </div>
-              <div className="hero-card-label">
-                {["Exam Interface", "Score Analysis", "Question Repository", "Live Command Center"][activeHeroCard]}
-              </div>
-
-              <div className="floating-badge badge-1">
-                <CheckCircle2 size={14} /> Auto-saved
-              </div>
-              <div className="floating-badge badge-2">
-                <ShieldCheck size={14} /> Proctoring on
-              </div>
-              <div className="floating-badge badge-3">
-                <Sparkles size={14} /> Auto-graded
-              </div>
-            </TiltCard>
+            </div>
           </div>
         </div>
       </header>
@@ -1151,7 +1165,102 @@ export default function Home() {
                   </div>
                 </div>
               ))}
+              
+              <Reveal delay={100}>
+                <div style={{
+                  padding: "24px",
+                  background: "var(--surface-2)",
+                  border: "1px solid var(--border)",
+                  borderRadius: "16px",
+                  marginTop: "40px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "18px",
+                  boxShadow: "0 10px 30px rgba(0,0,0,0.2)"
+                }}>
+                  <div style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: "48px",
+                    height: "48px",
+                    borderRadius: "50%",
+                    background: "rgba(245,166,35,0.1)",
+                    color: "var(--amber)",
+                    flexShrink: 0
+                  }}>
+                    <Timer size={24} />
+                  </div>
+                  <p style={{ margin: 0, fontSize: "15.5px", lineHeight: "1.6", color: "var(--text)" }}>
+                    <strong style={{ color: "var(--amber)", fontWeight: 600 }}>Are you a teacher?</strong> Spoiler alert: In the time it took you to read these stages, you could have already generated a full exam. Time flies when you aren't typing out questions by hand.
+                  </p>
+                </div>
+              </Reveal>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ---------------- Scenarios: a day it saved ----------------
+          Deliberately placed after #lifecycle, not after the marquee where it
+          reads better editorially. Chrome fetches loading="lazy" images up to
+          ~1250px below the viewport, and prerender.js snapshots / at a
+          1280x900 viewport that never scrolls — sitting any higher and all
+          four stills would be requested during the build. Here it starts at
+          ~2400px, clear of that window. */}
+      <section className="section scenarios" id="scenarios">
+        <div className="container">
+          <Reveal className="section-head">
+            <span className="section-eyebrow">A day it saved</span>
+            <h2 className="section-title">Four ordinary days that used to go differently.</h2>
+            <p className="section-desc">
+              Not a feature list. This is what a week in the staff room looks like
+              once the exam stops being a stack of paper.
+            </p>
+          </Reveal>
+
+          <div className="scenario-grid">
+            {SCENARIOS.map((s, i) => {
+              const Icon = s.icon;
+              return (
+                /* Reveal owns transform — the card must be an inner node, or a
+                   hover transform overrides translateY(26px) and the card snaps
+                   into place before it has ever revealed. */
+                <Reveal className="scenario-cell" key={s.id} delay={i * 90}>
+                  <article className="scenario-card">
+                    <figure className="scenario-media">
+                      <img
+                        className="scenario-img"
+                        src={s.img}
+                        alt={s.alt}
+                        width="1200"
+                        height="900"
+                        loading="lazy"
+                        decoding="async"
+                        fetchPriority="low"
+                        /* The stills are authored separately. Until they land the
+                           frame shows its own placeholder rather than a browser
+                           broken-image glyph. Direct DOM write, not state: React
+                           never re-renders this node, so there is nothing for
+                           hydration to disagree about. */
+                        onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
+                      />
+                      <figcaption className="scenario-kicker mono">{s.kicker}</figcaption>
+                    </figure>
+                    <div className="scenario-body">
+                      <p className="scenario-story">{s.story}</p>
+                      <div className="scenario-cap">
+                        <span className="scenario-cap-icon"><Icon size={15} /></span>
+                        <span className="scenario-cap-text">
+                          <strong>{s.capability}</strong>
+                          <span className="scenario-cap-desc">{s.capabilityDesc}</span>
+                        </span>
+                      </div>
+                    </div>
+                  </article>
+                </Reveal>
+              );
+            })}
           </div>
         </div>
       </section>
