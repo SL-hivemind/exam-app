@@ -13,6 +13,7 @@ import api from '../utils/api';
 import useAuth from '../hooks/useAuth';
 import useExamSecurity from '../hooks/useExamSecurity';
 import MatrixFormatter from '../utils/MatrixFormatter';
+import ExamWatermark from './common/ExamWatermark';
 
 const ff = "'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
 
@@ -48,6 +49,8 @@ export default function StudentExamQuestionsPage() {
   const [violations, setViolations] = useState(0);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [saveStatus, setSaveStatus] = useState('idle'); // idle | saving | saved | error
+
+  const [studentId, setStudentId] = useState('');
 
   const [currentPage, setCurrentPage] = useState(1);
   const questionsPerPage = 1;
@@ -86,6 +89,23 @@ export default function StudentExamQuestionsPage() {
     };
     if (!loading && !submitted) enterFullScreen();
   }, [loading, submitted]);
+
+  // Student ID for the background watermark. /login doesn't return student_id,
+  // so it's read from the profile — deliberately outside the exam-loading path,
+  // because a failure here must never block or delay the paper.
+  useEffect(() => {
+    if (!authToken) return undefined;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await api.get('/me/profile', { headers: { auth_token: authToken } });
+        if (!cancelled) setStudentId(res.data?.profile?.student_id || '');
+      } catch (e) {
+        // watermark falls back to the username
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [authToken]);
 
   const handleSubmitMcqAnswers = useCallback(async (reason = 'manual') => {
     if (submitted) return;
@@ -270,6 +290,10 @@ export default function StudentExamQuestionsPage() {
       sx={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, bgcolor: DARK.bg, zIndex: 1200, overflow: 'auto', userSelect: 'none', fontFamily: ff }}
       onContextMenu={(e) => e.preventDefault()}
     >
+      {/* Tiled ID watermark filling the space around the question card, so any
+          screenshot or photo of this paper carries the candidate's identity. */}
+      <ExamWatermark label={studentId || user?.username || ''} />
+
       {/* ── HEADER BAR ── */}
       <Box sx={{
         position: 'sticky', top: 0, zIndex: 200, height: 60,
@@ -349,7 +373,8 @@ export default function StudentExamQuestionsPage() {
       </Box>
 
       {/* ── BODY ── */}
-      <Box sx={{ display: 'flex', height: 'calc(100vh - 60px)' }}>
+      {/* relative+zIndex keeps the card, options and sidebar above the watermark layer */}
+      <Box sx={{ position: 'relative', zIndex: 1, display: 'flex', height: 'calc(100vh - 60px)' }}>
         {/* Questions area */}
         <Box sx={{ flex: 1, overflowY: 'auto', p: { xs: 2, md: 4 }, '&::-webkit-scrollbar': { width: '6px' }, '&::-webkit-scrollbar-thumb': { bgcolor: 'rgba(255,255,255,0.12)', borderRadius: 10 } }}>
           <Box sx={{ maxWidth: 760, mx: 'auto' }}>
